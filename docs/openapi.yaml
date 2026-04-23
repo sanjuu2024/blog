@@ -1,0 +1,2886 @@
+﻿openapi: 3.0.3
+info:
+  title: 个人技术博客系统 API
+  version: v1
+  description: |
+    个人技术博客系统 OpenAPI 规范。
+    基础路径统一为 `/api/v1/**`，可直接导入 Apifox 使用。
+servers:
+  - url: http://localhost:8080
+    description: 本地开发环境
+tags:
+  - name: Auth
+    description: 认证模块
+  - name: Public Articles
+    description: 前台公共文章接口
+  - name: Profile
+    description: 个人中心接口
+  - name: Admin Users
+    description: 后台用户管理接口
+  - name: Admin Articles
+    description: 后台文章管理接口
+  - name: Admin Categories
+    description: 后台分类管理接口
+  - name: Admin Tags
+    description: 后台标签管理接口
+paths:
+  /api/v1/auth/register:
+    post:
+      tags:
+        - Auth
+      summary: 用户注册
+      description: 权限级别 `PUBLIC`。用户通过用户名、邮箱、密码完成注册。
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            example:
+              username: alice_dev
+              email: alice@example.com
+              password: Passw0rd!
+      responses:
+        '200':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  userId: 10002
+                  username: alice_dev
+                  nickname: ''
+                  email: alice@example.com
+                  role: USER
+                  status: ACTIVE
+                  createdAt: '2026-04-22T22:20:00+08:00'
+                traceId: 3c5d8f2a0b6344b1
+                timestamp: '2026-04-22T22:20:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+  /api/v1/auth/login:
+    post:
+      tags:
+        - Auth
+      summary: 用户登录
+      description: 权限级别 `PUBLIC`。支持用户名或邮箱登录。
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              account: alice@example.com
+              password: Passw0rd!
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  accessToken: eyJhbGciOiJIUzI1NiJ9.access.token
+                  accessTokenExpiresAt: '2026-04-22T23:20:00+08:00'
+                  refreshToken: eyJhbGciOiJIUzI1NiJ9.refresh.token
+                  refreshTokenExpiresAt: '2026-04-29T22:20:00+08:00'
+                  tokenType: Bearer
+                  user:
+                    id: 10002
+                    username: alice_dev
+                    nickname: Alice
+                    email: alice@example.com
+                    role: USER
+                    status: ACTIVE
+                    avatarUrl: ''
+                    bio: 热爱前后端开发
+                traceId: b3c8900f2d554b4f
+                timestamp: '2026-04-22T22:20:10+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+  /api/v1/auth/refresh:
+    post:
+      tags:
+        - Auth
+      summary: 刷新登录态
+      description: 权限级别 `PUBLIC`。通过 Refresh Token 获取新令牌。
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+            example:
+              refreshToken: eyJhbGciOiJIUzI1NiJ9.refresh.token
+      responses:
+        '200':
+          description: 刷新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshTokenResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  accessToken: eyJhbGciOiJIUzI1NiJ9.new.access
+                  accessTokenExpiresAt: '2026-04-22T23:50:00+08:00'
+                  refreshToken: eyJhbGciOiJIUzI1NiJ9.new.refresh
+                  refreshTokenExpiresAt: '2026-04-29T22:50:00+08:00'
+                  tokenType: Bearer
+                traceId: f30b1ed17c9947a2
+                timestamp: '2026-04-22T22:50:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/RefreshTokenInvalidResponse'
+  /api/v1/auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: 用户退出登录
+      description: 权限级别 `LOGIN`。退出当前会话并使 Refresh Token 失效。
+      operationId: logoutUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+            example:
+              refreshToken: eyJhbGciOiJIUzI1NiJ9.refresh.token
+      responses:
+        '200':
+          description: 退出成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  success: true
+                traceId: cb16b523eb4f46d2
+                timestamp: '2026-04-22T22:55:00+08:00'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+  /api/v1/articles:
+    get:
+      tags:
+        - Public Articles
+      summary: 获取已发布文章分页列表
+      description: 权限级别 `PUBLIC`。仅返回已发布文章。
+      operationId: listPublishedArticles
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+        - name: categoryId
+          in: query
+          description: 分类 ID。支持一级分类或二级分类；传一级分类时返回其下所有二级分类文章
+          required: false
+          schema:
+            type: integer
+            format: int64
+            example: 20001
+        - name: tagId
+          in: query
+          description: 标签 ID
+          required: false
+          schema:
+            type: integer
+            format: int64
+            example: 30001
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicArticlePageResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  records:
+                    - id: 40001
+                      title: Spring Boot 双 Token 登录实践
+                      summary: 本文记录双 Token 的实现思路与接口设计
+                      coverUrl: https://cdn.example.com/cover/token.png
+                      isTop: true
+                      publishedAt: '2026-04-22T23:00:00+08:00'
+                      viewCount: 128
+                      category:
+                        id: 21001
+                        name: Java
+                        level: 2
+                        parent:
+                          id: 20001
+                          name: 技术
+                      tags:
+                        - id: 30001
+                          name: JWT
+                  pageNum: 1
+                  pageSize: 10
+                  total: 1
+                  totalPages: 1
+                  hasNext: false
+                traceId: 7a4ac2ca74df44ce
+                timestamp: '2026-04-22T23:05:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+  /api/v1/articles/{articleId}:
+    get:
+      tags:
+        - Public Articles
+      summary: 获取文章详情
+      description: 权限级别 `PUBLIC`。仅可查看已发布文章详情。
+      operationId: getPublishedArticleDetail
+      parameters:
+        - $ref: '#/components/parameters/ArticleId'
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicArticleDetailResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  id: 40001
+                  title: Spring Boot 双 Token 登录实践
+                  summary: 本文记录双 Token 的实现思路与接口设计
+                  contentHtml: <h1>一、背景</h1><p>这里是文章正文</p>
+                  coverUrl: https://cdn.example.com/cover/token.png
+                  isTop: true
+                  allowComment: true
+                  viewCount: 128
+                  commentCount: 0
+                  likeCount: 0
+                  favoriteCount: 0
+                  publishedAt: '2026-04-22T23:00:00+08:00'
+                  updatedAt: '2026-04-22T23:10:00+08:00'
+                  category:
+                    id: 21001
+                    name: Java
+                    level: 2
+                    parent:
+                      id: 20001
+                      name: 技术
+                  tags:
+                    - id: 30001
+                      name: JWT
+                  author:
+                    id: 10001
+                    username: ccsanjuu
+                    nickname: sanjuu
+                traceId: 1d65ea705b9b45d5
+                timestamp: '2026-04-22T23:10:00+08:00'
+        '404':
+          $ref: '#/components/responses/ArticleNotFoundResponse'
+  /api/v1/categories:
+    get:
+      tags:
+        - Public Articles
+      summary: 获取启用分类列表
+      description: 权限级别 `PUBLIC`。返回一级分类树，二级分类挂载在 `children` 字段。
+      operationId: listEnabledCategories
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicCategoryListResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  - id: 20001
+                    name: 技术
+                    level: 1
+                    description: 技术内容一级分类
+                    sortNo: 10
+                    articleCount: 18
+                    children:
+                      - id: 21001
+                        parentId: 20001
+                        name: Java
+                        level: 2
+                        description: Java 相关文章
+                        sortNo: 11
+                        articleCount: 6
+                      - id: 21002
+                        parentId: 20001
+                        name: 算法
+                        level: 2
+                        description: 算法相关内容
+                        sortNo: 12
+                        articleCount: 4
+                traceId: f28d47e62fd64f3e
+                timestamp: '2026-04-22T23:12:00+08:00'
+  /api/v1/users/me:
+    get:
+      tags:
+        - Profile
+      summary: 获取当前登录用户信息
+      description: 权限级别 `LOGIN`。
+      operationId: getCurrentUserProfile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  id: 10002
+                  username: alice_dev
+                  nickname: Alice
+                  email: alice@example.com
+                  role: USER
+                  status: ACTIVE
+                  avatarUrl: ''
+                  bio: 热爱前后端开发
+                  lastLoginAt: '2026-04-22T22:20:10+08:00'
+                  createdAt: '2026-04-22T22:20:00+08:00'
+                traceId: 16d68b769fdc4c44
+                timestamp: '2026-04-22T23:15:00+08:00'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+  /api/v1/users/me/profile:
+    put:
+      tags:
+        - Profile
+      summary: 更新个人资料
+      description: 权限级别 `LOGIN`。支持修改用户名、昵称、个人简介。
+      operationId: updateCurrentUserProfile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+            example:
+              username: alice_dev_new
+              nickname: Alice
+              bio: 专注 Java 与前端工程化
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateProfileResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  id: 10002
+                  username: alice_dev_new
+                  nickname: Alice
+                  email: alice@example.com
+                  avatarUrl: ''
+                  bio: 专注 Java 与前端工程化
+                  updatedAt: '2026-04-22T23:20:00+08:00'
+                traceId: 727541ef1e1c4f77
+                timestamp: '2026-04-22T23:20:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+  /api/v1/users/me/password:
+    put:
+      tags:
+        - Profile
+      summary: 修改密码
+      description: 权限级别 `LOGIN`。修改当前登录用户密码。
+      operationId: changeCurrentUserPassword
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+            example:
+              oldPassword: Passw0rd!
+              newPassword: NewPassw0rd!
+      responses:
+        '200':
+          description: 修改成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  success: true
+                traceId: b167021c836f4712
+                timestamp: '2026-04-22T23:25:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+  /api/v1/admin/users:
+    get:
+      tags:
+        - Admin Users
+      summary: 获取用户分页列表
+      description: 权限级别 `ADMIN`。支持按用户名、邮箱、状态、角色筛选。
+      operationId: listAdminUsers
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+        - name: keyword
+          in: query
+          description: 用户名或邮箱模糊搜索关键字
+          required: false
+          schema:
+            type: string
+            example: alice
+        - name: role
+          in: query
+          description: 角色筛选
+          required: false
+          schema:
+            type: string
+            enum:
+              - ADMIN
+              - USER
+            example: USER
+        - name: status
+          in: query
+          description: 状态筛选
+          required: false
+          schema:
+            type: string
+            enum:
+              - ACTIVE
+              - DISABLED
+            example: ACTIVE
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserPageResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  records:
+                    - id: 10002
+                      username: alice_dev
+                      nickname: Alice
+                      email: alice@example.com
+                      role: USER
+                      status: ACTIVE
+                      lastLoginAt: '2026-04-22T22:20:10+08:00'
+                      createdAt: '2026-04-22T22:20:00+08:00'
+                  pageNum: 1
+                  pageSize: 10
+                  total: 1
+                  totalPages: 1
+                  hasNext: false
+                traceId: ccd57c77325a482e
+                timestamp: '2026-04-22T23:30:00+08:00'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+  /api/v1/admin/users/{userId}/status:
+    patch:
+      tags:
+        - Admin Users
+      summary: 修改用户状态
+      description: 权限级别 `ADMIN`。支持启用或禁用用户。
+      operationId: updateAdminUserStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserStatusRequest'
+            example:
+              status: DISABLED
+      responses:
+        '200':
+          description: 修改成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateUserStatusResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  id: 10002
+                  status: DISABLED
+                  updatedAt: '2026-04-22T23:35:00+08:00'
+                traceId: 9f9b6261c0ad40c1
+                timestamp: '2026-04-22T23:35:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+  /api/v1/admin/users/{userId}/role:
+    patch:
+      tags:
+        - Admin Users
+      summary: 修改用户角色
+      description: 权限级别 `ADMIN`。支持将用户修改为管理员或普通用户。
+      operationId: updateAdminUserRole
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRoleRequest'
+            example:
+              role: ADMIN
+      responses:
+        '200':
+          description: 修改成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateUserRoleResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  id: 10002
+                  role: ADMIN
+                  updatedAt: '2026-04-22T23:36:00+08:00'
+                traceId: c4d95157647e4f5d
+                timestamp: '2026-04-22T23:36:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+  /api/v1/admin/articles:
+    get:
+      tags:
+        - Admin Articles
+      summary: 获取后台文章分页列表
+      description: 权限级别 `ADMIN`。支持按标题、分类、状态、置顶状态筛选。
+      operationId: listAdminArticles
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+        - name: title
+          in: query
+          description: 标题模糊搜索
+          required: false
+          schema:
+            type: string
+            example: Token
+        - name: categoryId
+          in: query
+          description: 分类 ID。支持一级分类或二级分类筛选；文章实际绑定的仍是二级分类
+          required: false
+          schema:
+            type: integer
+            format: int64
+            example: 20001
+        - name: status
+          in: query
+          description: 文章状态
+          required: false
+          schema:
+            type: string
+            enum:
+              - DRAFT
+              - PUBLISHED
+              - OFFLINE
+            example: DRAFT
+        - name: isTop
+          in: query
+          description: 是否置顶
+          required: false
+          schema:
+            type: boolean
+            example: true
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminArticlePageResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  records:
+                    - id: 40001
+                      title: Spring Boot 双 Token 登录实践
+                      summary: 本文记录双 Token 的实现思路与接口设计
+                      status: DRAFT
+                      isTop: true
+                      coverUrl: https://cdn.example.com/cover/token.png
+                      publishedAt: null
+                      updatedAt: '2026-04-22T23:10:00+08:00'
+                      category:
+                        id: 21001
+                        name: Java
+                        level: 2
+                        parent:
+                          id: 20001
+                          name: 技术
+                  pageNum: 1
+                  pageSize: 10
+                  total: 1
+                  totalPages: 1
+                  hasNext: false
+                traceId: 71d8f4d1f8c14914
+                timestamp: '2026-04-22T23:40:00+08:00'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+    post:
+      tags:
+        - Admin Articles
+      summary: 创建文章
+      description: 权限级别 `ADMIN`。创建新文章，支持直接保存为草稿或发布。
+      operationId: createAdminArticle
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArticleUpsertRequest'
+            example:
+              title: Spring Boot 双 Token 登录实践
+              summary: 本文记录双 Token 的实现思路与接口设计
+              contentMd: |
+                # 一、背景
+
+                这里是正文
+              categoryId: 21001
+              tagIds:
+                - 30001
+                - 30002
+              coverUrl: https://cdn.example.com/cover/token.png
+              isTop: true
+              status: DRAFT
+              allowComment: true
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticleMutationResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  id: 40001
+                  status: DRAFT
+                  publishedAt: null
+                  createdAt: '2026-04-22T23:45:00+08:00'
+                traceId: a7322db35d784703
+                timestamp: '2026-04-22T23:45:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+  /api/v1/admin/articles/{articleId}:
+    get:
+      tags:
+        - Admin Articles
+      summary: 获取后台文章详情
+      description: 权限级别 `ADMIN`。
+      operationId: getAdminArticleDetail
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ArticleId'
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminArticleDetailResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  id: 40001
+                  title: Spring Boot 双 Token 登录实践
+                  summary: 本文记录双 Token 的实现思路与接口设计
+                  contentMd: |
+                    # 一、背景
+
+                    这里是正文
+                  contentHtml: <h1>一、背景</h1><p>这里是正文</p>
+                  contentText: 一、背景 这里是正文
+                  coverUrl: https://cdn.example.com/cover/token.png
+                  status: DRAFT
+                  isTop: true
+                  categoryId: 21001
+                  tagIds:
+                    - 30001
+                    - 30002
+                  allowComment: true
+                  publishedAt: null
+                  createdAt: '2026-04-22T22:50:00+08:00'
+                  updatedAt: '2026-04-22T23:10:00+08:00'
+                traceId: 2435069b7f8d44f8
+                timestamp: '2026-04-22T23:42:00+08:00'
+        '404':
+          $ref: '#/components/responses/ArticleNotFoundResponse'
+    put:
+      tags:
+        - Admin Articles
+      summary: 更新文章
+      description: 权限级别 `ADMIN`。
+      operationId: updateAdminArticle
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ArticleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArticleUpsertRequest'
+            example:
+              title: Spring Boot 双 Token 登录实践
+              summary: 本文记录双 Token 的实现思路与接口设计
+              contentMd: |
+                # 一、背景
+
+                这里是更新后的正文
+              categoryId: 21001
+              tagIds:
+                - 30001
+                - 30002
+              coverUrl: https://cdn.example.com/cover/token.png
+              isTop: true
+              status: PUBLISHED
+              allowComment: true
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticleUpdateResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  id: 40001
+                  status: PUBLISHED
+                  publishedAt: '2026-04-22T23:50:00+08:00'
+                  updatedAt: '2026-04-22T23:50:00+08:00'
+                traceId: 37b6f479d04a4951
+                timestamp: '2026-04-22T23:50:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '404':
+          $ref: '#/components/responses/ArticleNotFoundResponse'
+    delete:
+      tags:
+        - Admin Articles
+      summary: 删除文章
+      description: 权限级别 `ADMIN`。
+      operationId: deleteAdminArticle
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ArticleId'
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  success: true
+                traceId: 9e723234f738461b
+                timestamp: '2026-04-22T23:58:00+08:00'
+        '404':
+          $ref: '#/components/responses/ArticleNotFoundResponse'
+  /api/v1/admin/articles/{articleId}/status:
+    patch:
+      tags:
+        - Admin Articles
+      summary: 修改文章状态
+      description: 权限级别 `ADMIN`。支持草稿、发布、下线的状态流转。
+      operationId: updateAdminArticleStatus
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ArticleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateArticleStatusRequest'
+            example:
+              status: OFFLINE
+      responses:
+        '200':
+          description: 状态修改成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticleStatusResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  id: 40001
+                  status: OFFLINE
+                  updatedAt: '2026-04-22T23:55:00+08:00'
+                traceId: 701fd994505645cc
+                timestamp: '2026-04-22T23:55:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '404':
+          $ref: '#/components/responses/ArticleNotFoundResponse'
+  /api/v1/admin/categories:
+    get:
+      tags:
+        - Admin Categories
+      summary: 获取分类列表
+      description: 权限级别 `ADMIN`。默认返回一级分类树，二级分类挂载在 `children` 字段。
+      operationId: listAdminCategories
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: keyword
+          in: query
+          description: 分类名称模糊搜索
+          required: false
+          schema:
+            type: string
+            example: Java
+        - name: status
+          in: query
+          description: 分类状态筛选
+          required: false
+          schema:
+            type: string
+            enum:
+              - ENABLED
+              - DISABLED
+            example: ENABLED
+        - name: level
+          in: query
+          description: 分类层级筛选，1 为一级分类，2 为二级分类
+          required: false
+          schema:
+            type: integer
+            enum:
+              - 1
+              - 2
+            example: 2
+        - name: parentId
+          in: query
+          description: 父分类 ID，查询某个一级分类下的二级分类时使用
+          required: false
+          schema:
+            type: integer
+            format: int64
+            example: 20001
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryListResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  - id: 20001
+                    parentId: null
+                    level: 1
+                    name: 技术
+                    description: 技术内容一级分类
+                    sortNo: 10
+                    status: ENABLED
+                    articleCount: 18
+                    createdAt: '2026-04-22T21:10:00+08:00'
+                    children:
+                      - id: 21001
+                        parentId: 20001
+                        level: 2
+                        name: Java
+                        description: Java 相关文章
+                        sortNo: 11
+                        status: ENABLED
+                        articleCount: 6
+                        createdAt: '2026-04-22T21:20:00+08:00'
+                traceId: 145a6f41eb434612
+                timestamp: '2026-04-23T00:00:00+08:00'
+    post:
+      tags:
+        - Admin Categories
+      summary: 创建分类
+      description: 权限级别 `ADMIN`。创建一级分类时 `parentId` 为空；创建二级分类时必须传入一级分类 ID。
+      operationId: createAdminCategory
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryUpsertRequest'
+            example:
+              parentId: 20001
+              level: 2
+              name: Java
+              description: Java 相关文章
+              sortNo: 11
+              status: ENABLED
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryMutationResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  id: 21001
+                  parentId: 20001
+                  level: 2
+                  name: Java
+                  status: ENABLED
+                  createdAt: '2026-04-23T00:05:00+08:00'
+                traceId: 8d2eb9cb1ef249bb
+                timestamp: '2026-04-23T00:05:00+08:00'
+  /api/v1/admin/categories/{categoryId}:
+    put:
+      tags:
+        - Admin Categories
+      summary: 更新分类
+      description: 权限级别 `ADMIN`。支持维护一级/二级分类以及父子关系。
+      operationId: updateAdminCategory
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryUpsertRequest'
+            example:
+              parentId: 20001
+              level: 2
+              name: Java
+              description: Java 核心相关文章
+              sortNo: 11
+              status: ENABLED
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryUpdateResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  id: 21001
+                  parentId: 20001
+                  level: 2
+                  name: Java
+                  status: ENABLED
+                  updatedAt: '2026-04-23T00:06:00+08:00'
+                traceId: d18c5d9b33464136
+                timestamp: '2026-04-23T00:06:00+08:00'
+    delete:
+      tags:
+        - Admin Categories
+      summary: 删除分类
+      description: 权限级别 `ADMIN`。删除一级分类前需校验其自身及全部子分类是否有文章；删除二级分类前需校验该分类下是否有文章。
+      operationId: deleteAdminCategory
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CategoryId'
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  success: true
+                traceId: e793d93438b9498a
+                timestamp: '2026-04-23T00:08:00+08:00'
+        '409':
+          $ref: '#/components/responses/CategoryHasArticlesResponse'
+  /api/v1/admin/tags:
+    get:
+      tags:
+        - Admin Tags
+      summary: 获取标签列表
+      description: 权限级别 `ADMIN`。
+      operationId: listAdminTags
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: keyword
+          in: query
+          description: 标签名称模糊搜索
+          required: false
+          schema:
+            type: string
+            example: JWT
+        - name: status
+          in: query
+          description: 标签状态筛选
+          required: false
+          schema:
+            type: string
+            enum:
+              - ENABLED
+              - DISABLED
+            example: ENABLED
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminTagListResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  - id: 30001
+                    name: JWT
+                    description: 和认证授权相关的文章标签
+                    status: ENABLED
+                    articleCount: 5
+                    createdAt: '2026-04-22T21:15:00+08:00'
+                traceId: 841bd3a5e09d4ad8
+                timestamp: '2026-04-23T00:10:00+08:00'
+    post:
+      tags:
+        - Admin Tags
+      summary: 创建标签
+      description: 权限级别 `ADMIN`。
+      operationId: createAdminTag
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagUpsertRequest'
+            example:
+              name: JWT
+              description: 和认证授权相关的文章标签
+              status: ENABLED
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagMutationResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  id: 30001
+                  name: JWT
+                  status: ENABLED
+                  createdAt: '2026-04-23T00:12:00+08:00'
+                traceId: af9c44268fdc4fbe
+                timestamp: '2026-04-23T00:12:00+08:00'
+  /api/v1/admin/tags/{tagId}:
+    put:
+      tags:
+        - Admin Tags
+      summary: 更新标签
+      description: 权限级别 `ADMIN`。
+      operationId: updateAdminTag
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TagId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TagUpsertRequest'
+            example:
+              name: JWT
+              description: 认证授权相关文章
+              status: ENABLED
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagUpdateResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  id: 30001
+                  name: JWT
+                  status: ENABLED
+                  updatedAt: '2026-04-23T00:13:00+08:00'
+                traceId: e12e3e0de63c4387
+                timestamp: '2026-04-23T00:13:00+08:00'
+    delete:
+      tags:
+        - Admin Tags
+      summary: 删除标签
+      description: 权限级别 `ADMIN`。删除后可同步清理文章标签关联关系。
+      operationId: deleteAdminTag
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TagId'
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              example:
+                code: '0'
+                message: success
+                data:
+                  success: true
+                traceId: 7cf3bfdab7ef4d53
+                timestamp: '2026-04-23T00:14:00+08:00'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    PageNum:
+      name: pageNum
+      in: query
+      description: 当前页码，从 1 开始，默认 1
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+        example: 1
+    PageSize:
+      name: pageSize
+      in: query
+      description: 每页条数，默认 10
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 20
+        default: 10
+        example: 10
+    ArticleId:
+      name: articleId
+      in: path
+      description: 文章 ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+        example: 40001
+    CategoryId:
+      name: categoryId
+      in: path
+      description: 分类 ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+        example: 20001
+    TagId:
+      name: tagId
+      in: path
+      description: 标签 ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+        example: 30001
+    UserId:
+      name: userId
+      in: path
+      description: 用户 ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+        example: 10002
+  schemas:
+    BaseResponse:
+      type: object
+      required:
+        - code
+        - message
+        - traceId
+        - timestamp
+      properties:
+        code:
+          type: string
+          description: 业务状态码，`0` 表示成功
+          example: '0'
+        message:
+          type: string
+          description: 业务描述信息
+          example: success
+        traceId:
+          type: string
+          description: 链路追踪 ID
+          example: f9a7b6d8c1e24f0b
+        timestamp:
+          type: string
+          format: date-time
+          description: 响应时间
+          example: '2026-04-22T22:10:00+08:00'
+    ErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              nullable: true
+              description: 错误场景通常为空
+              example: null
+    SuccessData:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+          description: 是否执行成功
+          example: true
+    SuccessResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/SuccessData'
+    PagedMeta:
+      type: object
+      required:
+        - pageNum
+        - pageSize
+        - total
+        - totalPages
+        - hasNext
+      properties:
+        pageNum:
+          type: integer
+          example: 1
+        pageSize:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          format: int64
+          example: 35
+        totalPages:
+          type: integer
+          example: 4
+        hasNext:
+          type: boolean
+          example: true
+    SimpleTag:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 30001
+        name:
+          type: string
+          example: JWT
+    CategoryParentRef:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 20001
+        name:
+          type: string
+          example: 技术
+    SimpleCategory:
+      type: object
+      required:
+        - id
+        - name
+        - level
+        - parent
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 21001
+        name:
+          type: string
+          example: Java
+        level:
+          type: integer
+          enum:
+            - 2
+          example: 2
+        parent:
+          $ref: '#/components/schemas/CategoryParentRef'
+    SimpleAuthor:
+      type: object
+      required:
+        - id
+        - username
+        - nickname
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10001
+        username:
+          type: string
+          example: ccsanjuu
+        nickname:
+          type: string
+          example: sanjuu
+    LoginUserInfo:
+      type: object
+      required:
+        - id
+        - username
+        - nickname
+        - email
+        - role
+        - status
+        - avatarUrl
+        - bio
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10002
+        username:
+          type: string
+          example: alice_dev
+        nickname:
+          type: string
+          example: Alice
+        email:
+          type: string
+          format: email
+          example: alice@example.com
+        role:
+          type: string
+          enum:
+            - ADMIN
+            - USER
+          example: USER
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - DISABLED
+          example: ACTIVE
+        avatarUrl:
+          type: string
+          example: ''
+        bio:
+          type: string
+          example: 热爱前后端开发
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - email
+        - password
+      properties:
+        username:
+          type: string
+          description: 用户名，需唯一
+          example: alice_dev
+        email:
+          type: string
+          format: email
+          description: 邮箱，需唯一
+          example: alice@example.com
+        password:
+          type: string
+          format: password
+          description: 登录密码
+          example: Passw0rd!
+    LoginRequest:
+      type: object
+      required:
+        - account
+        - password
+      properties:
+        account:
+          type: string
+          description: 登录账号，支持用户名或邮箱
+          example: alice@example.com
+        password:
+          type: string
+          format: password
+          description: 登录密码
+          example: Passw0rd!
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          description: Refresh Token
+          example: eyJhbGciOiJIUzI1NiJ9.refresh.token
+    LogoutRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          description: 当前会话的 Refresh Token
+          example: eyJhbGciOiJIUzI1NiJ9.refresh.token
+    RegisterData:
+      type: object
+      required:
+        - userId
+        - username
+        - nickname
+        - email
+        - role
+        - status
+        - createdAt
+      properties:
+        userId:
+          type: integer
+          format: int64
+          example: 10002
+        username:
+          type: string
+          example: alice_dev
+        nickname:
+          type: string
+          example: ''
+        email:
+          type: string
+          format: email
+          example: alice@example.com
+        role:
+          type: string
+          enum:
+            - ADMIN
+            - USER
+          example: USER
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - DISABLED
+          example: ACTIVE
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T22:20:00+08:00'
+    RegisterResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/RegisterData'
+    LoginData:
+      type: object
+      required:
+        - accessToken
+        - accessTokenExpiresAt
+        - refreshToken
+        - refreshTokenExpiresAt
+        - tokenType
+        - user
+      properties:
+        accessToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiJ9.access.token
+        accessTokenExpiresAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T23:20:00+08:00'
+        refreshToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiJ9.refresh.token
+        refreshTokenExpiresAt:
+          type: string
+          format: date-time
+          example: '2026-04-29T22:20:00+08:00'
+        tokenType:
+          type: string
+          example: Bearer
+        user:
+          $ref: '#/components/schemas/LoginUserInfo'
+    LoginResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/LoginData'
+    RefreshTokenData:
+      type: object
+      required:
+        - accessToken
+        - accessTokenExpiresAt
+        - refreshToken
+        - refreshTokenExpiresAt
+        - tokenType
+      properties:
+        accessToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiJ9.new.access
+        accessTokenExpiresAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T23:50:00+08:00'
+        refreshToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiJ9.new.refresh
+        refreshTokenExpiresAt:
+          type: string
+          format: date-time
+          example: '2026-04-29T22:50:00+08:00'
+        tokenType:
+          type: string
+          example: Bearer
+    RefreshTokenResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/RefreshTokenData'
+    PublicArticleListItem:
+      type: object
+      required:
+        - id
+        - title
+        - summary
+        - coverUrl
+        - isTop
+        - publishedAt
+        - viewCount
+        - category
+        - tags
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 40001
+        title:
+          type: string
+          example: Spring Boot 双 Token 登录实践
+        summary:
+          type: string
+          example: 本文记录双 Token 的实现思路与接口设计
+        coverUrl:
+          type: string
+          example: https://cdn.example.com/cover/token.png
+        isTop:
+          type: boolean
+          example: true
+        publishedAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T23:00:00+08:00'
+        viewCount:
+          type: integer
+          example: 128
+        category:
+          $ref: '#/components/schemas/SimpleCategory'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/SimpleTag'
+    PublicArticlePageData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          required:
+            - records
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/PublicArticleListItem'
+    PublicArticlePageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/PublicArticlePageData'
+    PublicArticleDetail:
+      type: object
+      required:
+        - id
+        - title
+        - summary
+        - contentHtml
+        - coverUrl
+        - isTop
+        - allowComment
+        - viewCount
+        - commentCount
+        - likeCount
+        - favoriteCount
+        - publishedAt
+        - updatedAt
+        - category
+        - tags
+        - author
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 40001
+        title:
+          type: string
+          example: Spring Boot 双 Token 登录实践
+        summary:
+          type: string
+          example: 本文记录双 Token 的实现思路与接口设计
+        contentHtml:
+          type: string
+          description: 由 Markdown 转译得到的 HTML 正文，供前端渲染
+          example: "<h1>一、背景</h1><p>这里是文章正文</p>"
+        coverUrl:
+          type: string
+          example: https://cdn.example.com/cover/token.png
+        isTop:
+          type: boolean
+          example: true
+        allowComment:
+          type: boolean
+          example: true
+        viewCount:
+          type: integer
+          example: 128
+        commentCount:
+          type: integer
+          example: 0
+        likeCount:
+          type: integer
+          example: 0
+        favoriteCount:
+          type: integer
+          example: 0
+        publishedAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T23:00:00+08:00'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T23:10:00+08:00'
+        category:
+          $ref: '#/components/schemas/SimpleCategory'
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/SimpleTag'
+        author:
+          $ref: '#/components/schemas/SimpleAuthor'
+    PublicArticleDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/PublicArticleDetail'
+    PublicCategoryChildItem:
+      type: object
+      required:
+        - id
+        - parentId
+        - name
+        - level
+        - description
+        - sortNo
+        - articleCount
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 21001
+        parentId:
+          type: integer
+          format: int64
+          example: 20001
+        name:
+          type: string
+          example: Java
+        level:
+          type: integer
+          enum:
+            - 2
+          example: 2
+        description:
+          type: string
+          example: Java 相关文章
+        sortNo:
+          type: integer
+          example: 11
+        articleCount:
+          type: integer
+          example: 6
+    PublicCategoryItem:
+      type: object
+      required:
+        - id
+        - name
+        - level
+        - description
+        - sortNo
+        - articleCount
+        - children
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 20001
+        name:
+          type: string
+          example: 技术
+        level:
+          type: integer
+          enum:
+            - 1
+          example: 1
+        description:
+          type: string
+          example: 技术内容一级分类
+        sortNo:
+          type: integer
+          example: 10
+        articleCount:
+          type: integer
+          example: 18
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicCategoryChildItem'
+    PublicCategoryListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/PublicCategoryItem'
+    ProfileData:
+      type: object
+      required:
+        - id
+        - username
+        - nickname
+        - email
+        - role
+        - status
+        - avatarUrl
+        - bio
+        - lastLoginAt
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10002
+        username:
+          type: string
+          example: alice_dev
+        nickname:
+          type: string
+          example: Alice
+        email:
+          type: string
+          format: email
+          example: alice@example.com
+        role:
+          type: string
+          enum:
+            - ADMIN
+            - USER
+          example: USER
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - DISABLED
+          example: ACTIVE
+        avatarUrl:
+          type: string
+          example: ''
+        bio:
+          type: string
+          example: 热爱前后端开发
+        lastLoginAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T22:20:10+08:00'
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T22:20:00+08:00'
+    ProfileResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ProfileData'
+    UpdateProfileRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          description: 新用户名，若传入则需唯一
+          example: alice_dev_new
+        nickname:
+          type: string
+          description: 用户昵称
+          example: Alice
+        bio:
+          type: string
+          description: 个人简介
+          example: 专注 Java 与前端工程化
+    UpdateProfileData:
+      type: object
+      required:
+        - id
+        - username
+        - nickname
+        - email
+        - avatarUrl
+        - bio
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10002
+        username:
+          type: string
+          example: alice_dev_new
+        nickname:
+          type: string
+          example: Alice
+        email:
+          type: string
+          format: email
+          example: alice@example.com
+        avatarUrl:
+          type: string
+          example: ''
+        bio:
+          type: string
+          example: 专注 Java 与前端工程化
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T23:20:00+08:00'
+    UpdateProfileResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/UpdateProfileData'
+    ChangePasswordRequest:
+      type: object
+      required:
+        - oldPassword
+        - newPassword
+      properties:
+        oldPassword:
+          type: string
+          format: password
+          example: Passw0rd!
+        newPassword:
+          type: string
+          format: password
+          example: NewPassw0rd!
+    AdminUserListItem:
+      type: object
+      required:
+        - id
+        - username
+        - nickname
+        - email
+        - role
+        - status
+        - lastLoginAt
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10002
+        username:
+          type: string
+          example: alice_dev
+        nickname:
+          type: string
+          example: Alice
+        email:
+          type: string
+          format: email
+          example: alice@example.com
+        role:
+          type: string
+          enum:
+            - ADMIN
+            - USER
+          example: USER
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - DISABLED
+          example: ACTIVE
+        lastLoginAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T22:20:10+08:00'
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T22:20:00+08:00'
+    AdminUserPageData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          required:
+            - records
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminUserListItem'
+    AdminUserPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AdminUserPageData'
+    UpdateUserStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - DISABLED
+          example: DISABLED
+    UpdateUserStatusData:
+      type: object
+      required:
+        - id
+        - status
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10002
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - DISABLED
+          example: DISABLED
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T23:35:00+08:00'
+    UpdateUserStatusResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/UpdateUserStatusData'
+    UpdateUserRoleRequest:
+      type: object
+      required:
+        - role
+      properties:
+        role:
+          type: string
+          enum:
+            - ADMIN
+            - USER
+          example: ADMIN
+    UpdateUserRoleData:
+      type: object
+      required:
+        - id
+        - role
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10002
+        role:
+          type: string
+          enum:
+            - ADMIN
+            - USER
+          example: ADMIN
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T23:36:00+08:00'
+    UpdateUserRoleResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/UpdateUserRoleData'
+    AdminArticleListItem:
+      type: object
+      required:
+        - id
+        - title
+        - summary
+        - status
+        - isTop
+        - coverUrl
+        - publishedAt
+        - updatedAt
+        - category
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 40001
+        title:
+          type: string
+          example: Spring Boot 双 Token 登录实践
+        summary:
+          type: string
+          example: 本文记录双 Token 的实现思路与接口设计
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - OFFLINE
+          example: DRAFT
+        isTop:
+          type: boolean
+          example: true
+        coverUrl:
+          type: string
+          example: https://cdn.example.com/cover/token.png
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T23:10:00+08:00'
+        category:
+          $ref: '#/components/schemas/SimpleCategory'
+    AdminArticlePageData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          required:
+            - records
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminArticleListItem'
+    AdminArticlePageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AdminArticlePageData'
+    AdminArticleDetail:
+      type: object
+      required:
+        - id
+        - title
+        - summary
+        - contentMd
+        - contentHtml
+        - contentText
+        - coverUrl
+        - status
+        - isTop
+        - categoryId
+        - tagIds
+        - allowComment
+        - publishedAt
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 40001
+        title:
+          type: string
+          example: Spring Boot 双 Token 登录实践
+        summary:
+          type: string
+          example: 本文记录双 Token 的实现思路与接口设计
+        contentMd:
+          type: string
+          description: Markdown 正文，供后台编辑器回显
+          example: "# 一、背景\n\n这里是正文"
+        contentHtml:
+          type: string
+          description: 由 Markdown 转译得到的 HTML 正文
+          example: "<h1>一、背景</h1><p>这里是正文</p>"
+        contentText:
+          type: string
+          description: 从 Markdown 提取的纯文本正文，供全文搜索使用
+          example: "一、背景 这里是正文"
+        coverUrl:
+          type: string
+          example: https://cdn.example.com/cover/token.png
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - OFFLINE
+          example: DRAFT
+        isTop:
+          type: boolean
+          example: true
+        categoryId:
+          type: integer
+          format: int64
+          description: 二级分类 ID，文章不能直接绑定一级分类
+          example: 21001
+        tagIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+          example:
+            - 30001
+            - 30002
+        allowComment:
+          type: boolean
+          example: true
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T22:50:00+08:00'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T23:10:00+08:00'
+    AdminArticleDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AdminArticleDetail'
+    ArticleUpsertRequest:
+      type: object
+      required:
+        - title
+        - contentMd
+        - categoryId
+        - status
+      properties:
+        title:
+          type: string
+          example: Spring Boot 双 Token 登录实践
+        summary:
+          type: string
+          example: 本文记录双 Token 的实现思路与接口设计
+        contentMd:
+          type: string
+          description: Markdown 正文。`contentHtml` 与 `contentText` 由后端自动生成
+          example: "# 一、背景\n\n这里是正文"
+        categoryId:
+          type: integer
+          format: int64
+          description: 二级分类 ID，文章不能直接绑定一级分类
+          example: 21001
+        tagIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+          example:
+            - 30001
+            - 30002
+        coverUrl:
+          type: string
+          example: https://cdn.example.com/cover/token.png
+        isTop:
+          type: boolean
+          example: true
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - OFFLINE
+          example: DRAFT
+        allowComment:
+          type: boolean
+          example: true
+    ArticleMutationData:
+      type: object
+      required:
+        - id
+        - status
+        - publishedAt
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 40001
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - OFFLINE
+          example: DRAFT
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T23:45:00+08:00'
+    ArticleMutationResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ArticleMutationData'
+    ArticleUpdateData:
+      type: object
+      required:
+        - id
+        - status
+        - publishedAt
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 40001
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - OFFLINE
+          example: PUBLISHED
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: '2026-04-22T23:50:00+08:00'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T23:50:00+08:00'
+    ArticleUpdateResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ArticleUpdateData'
+    UpdateArticleStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - OFFLINE
+          example: OFFLINE
+    ArticleStatusData:
+      type: object
+      required:
+        - id
+        - status
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 40001
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - OFFLINE
+          example: OFFLINE
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T23:55:00+08:00'
+    ArticleStatusResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ArticleStatusData'
+    AdminCategoryChildItem:
+      type: object
+      required:
+        - id
+        - parentId
+        - level
+        - name
+        - description
+        - sortNo
+        - status
+        - articleCount
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 21001
+        parentId:
+          type: integer
+          format: int64
+          example: 20001
+        level:
+          type: integer
+          enum:
+            - 2
+          example: 2
+        name:
+          type: string
+          example: Java
+        description:
+          type: string
+          example: Java 相关文章
+        sortNo:
+          type: integer
+          example: 11
+        status:
+          type: string
+          enum:
+            - ENABLED
+            - DISABLED
+          example: ENABLED
+        articleCount:
+          type: integer
+          example: 6
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T21:20:00+08:00'
+    AdminCategoryItem:
+      type: object
+      required:
+        - id
+        - parentId
+        - level
+        - name
+        - description
+        - sortNo
+        - status
+        - articleCount
+        - createdAt
+        - children
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 20001
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+          example: null
+        level:
+          type: integer
+          enum:
+            - 1
+          example: 1
+        name:
+          type: string
+          example: 技术
+        description:
+          type: string
+          example: 技术内容一级分类
+        sortNo:
+          type: integer
+          example: 10
+        status:
+          type: string
+          enum:
+            - ENABLED
+            - DISABLED
+          example: ENABLED
+        articleCount:
+          type: integer
+          example: 18
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T21:10:00+08:00'
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminCategoryChildItem'
+    AdminCategoryListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminCategoryItem'
+    CategoryUpsertRequest:
+      type: object
+      required:
+        - level
+        - name
+      properties:
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 一级分类为空，二级分类必须传所属一级分类 ID
+          example: 20001
+        level:
+          type: integer
+          enum:
+            - 1
+            - 2
+          example: 2
+        name:
+          type: string
+          example: Java
+        description:
+          type: string
+          example: Java 相关文章
+        sortNo:
+          type: integer
+          example: 11
+        status:
+          type: string
+          enum:
+            - ENABLED
+            - DISABLED
+          example: ENABLED
+    CategoryMutationData:
+      type: object
+      required:
+        - id
+        - parentId
+        - level
+        - name
+        - status
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 21001
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+          example: 20001
+        level:
+          type: integer
+          enum:
+            - 1
+            - 2
+          example: 2
+        name:
+          type: string
+          example: Java
+        status:
+          type: string
+          enum:
+            - ENABLED
+            - DISABLED
+          example: ENABLED
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-04-23T00:05:00+08:00'
+    CategoryMutationResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CategoryMutationData'
+    CategoryUpdateData:
+      type: object
+      required:
+        - id
+        - parentId
+        - level
+        - name
+        - status
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 21001
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+          example: 20001
+        level:
+          type: integer
+          enum:
+            - 1
+            - 2
+          example: 2
+        name:
+          type: string
+          example: Java
+        status:
+          type: string
+          enum:
+            - ENABLED
+            - DISABLED
+          example: ENABLED
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-04-23T00:06:00+08:00'
+    CategoryUpdateResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CategoryUpdateData'
+    AdminTagItem:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - status
+        - articleCount
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 30001
+        name:
+          type: string
+          example: JWT
+        description:
+          type: string
+          example: 和认证授权相关的文章标签
+        status:
+          type: string
+          enum:
+            - ENABLED
+            - DISABLED
+          example: ENABLED
+        articleCount:
+          type: integer
+          example: 5
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T21:15:00+08:00'
+    AdminTagListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminTagItem'
+    TagUpsertRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          example: JWT
+        description:
+          type: string
+          example: 和认证授权相关的文章标签
+        status:
+          type: string
+          enum:
+            - ENABLED
+            - DISABLED
+          example: ENABLED
+    TagMutationData:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 30001
+        name:
+          type: string
+          example: JWT
+        status:
+          type: string
+          enum:
+            - ENABLED
+            - DISABLED
+          example: ENABLED
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-04-23T00:12:00+08:00'
+    TagMutationResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/TagMutationData'
+    TagUpdateData:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - updatedAt
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 30001
+        name:
+          type: string
+          example: JWT
+        status:
+          type: string
+          enum:
+            - ENABLED
+            - DISABLED
+          example: ENABLED
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-04-23T00:13:00+08:00'
+    TagUpdateResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/TagUpdateData'
+  responses:
+    BadRequestResponse:
+      description: 请求参数不合法
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: A001
+            message: request parameter invalid
+            data: null
+            traceId: 1d2c3b4a5e6f7788
+            timestamp: '2026-04-23T00:20:00+08:00'
+    UnauthorizedResponse:
+      description: 未登录或 Access Token 无效
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: A002
+            message: unauthorized
+            data: null
+            traceId: 2a3b4c5d6e7f8899
+            timestamp: '2026-04-23T00:20:00+08:00'
+    ForbiddenResponse:
+      description: 无权限访问
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: A003
+            message: forbidden
+            data: null
+            traceId: 3a4b5c6d7e8f9900
+            timestamp: '2026-04-23T00:20:00+08:00'
+    RefreshTokenInvalidResponse:
+      description: Refresh Token 无效或已过期
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: A004
+            message: refresh token invalid or expired
+            data: null
+            traceId: 4a5b6c7d8e9f0011
+            timestamp: '2026-04-23T00:20:00+08:00'
+    ArticleNotFoundResponse:
+      description: 文章不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: B001
+            message: article not found
+            data: null
+            traceId: 5a6b7c8d9e0f1122
+            timestamp: '2026-04-23T00:20:00+08:00'
+    CategoryHasArticlesResponse:
+      description: 分类或其子分类下存在文章，不能删除
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: B004
+            message: category or its children has articles and cannot be deleted
+            data: null
+            traceId: 6a7b8c9d0e1f2233
+            timestamp: '2026-04-23T00:20:00+08:00'
