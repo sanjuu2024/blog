@@ -23,10 +23,12 @@
     "**/*.{json,md,mdx,css,scss,less,html,yml,yaml}": "prettier --write --ignore-unknown"
   },
   "dependencies": {
+    "element-plus": "^2.13.7",
     "vue": "^3.5.32"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@iconify-json/ep": "^1.2.4",
     "@tailwindcss/vite": "^4.2.4",
     "@types/node": "^24.12.2",
     "@vitejs/plugin-vue": "^6.0.6",
@@ -45,6 +47,9 @@
     "tailwindcss": "^4.2.4",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.0",
+    "unplugin-auto-import": "^21.0.0",
+    "unplugin-icons": "^23.0.1",
+    "unplugin-vue-components": "^32.0.0",
     "vite": "^8.0.10",
     "vue-tsc": "^3.2.7"
   }
