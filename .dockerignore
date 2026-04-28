@@ -1,0 +1,11 @@
+.git/
+.gitignore
+.idea/
+.vscode/
+
+node_modules/
+frontend/node_modules/
+backend/target/
+frontend/dist/
+
+pg_data/

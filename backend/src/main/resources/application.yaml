@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/blog_db?useSSL=false&serverTimezone=UTC
+    username: sanjuu
+    password: sanjuu
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    encoding: utf-8
+logging:
+  level:
+    org.flywaydb: DEBUG

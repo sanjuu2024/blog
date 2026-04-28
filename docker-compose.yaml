@@ -1,0 +1,33 @@
+services:
+  blog_db:
+    container_name: blog_db
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: sanjuu
+      POSTGRES_PASSWORD: sanjuu
+      POSTGRES_DB: blog_db
+      TZ: UTC
+      PGTZ: UTC
+    volumes:
+      - blog_pg_data:/var/lib/postgresql/data
+      - ./deploy/postgres/init/00_init.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sanjuu -d blog_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - blog_network
+
+networks:
+  blog_network:
+    driver: bridge
+
+volumes:
+  blog_pg_data:

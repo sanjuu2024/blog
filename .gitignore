@@ -66,3 +66,6 @@ replay_pid*
 .cache/
 tmp/
 temp/
+
+# dev deploy environment files
+deploy/*
