@@ -42,17 +42,17 @@ Authorization: Bearer <access_token>
 | `LOGIN` | 登录用户可访问，管理员也可访问 |
 | `ADMIN` | 仅管理员可访问 |
 
+公开用户资料、文章作者资料卡等前台公开场景可以返回用户 ID，并可使用 `userId` 作为路径标识。`username` 主要作为展示字段和登录标识，注册后不可修改。
+
 ### 2.5 通用响应结构
 
 所有接口统一返回如下结构：
 
 ```json
 {
-  "code": "0",
-  "message": "success",
-  "data": {},
-  "traceId": "f9a7b6d8c1e24f0b",
-  "timestamp": "2026-04-22T22:10:00+08:00"
+  "code": 0,
+  "message": "成功",
+  "data": {}
 }
 ```
 
@@ -60,30 +60,29 @@ Authorization: Bearer <access_token>
 
 | 字段名称 | 字段类型 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- |
-| `code` | `String` | 业务状态码，`0` 表示成功 | `0` |
-| `message` | `String` | 业务描述信息 | `success` |
+| `code` | `Integer` | 业务状态码，`0` 表示成功 | `0` |
+| `message` | `String` | 业务描述信息 | `成功` |
 | `data` | `Object/Array/null` | 实际返回数据 | `{}`、`[]`、`null` |
-| `traceId` | `String` | 请求链路追踪 ID，便于排查问题 | `f9a7b6d8c1e24f0b` |
-| `timestamp` | `String` | 响应时间 | `2026-04-22T22:10:00+08:00` |
 
 ### 2.6 常见业务状态码
 
-| 状态码 | 含义 |
-| --- | --- |
-| `0` | 成功 |
-| `A001` | 请求参数不合法 |
-| `A002` | 未登录或 Access Token 无效 |
-| `A003` | 无权限访问 |
-| `A004` | Refresh Token 无效或已过期 |
-| `A005` | 用户已被禁用 |
-| `U001` | 用户名已存在 |
-| `U002` | 邮箱已存在 |
-| `U003` | 账号或密码错误 |
-| `U004` | 原密码错误 |
-| `B001` | 文章不存在 |
-| `B002` | 分类不存在 |
-| `B003` | 标签不存在 |
-| `B004` | 分类或其子分类下存在文章，不能删除 |
+以下为当前已定义的业务状态码：
+
+| 状态码 | 消息 | 含义 |
+| --- | --- | --- |
+| `0` | `成功` | 请求成功 |
+| `199001` | `请求参数不合法` | 请求参数校验失败、请求体格式错误或字段类型不匹配 |
+| `199404` | `请求资源不存在` | 请求的资源不存在 |
+| `299001` | `系统内部异常` | 服务端出现未分类异常 |
+| `101001` | `未登录或 Access Token 无效` | 访问受保护接口时未登录、Access Token 缺失、格式错误或签名无效 |
+| `101002` | `Access Token 已过期` | Access Token 已过期，前端可尝试使用 Refresh Token 刷新登录态 |
+| `101003` | `无权限访问` | 当前身份无权访问目标资源 |
+| `101004` | `Refresh Token 无效或已过期` | Refresh Token 缺失、格式错误、签名无效、已过期、已撤销或重放校验失败 |
+| `102001` | `用户不存在` | 指定用户不存在 |
+| `102002` | `用户名已存在` | 注册或修改资料时用户名冲突 |
+| `102003` | `账号或密码错误` | 登录凭证校验失败 |
+| `102004` | `邮箱已存在` | 注册时邮箱冲突 |
+| `102005` | `用户已被禁用` | 用户状态为禁用，不允许登录或刷新登录态 |
 
 ### 2.7 分页结构
 
@@ -129,10 +128,11 @@ Authorization: Bearer <access_token>
 | 认证 | `POST` | `/api/v1/auth/register` | `PUBLIC` | 用户注册 |
 | 认证 | `POST` | `/api/v1/auth/login` | `PUBLIC` | 用户登录 |
 | 认证 | `POST` | `/api/v1/auth/refresh` | `PUBLIC` | 刷新登录态 |
-| 认证 | `POST` | `/api/v1/auth/logout` | `LOGIN` | 用户退出登录 |
+| 认证 | `POST` | `/api/v1/auth/logout` | `PUBLIC` | 用户退出登录 |
 | 前台文章 | `GET` | `/api/v1/articles` | `PUBLIC` | 获取已发布文章分页列表 |
 | 前台文章 | `GET` | `/api/v1/articles/{articleId}` | `PUBLIC` | 获取文章详情 |
 | 前台分类 | `GET` | `/api/v1/categories` | `PUBLIC` | 获取启用分类列表 |
+| 前台用户 | `GET` | `/api/v1/users/{userId}/public-profile` | `PUBLIC` | 获取用户公开资料卡 |
 | 个人中心 | `GET` | `/api/v1/users/me` | `LOGIN` | 获取当前登录用户信息 |
 | 个人中心 | `PUT` | `/api/v1/users/me/profile` | `LOGIN` | 更新个人资料 |
 | 个人中心 | `PUT` | `/api/v1/users/me/password` | `LOGIN` | 修改密码 |
@@ -174,9 +174,13 @@ Authorization: Bearer <access_token>
 
 | 字段名称 | 字段类型 | 必填 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- | --- |
-| `username` | `String` | 是 | 用户名，长度建议 4-20，需唯一 | `alice_dev` |
-| `email` | `String` | 是 | 邮箱，需唯一 | `alice@example.com` |
-| `password` | `String` | 是 | 登录密码，建议 8-20 位 | `Passw0rd!` |
+| `username` | `String` | 是 | 用户名，4-20 位，只允许中文、英文、数字、下划线和短横线，需唯一 | `alice_dev` |
+| `email` | `String` | 是 | 邮箱，仅支持常见邮箱格式，不能包含空格或中文字符，需唯一 | `alice@example.com` |
+| `password` | `String` | 是 | 登录密码，6-20 位；允许中文、英文、数字、下划线、短横线和常用 ASCII 特殊字符，不允许空格 | `Passw0rd!` |
+
+说明：注册时无需传入 `nickname`，服务端默认使用 `username` 初始化昵称，后续用户可在个人中心修改昵称。
+用户名注册后不可修改，前端不应提供用户名修改入口。
+用户名和邮箱的唯一性均按大小写不敏感处理，但 `username` 会保留注册时输入的原始大小写用于展示。例如允许用户注册展示名 `Sanjuu`，但不允许另一个人再注册 `sanjuu`；邮箱同理，`A@example.com` 和 `a@example.com` 会识别为同一个邮箱账号，不能重复注册。
 
 ### 请求样例
 
@@ -193,35 +197,15 @@ Content-Type: application/json
 
 ### 响应参数
 
-#### data 字段说明
-
-| 字段名称 | 字段类型 | 字段解释 | 业务例子 |
-| --- | --- | --- | --- |
-| `userId` | `Long` | 新创建用户 ID | `10002` |
-| `username` | `String` | 用户名 | `alice_dev` |
-| `nickname` | `String` | 用户昵称，初始可为空 | `` |
-| `email` | `String` | 邮箱 | `alice@example.com` |
-| `role` | `String` | 用户角色 | `USER` |
-| `status` | `String` | 用户状态 | `ACTIVE` |
-| `createdAt` | `String` | 注册时间 | `2026-04-22T22:20:00+08:00` |
+注册成功时，后端仅返回统一成功响应，`data` 为 `null`。前端收到成功结果后提示“注册成功，请登录”并跳转登录页。
 
 ### 响应样例
 
 ```json
 {
-  "code": "0",
-  "message": "success",
-  "data": {
-    "userId": 10002,
-    "username": "alice_dev",
-    "nickname": "",
-    "email": "alice@example.com",
-    "role": "USER",
-    "status": "ACTIVE",
-    "createdAt": "2026-04-22T22:20:00+08:00"
-  },
-  "traceId": "3c5d8f2a0b6344b1",
-  "timestamp": "2026-04-22T22:20:00+08:00"
+  "code": 0,
+  "message": "成功",
+  "data": null
 }
 ```
 
@@ -237,8 +221,10 @@ Content-Type: application/json
 
 | 字段名称 | 字段类型 | 必填 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- | --- |
-| `account` | `String` | 是 | 登录账号，支持用户名或邮箱 | `alice_dev`、`alice@example.com` |
-| `password` | `String` | 是 | 登录密码 | `Passw0rd!` |
+| `account` | `String` | 是 | 登录账号，必须是合法用户名或邮箱；包含 `@` 时按邮箱登录，否则按用户名登录 | `alice_dev`、`alice@example.com` |
+| `password` | `String` | 是 | 登录密码，6-20 位；允许中文、英文、数字、下划线、短横线和常用 ASCII 特殊字符，不允许空格 | `Passw0rd!` |
+
+说明：用户名和邮箱登录均按大小写不敏感处理。也就是允许用户注册展示名 `Sanjuu`，但不允许另一个人再注册 `sanjuu`；登录时输入 `sanjuu`、`SANJUU`、`Sanjuu` 都能找到同一个账号。邮箱同理，`A@example.com` 和 `a@example.com` 会识别为同一个邮箱账号。
 
 ### 请求样例
 
@@ -276,8 +262,8 @@ Content-Type: application/json
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "accessToken": "eyJhbGciOiJIUzI1NiJ9.access.token",
     "accessTokenExpiresAt": "2026-04-22T23:20:00+08:00",
@@ -294,9 +280,7 @@ Content-Type: application/json
       "avatarUrl": "",
       "bio": "热爱前后端开发"
     }
-  },
-  "traceId": "b3c8900f2d554b4f",
-  "timestamp": "2026-04-22T22:20:10+08:00"
+  }
 }
 ```
 
@@ -305,6 +289,12 @@ Content-Type: application/json
 - 路由：`POST`
 - 路径：`/api/v1/auth/refresh`
 - 权限：`PUBLIC`
+
+刷新登录态采用 Refresh Token 轮转机制。每次刷新成功后，后端都会返回新的 Access Token 和新的 Refresh Token，旧 Refresh Token 立即失效。
+
+为处理网络波动导致的前端重试，后端可为刚完成轮转的旧 Refresh Token 保留一个很短的宽限期。宽限期只用于识别同一次刷新请求的幂等重试并返回同一份新令牌结果，不表示旧 Refresh Token 仍可长期使用。
+
+若旧 Refresh Token 在宽限期外再次被使用，视为无效或疑似重放攻击。后端默认撤销该用户全部活跃 Refresh Token 会话，并要求用户重新登录。
 
 ### 请求参数
 
@@ -333,7 +323,7 @@ Content-Type: application/json
 | --- | --- | --- | --- |
 | `accessToken` | `String` | 新的 Access Token | `eyJhbGciOiJIUzI1NiJ9.new.access` |
 | `accessTokenExpiresAt` | `String` | 新 Access Token 过期时间 | `2026-04-22T23:50:00+08:00` |
-| `refreshToken` | `String` | 新的 Refresh Token，若启用轮换则返回新值 | `eyJhbGciOiJIUzI1NiJ9.new.refresh` |
+| `refreshToken` | `String` | 轮转后签发的新 Refresh Token | `eyJhbGciOiJIUzI1NiJ9.new.refresh` |
 | `refreshTokenExpiresAt` | `String` | 新 Refresh Token 过期时间 | `2026-04-29T22:50:00+08:00` |
 | `tokenType` | `String` | Token 类型 | `Bearer` |
 
@@ -341,17 +331,15 @@ Content-Type: application/json
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "accessToken": "eyJhbGciOiJIUzI1NiJ9.new.access",
     "accessTokenExpiresAt": "2026-04-22T23:50:00+08:00",
     "refreshToken": "eyJhbGciOiJIUzI1NiJ9.new.refresh",
     "refreshTokenExpiresAt": "2026-04-29T22:50:00+08:00",
     "tokenType": "Bearer"
-  },
-  "traceId": "f30b1ed17c9947a2",
-  "timestamp": "2026-04-22T22:50:00+08:00"
+  }
 }
 ```
 
@@ -359,27 +347,27 @@ Content-Type: application/json
 
 - 路由：`POST`
 - 路径：`/api/v1/auth/logout`
-- 权限：`LOGIN`
+- 权限：`PUBLIC`
+
+说明：
+
+- 该接口用于退出当前登录会话，不要求携带有效 Access Token
+- 请求体中的 `refreshToken` 必填，用于定位并撤销当前会话对应的 Refresh Token
+- 该接口按幂等语义处理：如果 Refresh Token 格式正确但已过期、已撤销或找不到对应会话，后端也返回成功，前端只需清理本地登录态即可
+- 如果请求体缺失、`refreshToken` 为空或请求体 JSON 格式错误，仍按参数错误处理
 
 ### 请求参数
-
-#### Header 参数
-
-| 字段名称 | 字段类型 | 必填 | 字段解释 | 业务例子 |
-| --- | --- | --- | --- | --- |
-| `Authorization` | `String` | 是 | Access Token | `Bearer eyJhbGciOiJIUzI1NiJ9.access` |
 
 #### Body 参数
 
 | 字段名称 | 字段类型 | 必填 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- | --- |
-| `refreshToken` | `String` | 是 | 当前会话对应的 Refresh Token | `eyJhbGciOiJIUzI1NiJ9.refresh.token` |
+| `refreshToken` | `String` | 是 | 当前会话对应的 Refresh Token；后端会尝试撤销对应会话 | `eyJhbGciOiJIUzI1NiJ9.refresh.token` |
 
 ### 请求样例
 
 ```http
 POST /api/v1/auth/logout
-Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.access
 Content-Type: application/json
 
 {
@@ -399,13 +387,11 @@ Content-Type: application/json
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "success": true
-  },
-  "traceId": "cb16b523eb4f46d2",
-  "timestamp": "2026-04-22T22:55:00+08:00"
+  }
 }
 ```
 
@@ -460,8 +446,8 @@ GET /api/v1/articles?pageNum=1&pageSize=10&categoryId=20001
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "records": [
       {
@@ -494,9 +480,7 @@ GET /api/v1/articles?pageNum=1&pageSize=10&categoryId=20001
     "total": 1,
     "totalPages": 1,
     "hasNext": false
-  },
-  "traceId": "7a4ac2ca74df44ce",
-  "timestamp": "2026-04-22T23:05:00+08:00"
+  }
 }
 ```
 
@@ -545,16 +529,18 @@ GET /api/v1/articles/40001
 | `category.parent.id` | `Long` | 所属一级分类 ID | `20001` |
 | `category.parent.name` | `String` | 所属一级分类名称 | `技术` |
 | `tags` | `Array<Object>` | 标签列表 | `[{"id":30001,"name":"JWT"}]` |
-| `author.id` | `Long` | 作者 ID | `10001` |
+| `author.id` | `Long` | 作者用户 ID | `10001` |
 | `author.username` | `String` | 作者用户名 | `ccsanjuu` |
 | `author.nickname` | `String` | 作者昵称 | `sanjuu` |
+| `author.avatarUrl` | `String` | 作者头像地址 | `https://cdn.example.com/avatar/1.png` |
+| `author.bio` | `String` | 作者个人简介 | `专注后端和前端工程化` |
 
 ### 响应样例
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "id": 40001,
     "title": "Spring Boot 双 Token 登录实践",
@@ -587,11 +573,11 @@ GET /api/v1/articles/40001
     "author": {
       "id": 10001,
       "username": "ccsanjuu",
-      "nickname": "sanjuu"
+      "nickname": "sanjuu",
+      "avatarUrl": "https://cdn.example.com/avatar/1.png",
+      "bio": "专注后端和前端工程化"
     }
-  },
-  "traceId": "1d65ea705b9b45d5",
-  "timestamp": "2026-04-22T23:10:00+08:00"
+  }
 }
 ```
 
@@ -638,8 +624,8 @@ GET /api/v1/categories
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": [
     {
       "id": 20001,
@@ -669,9 +655,57 @@ GET /api/v1/categories
         }
       ]
     }
-  ],
-  "traceId": "f28d47e62fd64f3e",
-  "timestamp": "2026-04-22T23:12:00+08:00"
+  ]
+}
+```
+
+## 5.4 获取用户公开资料卡
+
+- 路由：`GET`
+- 路径：`/api/v1/users/{userId}/public-profile`
+- 权限：`PUBLIC`
+
+说明：公开用户资料卡用于文章作者悬浮卡、作者基础信息展示等前台场景。公开场景使用 `userId` 作为路径标识，`username` 作为展示字段。
+
+### 请求参数
+
+#### Path 参数
+
+| 字段名称 | 字段类型 | 必填 | 字段解释 | 业务例子 |
+| --- | --- | --- | --- | --- |
+| `userId` | `Long` | 是 | 用户 ID | `10001` |
+
+### 请求样例
+
+```http
+GET /api/v1/users/10001/public-profile
+```
+
+### 响应参数
+
+#### data 字段说明
+
+| 字段名称 | 字段类型 | 字段解释 | 业务例子 |
+| --- | --- | --- | --- |
+| `id` | `Long` | 用户 ID | `10001` |
+| `username` | `String` | 用户名 | `ccsanjuu` |
+| `nickname` | `String` | 昵称 | `sanjuu` |
+| `avatarUrl` | `String` | 头像地址 | `https://cdn.example.com/avatar/1.png` |
+| `bio` | `String` | 个人简介 | `专注后端和前端工程化` |
+
+### 响应样例
+
+```json
+{
+  "code": 0,
+  "message": "成功",
+  "data": {
+    "id": 10001,
+    "username": "ccsanjuu",
+    "nickname": "sanjuu",
+    "avatarUrl": "https://cdn.example.com/avatar/1.png",
+    "bio": "专注后端和前端工程化"
+  }
 }
 ```
 
@@ -719,8 +753,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.access
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "id": 10002,
     "username": "alice_dev",
@@ -732,9 +766,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.access
     "bio": "热爱前后端开发",
     "lastLoginAt": "2026-04-22T22:20:10+08:00",
     "createdAt": "2026-04-22T22:20:00+08:00"
-  },
-  "traceId": "16d68b769fdc4c44",
-  "timestamp": "2026-04-22T23:15:00+08:00"
+  }
 }
 ```
 
@@ -756,8 +788,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.access
 
 | 字段名称 | 字段类型 | 必填 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- | --- |
-| `username` | `String` | 否 | 用户名，若传入则需校验唯一 | `alice_dev_new` |
-| `nickname` | `String` | 否 | 用户昵称 | `Alice` |
+| `nickname` | `String` | 否 | 用户昵称，1-20 位 | `Alice` |
 | `bio` | `String` | 否 | 个人简介 | `专注 Java 与前端工程化` |
 
 ### 请求样例
@@ -768,7 +799,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.access
 Content-Type: application/json
 
 {
-  "username": "alice_dev_new",
   "nickname": "Alice",
   "bio": "专注 Java 与前端工程化"
 }
@@ -781,7 +811,7 @@ Content-Type: application/json
 | 字段名称 | 字段类型 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- |
 | `id` | `Long` | 用户 ID | `10002` |
-| `username` | `String` | 更新后的用户名 | `alice_dev_new` |
+| `username` | `String` | 用户名 | `alice_dev` |
 | `nickname` | `String` | 更新后的昵称 | `Alice` |
 | `email` | `String` | 用户邮箱 | `alice@example.com` |
 | `avatarUrl` | `String` | 用户头像地址 | `` |
@@ -792,19 +822,17 @@ Content-Type: application/json
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "id": 10002,
-    "username": "alice_dev_new",
+    "username": "alice_dev",
     "nickname": "Alice",
     "email": "alice@example.com",
     "avatarUrl": "",
     "bio": "专注 Java 与前端工程化",
     "updatedAt": "2026-04-22T23:20:00+08:00"
-  },
-  "traceId": "727541ef1e1c4f77",
-  "timestamp": "2026-04-22T23:20:00+08:00"
+  }
 }
 ```
 
@@ -826,8 +854,8 @@ Content-Type: application/json
 
 | 字段名称 | 字段类型 | 必填 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- | --- |
-| `oldPassword` | `String` | 是 | 原密码 | `Passw0rd!` |
-| `newPassword` | `String` | 是 | 新密码 | `NewPassw0rd!` |
+| `oldPassword` | `String` | 是 | 原密码，6-20 位；允许中文、英文、数字、下划线、短横线和常用 ASCII 特殊字符，不允许空格 | `Passw0rd!` |
+| `newPassword` | `String` | 是 | 新密码，6-20 位；允许中文、英文、数字、下划线、短横线和常用 ASCII 特殊字符，不允许空格 | `NewPassw0rd!` |
 
 ### 请求样例
 
@@ -854,13 +882,11 @@ Content-Type: application/json
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "success": true
-  },
-  "traceId": "b167021c836f4712",
-  "timestamp": "2026-04-22T23:25:00+08:00"
+  }
 }
 ```
 
@@ -918,8 +944,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "records": [
       {
@@ -938,9 +964,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
     "total": 1,
     "totalPages": 1,
     "hasNext": false
-  },
-  "traceId": "ccd57c77325a482e",
-  "timestamp": "2026-04-22T23:30:00+08:00"
+  }
 }
 ```
 
@@ -990,15 +1014,13 @@ Content-Type: application/json
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "id": 10002,
     "status": "DISABLED",
     "updatedAt": "2026-04-22T23:35:00+08:00"
-  },
-  "traceId": "9f9b6261c0ad40c1",
-  "timestamp": "2026-04-22T23:35:00+08:00"
+  }
 }
 ```
 
@@ -1048,15 +1070,13 @@ Content-Type: application/json
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "id": 10002,
     "role": "ADMIN",
     "updatedAt": "2026-04-22T23:36:00+08:00"
-  },
-  "traceId": "c4d95157647e4f5d",
-  "timestamp": "2026-04-22T23:36:00+08:00"
+  }
 }
 ```
 
@@ -1114,8 +1134,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "records": [
       {
@@ -1143,9 +1163,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
     "total": 1,
     "totalPages": 1,
     "hasNext": false
-  },
-  "traceId": "71d8f4d1f8c14914",
-  "timestamp": "2026-04-22T23:40:00+08:00"
+  }
 }
 ```
 
@@ -1196,8 +1214,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "id": 40001,
     "title": "Spring Boot 双 Token 登录实践",
@@ -1214,9 +1232,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
     "publishedAt": null,
     "createdAt": "2026-04-22T22:50:00+08:00",
     "updatedAt": "2026-04-22T23:10:00+08:00"
-  },
-  "traceId": "2435069b7f8d44f8",
-  "timestamp": "2026-04-22T23:42:00+08:00"
+  }
 }
 ```
 
@@ -1277,16 +1293,14 @@ Content-Type: application/json
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "id": 40001,
     "status": "DRAFT",
     "publishedAt": null,
     "createdAt": "2026-04-22T23:45:00+08:00"
-  },
-  "traceId": "a7322db35d784703",
-  "timestamp": "2026-04-22T23:45:00+08:00"
+  }
 }
 ```
 
@@ -1353,16 +1367,14 @@ Content-Type: application/json
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "id": 40001,
     "status": "PUBLISHED",
     "publishedAt": "2026-04-22T23:50:00+08:00",
     "updatedAt": "2026-04-22T23:50:00+08:00"
-  },
-  "traceId": "37b6f479d04a4951",
-  "timestamp": "2026-04-22T23:50:00+08:00"
+  }
 }
 ```
 
@@ -1412,15 +1424,13 @@ Content-Type: application/json
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "id": 40001,
     "status": "OFFLINE",
     "updatedAt": "2026-04-22T23:55:00+08:00"
-  },
-  "traceId": "701fd994505645cc",
-  "timestamp": "2026-04-22T23:55:00+08:00"
+  }
 }
 ```
 
@@ -1457,13 +1467,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "success": true
-  },
-  "traceId": "9e723234f738461b",
-  "timestamp": "2026-04-22T23:58:00+08:00"
+  }
 }
 ```
 
@@ -1516,8 +1524,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": [
     {
       "id": 20001,
@@ -1554,9 +1562,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
         }
       ]
     }
-  ],
-  "traceId": "145a6f41eb434612",
-  "timestamp": "2026-04-23T00:00:00+08:00"
+  ]
 }
 ```
 
@@ -1613,8 +1619,8 @@ Content-Type: application/json
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "id": 21001,
     "parentId": 20001,
@@ -1622,9 +1628,7 @@ Content-Type: application/json
     "name": "Java",
     "status": "ENABLED",
     "createdAt": "2026-04-23T00:05:00+08:00"
-  },
-  "traceId": "8d2eb9cb1ef249bb",
-  "timestamp": "2026-04-23T00:05:00+08:00"
+  }
 }
 ```
 
@@ -1687,8 +1691,8 @@ Content-Type: application/json
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "id": 21001,
     "parentId": 20001,
@@ -1696,9 +1700,7 @@ Content-Type: application/json
     "name": "Java",
     "status": "ENABLED",
     "updatedAt": "2026-04-23T00:06:00+08:00"
-  },
-  "traceId": "d18c5d9b33464136",
-  "timestamp": "2026-04-23T00:06:00+08:00"
+  }
 }
 ```
 
@@ -1740,13 +1742,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "success": true
-  },
-  "traceId": "e793d93438b9498a",
-  "timestamp": "2026-04-23T00:08:00+08:00"
+  }
 }
 ```
 
@@ -1791,8 +1791,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": [
     {
       "id": 30001,
@@ -1802,9 +1802,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
       "articleCount": 5,
       "createdAt": "2026-04-22T21:15:00+08:00"
     }
-  ],
-  "traceId": "841bd3a5e09d4ad8",
-  "timestamp": "2026-04-23T00:10:00+08:00"
+  ]
 }
 ```
 
@@ -1853,16 +1851,14 @@ Content-Type: application/json
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "id": 30001,
     "name": "JWT",
     "status": "ENABLED",
     "createdAt": "2026-04-23T00:12:00+08:00"
-  },
-  "traceId": "af9c44268fdc4fbe",
-  "timestamp": "2026-04-23T00:12:00+08:00"
+  }
 }
 ```
 
@@ -1917,16 +1913,14 @@ Content-Type: application/json
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "id": 30001,
     "name": "JWT",
     "status": "ENABLED",
     "updatedAt": "2026-04-23T00:13:00+08:00"
-  },
-  "traceId": "e12e3e0de63c4387",
-  "timestamp": "2026-04-23T00:13:00+08:00"
+  }
 }
 ```
 
@@ -1963,13 +1957,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ```json
 {
-  "code": "0",
-  "message": "success",
+  "code": 0,
+  "message": "成功",
   "data": {
     "success": true
-  },
-  "traceId": "7cf3bfdab7ef4d53",
-  "timestamp": "2026-04-23T00:14:00+08:00"
+  }
 }
 ```
 
@@ -1979,8 +1971,12 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 - 被禁用用户不可登录
 - 被禁用用户已有 Access Token 可自然过期
-- 被禁用用户在刷新 Token 时必须失败，返回 `A005`
-- 用户修改用户名时必须重新校验唯一性
+- 被禁用用户在刷新 Token 时必须失败，返回 `102005`
+- 用户名注册后不支持在个人中心修改
+- 用户名不允许包含 `@`，登录接口可用 `account` 是否包含 `@` 区分邮箱登录和用户名登录
+- Refresh Token 每次刷新成功后都必须轮转，旧 Refresh Token 标记为 `REVOKED`
+- Refresh Token 无效、已过期、已撤销或超出宽限期后再次使用时，统一返回 `101004`
+- 旧 Refresh Token 超出宽限期后再次使用时，默认撤销该用户全部活跃 Refresh Token 会话
 
 ### 11.2 文章相关
 
