@@ -15,7 +15,9 @@
 - 所有业务表统一使用 `blog_` 前缀，避免与 PostgreSQL 关键字冲突
 - 主键统一使用 `BIGSERIAL`
 - 时间字段统一使用 `TIMESTAMPTZ`
-- `updated_at` 默认给出初始值，后续更新时由应用层维护
+- 后端、数据库与容器环境中的业务时间默认按 UTC 存储；接口返回 ISO 8601 时间，前端展示时再按用户所在时区或站点展示时区格式化
+- `created_at` 和 `updated_at` 在数据库层保留 `DEFAULT NOW()` 作为兜底；正常业务写入时由应用层通过 MyBatis Plus 自动填充维护
+- `updated_at` 默认给出初始值，后续更新时由应用层自动刷新
 
 ### 2.2 版本范围
 
@@ -36,10 +38,37 @@
 
 ### 2.3 设计原则
 
-- `Refresh Token` 运行态以 Redis 为主，数据库保留会话表用于审计、封禁联动和后续扩展
+- `Refresh Token` 运行态以 Redis 为主，刷新、退出和轮转时优先通过 Redis 判断当前令牌是否有效；数据库保留会话表用于审计、封禁联动、管理端强退和后续扩展
+- `Refresh Token` 使用轮转机制；每次刷新成功后，旧会话记录标记为 `REVOKED`，新 Refresh Token 对应新的 `ACTIVE` 会话记录
+- 短暂宽限期用于处理网络波动下的幂等重试，建议由 Redis 记录旧 `token_jti` 到新令牌结果的短 TTL 映射，数据库继续保留审计状态
 - 评论、点赞、收藏等互动能力虽然不在 P0 落地，但数据库结构先预留
 - 统计字段如 `comment_count`、`like_count` 放在主表冗余，行为明细拆分到独立表
 - 分类采用树形结构建模，当前业务约束为两级分类
+- 数据库不创建业务表之间的物理外键，统一使用逻辑外键；关联完整性、删除校验和级联清理由应用层负责
+
+### 2.4 逻辑外键约定
+
+本项目业务表之间不使用 PostgreSQL `FOREIGN KEY` 物理约束，所有 `xxx_id` 字段均按逻辑外键处理。这样便于开发期重置表结构、后续软删除、数据归档和潜在拆分；代价是 service 层必须显式校验关联数据。
+
+| 表 | 字段 | 逻辑关联 | 应用层约束 |
+| --- | --- | --- | --- |
+| `blog_auth_session` | `user_id` | `blog_user.id` | 创建会话前必须确认用户存在且状态允许登录；用户禁用时刷新 Token 必须失败 |
+| `blog_category` | `parent_id` | `blog_category.id` | 二级分类必须挂载到存在的一级分类；一级分类 `parent_id` 必须为空 |
+| `blog_article` | `category_id` | `blog_category.id` | 创建或发布文章时必须确认分类存在、启用且为二级分类 |
+| `blog_article` | `author_id` | `blog_user.id` | 创建文章时必须确认作者存在且具备管理员权限 |
+| `blog_article_tag` | `article_id` | `blog_article.id` | 写入关联前必须确认文章存在；删除文章时由应用层清理关联记录 |
+| `blog_article_tag` | `tag_id` | `blog_tag.id` | 写入关联前必须确认标签存在且启用；删除标签时由应用层清理关联记录 |
+| `blog_comment` | `article_id` | `blog_article.id` | 评论前必须确认文章存在且允许评论 |
+| `blog_comment` | `user_id` | `blog_user.id` | 评论前必须确认用户存在且未被禁用 |
+| `blog_comment` | `parent_id` | `blog_comment.id` | 回复评论时必须确认父评论存在且属于同一文章 |
+| `blog_article_like` | `article_id` | `blog_article.id` | 点赞前必须确认文章存在且可见 |
+| `blog_article_like` | `user_id` | `blog_user.id` | 点赞前必须确认用户存在且未被禁用 |
+| `blog_article_favorite` | `article_id` | `blog_article.id` | 收藏前必须确认文章存在且可见 |
+| `blog_article_favorite` | `user_id` | `blog_user.id` | 收藏前必须确认用户存在且未被禁用 |
+| `blog_message_board` | `user_id` | `blog_user.id` | 登录用户留言时记录用户 ID；游客留言时允许为空 |
+| `blog_message_board` | `parent_id` | `blog_message_board.id` | 回复留言时必须确认父留言存在 |
+
+删除或下线数据时，不能依赖数据库级联删除。当前建议默认避免物理删除核心数据；确需删除时，由 service 在同一事务中按业务规则清理子表或拒绝删除，例如删除分类前校验关联文章、删除文章时清理文章标签关联。
 
 ## 3. P0 必建表
 
@@ -50,8 +79,8 @@
 ```sql
 CREATE TABLE IF NOT EXISTS blog_user (
     id BIGSERIAL PRIMARY KEY,
-    username VARCHAR(50) NOT NULL,
-    nickname VARCHAR(50) NOT NULL DEFAULT '',
+    username VARCHAR(20) NOT NULL,
+    nickname VARCHAR(20) NOT NULL,
     email VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'USER'
@@ -65,7 +94,11 @@ CREATE TABLE IF NOT EXISTS blog_user (
     last_login_at TIMESTAMPTZ,
     deleted_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_blog_user_username_length
+        CHECK (char_length(username) BETWEEN 4 AND 20),
+    CONSTRAINT chk_blog_user_nickname_length
+        CHECK (char_length(nickname) BETWEEN 1 AND 20)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_blog_user_username_lower
@@ -78,13 +111,19 @@ CREATE INDEX IF NOT EXISTS idx_blog_user_role_status
     ON blog_user (role, status);
 ```
 
+说明：
+
+- `username` 保留注册时输入的原始大小写，用于展示和公开资料；唯一性和登录查询按 `LOWER(username)` 做大小写不敏感处理
+- `email` 唯一性和登录查询按 `LOWER(email)` 做大小写不敏感处理，产品层统一将 `A@example.com` 和 `a@example.com` 视为同一个邮箱账号
+- 例如允许用户注册展示名 `Sanjuu`，但不允许另一个人再注册 `sanjuu`；登录时输入 `sanjuu`、`SANJUU`、`Sanjuu` 都能找到同一个账号
+
 ### 字段表
 
 | 字段名称 | 字段类型 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- |
-| `id` | `BIGSERIAL` | 用户主键 ID | `10001` |
-| `username` | `VARCHAR(50)` | 登录用户名，要求唯一，支持用户名登录 | `ccsanjuu` |
-| `nickname` | `VARCHAR(50)` | 展示昵称，允许先为空字符串，前台可回退显示用户名 | `sanjuu` |
+| `id` | `BIGSERIAL` | 用户主键 ID，可用于公开作者信息、登录态、后台管理和逻辑外键关联 | `10001` |
+| `username` | `VARCHAR(20)` | 登录用户名，要求唯一，支持用户名登录；注册后不可修改，作为展示字段和登录标识 | `ccsanjuu` |
+| `nickname` | `VARCHAR(20)` | 展示昵称，长度 1-20 个字符，注册时默认使用用户名初始化 | `sanjuu` |
 | `email` | `VARCHAR(255)` | 用户邮箱，要求唯一，支持邮箱登录 | `ccsanjuu@example.com` |
 | `password_hash` | `VARCHAR(255)` | 密码哈希值，禁止明文存储 | `$2a$10$abc...` |
 | `role` | `VARCHAR(20)` | 用户角色，区分管理员和普通用户 | `ADMIN`、`USER` |
@@ -98,6 +137,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_user_role_status
 | `created_at` | `TIMESTAMPTZ` | 记录创建时间 | `2026-04-22 21:00:00+08` |
 | `updated_at` | `TIMESTAMPTZ` | 记录更新时间 | `2026-04-22 22:10:00+08` |
 
+公开用户资料、文章作者资料卡等前台公开场景可以返回 `blog_user.id`，并可使用 `userId` 作为路径标识；`username` 主要作为展示字段和登录标识。
+
 ## 3.2 表名：`blog_auth_session`
 
 ### SQL（PostgreSQL）
@@ -105,7 +146,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_user_role_status
 ```sql
 CREATE TABLE IF NOT EXISTS blog_auth_session (
     id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES blog_user(id),
+    user_id BIGINT NOT NULL,
     token_jti VARCHAR(64) NOT NULL,
     token_hash VARCHAR(255) NOT NULL,
     token_type VARCHAR(20) NOT NULL DEFAULT 'REFRESH'
@@ -149,6 +190,15 @@ CREATE INDEX IF NOT EXISTS idx_blog_auth_session_expires_at
 | `created_at` | `TIMESTAMPTZ` | 会话创建时间 | `2026-04-22 22:10:00+08` |
 | `updated_at` | `TIMESTAMPTZ` | 会话更新时间 | `2026-04-22 22:20:00+08` |
 
+### Refresh Token 轮转状态流转
+
+- 登录成功：创建一条 `ACTIVE` 的 Refresh Token 会话记录。
+- 刷新成功：在同一事务中将旧会话记录更新为 `REVOKED`，设置 `revoked_at` 和 `updated_at`，并为新 Refresh Token 创建新的 `ACTIVE` 会话记录。
+- 宽限期重试：若旧 Refresh Token 已 `REVOKED` 且仍处于 Redis 宽限期内，后端返回第一次刷新时生成的新令牌结果，不再创建新的会话记录。
+- 超出宽限期后复用旧 Refresh Token：视为无效或疑似重放，返回 `Refresh Token 无效或已过期`，默认撤销该用户全部 `ACTIVE` 会话记录，要求用户重新登录。
+- 主动退出登录：将当前 Refresh Token 对应会话记录更新为 `REVOKED`。
+- 定期维护：可将 `expires_at` 早于当前时间且仍为 `ACTIVE` 的记录更新为 `EXPIRED`。
+
 ## 3.3 表名：`blog_category`
 
 ### SQL（PostgreSQL）
@@ -157,7 +207,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_auth_session_expires_at
 CREATE TABLE IF NOT EXISTS blog_category (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL,
-    parent_id BIGINT REFERENCES blog_category(id) ON DELETE CASCADE,
+    parent_id BIGINT,
     level SMALLINT NOT NULL
         CHECK (level IN (1, 2)),
     description VARCHAR(255) NOT NULL DEFAULT '',
@@ -272,8 +322,8 @@ CREATE TABLE IF NOT EXISTS blog_article (
     cover_url VARCHAR(500) NOT NULL DEFAULT '',
     status VARCHAR(20) NOT NULL DEFAULT 'DRAFT'
         CHECK (status IN ('DRAFT', 'PUBLISHED', 'OFFLINE')),
-    category_id BIGINT NOT NULL REFERENCES blog_category(id),
-    author_id BIGINT NOT NULL REFERENCES blog_user(id),
+    category_id BIGINT NOT NULL,
+    author_id BIGINT NOT NULL,
     is_top BOOLEAN NOT NULL DEFAULT FALSE,
     allow_comment BOOLEAN NOT NULL DEFAULT TRUE,
     view_count INTEGER NOT NULL DEFAULT 0 CHECK (view_count >= 0),
@@ -339,8 +389,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_top_publish
 
 ```sql
 CREATE TABLE IF NOT EXISTS blog_article_tag (
-    article_id BIGINT NOT NULL REFERENCES blog_article(id) ON DELETE CASCADE,
-    tag_id BIGINT NOT NULL REFERENCES blog_tag(id) ON DELETE CASCADE,
+    article_id BIGINT NOT NULL,
+    tag_id BIGINT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (article_id, tag_id)
 );
@@ -366,9 +416,9 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_tag_tag_id
 ```sql
 CREATE TABLE IF NOT EXISTS blog_comment (
     id BIGSERIAL PRIMARY KEY,
-    article_id BIGINT NOT NULL REFERENCES blog_article(id) ON DELETE CASCADE,
-    user_id BIGINT NOT NULL REFERENCES blog_user(id),
-    parent_id BIGINT REFERENCES blog_comment(id) ON DELETE CASCADE,
+    article_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    parent_id BIGINT,
     content TEXT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
         CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
@@ -406,8 +456,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_comment_parent_id
 ```sql
 CREATE TABLE IF NOT EXISTS blog_article_like (
     id BIGSERIAL PRIMARY KEY,
-    article_id BIGINT NOT NULL REFERENCES blog_article(id) ON DELETE CASCADE,
-    user_id BIGINT NOT NULL REFERENCES blog_user(id),
+    article_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_blog_article_like UNIQUE (article_id, user_id)
 );
@@ -432,8 +482,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_like_user_id
 ```sql
 CREATE TABLE IF NOT EXISTS blog_article_favorite (
     id BIGSERIAL PRIMARY KEY,
-    article_id BIGINT NOT NULL REFERENCES blog_article(id) ON DELETE CASCADE,
-    user_id BIGINT NOT NULL REFERENCES blog_user(id),
+    article_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_blog_article_favorite UNIQUE (article_id, user_id)
 );
@@ -458,8 +508,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_favorite_user_id
 ```sql
 CREATE TABLE IF NOT EXISTS blog_message_board (
     id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT REFERENCES blog_user(id),
-    parent_id BIGINT REFERENCES blog_message_board(id) ON DELETE CASCADE,
+    user_id BIGINT,
+    parent_id BIGINT,
     nickname VARCHAR(50) NOT NULL DEFAULT '',
     email VARCHAR(255) NOT NULL DEFAULT '',
     content TEXT NOT NULL,
