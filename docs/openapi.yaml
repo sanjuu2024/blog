@@ -13,8 +13,6 @@ tags:
     description: 认证模块
   - name: Public Articles
     description: 前台公共文章接口
-  - name: Public Users
-    description: 前台公共用户接口
   - name: Profile
     description: 个人中心接口
   - name: Admin Users
@@ -31,7 +29,7 @@ paths:
       tags:
         - Auth
       summary: 用户注册
-      description: 权限级别 `PUBLIC`。用户通过用户名、邮箱、密码完成注册；服务端默认使用用户名初始化昵称；用户名注册后不可修改。用户名和邮箱唯一性均按大小写不敏感处理，但 username 保留注册时输入的原始大小写用于展示。例如允许用户注册展示名 `Sanjuu`，但不允许另一个人再注册 `sanjuu`；邮箱同理，`A@example.com` 和 `a@example.com` 会识别为同一个邮箱账号，不能重复注册。
+      description: 权限级别 `PUBLIC`。用户通过用户名、邮箱、密码完成注册。
       operationId: registerUser
       requestBody:
         required: true
@@ -51,19 +49,26 @@ paths:
               schema:
                 $ref: '#/components/schemas/RegisterResponse'
               example:
-                code: 0
-                message: 成功
-                data: null
+                code: '0'
+                message: success
+                data:
+                  userId: 10002
+                  username: alice_dev
+                  nickname: ''
+                  email: alice@example.com
+                  role: USER
+                  status: ACTIVE
+                  createdAt: '2026-04-22T22:20:00+08:00'
+                traceId: 3c5d8f2a0b6344b1
+                timestamp: '2026-04-22T22:20:00+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
-        '409':
-          $ref: '#/components/responses/UserConflictResponse'
   /api/v1/auth/login:
     post:
       tags:
         - Auth
       summary: 用户登录
-      description: 权限级别 `PUBLIC`。支持用户名或邮箱登录；用户名和邮箱登录均按大小写不敏感处理。也就是允许用户注册展示名 `Sanjuu`，但不允许另一个人再注册 `sanjuu`；登录时输入 `sanjuu`、`SANJUU`、`Sanjuu` 都能找到同一个账号。邮箱同理，`A@example.com` 和 `a@example.com` 会识别为同一个邮箱账号。
+      description: 权限级别 `PUBLIC`。支持用户名或邮箱登录。
       operationId: loginUser
       requestBody:
         required: true
@@ -82,8 +87,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/LoginResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   accessToken: eyJhbGciOiJIUzI1NiJ9.access.token
                   accessTokenExpiresAt: '2026-04-22T23:20:00+08:00'
@@ -99,18 +104,18 @@ paths:
                     status: ACTIVE
                     avatarUrl: ''
                     bio: 热爱前后端开发
+                traceId: b3c8900f2d554b4f
+                timestamp: '2026-04-22T22:20:10+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
-        '403':
-          $ref: '#/components/responses/UserDisabledResponse'
   /api/v1/auth/refresh:
     post:
       tags:
         - Auth
       summary: 刷新登录态
-      description: 权限级别 `PUBLIC`。通过 Refresh Token 获取新令牌；刷新成功后会轮转 Refresh Token，旧 Refresh Token 立即失效。
+      description: 权限级别 `PUBLIC`。通过 Refresh Token 获取新令牌。
       operationId: refreshToken
       requestBody:
         required: true
@@ -128,27 +133,29 @@ paths:
               schema:
                 $ref: '#/components/schemas/RefreshTokenResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   accessToken: eyJhbGciOiJIUzI1NiJ9.new.access
                   accessTokenExpiresAt: '2026-04-22T23:50:00+08:00'
                   refreshToken: eyJhbGciOiJIUzI1NiJ9.new.refresh
                   refreshTokenExpiresAt: '2026-04-29T22:50:00+08:00'
                   tokenType: Bearer
+                traceId: f30b1ed17c9947a2
+                timestamp: '2026-04-22T22:50:00+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/RefreshTokenInvalidResponse'
-        '403':
-          $ref: '#/components/responses/UserDisabledResponse'
   /api/v1/auth/logout:
     post:
       tags:
         - Auth
       summary: 用户退出登录
-      description: 权限级别 `PUBLIC`。退出当前会话不要求有效 Access Token；请求体中的 Refresh Token 必填，后端会据此尝试撤销对应会话。该接口按幂等语义处理：如果 Refresh Token 格式正确但已过期、已撤销或找不到对应会话，仍返回退出成功，前端只需清理本地登录态。请求体缺失、Refresh Token 为空或 JSON 格式错误时，仍按参数错误处理。
+      description: 权限级别 `LOGIN`。退出当前会话并使 Refresh Token 失效。
       operationId: logoutUser
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -165,12 +172,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   success: true
-        '400':
-          $ref: '#/components/responses/BadRequestResponse'
+                traceId: cb16b523eb4f46d2
+                timestamp: '2026-04-22T22:55:00+08:00'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
   /api/v1/articles:
     get:
       tags:
@@ -205,8 +214,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/PublicArticlePageResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   records:
                     - id: 40001
@@ -231,6 +240,8 @@ paths:
                   total: 1
                   totalPages: 1
                   hasNext: false
+                traceId: 7a4ac2ca74df44ce
+                timestamp: '2026-04-22T23:05:00+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
   /api/v1/articles/{articleId}:
@@ -250,8 +261,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/PublicArticleDetailResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   id: 40001
                   title: Spring Boot 双 Token 登录实践
@@ -280,8 +291,8 @@ paths:
                     id: 10001
                     username: ccsanjuu
                     nickname: sanjuu
-                    avatarUrl: https://cdn.example.com/avatar/1.png
-                    bio: 专注后端和前端工程化
+                traceId: 1d65ea705b9b45d5
+                timestamp: '2026-04-22T23:10:00+08:00'
         '404':
           $ref: '#/components/responses/ArticleNotFoundResponse'
   /api/v1/categories:
@@ -299,8 +310,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/PublicCategoryListResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   - id: 20001
                     name: 技术
@@ -323,33 +334,8 @@ paths:
                         description: 算法相关内容
                         sortNo: 12
                         articleCount: 4
-  /api/v1/users/{userId}/public-profile:
-    get:
-      tags:
-        - Public Users
-      summary: 获取用户公开资料卡
-      description: 权限级别 `PUBLIC`。公开用户资料使用 `userId` 作为路径标识，`username` 作为展示字段。
-      operationId: getPublicUserProfile
-      parameters:
-        - $ref: '#/components/parameters/UserId'
-      responses:
-        '200':
-          description: 获取成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PublicUserProfileResponse'
-              example:
-                code: 0
-                message: 成功
-                data:
-                  id: 10001
-                  username: ccsanjuu
-                  nickname: sanjuu
-                  avatarUrl: https://cdn.example.com/avatar/1.png
-                  bio: 专注后端和前端工程化
-        '404':
-          $ref: '#/components/responses/UserNotFoundResponse'
+                traceId: f28d47e62fd64f3e
+                timestamp: '2026-04-22T23:12:00+08:00'
   /api/v1/users/me:
     get:
       tags:
@@ -367,8 +353,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProfileResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   id: 10002
                   username: alice_dev
@@ -380,6 +366,8 @@ paths:
                   bio: 热爱前后端开发
                   lastLoginAt: '2026-04-22T22:20:10+08:00'
                   createdAt: '2026-04-22T22:20:00+08:00'
+                traceId: 16d68b769fdc4c44
+                timestamp: '2026-04-22T23:15:00+08:00'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
   /api/v1/users/me/profile:
@@ -387,7 +375,7 @@ paths:
       tags:
         - Profile
       summary: 更新个人资料
-      description: 权限级别 `LOGIN`。支持修改昵称、个人简介；不支持修改用户名，用户名注册后不可修改。
+      description: 权限级别 `LOGIN`。支持修改用户名、昵称、个人简介。
       operationId: updateCurrentUserProfile
       security:
         - bearerAuth: []
@@ -398,6 +386,7 @@ paths:
             schema:
               $ref: '#/components/schemas/UpdateProfileRequest'
             example:
+              username: alice_dev_new
               nickname: Alice
               bio: 专注 Java 与前端工程化
       responses:
@@ -408,16 +397,18 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateProfileResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   id: 10002
-                  username: alice_dev
+                  username: alice_dev_new
                   nickname: Alice
                   email: alice@example.com
                   avatarUrl: ''
                   bio: 专注 Java 与前端工程化
                   updatedAt: '2026-04-22T23:20:00+08:00'
+                traceId: 727541ef1e1c4f77
+                timestamp: '2026-04-22T23:20:00+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '401':
@@ -448,10 +439,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   success: true
+                traceId: b167021c836f4712
+                timestamp: '2026-04-22T23:25:00+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '401':
@@ -503,8 +496,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/AdminUserPageResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   records:
                     - id: 10002
@@ -520,6 +513,8 @@ paths:
                   total: 1
                   totalPages: 1
                   hasNext: false
+                traceId: ccd57c77325a482e
+                timestamp: '2026-04-22T23:30:00+08:00'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
         '403':
@@ -551,12 +546,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateUserStatusResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   id: 10002
                   status: DISABLED
                   updatedAt: '2026-04-22T23:35:00+08:00'
+                traceId: 9f9b6261c0ad40c1
+                timestamp: '2026-04-22T23:35:00+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '401':
@@ -590,12 +587,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateUserRoleResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   id: 10002
                   role: ADMIN
                   updatedAt: '2026-04-22T23:36:00+08:00'
+                traceId: c4d95157647e4f5d
+                timestamp: '2026-04-22T23:36:00+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '401':
@@ -655,8 +654,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/AdminArticlePageResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   records:
                     - id: 40001
@@ -679,6 +678,8 @@ paths:
                   total: 1
                   totalPages: 1
                   hasNext: false
+                traceId: 71d8f4d1f8c14914
+                timestamp: '2026-04-22T23:40:00+08:00'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
         '403':
@@ -720,13 +721,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ArticleMutationResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   id: 40001
                   status: DRAFT
                   publishedAt: null
                   createdAt: '2026-04-22T23:45:00+08:00'
+                traceId: a7322db35d784703
+                timestamp: '2026-04-22T23:45:00+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '401':
@@ -752,8 +755,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/AdminArticleDetailResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   id: 40001
                   title: Spring Boot 双 Token 登录实践
@@ -775,6 +778,8 @@ paths:
                   publishedAt: null
                   createdAt: '2026-04-22T22:50:00+08:00'
                   updatedAt: '2026-04-22T23:10:00+08:00'
+                traceId: 2435069b7f8d44f8
+                timestamp: '2026-04-22T23:42:00+08:00'
         '404':
           $ref: '#/components/responses/ArticleNotFoundResponse'
     put:
@@ -816,13 +821,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ArticleUpdateResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   id: 40001
                   status: PUBLISHED
                   publishedAt: '2026-04-22T23:50:00+08:00'
                   updatedAt: '2026-04-22T23:50:00+08:00'
+                traceId: 37b6f479d04a4951
+                timestamp: '2026-04-22T23:50:00+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '404':
@@ -845,10 +852,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   success: true
+                traceId: 9e723234f738461b
+                timestamp: '2026-04-22T23:58:00+08:00'
         '404':
           $ref: '#/components/responses/ArticleNotFoundResponse'
   /api/v1/admin/articles/{articleId}/status:
@@ -878,12 +887,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ArticleStatusResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   id: 40001
                   status: OFFLINE
                   updatedAt: '2026-04-22T23:55:00+08:00'
+                traceId: 701fd994505645cc
+                timestamp: '2026-04-22T23:55:00+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '404':
@@ -941,8 +952,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/AdminCategoryListResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   - id: 20001
                     parentId: null
@@ -963,6 +974,8 @@ paths:
                         status: ENABLED
                         articleCount: 6
                         createdAt: '2026-04-22T21:20:00+08:00'
+                traceId: 145a6f41eb434612
+                timestamp: '2026-04-23T00:00:00+08:00'
     post:
       tags:
         - Admin Categories
@@ -992,8 +1005,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/CategoryMutationResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   id: 21001
                   parentId: 20001
@@ -1001,6 +1014,8 @@ paths:
                   name: Java
                   status: ENABLED
                   createdAt: '2026-04-23T00:05:00+08:00'
+                traceId: 8d2eb9cb1ef249bb
+                timestamp: '2026-04-23T00:05:00+08:00'
   /api/v1/admin/categories/{categoryId}:
     put:
       tags:
@@ -1033,8 +1048,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/CategoryUpdateResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   id: 21001
                   parentId: 20001
@@ -1042,6 +1057,8 @@ paths:
                   name: Java
                   status: ENABLED
                   updatedAt: '2026-04-23T00:06:00+08:00'
+                traceId: d18c5d9b33464136
+                timestamp: '2026-04-23T00:06:00+08:00'
     delete:
       tags:
         - Admin Categories
@@ -1060,10 +1077,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   success: true
+                traceId: e793d93438b9498a
+                timestamp: '2026-04-23T00:08:00+08:00'
         '409':
           $ref: '#/components/responses/CategoryHasArticlesResponse'
   /api/v1/admin/tags:
@@ -1101,8 +1120,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/AdminTagListResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   - id: 30001
                     name: JWT
@@ -1110,6 +1129,8 @@ paths:
                     status: ENABLED
                     articleCount: 5
                     createdAt: '2026-04-22T21:15:00+08:00'
+                traceId: 841bd3a5e09d4ad8
+                timestamp: '2026-04-23T00:10:00+08:00'
     post:
       tags:
         - Admin Tags
@@ -1136,13 +1157,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/TagMutationResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   id: 30001
                   name: JWT
                   status: ENABLED
                   createdAt: '2026-04-23T00:12:00+08:00'
+                traceId: af9c44268fdc4fbe
+                timestamp: '2026-04-23T00:12:00+08:00'
   /api/v1/admin/tags/{tagId}:
     put:
       tags:
@@ -1172,13 +1195,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/TagUpdateResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   id: 30001
                   name: JWT
                   status: ENABLED
                   updatedAt: '2026-04-23T00:13:00+08:00'
+                traceId: e12e3e0de63c4387
+                timestamp: '2026-04-23T00:13:00+08:00'
     delete:
       tags:
         - Admin Tags
@@ -1197,10 +1222,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessResponse'
               example:
-                code: 0
-                message: 成功
+                code: '0'
+                message: success
                 data:
                   success: true
+                traceId: 7cf3bfdab7ef4d53
+                timestamp: '2026-04-23T00:14:00+08:00'
 components:
   securitySchemes:
     bearerAuth:
@@ -1271,15 +1298,26 @@ components:
       required:
         - code
         - message
+        - traceId
+        - timestamp
       properties:
         code:
-          type: integer
+          type: string
           description: 业务状态码，`0` 表示成功
-          example: 0
+          example: '0'
         message:
           type: string
           description: 业务描述信息
-          example: 成功
+          example: success
+        traceId:
+          type: string
+          description: 链路追踪 ID
+          example: f9a7b6d8c1e24f0b
+        timestamp:
+          type: string
+          format: date-time
+          description: 响应时间
+          example: '2026-04-22T22:10:00+08:00'
     ErrorResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
@@ -1384,8 +1422,6 @@ components:
         - id
         - username
         - nickname
-        - avatarUrl
-        - bio
       properties:
         id:
           type: integer
@@ -1397,12 +1433,6 @@ components:
         nickname:
           type: string
           example: sanjuu
-        avatarUrl:
-          type: string
-          example: https://cdn.example.com/avatar/1.png
-        bio:
-          type: string
-          example: 专注后端和前端工程化
     LoginUserInfo:
       type: object
       required:
@@ -1456,25 +1486,17 @@ components:
       properties:
         username:
           type: string
-          minLength: 4
-          maxLength: 20
-          pattern: '^[\u4e00-\u9fa5A-Za-z0-9_-]{4,20}$'
-          description: 用户名，只允许中文、英文、数字、下划线和短横线，需唯一
+          description: 用户名，需唯一
           example: alice_dev
         email:
           type: string
           format: email
-          maxLength: 255
-          pattern: '^[A-Za-z0-9](?:[A-Za-z0-9._%+\-]{0,62}[A-Za-z0-9])?@(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$'
-          description: 邮箱，仅支持常见邮箱格式，不能包含空格或中文字符，需唯一
+          description: 邮箱，需唯一
           example: alice@example.com
         password:
           type: string
           format: password
-          minLength: 6
-          maxLength: 20
-          pattern: '^[\u4e00-\u9fa5A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
-          description: 登录密码，允许中文、英文、数字、下划线、短横线和常用 ASCII 特殊字符，不允许空格
+          description: 登录密码
           example: Passw0rd!
     LoginRequest:
       type: object
@@ -1484,17 +1506,12 @@ components:
       properties:
         account:
           type: string
-          maxLength: 255
-          pattern: '^(?:[\u4e00-\u9fa5A-Za-z0-9_-]{4,20}|[A-Za-z0-9](?:[A-Za-z0-9._%+\-]{0,62}[A-Za-z0-9])?@(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63})$'
-          description: 登录账号，必须是合法用户名或邮箱；包含 `@` 时按邮箱登录，否则按用户名登录
+          description: 登录账号，支持用户名或邮箱
           example: alice@example.com
         password:
           type: string
           format: password
-          minLength: 6
-          maxLength: 20
-          pattern: '^[\u4e00-\u9fa5A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
-          description: 登录密码，允许中文、英文、数字、下划线、短横线和常用 ASCII 特殊字符，不允许空格
+          description: 登录密码
           example: Passw0rd!
     RefreshTokenRequest:
       type: object
@@ -1512,17 +1529,56 @@ components:
       properties:
         refreshToken:
           type: string
-          description: 当前会话的 Refresh Token；后端会尝试撤销对应会话
+          description: 当前会话的 Refresh Token
           example: eyJhbGciOiJIUzI1NiJ9.refresh.token
+    RegisterData:
+      type: object
+      required:
+        - userId
+        - username
+        - nickname
+        - email
+        - role
+        - status
+        - createdAt
+      properties:
+        userId:
+          type: integer
+          format: int64
+          example: 10002
+        username:
+          type: string
+          example: alice_dev
+        nickname:
+          type: string
+          example: ''
+        email:
+          type: string
+          format: email
+          example: alice@example.com
+        role:
+          type: string
+          enum:
+            - ADMIN
+            - USER
+          example: USER
+        status:
+          type: string
+          enum:
+            - ACTIVE
+            - DISABLED
+          example: ACTIVE
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-04-22T22:20:00+08:00'
     RegisterResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
         - type: object
           properties:
             data:
-              nullable: true
-              description: 注册成功后无需返回用户数据，前端据此提示“注册成功，请登录”
-              example: null
+              $ref: '#/components/schemas/RegisterData'
     LoginData:
       type: object
       required:
@@ -1811,38 +1867,6 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/PublicCategoryItem'
-    PublicUserProfile:
-      type: object
-      required:
-        - id
-        - username
-        - nickname
-        - avatarUrl
-        - bio
-      properties:
-        id:
-          type: integer
-          format: int64
-          example: 10001
-        username:
-          type: string
-          example: ccsanjuu
-        nickname:
-          type: string
-          example: sanjuu
-        avatarUrl:
-          type: string
-          example: https://cdn.example.com/avatar/1.png
-        bio:
-          type: string
-          example: 专注后端和前端工程化
-    PublicUserProfileResponse:
-      allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          properties:
-            data:
-              $ref: '#/components/schemas/PublicUserProfile'
     ProfileData:
       type: object
       required:
@@ -1907,11 +1931,13 @@ components:
     UpdateProfileRequest:
       type: object
       properties:
+        username:
+          type: string
+          description: 新用户名，若传入则需唯一
+          example: alice_dev_new
         nickname:
           type: string
-          minLength: 1
-          maxLength: 20
-          description: 用户昵称，1-20 个字符
+          description: 用户昵称
           example: Alice
         bio:
           type: string
@@ -1934,7 +1960,7 @@ components:
           example: 10002
         username:
           type: string
-          example: alice_dev
+          example: alice_dev_new
         nickname:
           type: string
           example: Alice
@@ -1968,18 +1994,10 @@ components:
         oldPassword:
           type: string
           format: password
-          minLength: 6
-          maxLength: 20
-          pattern: '^[\u4e00-\u9fa5A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
-          description: 原密码，允许中文、英文、数字、下划线、短横线和常用 ASCII 特殊字符，不允许空格
           example: Passw0rd!
         newPassword:
           type: string
           format: password
-          minLength: 6
-          maxLength: 20
-          pattern: '^[\u4e00-\u9fa5A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
-          description: 新密码，允许中文、英文、数字、下划线、短横线和常用 ASCII 特殊字符，不允许空格
           example: NewPassw0rd!
     AdminUserListItem:
       type: object
@@ -2801,9 +2819,11 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            code: 199001
-            message: 请求参数不合法
+            code: A001
+            message: request parameter invalid
             data: null
+            traceId: 1d2c3b4a5e6f7788
+            timestamp: '2026-04-23T00:20:00+08:00'
     UnauthorizedResponse:
       description: 未登录或 Access Token 无效
       content:
@@ -2811,9 +2831,11 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            code: 101001
-            message: 未登录或 Access Token 无效
+            code: A002
+            message: unauthorized
             data: null
+            traceId: 2a3b4c5d6e7f8899
+            timestamp: '2026-04-23T00:20:00+08:00'
     ForbiddenResponse:
       description: 无权限访问
       content:
@@ -2821,38 +2843,11 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            code: 101003
-            message: 无权限访问
+            code: A003
+            message: forbidden
             data: null
-    UserDisabledResponse:
-      description: 用户已被禁用
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            code: 102005
-            message: 用户已被禁用
-            data: null
-    UserConflictResponse:
-      description: 用户名或邮箱已存在
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          examples:
-            usernameExists:
-              summary: 用户名已存在
-              value:
-                code: 102002
-                message: 用户名已存在
-                data: null
-            emailExists:
-              summary: 邮箱已存在
-              value:
-                code: 102004
-                message: 邮箱已存在
-                data: null
+            traceId: 3a4b5c6d7e8f9900
+            timestamp: '2026-04-23T00:20:00+08:00'
     RefreshTokenInvalidResponse:
       description: Refresh Token 无效或已过期
       content:
@@ -2860,19 +2855,11 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            code: 101004
-            message: Refresh Token 无效或已过期
+            code: A004
+            message: refresh token invalid or expired
             data: null
-    ResourceNotFoundResponse:
-      description: 请求资源不存在
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            code: 199404
-            message: 请求资源不存在
-            data: null
+            traceId: 4a5b6c7d8e9f0011
+            timestamp: '2026-04-23T00:20:00+08:00'
     ArticleNotFoundResponse:
       description: 文章不存在
       content:
@@ -2880,19 +2867,11 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            code: 199404
-            message: 请求资源不存在
+            code: B001
+            message: article not found
             data: null
-    UserNotFoundResponse:
-      description: 用户不存在
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-          example:
-            code: 102001
-            message: 用户不存在
-            data: null
+            traceId: 5a6b7c8d9e0f1122
+            timestamp: '2026-04-23T00:20:00+08:00'
     CategoryHasArticlesResponse:
       description: 分类或其子分类下存在文章，不能删除
       content:
@@ -2900,6 +2879,8 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            code: 199001
-            message: 请求参数不合法
+            code: B004
+            message: category or its children has articles and cannot be deleted
             data: null
+            traceId: 6a7b8c9d0e1f2233
+            timestamp: '2026-04-23T00:20:00+08:00'

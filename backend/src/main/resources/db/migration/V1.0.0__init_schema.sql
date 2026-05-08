@@ -3,8 +3,8 @@ SET standard_conforming_strings = on;
 
 CREATE TABLE IF NOT EXISTS blog_user (
     id BIGSERIAL PRIMARY KEY,
-    username VARCHAR(20) NOT NULL,
-    nickname VARCHAR(20) NOT NULL,
+    username VARCHAR(50) NOT NULL,
+    nickname VARCHAR(50) NOT NULL DEFAULT '',
     email VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'USER'
@@ -18,11 +18,7 @@ CREATE TABLE IF NOT EXISTS blog_user (
     last_login_at TIMESTAMPTZ,
     deleted_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT chk_blog_user_username_length
-        CHECK (char_length(username) BETWEEN 4 AND 20),
-    CONSTRAINT chk_blog_user_nickname_length
-        CHECK (char_length(nickname) BETWEEN 1 AND 20)
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_blog_user_username_lower
@@ -36,7 +32,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_user_role_status
 
 CREATE TABLE IF NOT EXISTS blog_auth_session (
     id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL REFERENCES blog_user(id),
     token_jti VARCHAR(64) NOT NULL,
     token_hash VARCHAR(255) NOT NULL,
     token_type VARCHAR(20) NOT NULL DEFAULT 'REFRESH'
@@ -64,7 +60,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_auth_session_expires_at
 CREATE TABLE IF NOT EXISTS blog_category (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL,
-    parent_id BIGINT,
+    parent_id BIGINT REFERENCES blog_category(id) ON DELETE CASCADE,
     level SMALLINT NOT NULL
         CHECK (level IN (1, 2)),
     description VARCHAR(255) NOT NULL DEFAULT '',
@@ -123,8 +119,8 @@ CREATE TABLE IF NOT EXISTS blog_article (
     cover_url VARCHAR(500) NOT NULL DEFAULT '',
     status VARCHAR(20) NOT NULL DEFAULT 'DRAFT'
         CHECK (status IN ('DRAFT', 'PUBLISHED', 'OFFLINE')),
-    category_id BIGINT NOT NULL,
-    author_id BIGINT NOT NULL,
+    category_id BIGINT NOT NULL REFERENCES blog_category(id),
+    author_id BIGINT NOT NULL REFERENCES blog_user(id),
     is_top BOOLEAN NOT NULL DEFAULT FALSE,
     allow_comment BOOLEAN NOT NULL DEFAULT TRUE,
     view_count INTEGER NOT NULL DEFAULT 0 CHECK (view_count >= 0),
@@ -153,8 +149,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_top_publish
     ON blog_article (is_top, published_at DESC);
 
 CREATE TABLE IF NOT EXISTS blog_article_tag (
-    article_id BIGINT NOT NULL,
-    tag_id BIGINT NOT NULL,
+    article_id BIGINT NOT NULL REFERENCES blog_article(id) ON DELETE CASCADE,
+    tag_id BIGINT NOT NULL REFERENCES blog_tag(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (article_id, tag_id)
 );
@@ -164,9 +160,9 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_tag_tag_id
 
 CREATE TABLE IF NOT EXISTS blog_comment (
     id BIGSERIAL PRIMARY KEY,
-    article_id BIGINT NOT NULL,
-    user_id BIGINT NOT NULL,
-    parent_id BIGINT,
+    article_id BIGINT NOT NULL REFERENCES blog_article(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES blog_user(id),
+    parent_id BIGINT REFERENCES blog_comment(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
         CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
@@ -185,8 +181,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_comment_parent_id
 
 CREATE TABLE IF NOT EXISTS blog_article_like (
     id BIGSERIAL PRIMARY KEY,
-    article_id BIGINT NOT NULL,
-    user_id BIGINT NOT NULL,
+    article_id BIGINT NOT NULL REFERENCES blog_article(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES blog_user(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_blog_article_like UNIQUE (article_id, user_id)
 );
@@ -196,8 +192,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_like_user_id
 
 CREATE TABLE IF NOT EXISTS blog_article_favorite (
     id BIGSERIAL PRIMARY KEY,
-    article_id BIGINT NOT NULL,
-    user_id BIGINT NOT NULL,
+    article_id BIGINT NOT NULL REFERENCES blog_article(id) ON DELETE CASCADE,
+    user_id BIGINT NOT NULL REFERENCES blog_user(id),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_blog_article_favorite UNIQUE (article_id, user_id)
 );
@@ -207,8 +203,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_favorite_user_id
 
 CREATE TABLE IF NOT EXISTS blog_message_board (
     id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT,
-    parent_id BIGINT,
+    user_id BIGINT REFERENCES blog_user(id),
+    parent_id BIGINT REFERENCES blog_message_board(id) ON DELETE CASCADE,
     nickname VARCHAR(50) NOT NULL DEFAULT '',
     email VARCHAR(255) NOT NULL DEFAULT '',
     content TEXT NOT NULL,

@@ -10,25 +10,6 @@ spring:
     baseline-on-migrate: true
     validate-on-migrate: true
     encoding: utf-8
-
 logging:
   level:
     org.flywaydb: DEBUG
-
-mybatis-plus:
-  type-aliases-package: com.ccsanjuu.blog.**.entity   # 实体类所在的包，默认值
-  mapper-locations: "classpath*:/mapper/**/*.xml"
-  configuration:
-    map-underscore-to-camel-case: true   # 是否开启下划线和驼峰的映射
-    cache-enabled: false   # 是否开启二级缓存
-  global-config:
-    db-config:
-      id-type: auto   # 主键自增
-      update-strategy: not_null   # 更新策略：只更新非空字段
-
-blog:
-  jwt:
-    issuer: sanjuu-blog
-    secret: YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY=   # base64 编码的 JWT 密钥（原文本：abcdefghijklmnopqrstuvwxyz123456）
-    access-ttl: 30m
-    refresh-ttl: 7d
