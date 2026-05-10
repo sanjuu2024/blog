@@ -18,6 +18,9 @@
 - 后端、数据库与容器环境中的业务时间默认按 UTC 存储；接口返回 ISO 8601 时间，前端展示时再按用户所在时区或站点展示时区格式化
 - `created_at` 和 `updated_at` 在数据库层保留 `DEFAULT NOW()` 作为兜底；正常业务写入时由应用层通过 MyBatis Plus 自动填充维护
 - `updated_at` 默认给出初始值，后续更新时由应用层自动刷新
+- 单行业务更新应优先传入实体对象，使用 MyBatis Plus 的 `insert`、`updateById` 或 `update(entity, wrapper)`，由公共填充器统一维护 `created_at` 和 `updated_at`
+- 避免在普通业务更新中使用 wrapper-only update；该写法没有可填充实体，不作为 `updated_at` 自动维护的默认路径
+- 批量更新、XML SQL 或 `@Update` 自定义 SQL 必须显式维护 `updated_at`；涉及撤销会话等业务时间时，同时显式维护 `revoked_at` 等对应字段
 
 ### 2.2 版本范围
 
@@ -38,9 +41,12 @@
 
 ### 2.3 设计原则
 
-- `Refresh Token` 运行态以 Redis 为主，刷新、退出和轮转时优先通过 Redis 判断当前令牌是否有效；数据库保留会话表用于审计、封禁联动、管理端强退和后续扩展
+- P0 阶段 `Refresh Token` 以数据库会话表为准，刷新、退出、修改密码、禁用用户等安全事件通过会话表做失效控制；修改用户角色不直接撤销 Refresh Token
+- P1 阶段引入 Redis 保存运行态会话与 `tokenVersion`，用于降低鉴权查询成本，并支持修改密码、禁用用户、修改角色后的旧 Access Token 立即失效
+- P1 阶段后台管理操作审计日志建议使用独立审计表，记录操作者、目标资源、操作类型、操作结果和操作时间
 - `Refresh Token` 使用轮转机制；每次刷新成功后，旧会话记录标记为 `REVOKED`，新 Refresh Token 对应新的 `ACTIVE` 会话记录
-- 短暂宽限期用于处理网络波动下的幂等重试，建议由 Redis 记录旧 `token_jti` 到新令牌结果的短 TTL 映射，数据库继续保留审计状态
+- P0 阶段不因普通刷新失败自动撤销用户全部活跃 Refresh Token；修改密码、用户禁用、管理员强制下线等明确安全事件可按业务规则撤销全部会话
+- 短暂宽限期用于处理网络波动下的幂等重试；P1 接入 Redis 后，可由 Redis 记录旧 `token_jti` 到新令牌结果的短 TTL 映射，数据库继续保留审计状态
 - 评论、点赞、收藏等互动能力虽然不在 P0 落地，但数据库结构先预留
 - 统计字段如 `comment_count`、`like_count` 放在主表冗余，行为明细拆分到独立表
 - 分类采用树形结构建模，当前业务约束为两级分类
@@ -194,9 +200,12 @@ CREATE INDEX IF NOT EXISTS idx_blog_auth_session_expires_at
 
 - 登录成功：创建一条 `ACTIVE` 的 Refresh Token 会话记录。
 - 刷新成功：在同一事务中将旧会话记录更新为 `REVOKED`，设置 `revoked_at` 和 `updated_at`，并为新 Refresh Token 创建新的 `ACTIVE` 会话记录。
-- 宽限期重试：若旧 Refresh Token 已 `REVOKED` 且仍处于 Redis 宽限期内，后端返回第一次刷新时生成的新令牌结果，不再创建新的会话记录。
-- 超出宽限期后复用旧 Refresh Token：视为无效或疑似重放，返回 `Refresh Token 无效或已过期`，默认撤销该用户全部 `ACTIVE` 会话记录，要求用户重新登录。
+- 刷新失败：Refresh Token 缺失、格式错误、签名无效、已过期、已撤销或找不到对应会话时，统一返回 `Refresh Token 无效或已过期`；P0 阶段不因普通刷新失败自动撤销该用户全部 `ACTIVE` 会话记录。
+- 宽限期重试：P1 接入 Redis 后，若旧 Refresh Token 已 `REVOKED` 且仍处于 Redis 宽限期内，后端可返回第一次刷新时生成的新令牌结果，不再创建新的会话记录。
+- 重放检测：P1 可结合 Redis 短 TTL 宽限期、`token_jti` 状态和 `tokenVersion` 识别高风险重放；确认高风险后再撤销该用户全部 `ACTIVE` 会话记录。
 - 主动退出登录：将当前 Refresh Token 对应会话记录更新为 `REVOKED`。
+- 修改密码或禁用用户：将该用户全部 `ACTIVE` Refresh Token 会话更新为 `REVOKED`；P0 阶段已签发 Access Token 依赖短有效期自然过期。
+- 修改用户角色：P0 阶段不直接撤销 Refresh Token，新的角色在刷新登录态或重新登录后生效；P1 阶段通过 Redis `tokenVersion` 让旧 Access Token 立即失效。
 - 定期维护：可将 `expires_at` 早于当前时间且仍为 `ACTIVE` 的记录更新为 `EXPIRED`。
 
 ## 3.3 表名：`blog_category`

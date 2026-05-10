@@ -77,21 +77,33 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
+            // Access Token 里保存的是登录成功那一刻写入的用户快照。
+            // 这里先把 JWT claims 转成项目自己的“当前用户对象”，后面业务代码可以从 principal 中拿 userId。
             JwtPrincipal principal = buildPrincipal(claims);
+
+            // Spring Security 的角色判断看的是 authorities，不会直接读取 JwtPrincipal.role()。
+            // hasRole("ADMIN") 实际会检查这里是否存在 "ROLE_ADMIN"；所以项目角色 ADMIN 需要转换成 ROLE_ADMIN。
             List<GrantedAuthority> authorities = List.of(
                     new SimpleGrantedAuthority("ROLE_" + principal.role())
             );
 
             /*
              * UsernamePasswordAuthenticationToken 是 Spring Security 的一种 Authentication 实现。
-             * 这里不是在做用户名密码登录，而是借用它承载“当前请求已经认证通过”的结果。
-             * 后续 .authenticated() 会判断 SecurityContext 中是否存在已认证的 Authentication；
-             * hasRole("ADMIN") 会判断 authorities 中是否存在 ROLE_ADMIN。
+             * 这里不是重新做“用户名 + 密码”登录，而是在 JWT 已经验签通过后，
+             * 创建一个 authenticated=true 的 Authentication，告诉 Spring Security：
+             * “当前请求已经有合法身份，用户信息是 principal，权限列表是 authorities。”
+             *
+             * 三个参数分别是：
+             * - principal：当前登录用户信息，本项目里是 JwtPrincipal(userId, username, role, status)
+             * - credentials：登录凭证；JWT 已经验证完了，不需要再保存密码或 Token，所以传 null
+             * - authorities：当前用户权限；后续 hasRole("ADMIN") 会检查这里是否存在 ROLE_ADMIN
              */
             UsernamePasswordAuthenticationToken authentication =
                     UsernamePasswordAuthenticationToken.authenticated(principal, null, authorities);
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-            SecurityContextHolder.getContext().setAuthentication(authentication);   // 🔺之后要获取当前请求的用户的 userId、username、role、status，就可以通过 Security ContextHolder.getContext().getAuthentication().getPrincipal() 拿到这个 JwtPrincipal 了。
+            // 把认证结果放入当前请求线程的 SecurityContext。
+            // 之后 Controller 可以通过 @AuthenticationPrincipal JwtPrincipal principal 直接拿到当前用户。
+            SecurityContextHolder.getContext().setAuthentication(authentication);
 
             filterChain.doFilter(request, response);
         } catch (ExpiredJwtException ex) {
@@ -112,6 +124,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private JwtPrincipal buildPrincipal(Claims claims) {
         Long userId = JwtUtil.getUserId(claims);
         String username = requireClaim(claims, JwtUtil.CLAIM_USERNAME);
+        // role 是登录生成 Access Token 时写入的 claim，来源于数据库中的 blog_user.role。
         String role = requireClaim(claims, JwtUtil.CLAIM_ROLE);
         String status = requireClaim(claims, JwtUtil.CLAIM_STATUS);
         return new JwtPrincipal(userId, username, role, status);
@@ -130,6 +143,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         objectMapper.writeValue(response.getWriter(), Result.fail(resultCode));
-        // 因为 JWT Filter 执行时还没进入 Controller，所以不能直接 return Result.fail(...)。如果 Token 过期或无效，我们只能通过 HttpServletResponse 手动把错误 JSON 写回前端。
+        // 因为 JWT Filter 执行时还没进入 Controller，所以不能直接 return Result.fail(...)。如果 Token 过期或无效，则只能通过 HttpServletResponse 手动把错误 JSON 写回前端。
     }
 }

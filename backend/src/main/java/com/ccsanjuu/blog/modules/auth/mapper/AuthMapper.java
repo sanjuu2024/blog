@@ -7,13 +7,32 @@ import org.apache.ibatis.annotations.Update;
 
 public interface AuthMapper extends BaseMapper<AuthSession> {
     /**
-     * 撤销旧的 RefreshToken
+     * 指定 jti 撤销 RefreshToken
      * @param jti
      */
     @Update("""
             UPDATE blog_auth_session
-            SET status = #{tokenStatus}, revoked_at = NOW(), updated_at = NOW()
+            SET status = #{revokeStatus}, revoked_at = NOW(), updated_at = NOW()
             WHERE token_jti = #{jti}
             """)
-    void revokeRefreshToken(@Param("jti") String jti, @Param("tokenStatus") String tokenStatus);
+    void revokeRefreshToken(@Param("jti") String jti, @Param("revokeStatus") String revokeStatus);
+
+    /**
+     * 撤销指定用户所有活跃的 Refresh Token 会话
+     * @param userId
+     * @param activeStatus
+     * @param revokeStatus
+     */
+    @Update("""
+            UPDATE blog_auth_session
+            SET status = #{revokeStatus}, revoked_at = NOW(), updated_at = NOW()
+            WHERE user_id = #{userId}
+              AND token_type = 'REFRESH'
+              AND status = #{activeStatus}
+            """)
+    void revokeActiveRefreshTokensByUserId(
+            @Param("userId") Long userId,
+            @Param("activeStatus") String activeStatus,
+            @Param("revokeStatus") String revokeStatus
+    );
 }

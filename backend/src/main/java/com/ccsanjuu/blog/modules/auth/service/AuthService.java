@@ -37,6 +37,8 @@ public interface AuthService {
      */
     void revokeRefreshToken(String jti);
 
+    void revokeUserRefreshTokens(Long userId);
+
     /**
      * 用户退出登录
      * @param logoutRequestDTO

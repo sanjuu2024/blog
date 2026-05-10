@@ -38,7 +38,6 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.crypto.SecretKey;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.Locale;
 
 @Slf4j
 @Service
@@ -82,6 +81,8 @@ public class AuthServiceImpl implements AuthService {
 
         // 4，插入用户信息
         userMapper.insert(newUser);
+
+        log.info("用户注册成功：userId={}, username={}", newUser.getId(), newUser.getUsername());
     }
 
     /**
@@ -90,6 +91,7 @@ public class AuthServiceImpl implements AuthService {
      * @return
      */
     @Override
+    @Transactional
     public LoginVO login(LoginRequestDTO loginRequestDTO) {
         // 🍰1. 根据 account 是否包含 @，分别按邮箱或用户名查询用户
         User user = null;
@@ -100,18 +102,32 @@ public class AuthServiceImpl implements AuthService {
             user = findUserByUsername(loginRequestDTO.getAccount());
         }
         if (user == null) {
+            log.warn("用户登录失败，account={}, reason=USER_NOT_FOUND", maskAccount(loginRequestDTO.getAccount()));
             throw new BizException(ResultCode.USER_NOT_FOUND);
         }
 
-        // 🍰2. 密码是否正确
+        // 🍰2. 密码是否正确、用户是否状态正常（被禁用则不能登录）
         if (!passwordEncoder.matches(loginRequestDTO.getPassword(), user.getPasswordHash())) {
+            log.warn("用户登录失败，account={}, reason=PASSWORD_ERROR", maskAccount(loginRequestDTO.getAccount()));
             throw new BizException(ResultCode.PASSWORD_ERROR);
+        }
+        if (user.getStatus() == UserStatus.DISABLED) {
+            log.warn("用户登录失败，account={}, reason=USER_DISABLED", maskAccount(loginRequestDTO.getAccount()));
+            throw new BizException(ResultCode.USER_DISABLED);
         }
 
         // 🍰3. 生成 AccessToken 和 RefreshToken 以及各自的过期时间，并将 RefreshToken 存入数据库
         AuthTokenPair authTokenPair = generateTokenPairAndSaveRT(user);
 
-        // 🍰4. 封装返回
+        // 🍰4. 更新用户的登录时间
+        User updateUser = new User();
+        updateUser.setId(user.getId());
+        updateUser.setLastLoginAt(OffsetDateTime.now(ZoneOffset.UTC));
+        userMapper.updateById(updateUser);
+
+        log.info("用户登录成功：userId={}, username={}", user.getId(), user.getUsername());
+
+        // 🍰5. 封装返回
         LoginUserVO loginUserVO = BeanUtil.copyProperties(user, LoginUserVO.class);
         return LoginVO.builder()
                 .accessToken(authTokenPair.getAccessToken())
@@ -124,7 +140,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * 刷新登录态
+     * 刷新登录态（RT和AT）（旧 RT 换新 RT，只轮转当前会话。）
      * @param refreshTokenRequestDTO
      * @return
      */
@@ -165,7 +181,6 @@ public class AuthServiceImpl implements AuthService {
      * @param logoutRequestDTO
      */
     @Override
-    @Transactional
     public void logout(LogoutRequestDTO logoutRequestDTO) {
         if (logoutRequestDTO.getRefreshToken() == null || logoutRequestDTO.getRefreshToken().isBlank()) {
             return;
@@ -173,7 +188,8 @@ public class AuthServiceImpl implements AuthService {
 
         try {
             ValidatedRefreshToken validatedRefreshToken = validateRefreshToken(logoutRequestDTO.getRefreshToken());
-            revokeRefreshToken(validatedRefreshToken.getTokenJti());
+            revokeRefreshToken(validatedRefreshToken.getTokenJti());   // 该用户退出登录后撤销其 RT
+            log.info("用户退出登录成功：userId={}", validatedRefreshToken.getUserId());
         } catch (BizException ex) {
             if (ex.getResultCode() != ResultCode.REFRESH_TOKEN_INVALID_OR_EXPIRED) {
                 throw ex;
@@ -182,6 +198,34 @@ public class AuthServiceImpl implements AuthService {
             log.debug("用户退出登录成功，忽略发生的异常: {}", ex.getMessage());
         }
     }
+
+    /**
+     * 账号信息脱敏（用户名不脱敏，邮箱则部分隐藏）
+     * @param account
+     * @return
+     */
+    private String maskAccount(String account) {
+        if (account == null || account.isBlank()) {
+            return "";
+        }
+
+        String trimmed = account.trim();
+        int atIndex = trimmed.indexOf('@');
+        if (atIndex > 0) {
+            String local = trimmed.substring(0, atIndex);
+            String domain = trimmed.substring(atIndex);
+            if (local.length() <= 2) {
+                return "*".repeat(local.length()) + domain;
+            }
+            return local.charAt(0) + "***" + local.charAt(local.length() - 1) + domain;
+        }
+
+        if (trimmed.length() <= 2) {
+            return "*".repeat(trimmed.length());
+        }
+        return trimmed.charAt(0) + "***" + trimmed.charAt(trimmed.length() - 1);
+    }
+
 
     /**
      * 根据 username 查找用户
@@ -209,12 +253,25 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * 撤销旧的 RefreshToken
+     * 指定 jti 撤销 RefreshToken
      * @param jti
      */
     @Override
     public void revokeRefreshToken(String jti) {
         authMapper.revokeRefreshToken(jti, AuthSessionStatus.REVOKED.getValue());
+    }
+
+    /**
+     * 撤销指定用户所有活跃的 Refresh Token 会话
+     * @param userId
+     */
+    @Override
+    public void revokeUserRefreshTokens(Long userId) {
+        authMapper.revokeActiveRefreshTokensByUserId(
+                userId,
+                AuthSessionStatus.ACTIVE.getValue(),
+                AuthSessionStatus.REVOKED.getValue()
+        );
     }
 
     /**
@@ -230,6 +287,7 @@ public class AuthServiceImpl implements AuthService {
                 jwtProperties.accessTtl(),
                 user.getId(),
                 user.getUsername(),
+                // role/status 在这里写进 Access Token，后续 JwtAuthenticationFilter 会从 Token 中读出。
                 user.getRole().getValue(),
                 user.getStatus().getValue()
         );

@@ -86,7 +86,7 @@ paths:
                 message: 成功
                 data:
                   accessToken: eyJhbGciOiJIUzI1NiJ9.access.token
-                  accessTokenExpiresAt: '2026-04-22T23:20:00+08:00'
+                  accessTokenExpiresAt: '2026-04-22T22:35:00+08:00'
                   refreshToken: eyJhbGciOiJIUzI1NiJ9.refresh.token
                   refreshTokenExpiresAt: '2026-04-29T22:20:00+08:00'
                   tokenType: Bearer
@@ -110,7 +110,7 @@ paths:
       tags:
         - Auth
       summary: 刷新登录态
-      description: 权限级别 `PUBLIC`。通过 Refresh Token 获取新令牌；刷新成功后会轮转 Refresh Token，旧 Refresh Token 立即失效。
+      description: 权限级别 `PUBLIC`。通过 Refresh Token 获取新令牌；刷新成功后只轮转当前会话的 Refresh Token，不影响同一用户其他设备上的活跃会话。Refresh Token 缺失、格式错误、签名无效、已过期、已撤销或找不到对应会话时返回 101004；P0 阶段不因普通刷新失败自动撤销该用户全部活跃 Refresh Token。
       operationId: refreshToken
       requestBody:
         required: true
@@ -132,7 +132,7 @@ paths:
                 message: 成功
                 data:
                   accessToken: eyJhbGciOiJIUzI1NiJ9.new.access
-                  accessTokenExpiresAt: '2026-04-22T23:50:00+08:00'
+                  accessTokenExpiresAt: '2026-04-22T23:05:00+08:00'
                   refreshToken: eyJhbGciOiJIUzI1NiJ9.new.refresh
                   refreshTokenExpiresAt: '2026-04-29T22:50:00+08:00'
                   tokenType: Bearer
@@ -163,12 +163,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/NoDataResponse'
               example:
                 code: 0
                 message: 成功
-                data:
-                  success: true
+                data: null
         '400':
           $ref: '#/components/responses/BadRequestResponse'
   /api/v1/articles:
@@ -446,12 +445,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/NoDataResponse'
               example:
                 code: 0
                 message: 成功
-                data:
-                  success: true
+                data: null
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '401':
@@ -461,7 +459,7 @@ paths:
       tags:
         - Admin Users
       summary: 获取用户分页列表
-      description: 权限级别 `ADMIN`。支持按用户名、邮箱、状态、角色筛选。
+      description: 权限级别 `ADMIN`。支持按用户名、邮箱、状态、角色筛选。默认按创建时间倒序、用户 ID 倒序返回，不提供自定义排序参数。
       operationId: listAdminUsers
       security:
         - bearerAuth: []
@@ -474,6 +472,7 @@ paths:
           required: false
           schema:
             type: string
+            maxLength: 255
             example: alice
         - name: role
           in: query
@@ -529,7 +528,7 @@ paths:
       tags:
         - Admin Users
       summary: 修改用户状态
-      description: 权限级别 `ADMIN`。支持启用或禁用用户。
+      description: 权限级别 `ADMIN`。支持启用或禁用用户；管理员不能修改当前登录用户自身状态。状态修改为 DISABLED 时会撤销该用户全部活跃 Refresh Token；修改为 ACTIVE 时不撤销 Refresh Token。P0 阶段已签发 Access Token 依赖 15 分钟短有效期自然过期，P1 阶段通过 tokenVersion 支持立即失效。
       operationId: updateAdminUserStatus
       security:
         - bearerAuth: []
@@ -556,19 +555,35 @@ paths:
                 data:
                   id: 10002
                   status: DISABLED
-                  updatedAt: '2026-04-22T23:35:00+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
         '403':
-          $ref: '#/components/responses/ForbiddenResponse'
+          description: 无权限访问或不允许修改当前登录用户自身状态
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                forbidden:
+                  summary: 无权限访问
+                  value:
+                    code: 101003
+                    message: 无权限访问
+                    data: null
+                selfStatusChangeNotAllowed:
+                  summary: 不允许修改当前登录用户状态
+                  value:
+                    code: 102008
+                    message: 当前用户不允许修改自己的状态
+                    data: null
   /api/v1/admin/users/{userId}/role:
     patch:
       tags:
         - Admin Users
       summary: 修改用户角色
-      description: 权限级别 `ADMIN`。支持将用户修改为管理员或普通用户。
+      description: 权限级别 `ADMIN`。支持将用户修改为管理员或普通用户；管理员不能修改当前登录用户自身角色。角色发生变化后不直接撤销 Refresh Token，新的角色在刷新登录态或重新登录后生效。P0 阶段已签发 Access Token 依赖 15 分钟短有效期自然过期，P1 阶段通过 tokenVersion 支持立即失效。
       operationId: updateAdminUserRole
       security:
         - bearerAuth: []
@@ -595,13 +610,29 @@ paths:
                 data:
                   id: 10002
                   role: ADMIN
-                  updatedAt: '2026-04-22T23:36:00+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
         '403':
-          $ref: '#/components/responses/ForbiddenResponse'
+          description: 无权限访问或不允许修改当前登录用户自身角色
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                forbidden:
+                  summary: 无权限访问
+                  value:
+                    code: 101003
+                    message: 无权限访问
+                    data: null
+                selfRoleChangeNotAllowed:
+                  summary: 不允许修改当前登录用户角色
+                  value:
+                    code: 102007
+                    message: 当前用户不允许修改自己的角色
+                    data: null
   /api/v1/admin/articles:
     get:
       tags:
@@ -843,12 +874,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/NoDataResponse'
               example:
                 code: 0
                 message: 成功
-                data:
-                  success: true
+                data: null
         '404':
           $ref: '#/components/responses/ArticleNotFoundResponse'
   /api/v1/admin/articles/{articleId}/status:
@@ -1058,12 +1088,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/NoDataResponse'
               example:
                 code: 0
                 message: 成功
-                data:
-                  success: true
+                data: null
         '409':
           $ref: '#/components/responses/CategoryHasArticlesResponse'
   /api/v1/admin/tags:
@@ -1195,12 +1224,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/NoDataResponse'
               example:
                 code: 0
                 message: 成功
-                data:
-                  success: true
+                data: null
 components:
   securitySchemes:
     bearerAuth:
@@ -1289,22 +1317,15 @@ components:
               nullable: true
               description: 错误场景通常为空
               example: null
-    SuccessData:
-      type: object
-      required:
-        - success
-      properties:
-        success:
-          type: boolean
-          description: 是否执行成功
-          example: true
-    SuccessResponse:
+    NoDataResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
         - type: object
           properties:
             data:
-              $ref: '#/components/schemas/SuccessData'
+              nullable: true
+              description: 无业务数据返回
+              example: null
     PagedMeta:
       type: object
       required:
@@ -1539,7 +1560,7 @@ components:
         accessTokenExpiresAt:
           type: string
           format: date-time
-          example: '2026-04-22T23:20:00+08:00'
+          example: '2026-04-22T22:35:00+08:00'
         refreshToken:
           type: string
           example: eyJhbGciOiJIUzI1NiJ9.refresh.token
@@ -1574,7 +1595,7 @@ components:
         accessTokenExpiresAt:
           type: string
           format: date-time
-          example: '2026-04-22T23:50:00+08:00'
+          example: '2026-04-22T23:05:00+08:00'
         refreshToken:
           type: string
           example: eyJhbGciOiJIUzI1NiJ9.new.refresh
@@ -1892,6 +1913,7 @@ components:
         lastLoginAt:
           type: string
           format: date-time
+          nullable: true
           example: '2026-04-22T22:20:10+08:00'
         createdAt:
           type: string
@@ -1911,11 +1933,13 @@ components:
           type: string
           minLength: 1
           maxLength: 20
-          description: 用户昵称，1-20 个字符
+          pattern: '.*\S.*'
+          description: 用户昵称，1-20 个字符，不能全为空白字符
           example: Alice
         bio:
           type: string
-          description: 个人简介
+          maxLength: 500
+          description: 个人简介，最长 500 个字符
           example: 专注 Java 与前端工程化
     UpdateProfileData:
       type: object
@@ -2022,6 +2046,7 @@ components:
         lastLoginAt:
           type: string
           format: date-time
+          nullable: true
           example: '2026-04-22T22:20:10+08:00'
         createdAt:
           type: string
@@ -2061,7 +2086,6 @@ components:
       required:
         - id
         - status
-        - updatedAt
       properties:
         id:
           type: integer
@@ -2073,10 +2097,6 @@ components:
             - ACTIVE
             - DISABLED
           example: DISABLED
-        updatedAt:
-          type: string
-          format: date-time
-          example: '2026-04-22T23:35:00+08:00'
     UpdateUserStatusResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
@@ -2100,7 +2120,6 @@ components:
       required:
         - id
         - role
-        - updatedAt
       properties:
         id:
           type: integer
@@ -2112,10 +2131,6 @@ components:
             - ADMIN
             - USER
           example: ADMIN
-        updatedAt:
-          type: string
-          format: date-time
-          example: '2026-04-22T23:36:00+08:00'
     UpdateUserRoleResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
@@ -2900,6 +2915,6 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            code: 199001
-            message: 请求参数不合法
+            code: 104001
+            message: 分类下存在文章，不能删除
             data: null

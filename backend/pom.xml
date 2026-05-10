@@ -139,6 +139,11 @@
             <version>${mybatis-plus.version}</version>
             <scope>compile</scope>
         </dependency>
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
+            <version>${mybatis-plus.version}</version>
+        </dependency>
 
         <!--添加 hutool 依赖-->
         <!-- Source: https://mvnrepository.com/artifact/cn.hutool/hutool-all -->

@@ -1,0 +1,214 @@
+package com.ccsanjuu.blog.modules.user.service.impl;
+
+import cn.hutool.core.bean.BeanUtil;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.ccsanjuu.blog.common.api.PageResult;
+import com.ccsanjuu.blog.common.api.ResultCode;
+import com.ccsanjuu.blog.common.exception.BizException;
+import com.ccsanjuu.blog.modules.auth.service.AuthService;
+import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
+import com.ccsanjuu.blog.modules.user.model.dto.*;
+import com.ccsanjuu.blog.modules.user.model.entity.User;
+import com.ccsanjuu.blog.modules.user.model.enums.UserStatus;
+import com.ccsanjuu.blog.modules.user.model.vo.*;
+import com.ccsanjuu.blog.modules.user.service.UserService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.util.List;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
+
+    private final PasswordEncoder passwordEncoder;
+    private final UserMapper userMapper;
+    private final AuthService authService;
+
+    /**
+     * 获取用户公开资料卡
+     * @param userId
+     * @return
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public PublicUserProfileVO getPublicUserProfile(Long userId) {
+        User user = requireUser(userId);
+        return BeanUtil.copyProperties(user, PublicUserProfileVO.class);
+    }
+
+    /**
+     * 获取当前登录用户信息
+     * @param userId
+     * @return
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public CurrentUserProfileVO getCurrentUserProfile(Long userId) {
+        User user = requireUser(userId);
+        return BeanUtil.copyProperties(user, CurrentUserProfileVO.class);
+    }
+
+    /**
+     * 更新个人资料
+     * @param userId
+     * @param updateProfileRequestDTO
+     * @return
+     */
+    @Override
+    public UpdatedUserProfileVO updateProfile(Long userId, UpdateProfileRequestDTO updateProfileRequestDTO) {
+        User user = requireUser(userId);
+
+        User updateUser = new User();
+        updateUser.setId(user.getId());
+        updateUser.setNickname(updateProfileRequestDTO.getNickname());
+        updateUser.setBio(updateProfileRequestDTO.getBio());
+        if (updateUser.getNickname() != null || updateUser.getBio() != null) {
+            userMapper.updateById(updateUser);
+        }
+
+        UpdatedUserProfileVO updatedUserProfileVO = BeanUtil.copyProperties(user, UpdatedUserProfileVO.class);
+        updatedUserProfileVO.setNickname(
+                updateProfileRequestDTO.getNickname() != null
+                ? updateProfileRequestDTO.getNickname()
+                : user.getNickname()
+        );
+        updatedUserProfileVO.setBio(
+                updateProfileRequestDTO.getBio() != null
+                ? updateProfileRequestDTO.getBio()
+                : user.getBio()
+        );
+        if (updateUser.getUpdatedAt() != null) {
+            updatedUserProfileVO.setUpdatedAt(updateUser.getUpdatedAt());
+        }
+        return updatedUserProfileVO;
+    }
+
+    /**
+     * 修改密码
+     * @param userId
+     * @param changePasswordRequestDTO
+     * @return
+     */
+    @Override
+    public Void changePassword(Long userId, ChangePasswordRequestDTO changePasswordRequestDTO) {
+        User user = requireUser(userId);
+        if (!passwordEncoder.matches(changePasswordRequestDTO.getOldPassword(), user.getPasswordHash())){
+            throw new BizException(ResultCode.OLD_PASSWORD_ERROR);
+        }
+
+        User updateUser = new User();
+        updateUser.setId(user.getId());
+        updateUser.setPasswordHash(passwordEncoder.encode(changePasswordRequestDTO.getNewPassword()));
+        userMapper.updateById(updateUser);
+        authService.revokeUserRefreshTokens(user.getId());   // 用户修改密码，则撤销其现有的活跃 RT
+
+        log.info("用户修改密码成功：userId={}", userId);
+
+        return null;
+    }
+
+    /**
+     * 获取用户分页列表
+     * @param userManagementPageQueryDTO
+     * @return
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public PageResult<AdminUserItemVO> userPageQuery(UserManagementPageQueryDTO userManagementPageQueryDTO) {
+        // 1. 构建分页查询条件，并执行分页查询
+        Page<User> page = Page.of(userManagementPageQueryDTO.getPageNum(), userManagementPageQueryDTO.getPageSize());
+        String keyword = StringUtils.hasText(userManagementPageQueryDTO.getKeyword())
+                ? userManagementPageQueryDTO.getKeyword().trim()
+                : null;
+
+        lambdaQuery()
+                .select(User::getId,User::getUsername,User::getNickname,User::getEmail,User::getRole,User::getStatus,User::getLastLoginAt,User::getCreatedAt)
+                .eq(userManagementPageQueryDTO.getRole() != null, User::getRole, userManagementPageQueryDTO.getRole())
+                .eq(userManagementPageQueryDTO.getStatus() != null, User::getStatus, userManagementPageQueryDTO.getStatus())
+                .and(StringUtils.hasText(keyword), wrapper -> wrapper
+                        .like(User::getUsername, keyword)
+                        .or()
+                        .like(User::getEmail, keyword))
+                .orderByDesc(User::getCreatedAt)
+                .orderByDesc(User::getId)
+                .page(page);
+
+        List<AdminUserItemVO> records = BeanUtil.copyToList(page.getRecords(), AdminUserItemVO.class);
+        return PageResult.of(page.getTotal(), page.getCurrent(), page.getSize(), records);
+    }
+
+    /**
+     * 修改用户状态
+     * @param currentUserId 当前登录的用户 id
+     * @param userId 要修改角色的目标用户 id
+     * @param updateUserStatusRequestDTO
+     * @return
+     */
+    @Override
+    @Transactional
+    public UpdatedUserStatusVO changeUserStatus(Long currentUserId, Long userId, UpdateUserStatusRequestDTO updateUserStatusRequestDTO) {
+        User user = requireUser(userId);
+        if (currentUserId.equals(user.getId())) {   // 管理员不得修改自己的状态
+            throw new BizException(ResultCode.SELF_STATUS_CHANGE_NOT_ALLOWED);
+        }
+        if (user.getStatus() != updateUserStatusRequestDTO.getStatus()) {
+            User updateUser = new User();
+            updateUser.setId(user.getId());
+            updateUser.setStatus(updateUserStatusRequestDTO.getStatus());
+            userMapper.updateById(updateUser);
+            if (updateUserStatusRequestDTO.getStatus() == UserStatus.DISABLED) {
+                authService.revokeUserRefreshTokens(user.getId());   // 用户状态从 ACTIVE 变成 DISABLED，则撤销其现有的活跃 RT
+            }
+        }
+        return UpdatedUserStatusVO.builder()
+                .id(user.getId())
+                .status(updateUserStatusRequestDTO.getStatus())
+                .build();
+    }
+
+    /**
+     * 修改用户角色
+     * @param currentUserId 当前登录的用户 id
+     * @param userId 要修改角色的目标用户 id
+     * @param updateUserRoleRequestDTO
+     * @return
+     */
+    @Override
+    @Transactional
+    public UpdatedUserRoleVO changeUserRole(Long currentUserId, Long userId, UpdateUserRoleRequestDTO updateUserRoleRequestDTO) {
+        User user = requireUser(userId);
+        if (currentUserId.equals(user.getId())) {   // 管理员不得修改自己的角色
+            throw new BizException(ResultCode.SELF_ROLE_CHANGE_NOT_ALLOWED);
+        }
+        if (user.getRole() != updateUserRoleRequestDTO.getRole()) {
+            User updateUser = new User();
+            updateUser.setId(user.getId());
+            updateUser.setRole(updateUserRoleRequestDTO.getRole());
+            userMapper.updateById(updateUser);
+        }
+        return UpdatedUserRoleVO.builder()
+                .id(user.getId())
+                .role(updateUserRoleRequestDTO.getRole())
+                .build();
+    }
+
+    /**
+     * 根据 userId 获取用户数据，用户不存在则抛出业务异常
+     * @param userId
+     * @return
+     */
+    private User requireUser(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BizException(ResultCode.USER_NOT_FOUND);
+        }
+        return user;
+    }
+}
