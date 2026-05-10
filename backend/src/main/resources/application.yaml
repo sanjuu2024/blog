@@ -10,6 +10,9 @@ spring:
     baseline-on-migrate: true
     validate-on-migrate: true
     encoding: utf-8
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
 
 logging:
   level:
@@ -30,5 +33,5 @@ blog:
   jwt:
     issuer: sanjuu-blog
     secret: YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY=   # base64 编码的 JWT 密钥（原文本：abcdefghijklmnopqrstuvwxyz123456）
-    access-ttl: 30m
+    access-ttl: 15m
     refresh-ttl: 7d

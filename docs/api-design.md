@@ -34,6 +34,13 @@
 Authorization: Bearer <access_token>
 ```
 
+说明：
+
+- Access Token 有效期较短，P0 默认 15 分钟。
+- Access Token 携带签发时的用户角色、状态快照；P0 阶段不会在每次请求实时查询数据库或 Redis 校验权限版本。
+- 管理员禁用用户或用户修改密码后，后端会撤销该用户全部活跃 Refresh Token，阻止旧登录态继续刷新；修改用户角色不直接撤销 Refresh Token，新的角色在刷新登录态或重新登录后生效；已签发 Access Token 依赖短有效期自然过期。
+- P1 阶段引入 Redis + tokenVersion 校验，支持修改密码、禁用用户、修改角色后的旧 Access Token 立即失效。
+
 ### 2.4 权限级别
 
 | 权限级别 | 说明 |
@@ -77,12 +84,16 @@ Authorization: Bearer <access_token>
 | `101001` | `未登录或 Access Token 无效` | 访问受保护接口时未登录、Access Token 缺失、格式错误或签名无效 |
 | `101002` | `Access Token 已过期` | Access Token 已过期，前端可尝试使用 Refresh Token 刷新登录态 |
 | `101003` | `无权限访问` | 当前身份无权访问目标资源 |
-| `101004` | `Refresh Token 无效或已过期` | Refresh Token 缺失、格式错误、签名无效、已过期、已撤销或重放校验失败 |
+| `101004` | `Refresh Token 无效或已过期` | Refresh Token 缺失、格式错误、签名无效、已过期、已撤销或找不到对应会话 |
 | `102001` | `用户不存在` | 指定用户不存在 |
 | `102002` | `用户名已存在` | 注册或修改资料时用户名冲突 |
 | `102003` | `账号或密码错误` | 登录凭证校验失败 |
 | `102004` | `邮箱已存在` | 注册时邮箱冲突 |
 | `102005` | `用户已被禁用` | 用户状态为禁用，不允许登录或刷新登录态 |
+| `102006` | `原密码错误` | 修改密码时原密码校验失败 |
+| `102007` | `当前用户不允许修改自己的角色` | 管理员修改当前登录用户自身角色时被拒绝 |
+| `102008` | `当前用户不允许修改自己的状态` | 管理员修改当前登录用户自身状态时被拒绝 |
+| `104001` | `分类下存在文章，不能删除` | 删除分类时，该分类或其子分类下仍有关联文章 |
 
 ### 2.7 分页结构
 
@@ -245,7 +256,7 @@ Content-Type: application/json
 | 字段名称 | 字段类型 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- |
 | `accessToken` | `String` | 用于访问受保护接口的令牌 | `eyJhbGciOiJIUzI1NiJ9...` |
-| `accessTokenExpiresAt` | `String` | Access Token 过期时间 | `2026-04-22T23:20:00+08:00` |
+| `accessTokenExpiresAt` | `String` | Access Token 过期时间 | `2026-04-22T22:35:00+08:00` |
 | `refreshToken` | `String` | 用于刷新登录态的令牌 | `eyJhbGciOiJIUzI1NiJ9...` |
 | `refreshTokenExpiresAt` | `String` | Refresh Token 过期时间 | `2026-04-29T22:20:00+08:00` |
 | `tokenType` | `String` | Token 类型 | `Bearer` |
@@ -266,7 +277,7 @@ Content-Type: application/json
   "message": "成功",
   "data": {
     "accessToken": "eyJhbGciOiJIUzI1NiJ9.access.token",
-    "accessTokenExpiresAt": "2026-04-22T23:20:00+08:00",
+    "accessTokenExpiresAt": "2026-04-22T22:35:00+08:00",
     "refreshToken": "eyJhbGciOiJIUzI1NiJ9.refresh.token",
     "refreshTokenExpiresAt": "2026-04-29T22:20:00+08:00",
     "tokenType": "Bearer",
@@ -290,11 +301,11 @@ Content-Type: application/json
 - 路径：`/api/v1/auth/refresh`
 - 权限：`PUBLIC`
 
-刷新登录态采用 Refresh Token 轮转机制。每次刷新成功后，后端都会返回新的 Access Token 和新的 Refresh Token，旧 Refresh Token 立即失效。
+刷新登录态采用 Refresh Token 轮转机制。每次刷新成功后，后端都会返回新的 Access Token 和新的 Refresh Token，并撤销本次请求携带的旧 Refresh Token。正常刷新只轮转当前会话，不影响同一用户在其他设备上的活跃 Refresh Token。
 
-为处理网络波动导致的前端重试，后端可为刚完成轮转的旧 Refresh Token 保留一个很短的宽限期。宽限期只用于识别同一次刷新请求的幂等重试并返回同一份新令牌结果，不表示旧 Refresh Token 仍可长期使用。
+P0 阶段，Refresh Token 缺失、格式错误、签名无效、已过期、已撤销或找不到对应会话时，统一返回 `101004`。前端收到后清理本地登录态并引导重新登录；后端不因普通刷新失败自动撤销该用户全部活跃 Refresh Token。
 
-若旧 Refresh Token 在宽限期外再次被使用，视为无效或疑似重放攻击。后端默认撤销该用户全部活跃 Refresh Token 会话，并要求用户重新登录。
+P1 阶段可结合 Redis 短 TTL 宽限期、`token_jti` 状态和 `tokenVersion` 做更精细的幂等重试与重放检测；只有在明确识别为高风险重放或管理员强制下线等安全事件时，才撤销该用户全部活跃 Refresh Token。
 
 ### 请求参数
 
@@ -322,7 +333,7 @@ Content-Type: application/json
 | 字段名称 | 字段类型 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- |
 | `accessToken` | `String` | 新的 Access Token | `eyJhbGciOiJIUzI1NiJ9.new.access` |
-| `accessTokenExpiresAt` | `String` | 新 Access Token 过期时间 | `2026-04-22T23:50:00+08:00` |
+| `accessTokenExpiresAt` | `String` | 新 Access Token 过期时间 | `2026-04-22T23:05:00+08:00` |
 | `refreshToken` | `String` | 轮转后签发的新 Refresh Token | `eyJhbGciOiJIUzI1NiJ9.new.refresh` |
 | `refreshTokenExpiresAt` | `String` | 新 Refresh Token 过期时间 | `2026-04-29T22:50:00+08:00` |
 | `tokenType` | `String` | Token 类型 | `Bearer` |
@@ -335,7 +346,7 @@ Content-Type: application/json
   "message": "成功",
   "data": {
     "accessToken": "eyJhbGciOiJIUzI1NiJ9.new.access",
-    "accessTokenExpiresAt": "2026-04-22T23:50:00+08:00",
+    "accessTokenExpiresAt": "2026-04-22T23:05:00+08:00",
     "refreshToken": "eyJhbGciOiJIUzI1NiJ9.new.refresh",
     "refreshTokenExpiresAt": "2026-04-29T22:50:00+08:00",
     "tokenType": "Bearer"
@@ -377,11 +388,7 @@ Content-Type: application/json
 
 ### 响应参数
 
-#### data 字段说明
-
-| 字段名称 | 字段类型 | 字段解释 | 业务例子 |
-| --- | --- | --- | --- |
-| `success` | `Boolean` | 是否退出成功 | `true` |
+无业务数据返回，`data` 固定为 `null`。
 
 ### 响应样例
 
@@ -389,9 +396,7 @@ Content-Type: application/json
 {
   "code": 0,
   "message": "成功",
-  "data": {
-    "success": true
-  }
+  "data": null
 }
 ```
 
@@ -746,7 +751,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.access
 | `status` | `String` | 用户状态 | `ACTIVE` |
 | `avatarUrl` | `String` | 头像地址 | `` |
 | `bio` | `String` | 个人简介 | `热爱前后端开发` |
-| `lastLoginAt` | `String` | 最近登录时间 | `2026-04-22T22:20:10+08:00` |
+| `lastLoginAt` | `String/null` | 最近登录时间；从未登录过时为空 | `2026-04-22T22:20:10+08:00` |
 | `createdAt` | `String` | 注册时间 | `2026-04-22T22:20:00+08:00` |
 
 ### 响应样例
@@ -788,8 +793,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.access
 
 | 字段名称 | 字段类型 | 必填 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- | --- |
-| `nickname` | `String` | 否 | 用户昵称，1-20 位 | `Alice` |
-| `bio` | `String` | 否 | 个人简介 | `专注 Java 与前端工程化` |
+| `nickname` | `String` | 否 | 用户昵称，1-20 位，不能全为空白字符 | `Alice` |
+| `bio` | `String` | 否 | 个人简介，最长 500 个字符 | `专注 Java 与前端工程化` |
 
 ### 请求样例
 
@@ -872,11 +877,7 @@ Content-Type: application/json
 
 ### 响应参数
 
-#### data 字段说明
-
-| 字段名称 | 字段类型 | 字段解释 | 业务例子 |
-| --- | --- | --- | --- |
-| `success` | `Boolean` | 是否修改成功 | `true` |
+无业务数据返回，`data` 固定为 `null`。
 
 ### 响应样例
 
@@ -884,9 +885,7 @@ Content-Type: application/json
 {
   "code": 0,
   "message": "成功",
-  "data": {
-    "success": true
-  }
+  "data": null
 }
 ```
 
@@ -912,9 +911,11 @@ Content-Type: application/json
 | --- | --- | --- | --- | --- |
 | `pageNum` | `Integer` | 否 | 页码，默认 `1` | `1` |
 | `pageSize` | `Integer` | 否 | 每页条数，默认 `10` | `10` |
-| `keyword` | `String` | 否 | 用户名或邮箱模糊搜索 | `alice` |
+| `keyword` | `String` | 否 | 用户名或邮箱模糊搜索，最长 255 个字符 | `alice` |
 | `role` | `String` | 否 | 角色筛选 | `USER` |
 | `status` | `String` | 否 | 状态筛选 | `ACTIVE` |
+
+排序规则：默认按 `createdAt` 倒序、`id` 倒序返回，不提供自定义排序参数。
 
 ### 请求样例
 
@@ -937,7 +938,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | `email` | `String` | 邮箱 | `alice@example.com` |
 | `role` | `String` | 角色 | `USER` |
 | `status` | `String` | 状态 | `ACTIVE` |
-| `lastLoginAt` | `String` | 最近登录时间 | `2026-04-22T22:20:10+08:00` |
+| `lastLoginAt` | `String/null` | 最近登录时间；从未登录过时为空 | `2026-04-22T22:20:10+08:00` |
 | `createdAt` | `String` | 注册时间 | `2026-04-22T22:20:00+08:00` |
 
 ### 响应样例
@@ -1000,6 +1001,8 @@ Content-Type: application/json
 }
 ```
 
+说明：管理员不能修改当前登录用户自身状态。状态修改为 `DISABLED` 时，后端会撤销该用户全部活跃 Refresh Token；修改为 `ACTIVE` 时不撤销 Refresh Token。P0 阶段该用户已签发的 Access Token 依赖 15 分钟短有效期自然过期，P1 阶段通过 tokenVersion 支持立即失效。
+
 ### 响应参数
 
 #### data 字段说明
@@ -1008,7 +1011,6 @@ Content-Type: application/json
 | --- | --- | --- | --- |
 | `id` | `Long` | 用户 ID | `10002` |
 | `status` | `String` | 更新后的状态 | `DISABLED` |
-| `updatedAt` | `String` | 更新时间 | `2026-04-22T23:35:00+08:00` |
 
 ### 响应样例
 
@@ -1018,8 +1020,7 @@ Content-Type: application/json
   "message": "成功",
   "data": {
     "id": 10002,
-    "status": "DISABLED",
-    "updatedAt": "2026-04-22T23:35:00+08:00"
+    "status": "DISABLED"
   }
 }
 ```
@@ -1056,6 +1057,8 @@ Content-Type: application/json
 }
 ```
 
+说明：管理员不能修改当前登录用户自身角色。角色发生变化后不直接撤销 Refresh Token；新的角色在刷新登录态或重新登录后生效。P0 阶段该用户已签发的 Access Token 依赖 15 分钟短有效期自然过期，P1 阶段通过 tokenVersion 支持立即失效。
+
 ### 响应参数
 
 #### data 字段说明
@@ -1064,7 +1067,6 @@ Content-Type: application/json
 | --- | --- | --- | --- |
 | `id` | `Long` | 用户 ID | `10002` |
 | `role` | `String` | 更新后的角色 | `ADMIN` |
-| `updatedAt` | `String` | 更新时间 | `2026-04-22T23:36:00+08:00` |
 
 ### 响应样例
 
@@ -1074,8 +1076,7 @@ Content-Type: application/json
   "message": "成功",
   "data": {
     "id": 10002,
-    "role": "ADMIN",
-    "updatedAt": "2026-04-22T23:36:00+08:00"
+    "role": "ADMIN"
   }
 }
 ```
@@ -1457,11 +1458,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ### 响应参数
 
-#### data 字段说明
-
-| 字段名称 | 字段类型 | 字段解释 | 业务例子 |
-| --- | --- | --- | --- |
-| `success` | `Boolean` | 是否删除成功 | `true` |
+无业务数据返回，`data` 固定为 `null`。
 
 ### 响应样例
 
@@ -1469,9 +1466,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 {
   "code": 0,
   "message": "成功",
-  "data": {
-    "success": true
-  }
+  "data": null
 }
 ```
 
@@ -1732,11 +1727,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ### 响应参数
 
-#### data 字段说明
-
-| 字段名称 | 字段类型 | 字段解释 | 业务例子 |
-| --- | --- | --- | --- |
-| `success` | `Boolean` | 是否删除成功 | `true` |
+无业务数据返回，`data` 固定为 `null`。
 
 ### 响应样例
 
@@ -1744,9 +1735,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 {
   "code": 0,
   "message": "成功",
-  "data": {
-    "success": true
-  }
+  "data": null
 }
 ```
 
@@ -1947,11 +1936,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ### 响应参数
 
-#### data 字段说明
-
-| 字段名称 | 字段类型 | 字段解释 | 业务例子 |
-| --- | --- | --- | --- |
-| `success` | `Boolean` | 是否删除成功 | `true` |
+无业务数据返回，`data` 固定为 `null`。
 
 ### 响应样例
 
@@ -1959,9 +1944,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 {
   "code": 0,
   "message": "成功",
-  "data": {
-    "success": true
-  }
+  "data": null
 }
 ```
 
@@ -1970,13 +1953,18 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 ### 11.1 用户相关
 
 - 被禁用用户不可登录
-- 被禁用用户已有 Access Token 可自然过期
+- 被禁用用户已有 Access Token 在 P0 阶段依赖 15 分钟短有效期自然过期
 - 被禁用用户在刷新 Token 时必须失败，返回 `102005`
+- 管理员不能修改当前登录用户自身的状态和角色
+- 用户修改密码或被禁用后，后端撤销该用户全部活跃 Refresh Token
+- 用户角色变更后不直接撤销 Refresh Token，新的角色在刷新登录态或重新登录后生效
+- P1 阶段引入 Redis + tokenVersion 校验后，修改密码、禁用用户、修改角色后的旧 Access Token 应立即失效
 - 用户名注册后不支持在个人中心修改
 - 用户名不允许包含 `@`，登录接口可用 `account` 是否包含 `@` 区分邮箱登录和用户名登录
-- Refresh Token 每次刷新成功后都必须轮转，旧 Refresh Token 标记为 `REVOKED`
-- Refresh Token 无效、已过期、已撤销或超出宽限期后再次使用时，统一返回 `101004`
-- 旧 Refresh Token 超出宽限期后再次使用时，默认撤销该用户全部活跃 Refresh Token 会话
+- Refresh Token 每次刷新成功后都必须轮转，本次请求携带的旧 Refresh Token 标记为 `REVOKED`
+- Refresh Token 缺失、格式错误、签名无效、已过期、已撤销或找不到对应会话时，统一返回 `101004`
+- P0 阶段不因普通刷新失败自动撤销该用户全部活跃 Refresh Token；明确安全事件，如修改密码、用户禁用、管理员强制下线，可按对应业务规则撤销全部会话
+- P1 阶段可结合 Redis 短 TTL 宽限期、`token_jti` 状态和 `tokenVersion` 增强幂等重试与重放检测
 
 ### 11.2 文章相关
 
@@ -1996,6 +1984,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 删除标签时可由后端同步清理 `article_tag` 关联关系
 - 前台分类接口默认返回一级分类树，二级分类挂载在 `children` 字段
 - 前台主导航不展示标签，标签主要用于筛选和后续搜索
+
+### 11.4 日志与审计
+
+- P0 阶段保留认证成功、认证失败、改密、禁用用户等关键安全事件的应用日志，避免记录密码、Token 等敏感值
+- P1 阶段补充后台管理操作审计日志，记录操作者用户 ID、目标资源 ID、操作类型、操作结果和操作时间
 
 ## 12. 后续版本预留接口
 

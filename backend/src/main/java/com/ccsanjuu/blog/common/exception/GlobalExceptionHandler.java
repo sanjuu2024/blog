@@ -47,6 +47,15 @@ import java.util.Locale;
 @Slf4j
 public class GlobalExceptionHandler {
 
+    private static final String REDACTED_REJECTED_VALUE = "[REDACTED]";
+    private static final List<String> SENSITIVE_FIELD_KEYWORDS = List.of(
+            "password",
+            "token",
+            "secret",
+            "credential",
+            "authorization"
+    );
+
     /**
      * 处理业务层主动抛出的异常。
      *
@@ -141,7 +150,7 @@ public class GlobalExceptionHandler {
     /**
      * 最后的兜底异常处理。
      *
-     * <p>没有被前面明确捕获的异常都会进入这里。日志保留完整堆栈，响应只返回统一系统错误，
+     * <p>没被前面明确捕获的异常都会进入这里。日志保留完整堆栈，响应只返回统一系统错误，
      * 避免把内部实现、SQL、堆栈等敏感信息暴露给客户端。</p>
      *
      * @param ex 未分类异常
@@ -414,5 +423,17 @@ public class GlobalExceptionHandler {
      * @param rejectedValue 被拒绝的原始值；无法或不适合暴露时为空
      */
     public record FieldValidationError(String field, String message, Object rejectedValue) {
+        public FieldValidationError {
+            rejectedValue = sanitizeRejectedValue(field, rejectedValue);
+        }
+    }
+
+    private static Object sanitizeRejectedValue(String field, Object rejectedValue) {
+        if (rejectedValue == null || !StringUtils.hasText(field)) {
+            return rejectedValue;
+        }
+        String normalizedField = field.toLowerCase(Locale.ROOT);
+        boolean sensitive = SENSITIVE_FIELD_KEYWORDS.stream().anyMatch(normalizedField::contains);
+        return sensitive ? REDACTED_REJECTED_VALUE : rejectedValue;
     }
 }

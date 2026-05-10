@@ -20,8 +20,16 @@ public enum ResultCode {
     USER_NOT_FOUND(102001, "用户不存在", 404),
     USERNAME_EXISTS(102002, "用户名已存在", 409),
     PASSWORD_ERROR(102003, "账号或密码错误", 401),
+    OLD_PASSWORD_ERROR(102006, "原密码错误", 400),
     EMAIL_EXISTS(102004, "邮箱已存在", 409),
-    USER_DISABLED(102005, "用户已被禁用", 403);
+    USER_DISABLED(102005, "用户已被禁用", 403),
+    SELF_ROLE_CHANGE_NOT_ALLOWED(102007, "当前用户不允许修改自己的角色", 403),
+    SELF_STATUS_CHANGE_NOT_ALLOWED(102008, "当前用户不允许修改自己的状态", 403),
+
+
+
+    // category 模块 04xxxx
+    CATEGORY_HAS_ARTICLES(104001, "分类下存在文章，不能删除", 409);
 
     private final int code;
     private final String message;

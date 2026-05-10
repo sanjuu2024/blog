@@ -20,7 +20,21 @@ class UpdateProfileValidationTest {
     @Test
     void nicknameShouldRejectEmptyOrTooLongValue() {
         assertNicknameInvalid("");
+        assertNicknameInvalid("   ");
         assertNicknameInvalid("abcdefghijklmnopqrstu");
+    }
+
+    @Test
+    void bioShouldAllowNullAndRejectTooLongValue() {
+        UpdateProfileRequestDTO nullBioRequest = UpdateProfileRequestDTO.builder()
+                .bio(null)
+                .build();
+        UpdateProfileRequestDTO tooLongBioRequest = UpdateProfileRequestDTO.builder()
+                .bio("a".repeat(501))
+                .build();
+
+        assertTrue(VALIDATOR.validateProperty(nullBioRequest, "bio").isEmpty());
+        assertFalse(VALIDATOR.validateProperty(tooLongBioRequest, "bio").isEmpty());
     }
 
     private static void assertNicknameValid(String nickname) {
