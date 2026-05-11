@@ -19,10 +19,6 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Environment / local config
-.env
-.env.*
-!.env.example
-frontend/.env
 frontend/.env.local
 frontend/.env.*.local
 backend/.env
