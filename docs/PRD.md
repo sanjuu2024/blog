@@ -273,7 +273,7 @@
 
 - 用户可通过用户名 + 密码登录
 - 用户可通过邮箱 + 密码登录
-- 登录成功后获取 Access Token 与 Refresh Token
+- 登录成功后获取 Access Token；Refresh Token 由后端写入 HttpOnly Cookie
 - 登录账号必须符合用户名或邮箱格式；包含 `@` 时按邮箱登录，否则按用户名登录
 - 用户名和邮箱登录均按大小写不敏感处理。也就是允许用户注册展示名 `Sanjuu`，但不允许另一个人再注册 `sanjuu`；登录时输入 `sanjuu`、`SANJUU`、`Sanjuu` 都能找到同一个账号。邮箱同理，`A@example.com` 和 `a@example.com` 会识别为同一个邮箱账号
 
@@ -281,7 +281,8 @@
 
 - Access Token 用于接口访问
 - Access Token 有效期较短，P0 默认为 15 分钟
-- Refresh Token 用于续期登录态
+- Refresh Token 用于续期登录态和退出登录，由后端通过 `Set-Cookie` 写入 `refresh_token` HttpOnly Cookie，前端 JavaScript 不读取或持久化 Refresh Token
+- `refresh_token` Cookie 路径为 `/api/v1/auth`，只随 `/api/v1/auth/**` 请求发送；开发和生产均按同域请求设计，不依赖 CORS
 - P0 阶段 Refresh Token 以数据库会话表做存储与失效控制
 - P1 阶段引入 Redis 存储运行态会话与 tokenVersion，用于降低鉴权查询成本，并支持权限变化后的旧 Access Token 立即失效
 - Access Token 携带登录或刷新时的用户角色、状态快照；P0 阶段角色或状态变化后通过撤销 Refresh Token 阻止继续续期，旧 Access Token 依赖短有效期自然过期
@@ -290,7 +291,7 @@
 - P0 阶段不因普通刷新失败自动撤销该用户全部活跃 Refresh Token；修改密码、用户禁用、管理员强制下线等明确安全事件可撤销全部会话
 - P1 阶段可为刚轮转的旧 Refresh Token 设置短暂宽限期，用于同一次刷新请求的幂等重试；也可结合 Redis 与 tokenVersion 增强重放检测
 - 用户退出登录时，Refresh Token 需失效
-- 退出登录接口不要求有效 Access Token，但请求体必须携带 Refresh Token；若 Refresh Token 已过期、已撤销或找不到对应会话，仍视为退出成功，前端清理本地登录态即可
+- 退出登录接口不要求有效 Access Token，后端通过 `refresh_token` Cookie 尝试撤销当前会话；若 Refresh Token 缺失、已过期、已撤销或找不到对应会话，仍视为退出成功，前端清理本地登录态即可
 
 ### 8.3 个人中心
 
@@ -392,24 +393,25 @@
 1. 用户输入用户名或邮箱，以及密码
 2. 后端校验账号状态与密码正确性
 3. 登录成功后签发 Access Token 和 Refresh Token
-4. P0 阶段 Refresh Token 写入数据库会话表；P1 阶段可同步写入 Redis 运行态会话
-5. 前端使用 Access Token 访问受保护接口
+4. P0 阶段 Refresh Token 写入数据库会话表，并通过 `Set-Cookie` 写入 `refresh_token` HttpOnly Cookie；P1 阶段可同步写入 Redis 运行态会话
+5. 前端保存 Access Token，使用 Access Token 访问受保护接口
 
 ### 11.3 刷新登录态流程
 
 1. Access Token 过期
-2. 前端携带 Refresh Token 请求刷新
+2. 前端请求刷新登录态接口，浏览器自动携带 `refresh_token` Cookie
 3. 后端校验 Refresh Token 是否存在、是否过期、用户是否被禁用
-4. 校验通过则签发新的 Access Token 和新的 Refresh Token
+4. 校验通过则签发新的 Access Token 和新的 Refresh Token，并通过 `Set-Cookie` 轮转 `refresh_token` Cookie
 5. 后端将本次请求携带的旧 Refresh Token 标记为失效
 6. 若刷新失败，P0 阶段统一要求前端清理本地登录态并重新登录；P1 阶段可结合 Redis 宽限期处理幂等重试
 
 ### 11.4 退出登录流程
 
 1. 用户发起退出登录
-2. 后端尝试使当前 Refresh Token 失效；无需先刷新 Access Token，若 Refresh Token 已过期、已撤销或找不到对应会话，仍返回退出成功
+2. 浏览器自动携带 `refresh_token` Cookie，后端尝试使当前 Refresh Token 失效；无需先刷新 Access Token，若 Refresh Token 缺失、已过期、已撤销或找不到对应会话，仍返回退出成功
 3. 前端清理本地登录态
-4. 跳转到首页或登录页
+4. 后端通过 `Set-Cookie` 清除 `refresh_token` Cookie
+5. 跳转到首页或登录页
 
 ### 11.5 文章发布流程
 
