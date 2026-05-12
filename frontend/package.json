@@ -25,7 +25,8 @@
 	"dependencies": {
 		"axios": "^1.16.0",
 		"element-plus": "^2.13.7",
-		"vue": "^3.5.32"
+		"vue": "^3.5.32",
+		"vue-router": "^5.0.6"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

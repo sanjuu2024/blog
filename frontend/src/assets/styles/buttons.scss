@@ -1,0 +1,30 @@
+.app-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	color: var(--app-button-text);
+	font-weight: var(--app-button-font-weight);
+	background-color: var(--app-button-bg);
+	border: 1px solid var(--app-button-bg);
+	transition:
+		background-color 0.15s ease,
+		border-color 0.15s ease;
+}
+
+.app-button:hover,
+.app-button:focus-visible,
+.app-button:active {
+	background-color: var(--app-button-hover);
+	border-color: var(--app-button-hover);
+}
+
+:root .el-button {
+	--el-button-font-weight: var(--app-button-font-weight);
+}
+
+:root .el-button--primary:not(.is-plain):not(.is-text):not(.is-link) {
+	--el-button-text-color: var(--app-button-text);
+	--el-button-hover-text-color: var(--app-button-text);
+	--el-button-active-text-color: var(--app-button-text);
+	--el-button-disabled-text-color: var(--app-button-text);
+}
