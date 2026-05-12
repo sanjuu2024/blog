@@ -10,7 +10,15 @@
 
 `system` 只是用户选择的模式，页面实际渲染时会解析为 `light` 或 `dark`。
 
-## 2. 按钮交互
+## 2. Logo 使用
+
+网站 favicon 与页面 Logo 使用同一个 Seedling SVG 资源，统一通过 `AppLogo` 组件在页面中展示。
+
+- favicon、窄屏导航、后台侧边栏折叠态可以只显示图标。
+- 首页、登录注册页、常规导航栏优先使用“图标 + 网站名”的组合 Logo。
+- Logo 默认文案为 `ccsanjuu blog`，后续如需调整站点名称，优先通过 `AppLogo` 组件参数统一修改使用处。
+
+## 3. 按钮交互
 
 网站整体走简洁风格，基础按钮只维护一组主按钮颜色。
 
@@ -29,12 +37,6 @@
 - `--app-button-text` 对应按钮文字颜色
 
 Element Plus 的 `success`、`warning`、`danger`、`info` 按钮也遵循同样的交互方向：默认色稍亮，hover 与 active 使用更深的同色系颜色。后台管理页面可以在后续按业务语义继续细化这些状态色的具体取值。
-
-## 3. 链接交互
-
-普通链接、Element Plus 的 `el-link`，以及 `link` / `text` 风格按钮，hover、focus 与 active 状态下文字可以加粗。
-
-常规按钮不使用 hover 加粗，避免按钮在交互时产生视觉跳动。
 
 ## 4. 环境变量
 
