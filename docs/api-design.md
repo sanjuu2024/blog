@@ -37,6 +37,8 @@ Authorization: Bearer <access_token>
 说明：
 
 - Access Token 有效期较短，P0 默认 15 分钟。
+- Refresh Token 不返回给前端 JavaScript 读取，登录和刷新成功后由后端通过 `Set-Cookie` 写入 `HttpOnly` Cookie，前端刷新登录态和退出登录时由浏览器自动携带该 Cookie。
+- Refresh Token Cookie 名称为 `refresh_token`，路径为 `/api/v1/auth`，只随 `/api/v1/auth/**` 请求发送；Cookie 使用 `HttpOnly`、`SameSite=Lax`，生产 HTTPS 环境应启用 `Secure`。
 - Access Token 携带签发时的用户角色、状态快照；P0 阶段不会在每次请求实时查询数据库或 Redis 校验权限版本。
 - 管理员禁用用户或用户修改密码后，后端会撤销该用户全部活跃 Refresh Token，阻止旧登录态继续刷新；修改用户角色不直接撤销 Refresh Token，新的角色在刷新登录态或重新登录后生效；已签发 Access Token 依赖短有效期自然过期。
 - P1 阶段引入 Redis + tokenVersion 校验，支持修改密码、禁用用户、修改角色后的旧 Access Token 立即失效。
@@ -275,8 +277,7 @@ Content-Type: application/json
 | --- | --- | --- | --- |
 | `accessToken` | `String` | 用于访问受保护接口的令牌 | `eyJhbGciOiJIUzI1NiJ9...` |
 | `accessTokenExpiresAt` | `String` | Access Token 过期时间 | `2026-04-22T22:35:00+08:00` |
-| `refreshToken` | `String` | 用于刷新登录态的令牌 | `eyJhbGciOiJIUzI1NiJ9...` |
-| `refreshTokenExpiresAt` | `String` | Refresh Token 过期时间 | `2026-04-29T22:20:00+08:00` |
+| `refreshTokenExpiresAt` | `String` | Refresh Token Cookie 过期时间 | `2026-04-29T22:20:00+08:00` |
 | `tokenType` | `String` | Token 类型 | `Bearer` |
 | `user.id` | `Long` | 当前登录用户 ID | `10002` |
 | `user.username` | `String` | 用户名 | `alice_dev` |
@@ -296,7 +297,6 @@ Content-Type: application/json
   "data": {
     "accessToken": "eyJhbGciOiJIUzI1NiJ9.access.token",
     "accessTokenExpiresAt": "2026-04-22T22:35:00+08:00",
-    "refreshToken": "eyJhbGciOiJIUzI1NiJ9.refresh.token",
     "refreshTokenExpiresAt": "2026-04-29T22:20:00+08:00",
     "tokenType": "Bearer",
     "user": {
@@ -313,13 +313,19 @@ Content-Type: application/json
 }
 ```
 
+登录成功时，后端同时通过响应头写入 Refresh Token Cookie：
+
+```http
+Set-Cookie: refresh_token=<refresh_token>; Max-Age=604800; Path=/api/v1/auth; HttpOnly; SameSite=Lax
+```
+
 ## 4.3 刷新登录态
 
 - 路由：`POST`
 - 路径：`/api/v1/auth/refresh`
 - 权限：`PUBLIC`
 
-刷新登录态采用 Refresh Token 轮转机制。每次刷新成功后，后端都会返回新的 Access Token 和新的 Refresh Token，并撤销本次请求携带的旧 Refresh Token。正常刷新只轮转当前会话，不影响同一用户在其他设备上的活跃 Refresh Token。
+刷新登录态采用 Refresh Token 轮转机制。Refresh Token 由浏览器通过 `refresh_token` HttpOnly Cookie 自动携带，不放在请求体中。每次刷新成功后，后端都会返回新的 Access Token，通过 `Set-Cookie` 写入新的 Refresh Token Cookie，并撤销本次请求携带的旧 Refresh Token。正常刷新只轮转当前会话，不影响同一用户在其他设备上的活跃 Refresh Token。
 
 P0 阶段，Refresh Token 缺失、格式错误、签名无效、已过期、已撤销或找不到对应会话时，统一返回 `101004`。前端收到后清理本地登录态并引导重新登录；后端不因普通刷新失败自动撤销该用户全部活跃 Refresh Token。
 
@@ -327,21 +333,17 @@ P1 阶段可结合 Redis 短 TTL 宽限期、`token_jti` 状态和 `tokenVersion
 
 ### 请求参数
 
-#### Body 参数
+#### Cookie 参数
 
 | 字段名称 | 字段类型 | 必填 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- | --- |
-| `refreshToken` | `String` | 是 | Refresh Token | `eyJhbGciOiJIUzI1NiJ9.refresh.token` |
+| `refresh_token` | `String` | 是 | 浏览器自动携带的 Refresh Token Cookie，前端 JavaScript 不读取该值 | `eyJhbGciOiJIUzI1NiJ9.refresh.token` |
 
 ### 请求样例
 
 ```http
 POST /api/v1/auth/refresh
-Content-Type: application/json
-
-{
-  "refreshToken": "eyJhbGciOiJIUzI1NiJ9.refresh.token"
-}
+Cookie: refresh_token=eyJhbGciOiJIUzI1NiJ9.refresh.token
 ```
 
 ### 响应参数
@@ -352,8 +354,7 @@ Content-Type: application/json
 | --- | --- | --- | --- |
 | `accessToken` | `String` | 新的 Access Token | `eyJhbGciOiJIUzI1NiJ9.new.access` |
 | `accessTokenExpiresAt` | `String` | 新 Access Token 过期时间 | `2026-04-22T23:05:00+08:00` |
-| `refreshToken` | `String` | 轮转后签发的新 Refresh Token | `eyJhbGciOiJIUzI1NiJ9.new.refresh` |
-| `refreshTokenExpiresAt` | `String` | 新 Refresh Token 过期时间 | `2026-04-29T22:50:00+08:00` |
+| `refreshTokenExpiresAt` | `String` | 新 Refresh Token Cookie 过期时间 | `2026-04-29T22:50:00+08:00` |
 | `tokenType` | `String` | Token 类型 | `Bearer` |
 
 ### 响应样例
@@ -365,11 +366,16 @@ Content-Type: application/json
   "data": {
     "accessToken": "eyJhbGciOiJIUzI1NiJ9.new.access",
     "accessTokenExpiresAt": "2026-04-22T23:05:00+08:00",
-    "refreshToken": "eyJhbGciOiJIUzI1NiJ9.new.refresh",
     "refreshTokenExpiresAt": "2026-04-29T22:50:00+08:00",
     "tokenType": "Bearer"
   }
 }
+```
+
+刷新成功时，后端同时通过响应头轮转 Refresh Token Cookie：
+
+```http
+Set-Cookie: refresh_token=<new_refresh_token>; Max-Age=604800; Path=/api/v1/auth; HttpOnly; SameSite=Lax
 ```
 
 ## 4.4 用户退出登录
@@ -381,32 +387,34 @@ Content-Type: application/json
 说明：
 
 - 该接口用于退出当前登录会话，不要求携带有效 Access Token
-- 请求体中的 `refreshToken` 必填，用于定位并撤销当前会话对应的 Refresh Token
-- 该接口按幂等语义处理：如果 Refresh Token 格式正确但已过期、已撤销或找不到对应会话，后端也返回成功，前端只需清理本地登录态即可
-- 如果请求体缺失、`refreshToken` 为空或请求体 JSON 格式错误，仍按参数错误处理
+- 浏览器自动携带 `refresh_token` Cookie，后端据此定位并撤销当前会话对应的 Refresh Token
+- 该接口按幂等语义处理：如果 Refresh Token 缺失、已过期、已撤销或找不到对应会话，后端也返回成功，前端只需清理本地登录态即可
+- 退出成功后后端会通过 `Set-Cookie` 清除 `refresh_token` Cookie
 
 ### 请求参数
 
-#### Body 参数
+#### Cookie 参数
 
 | 字段名称 | 字段类型 | 必填 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- | --- |
-| `refreshToken` | `String` | 是 | 当前会话对应的 Refresh Token；后端会尝试撤销对应会话 | `eyJhbGciOiJIUzI1NiJ9.refresh.token` |
+| `refresh_token` | `String` | 否 | 当前会话对应的 Refresh Token Cookie；缺失时仍按幂等退出处理 | `eyJhbGciOiJIUzI1NiJ9.refresh.token` |
 
 ### 请求样例
 
 ```http
 POST /api/v1/auth/logout
-Content-Type: application/json
-
-{
-  "refreshToken": "eyJhbGciOiJIUzI1NiJ9.refresh.token"
-}
+Cookie: refresh_token=eyJhbGciOiJIUzI1NiJ9.refresh.token
 ```
 
 ### 响应参数
 
 无业务数据返回，`data` 固定为 `null`。
+
+退出成功时，后端同时通过响应头清除 Refresh Token Cookie：
+
+```http
+Set-Cookie: refresh_token=; Max-Age=0; Path=/api/v1/auth; HttpOnly; SameSite=Lax
+```
 
 ### 响应样例
 

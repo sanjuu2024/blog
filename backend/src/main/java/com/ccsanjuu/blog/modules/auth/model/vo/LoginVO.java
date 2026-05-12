@@ -1,5 +1,6 @@
 package com.ccsanjuu.blog.modules.auth.model.vo;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,6 +18,7 @@ public class LoginVO {
 
     private OffsetDateTime accessTokenExpiresAt;
 
+    @JsonIgnore
     private String refreshToken;
 
     private OffsetDateTime refreshTokenExpiresAt;

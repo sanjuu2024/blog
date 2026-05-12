@@ -63,7 +63,7 @@ paths:
       tags:
         - Auth
       summary: 用户登录
-      description: 权限级别 `PUBLIC`。支持用户名或邮箱登录；用户名和邮箱登录均按大小写不敏感处理。也就是允许用户注册展示名 `Sanjuu`，但不允许另一个人再注册 `sanjuu`；登录时输入 `sanjuu`、`SANJUU`、`Sanjuu` 都能找到同一个账号。邮箱同理，`A@example.com` 和 `a@example.com` 会识别为同一个邮箱账号。
+      description: 权限级别 `PUBLIC`。支持用户名或邮箱登录；用户名和邮箱登录均按大小写不敏感处理。登录成功后响应体返回 Access Token，Refresh Token 通过 `Set-Cookie` 写入 `refresh_token` HttpOnly Cookie，不返回给前端 JavaScript 读取。
       operationId: loginUser
       requestBody:
         required: true
@@ -77,6 +77,12 @@ paths:
       responses:
         '200':
           description: 登录成功
+          headers:
+            Set-Cookie:
+              description: 写入 Refresh Token Cookie。生产 HTTPS 环境应启用 Secure。
+              schema:
+                type: string
+                example: refresh_token=eyJhbGciOiJIUzI1NiJ9.refresh.token; Max-Age=604800; Path=/api/v1/auth; HttpOnly; SameSite=Lax
           content:
             application/json:
               schema:
@@ -87,7 +93,6 @@ paths:
                 data:
                   accessToken: eyJhbGciOiJIUzI1NiJ9.access.token
                   accessTokenExpiresAt: '2026-04-22T22:35:00+08:00'
-                  refreshToken: eyJhbGciOiJIUzI1NiJ9.refresh.token
                   refreshTokenExpiresAt: '2026-04-29T22:20:00+08:00'
                   tokenType: Bearer
                   user:
@@ -110,19 +115,19 @@ paths:
       tags:
         - Auth
       summary: 刷新登录态
-      description: 权限级别 `PUBLIC`。通过 Refresh Token 获取新令牌；刷新成功后只轮转当前会话的 Refresh Token，不影响同一用户其他设备上的活跃会话。Refresh Token 缺失、格式错误、签名无效、已过期、已撤销或找不到对应会话时返回 101004；P0 阶段不因普通刷新失败自动撤销该用户全部活跃 Refresh Token。
+      description: 权限级别 `PUBLIC`。通过浏览器自动携带的 `refresh_token` HttpOnly Cookie 获取新令牌；刷新成功后只轮转当前会话的 Refresh Token，不影响同一用户其他设备上的活跃会话。Refresh Token 缺失、格式错误、签名无效、已过期、已撤销或找不到对应会话时返回 101004；P0 阶段不因普通刷新失败自动撤销该用户全部活跃 Refresh Token。
       operationId: refreshToken
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RefreshTokenRequest'
-            example:
-              refreshToken: eyJhbGciOiJIUzI1NiJ9.refresh.token
+      parameters:
+        - $ref: '#/components/parameters/RefreshTokenCookie'
       responses:
         '200':
           description: 刷新成功
+          headers:
+            Set-Cookie:
+              description: 轮转 Refresh Token Cookie。生产 HTTPS 环境应启用 Secure。
+              schema:
+                type: string
+                example: refresh_token=eyJhbGciOiJIUzI1NiJ9.new.refresh; Max-Age=604800; Path=/api/v1/auth; HttpOnly; SameSite=Lax
           content:
             application/json:
               schema:
@@ -133,7 +138,6 @@ paths:
                 data:
                   accessToken: eyJhbGciOiJIUzI1NiJ9.new.access
                   accessTokenExpiresAt: '2026-04-22T23:05:00+08:00'
-                  refreshToken: eyJhbGciOiJIUzI1NiJ9.new.refresh
                   refreshTokenExpiresAt: '2026-04-29T22:50:00+08:00'
                   tokenType: Bearer
         '400':
@@ -147,19 +151,19 @@ paths:
       tags:
         - Auth
       summary: 用户退出登录
-      description: 权限级别 `PUBLIC`。退出当前会话不要求有效 Access Token；请求体中的 Refresh Token 必填，后端会据此尝试撤销对应会话。该接口按幂等语义处理：如果 Refresh Token 格式正确但已过期、已撤销或找不到对应会话，仍返回退出成功，前端只需清理本地登录态。请求体缺失、Refresh Token 为空或 JSON 格式错误时，仍按参数错误处理。
+      description: 权限级别 `PUBLIC`。退出当前会话不要求有效 Access Token；浏览器会自动携带 `refresh_token` HttpOnly Cookie，后端据此尝试撤销对应会话。该接口按幂等语义处理：如果 Refresh Token 缺失、已过期、已撤销或找不到对应会话，仍返回退出成功，前端只需清理本地登录态。
       operationId: logoutUser
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LogoutRequest'
-            example:
-              refreshToken: eyJhbGciOiJIUzI1NiJ9.refresh.token
+      parameters:
+        - $ref: '#/components/parameters/RefreshTokenCookieOptional'
       responses:
         '200':
           description: 退出成功
+          headers:
+            Set-Cookie:
+              description: 清除 Refresh Token Cookie。
+              schema:
+                type: string
+                example: refresh_token=; Max-Age=0; Path=/api/v1/auth; HttpOnly; SameSite=Lax
           content:
             application/json:
               schema:
@@ -1257,6 +1261,22 @@ components:
         maximum: 20
         default: 10
         example: 10
+    RefreshTokenCookie:
+      name: refresh_token
+      in: cookie
+      description: Refresh Token HttpOnly Cookie，由浏览器自动携带，前端 JavaScript 不读取该值
+      required: true
+      schema:
+        type: string
+        example: eyJhbGciOiJIUzI1NiJ9.refresh.token
+    RefreshTokenCookieOptional:
+      name: refresh_token
+      in: cookie
+      description: Refresh Token HttpOnly Cookie；退出登录时缺失也按幂等退出处理
+      required: false
+      schema:
+        type: string
+        example: eyJhbGciOiJIUzI1NiJ9.refresh.token
     ArticleId:
       name: articleId
       in: path
@@ -1517,24 +1537,6 @@ components:
           pattern: '^[\u4e00-\u9fa5A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
           description: 登录密码，允许中文、英文、数字、下划线、短横线和常用 ASCII 特殊字符，不允许空格
           example: Passw0rd!
-    RefreshTokenRequest:
-      type: object
-      required:
-        - refreshToken
-      properties:
-        refreshToken:
-          type: string
-          description: Refresh Token
-          example: eyJhbGciOiJIUzI1NiJ9.refresh.token
-    LogoutRequest:
-      type: object
-      required:
-        - refreshToken
-      properties:
-        refreshToken:
-          type: string
-          description: 当前会话的 Refresh Token；后端会尝试撤销对应会话
-          example: eyJhbGciOiJIUzI1NiJ9.refresh.token
     RegisterResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
@@ -1549,7 +1551,6 @@ components:
       required:
         - accessToken
         - accessTokenExpiresAt
-        - refreshToken
         - refreshTokenExpiresAt
         - tokenType
         - user
@@ -1561,12 +1562,10 @@ components:
           type: string
           format: date-time
           example: '2026-04-22T22:35:00+08:00'
-        refreshToken:
-          type: string
-          example: eyJhbGciOiJIUzI1NiJ9.refresh.token
         refreshTokenExpiresAt:
           type: string
           format: date-time
+          description: Refresh Token Cookie 过期时间
           example: '2026-04-29T22:20:00+08:00'
         tokenType:
           type: string
@@ -1585,7 +1584,6 @@ components:
       required:
         - accessToken
         - accessTokenExpiresAt
-        - refreshToken
         - refreshTokenExpiresAt
         - tokenType
       properties:
@@ -1596,12 +1594,10 @@ components:
           type: string
           format: date-time
           example: '2026-04-22T23:05:00+08:00'
-        refreshToken:
-          type: string
-          example: eyJhbGciOiJIUzI1NiJ9.new.refresh
         refreshTokenExpiresAt:
           type: string
           format: date-time
+          description: Refresh Token Cookie 过期时间
           example: '2026-04-29T22:50:00+08:00'
         tokenType:
           type: string

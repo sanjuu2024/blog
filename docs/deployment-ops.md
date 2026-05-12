@@ -113,8 +113,25 @@ P0 不提供本地图片上传服务，但生产设计默认面向对象存储�
 
 - 生产环境必须启用 HTTPS。
 - `Nginx` 负责证书终止和反向代理。
+- 前端静态资源与后端 API 按同域部署设计；生产环境由 `Nginx` 托管前端产物，并将 `/api/**` 反向代理到后端服务。
+- Refresh Token 由后端通过 `Set-Cookie` 写入 `refresh_token` HttpOnly Cookie，`Nginx` 不应丢弃或改写该响应头。
+- `refresh_token` Cookie 路径固定为 `/api/v1/auth`，只随认证相关接口发送；生产 HTTPS 环境必须带 `Secure`，并保持 `HttpOnly`、`SameSite=Lax`。
+- 若后端需要根据请求协议决定是否添加 `Secure`，反向代理应正确传递 `X-Forwarded-Proto` 等代理头。
+- 当前设计不依赖跨域 CORS；若未来改成前后端跨站点部署，需要重新评估 `SameSite=None; Secure`、携带凭证的 CORS 配置和 CSRF 防护策略。
 - 域名解析 TTL 不要设得太长，推荐先使用 `300s` 到 `600s`，迁移稳定后可按需调高。
 - 迁移服务器、切换负载均衡或更换 CDN 前，提前降低 TTL。
+
+Refresh Token Cookie 的 `Secure` 属性通过后端配置区分环境：
+
+```yaml
+blog:
+  auth:
+    refresh-cookie:
+      secure: true
+```
+
+- 开发环境如果使用本地 HTTP，可配置为 `false`，避免浏览器因 `Secure` 拒绝发送 Cookie。
+- 生产环境启用 HTTPS 后必须配置为 `true`，确保 `refresh_token` 只随 HTTPS 请求发送。
 
 ## 8. 日志与监控
 

@@ -1,10 +1,5 @@
 import request from '@/utils/request';
-import type {
-	LoginRequest,
-	LogoutRequest,
-	RefreshTokenRequest,
-	RegisterRequest,
-} from '../types/auth';
+import type { LoginRequest, RegisterRequest } from '../types/auth';
 
 const AUTH_API = {
 	register: 'auth/register',
@@ -24,11 +19,13 @@ export const login = (data: LoginRequest) => {
 };
 
 // 刷新 Token 接口
-export const refreshToken = (data: RefreshTokenRequest) => {
-	return request.post(AUTH_API.refreshToken, data);
+// RT 在浏览器自带的 HttpOnly Cookie 中，前端无法直接访问它，后端会从 Cookie 中自动获取并验证 RT
+export const refreshToken = () => {
+	return request.post(AUTH_API.refreshToken);
 };
 
 // 退出登录接口
-export const logout = (data: LogoutRequest) => {
-	return request.post(AUTH_API.logout, data);
+// RT 在浏览器自带的 HttpOnly Cookie 中，前端无法直接访问它，后端会从 Cookie 中自动获取并验证 RT
+export const logout = () => {
+	return request.post(AUTH_API.logout);
 };

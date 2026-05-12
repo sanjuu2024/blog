@@ -30,30 +30,21 @@ export interface LoginUserInfo {
 	bio: string;
 }
 
-export interface AuthTokenData {
+export interface AuthSessionData {
 	accessToken: string;
 	accessTokenExpiresAt: string;
-	refreshToken: string;
 	refreshTokenExpiresAt: string;
 	tokenType: TokenType;
 }
 
-export interface LoginData extends AuthTokenData {
+export interface LoginData extends AuthSessionData {
 	user: LoginUserInfo;
 }
 
 export type LoginResponse = ApiResult<LoginData>;
 
-export interface RefreshTokenRequest {
-	refreshToken: string;
-}
-
-export type RefreshTokenData = AuthTokenData;
+export type RefreshTokenData = AuthSessionData;
 
 export type RefreshTokenResponse = ApiResult<RefreshTokenData>;
-
-export interface LogoutRequest {
-	refreshToken: string;
-}
 
 export type LogoutResponse = ApiResult<null>;
