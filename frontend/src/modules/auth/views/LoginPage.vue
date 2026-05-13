@@ -66,16 +66,18 @@
 
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue';
-import { useRouter } from 'vue-router';
-import type { LoginRequest } from '../types/auth';
+import { useRouter, useRoute } from 'vue-router';
+import type { LoginData, LoginRequest } from '../types/auth';
 import { login } from '../api/authApi';
 import type { FormItemRule } from 'element-plus';
+import { useAuthStore } from '@/stores/authStore';
 
 defineOptions({
 	name: 'LoginPage',
 });
 
 const router = useRouter();
+const route = useRoute();
 
 // 登录表单数据
 let loginForm = reactive<LoginRequest>({
@@ -143,7 +145,11 @@ watch(
 // 登录
 async function handlerLogin() {
 	try {
-		await login(loginForm);
+		const res: LoginData = await login(loginForm);
+		useAuthStore().setAccessToken(res.accessToken);
+		const redirectQuery = route.query.redirect;
+		const redirect = Array.isArray(redirectQuery) ? redirectQuery[0] : redirectQuery;
+		router.push(typeof redirect === 'string' && redirect.startsWith('/') ? redirect : '/'); // 如果是从其他需要登录的页面跳过来登录页的，登录后跳转回去。
 	} catch {
 		// 错误提示已经由 request 响应拦截器统一处理
 	}
