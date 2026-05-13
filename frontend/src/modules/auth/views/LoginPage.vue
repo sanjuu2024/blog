@@ -2,16 +2,34 @@
 	<el-card class="auth-card">
 		<h1 class="mt-2 mb-4 text-center text-2xl">登录</h1>
 		<hr class="mb-4 text-gray-300" />
-		<el-form label-width="auto" label-position="top" :model="loginForm" :rules="rules">
-			<el-form-item prop="account" label="用户名 / 邮箱号">
-				<el-input v-model="loginForm.account" placeholder="请输入用户名 / 邮箱号">
+		<el-form
+			label-width="auto"
+			label-position="top"
+			:model="loginForm"
+			:rules="rules"
+		>
+			<el-form-item
+				prop="account"
+				label="用户名 / 邮箱号"
+			>
+				<el-input
+					v-model="loginForm.account"
+					placeholder="请输入用户名 / 邮箱号"
+				>
 					<template #prefix>
 						<i-ep-user />
 					</template>
 				</el-input>
 			</el-form-item>
-			<el-form-item prop="password" label="密码">
-				<el-input v-model="loginForm.password" placeholder="请输入密码" type="password">
+			<el-form-item
+				prop="password"
+				label="密码"
+			>
+				<el-input
+					v-model="loginForm.password"
+					placeholder="请输入密码"
+					type="password"
+				>
 					<template #prefix>
 						<i-ep-lock />
 					</template>
@@ -33,11 +51,14 @@
 					type="primary"
 					class="auth-footer-link"
 					@click="router.push('/auth/register')"
-					>没有账号？立即注册</el-link
-				>
-				<el-link type="primary" class="auth-footer-link" @click="router.push('/')"
-					>返回首页</el-link
-				>
+					>没有账号？立即注册
+				</el-link>
+				<el-link
+					type="primary"
+					class="auth-footer-link"
+					@click="router.push('/')"
+					>返回首页
+				</el-link>
 			</div>
 		</div>
 	</el-card>
@@ -48,7 +69,6 @@ import { ref, reactive, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import type { LoginRequest } from '../types/auth';
 import { login } from '../api/authApi';
-import { AxiosError } from 'axios';
 import type { FormItemRule } from 'element-plus';
 
 defineOptions({
@@ -76,7 +96,7 @@ const rules = {
 	account: [
 		{
 			required: true,
-			trigger: 'blur',
+			trigger: 'change',
 			validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void) => {
 				accountAvailable.value = false;
 				if (!accountPattern.test(value)) {
@@ -91,7 +111,7 @@ const rules = {
 	password: [
 		{
 			required: true,
-			trigger: 'blur',
+			trigger: 'change',
 			validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void) => {
 				passwordValid.value = false;
 				if (!passwordPattern.test(value)) {
@@ -124,8 +144,8 @@ watch(
 async function handlerLogin() {
 	try {
 		await login(loginForm);
-	} catch (err) {
-		console.log((err as AxiosError).response?.data);
+	} catch {
+		// 错误提示已经由 request 响应拦截器统一处理
 	}
 }
 </script>

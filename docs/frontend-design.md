@@ -16,7 +16,8 @@
 
 - favicon、窄屏导航、后台侧边栏折叠态可以只显示图标。
 - 首页、登录注册页、常规导航栏优先使用“图标 + 网站名”的组合 Logo。
-- Logo 默认文案为 `ccsanjuu blog`，后续如需调整站点名称，优先通过 `AppLogo` 组件参数统一修改使用处。
+- `AppLogo` 默认文案与 `VITE_APP_TITLE` 保持一致；未配置时默认显示 `Sanjuu Blog`。
+- 后续如需调整站点名称，优先通过 `VITE_APP_TITLE` 配置；如有局部展示差异，再通过 `AppLogo` 组件参数覆盖。
 
 ## 3. 按钮交互
 
