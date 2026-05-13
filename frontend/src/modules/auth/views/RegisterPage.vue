@@ -2,22 +2,42 @@
 	<el-card class="auth-card">
 		<h1 class="mt-2 mb-4 text-center text-2xl">注册</h1>
 		<hr class="mb-4 text-gray-300" />
-		<el-form label-width="auto" label-position="top" :model="registerForm" :rules="rules">
-			<el-form-item prop="username" label="用户名">
-				<el-input v-model="registerForm.username" placeholder="请输入用户名">
+		<el-form
+			label-width="auto"
+			label-position="top"
+			:model="registerForm"
+			:rules="rules"
+		>
+			<el-form-item
+				prop="username"
+				label="用户名"
+			>
+				<el-input
+					v-model="registerForm.username"
+					placeholder="请输入用户名"
+				>
 					<template #prefix>
 						<i-ep-user />
 					</template>
 				</el-input>
 			</el-form-item>
-			<el-form-item prop="email" label="邮箱">
-				<el-input v-model="registerForm.email" placeholder="请输入邮箱">
+			<el-form-item
+				prop="email"
+				label="邮箱"
+			>
+				<el-input
+					v-model="registerForm.email"
+					placeholder="请输入邮箱"
+				>
 					<template #prefix>
 						<i-ep-message />
 					</template>
 				</el-input>
 			</el-form-item>
-			<el-form-item prop="password" label="密码">
+			<el-form-item
+				prop="password"
+				label="密码"
+			>
 				<el-input
 					v-model="registerForm.password"
 					placeholder="请输入密码"
@@ -41,11 +61,19 @@
 				创建账号
 			</el-button>
 			<div class="links flex justify-between">
-				<el-link type="primary" class="auth-footer-link" @click="router.push('/auth/login')"
-					>已有帐号？去登录
+				<el-link
+					type="primary"
+					class="auth-footer-link"
+					@click="router.push('/auth/login')"
+				>
+					已有帐号？去登录
 				</el-link>
-				<el-link type="primary" class="auth-footer-link" @click="router.push('/')"
-					>返回首页
+				<el-link
+					type="primary"
+					class="auth-footer-link"
+					@click="router.push('/')"
+				>
+					返回首页
 				</el-link>
 			</div>
 		</div>
@@ -57,7 +85,6 @@ import { ref, reactive, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import type { RegisterRequest } from '../types/auth';
 import { register } from '../api/authApi';
-import { AxiosError } from 'axios';
 import type { FormItemRule } from 'element-plus';
 
 defineOptions({
@@ -149,8 +176,8 @@ watch(
 async function handlerRegister() {
 	try {
 		await register(registerForm);
-	} catch (err) {
-		console.log((err as AxiosError).response?.data);
+	} catch {
+		// 错误提示已经由 request 响应拦截器统一处理
 	}
 }
 </script>
