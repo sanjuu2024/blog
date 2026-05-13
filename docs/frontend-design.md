@@ -16,8 +16,10 @@
 
 - favicon、窄屏导航、后台侧边栏折叠态可以只显示图标。
 - 首页、登录注册页、常规导航栏优先使用“图标 + 网站名”的组合 Logo。
-- `AppLogo` 默认文案与 `VITE_APP_TITLE` 保持一致；未配置时默认显示 `Sanjuu Blog`。
-- 后续如需调整站点名称，优先通过 `VITE_APP_TITLE` 配置；如有局部展示差异，再通过 `AppLogo` 组件参数覆盖。
+- `AppLogo` 的视觉文字使用 `src/assets/svg/logo-text.svg`，无障碍名称读取 `VITE_APP_TITLE`，未配置时为 `Sanjuu Blog`。
+- 文字 Logo 通过 CSS mask 渲染，可通过组件 `textColor` 属性或父级 `color` 控制颜色。
+- 后续如需调整视觉文字，优先替换 `logo-text.svg`；如只调整屏幕阅读器读取的站点名称，优先通过 `VITE_APP_TITLE` 配置。
+- 文字 Logo 可使用 Google Fonts 的 Long Cang 字体；该字体使用 SIL Open Font License 1.1，第三方资源声明见 [third-party-notices.md](./third-party-notices.md)。
 
 ## 3. 按钮交互
 

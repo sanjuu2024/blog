@@ -1,11 +1,15 @@
 <template>
+	<!-- 如果传了 to，它会渲染成 RouterLink，Logo 可以点击跳转。
+		如果没传 to，它会渲染成普通 span。 -->
+	<!-- 当 showText 为 false 时，只显示图标（!showText = true，则有 'is-icon-only' 类） -->
+	<!-- aria-hidden="true" 表示这个元素对屏幕阅读器隐藏。这里文字 SVG 只是视觉图形，所以隐藏它，让外层统一读 aria-label。 -->
 	<component
 		:is="logoComponent"
 		:to="to"
 		class="app-logo"
 		:class="{ 'is-icon-only': !showText }"
 		:aria-label="ariaLabel"
-		:style="{ '--app-logo-size': logoSize }"
+		:style="logoStyle"
 	>
 		<img
 			class="app-logo__mark"
@@ -17,40 +21,51 @@
 		<span
 			v-if="showText"
 			class="app-logo__text"
-			>{{ text }}</span
-		>
+			aria-hidden="true"
+		></span>
 	</component>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
 import { RouterLink, type RouteLocationRaw } from 'vue-router';
+import logoTextUrl from '@/assets/svg/logo-text.svg';
+
+const appTitle = import.meta.env.VITE_APP_TITLE || 'Sanjuu Blog';
 
 const props = withDefaults(
 	defineProps<{
 		size?: number | string;
-		text?: string;
+		textColor?: string;
 		showText?: boolean;
 		alt?: string;
 		to?: RouteLocationRaw;
 	}>(),
 	{
-		size: 32,
-		text: import.meta.env.VITE_APP_TITLE || 'Sanjuu Blog',
+		size: '2rem',
+		textColor: undefined,
 		showText: true,
 		alt: '网站 Logo',
 		to: undefined,
 	},
 );
 
-// 数字尺寸转成 CSS 可用的 px；字符串尺寸保留原样，例如 '2rem'。
+// 数字尺寸会转成 px；如果希望跟随根字体缩放，直接传 '2rem'、'2.5rem' 这类字符串。
 const logoSize = computed(() => (typeof props.size === 'number' ? `${props.size}px` : props.size));
 
+const logoStyle = computed(() => ({
+	'--app-logo-size': logoSize.value,
+	// currentColor 是 CSS 关键字，表示使用当前元素继承到的 color。
+	'--app-logo-text-color': props.textColor || 'currentColor',
+	'--app-logo-text-url': `url("${logoTextUrl}")`,
+}));
+
 // 传入 to 时渲染成 RouterLink，可以点击跳转；不传 to 时渲染成普通 span。
+// 静态字符串写法是 <AppLogo to="/" />；动态对象才写 :to="{ name: 'Home' }"。
 const logoComponent = computed(() => (props.to ? RouterLink : 'span'));
 
-// 组合 Logo 读网站名；只显示图标时读 alt，方便屏幕阅读器理解。
-const ariaLabel = computed(() => (props.showText ? props.text : props.alt));
+// aria-label 是 HTML 的无障碍属性，视觉上不显示，但屏幕阅读器会读取。
+const ariaLabel = computed(() => (props.showText ? appTitle : props.alt));
 </script>
 
 <style scoped lang="scss">
@@ -67,6 +82,7 @@ const ariaLabel = computed(() => (props.showText ? props.text : props.alt));
 	gap: 0;
 }
 
+// BEM 命名：app-logo 是块，__mark / __text 是这个块里的元素。
 .app-logo__mark {
 	display: block;
 	flex: none;
@@ -74,11 +90,13 @@ const ariaLabel = computed(() => (props.showText ? props.text : props.alt));
 }
 
 .app-logo__text {
-	color: inherit;
-	font-size: var(--app-logo-size);
-	font-weight: 500;
-	line-height: 1.1;
-	letter-spacing: 0;
-	white-space: nowrap;
+	display: block;
+	flex: none;
+	width: calc(var(--app-logo-size) * 211 / 64);
+	height: var(--app-logo-size);
+	background-color: var(--app-logo-text-color);
+	// 用 SVG 做 mask 时，SVG 负责形状，background-color 负责颜色。
+	mask: var(--app-logo-text-url) center / contain no-repeat;
+	-webkit-mask: var(--app-logo-text-url) center / contain no-repeat;
 }
 </style>
