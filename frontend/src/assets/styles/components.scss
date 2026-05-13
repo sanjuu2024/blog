@@ -1,0 +1,13 @@
+// 切换路由时进度条的样式
+#nprogress .bar {
+	background: linear-gradient(to right, green, yellow, #ff6a00, red);
+	// background: linear-gradient(to right,#587f5c,#a7c4a9);
+
+	position: fixed;
+	z-index: 1031;
+	top: 0;
+	left: 0;
+
+	width: 100%;
+	height: 2px;
+}

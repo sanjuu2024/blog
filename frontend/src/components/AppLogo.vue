@@ -55,8 +55,9 @@ const logoSize = computed(() => (typeof props.size === 'number' ? `${props.size}
 
 const logoStyle = computed(() => ({
 	'--app-logo-size': logoSize.value,
-	// currentColor 是 CSS 关键字，表示使用当前元素继承到的 color。
-	'--app-logo-text-color': props.textColor || 'currentColor',
+	// 未传 textColor 时使用全局正文色；传入 textColor 时显式覆盖文字 Logo 颜色。
+	'--app-logo-text-color': props.textColor || 'var(--app-text)',
+	'--app-logo-text-aspect-ratio': '211 / 64',
 	'--app-logo-text-url': `url("${logoTextUrl}")`,
 }));
 
@@ -92,8 +93,8 @@ const ariaLabel = computed(() => (props.showText ? appTitle : props.alt));
 .app-logo__text {
 	display: block;
 	flex: none;
-	width: calc(var(--app-logo-size) * 211 / 64);
 	height: var(--app-logo-size);
+	aspect-ratio: var(--app-logo-text-aspect-ratio);
 	background-color: var(--app-logo-text-color);
 	// 用 SVG 做 mask 时，SVG 负责形状，background-color 负责颜色。
 	mask: var(--app-logo-text-url) center / contain no-repeat;
