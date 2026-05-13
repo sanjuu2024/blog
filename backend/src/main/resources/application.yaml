@@ -35,3 +35,6 @@ blog:
     secret: YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY=   # base64 编码的 JWT 密钥（原文本：abcdefghijklmnopqrstuvwxyz123456）
     access-ttl: 15m
     refresh-ttl: 7d
+  auth:
+    refresh-cookie:
+      secure: true   # 默认为 true 作为安全兜底

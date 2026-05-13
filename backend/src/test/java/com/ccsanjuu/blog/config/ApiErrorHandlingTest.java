@@ -3,6 +3,7 @@ package com.ccsanjuu.blog.config;
 import com.ccsanjuu.blog.common.exception.GlobalExceptionHandler;
 import com.ccsanjuu.blog.modules.auth.controller.AuthController;
 import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
+import com.ccsanjuu.blog.modules.auth.support.RefreshTokenCookieManager;
 import com.ccsanjuu.blog.modules.auth.service.AuthService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import jakarta.validation.constraints.NotNull;
@@ -28,6 +29,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.verify;
 
 @WebMvcTest(controllers = {
         AuthController.class
@@ -44,6 +48,9 @@ class ApiErrorHandlingTest {
 
     @MockitoBean
     private AuthService authService;
+
+    @MockitoBean
+    private RefreshTokenCookieManager refreshTokenCookieManager;
 
     @MockitoBean
     private AuthMapper authMapper;
@@ -120,12 +127,16 @@ class ApiErrorHandlingTest {
     }
 
     @Test
-    void shouldReturnParamInvalidWhenLogoutRequestBodyIsMissing() throws Exception {
+    void shouldLogoutSuccessfullyWhenRefreshTokenCookieIsMissing() throws Exception {
         mockMvc.perform(post("/api/v1/auth/logout"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(199001))
-                .andExpect(jsonPath("$.message").value("请求参数不合法"))
-                .andExpect(jsonPath("$.data[0].field").value("requestBody"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.message").value("成功"))
+                .andExpect(jsonPath("$.data").value(nullValue()));
+
+        verify(authService).logout(argThat(logoutRequestDTO ->
+                logoutRequestDTO.getRefreshToken() == null));
+        verify(refreshTokenCookieManager).clearRefreshTokenCookie(any());
     }
 
     @Test
