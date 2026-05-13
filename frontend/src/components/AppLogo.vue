@@ -14,7 +14,11 @@
 			:aria-hidden="showText"
 			:style="{ width: logoSize, height: logoSize }"
 		/>
-		<span v-if="showText" class="app-logo__text">{{ text }}</span>
+		<span
+			v-if="showText"
+			class="app-logo__text"
+			>{{ text }}</span
+		>
 	</component>
 </template>
 
