@@ -5,7 +5,7 @@
 			<div class="mb-6 flex justify-center">
 				<AppLogo :size="70" />
 			</div>
-			<router-view></router-view>
+			<RouterView></RouterView>
 		</div>
 	</div>
 </template>

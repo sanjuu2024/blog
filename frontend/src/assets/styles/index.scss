@@ -1,6 +1,12 @@
 @use './themes.scss';
 @use './buttons.scss';
 @use './components.scss';
+@use './variables.scss';
+
+// 默认显示有滚动条
+body {
+	overflow-y: scroll;
+}
 
 // 全局背景设置
 body {
