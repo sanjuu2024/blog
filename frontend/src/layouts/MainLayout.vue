@@ -1,8 +1,12 @@
 <template>
-	<h1>这里是 MainLayout。</h1>
+	<AppHeader />
+	<AppMain />
 </template>
 
 <script setup lang="ts">
+import AppHeader from '@/components/AppHeader.vue';
+import AppMain from './components/AppMain.vue';
+
 defineOptions({
 	name: 'MainLayout',
 });
