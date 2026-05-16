@@ -941,6 +941,21 @@ Content-Type: application/json
 | `role` | `String` | 否 | 角色筛选 | `USER` |
 | `status` | `String` | 否 | 状态筛选 | `ACTIVE` |
 
+说明：P0 阶段 `keyword` 同时匹配用户名和邮箱。P1 阶段后台用户列表必须废弃
+`keyword` 混合搜索，改为 `username` 与 `email` 两个独立 Query 参数：
+
+| 字段名称 | 字段类型 | 必填 | 字段解释 | 业务例子 |
+| --- | --- | --- | --- | --- |
+| `username` | `String` | 否 | 用户名模糊搜索，最长 20 个字符 | `alice` |
+| `email` | `String` | 否 | 邮箱模糊搜索，最长 255 个字符 | `alice@example.com` |
+
+P1 请求示例：
+
+```http
+GET /api/v1/admin/users?pageNum=1&pageSize=10&username=alice&email=example.com&status=ACTIVE
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
+```
+
 排序规则：默认按 `createdAt` 倒序、`id` 倒序返回，不提供自定义排序参数。
 
 ### 请求样例

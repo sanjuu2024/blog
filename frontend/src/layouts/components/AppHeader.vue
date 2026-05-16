@@ -40,6 +40,12 @@
 					>关于</RouterLink
 				>
 				<RouterLink
+					to="/admin"
+					class="app-header__link"
+					v-if="useUserStore().userInfo?.role === 'ADMIN'"
+					>后台</RouterLink
+				>
+				<RouterLink
 					to="/users/me"
 					class="app-header__avatar"
 				>
@@ -53,6 +59,8 @@
 </template>
 
 <script setup lang="ts">
+import { useUserStore } from '@/stores/userStore';
+
 defineOptions({
 	name: 'AppHeader',
 });

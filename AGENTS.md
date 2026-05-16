@@ -43,7 +43,19 @@
 
 除非用户明确只是讨论、提问、评审或要方案，否则默认用户希望你直接落地修改。
 
-### 3.1 范围不清时必须确认
+### 3.1 Git commit message 请求
+
+当用户要求“根据目前 git 暂存区内容生成 commit message”或类似表述时，默认等同于以下完整要求：
+
+- 先检查当前 `git status`、`git diff --cached --stat`、`git diff --cached --name-only` 和最近几条提交风格。
+- 生成符合 Angular / Conventional Commits 规范的 commit message。
+- commit subject 使用英文，格式如 `feat(scope): summary`。
+- long description 使用中文，整体风格与仓库近期 commit message 保持一致。
+- body 使用短横线列表，每行尽量不超过 100 个字符，避免触发 commitlint。
+- 根据暂存区内容给出推荐分支命名。
+- 如果暂存区代码存在明显问题、拆分风险、格式问题或提交范围不清，先提出修改建议；用户改完后再给最终 commit message。
+
+### 3.2 范围不清时必须确认
 
 如果用户的指令同时包含较大的目标词和较小的具体范围，例如“完成用户模块”与“只检查/补全 DTO、VO、参数校验、实体字段填充”等同时出现，不要默认扩大实现范围。
 

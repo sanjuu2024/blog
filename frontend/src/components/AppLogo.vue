@@ -51,7 +51,15 @@ const props = withDefaults(
 );
 
 // 数字尺寸会转成 px；如果希望跟随根字体缩放，直接传 '2rem'、'2.5rem' 这类字符串。
-const logoSize = computed(() => (typeof props.size === 'number' ? `${props.size}px` : props.size));
+const logoSize = computed(() => {
+	if (typeof props.size === 'number') return `${props.size}px`;
+
+	if (/^\d+(\.\d+)?$/.test(props.size)) {
+		return `${props.size}px`;
+	}
+
+	return props.size;
+});
 
 const logoStyle = computed(() => ({
 	'--app-logo-size': logoSize.value,

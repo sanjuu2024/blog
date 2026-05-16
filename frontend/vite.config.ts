@@ -37,9 +37,9 @@ export default defineConfig(({ mode }) => {
 			Components({
 				resolvers: [
 					ElementPlusResolver(),
-					// 自动注册图标组件（前缀为 i-ep-）
+					// 自动注册图标组件（前缀为 i-ep-、i-solar-）
 					IconsResolver({
-						enabledCollections: ['ep'],
+						enabledCollections: ['ep', 'solar', 'lets-icons', 'material-symbols'],
 					}),
 				],
 				dts: 'src/components.d.ts',

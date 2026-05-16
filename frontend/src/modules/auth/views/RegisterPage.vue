@@ -64,14 +64,14 @@
 				<el-link
 					type="primary"
 					class="auth-footer-link"
-					@click="router.push('/auth/login')"
+					@click="router.replace('/auth/login')"
 				>
 					已有帐号？去登录
 				</el-link>
 				<el-link
 					type="primary"
 					class="auth-footer-link"
-					@click="router.push('/')"
+					@click="router.replace('/')"
 				>
 					返回首页
 				</el-link>
@@ -176,6 +176,7 @@ watch(
 async function handlerRegister() {
 	try {
 		await register(registerForm);
+		router.replace('/auth/login');
 	} catch {
 		// 错误提示已经由 request 响应拦截器统一处理
 	}

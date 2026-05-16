@@ -1,10 +1,12 @@
 <template>
-	<AppHeader />
-	<AppMain />
+	<div class="app-layout">
+		<AppHeader />
+		<AppMain />
+	</div>
 </template>
 
 <script setup lang="ts">
-import AppHeader from '@/components/AppHeader.vue';
+import AppHeader from './components/AppHeader.vue';
 import AppMain from './components/AppMain.vue';
 
 defineOptions({
@@ -12,4 +14,9 @@ defineOptions({
 });
 </script>
 
-<style></style>
+<style>
+.app-layout {
+	height: 100dvh;
+	overflow: scroll;
+}
+</style>

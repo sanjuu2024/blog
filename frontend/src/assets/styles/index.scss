@@ -3,11 +3,6 @@
 @use './components.scss';
 @use './variables.scss';
 
-// 默认显示有滚动条
-body {
-	overflow-y: scroll;
-}
-
 // 全局背景设置
 body {
 	background-color: var(--app-bg);
@@ -32,7 +27,7 @@ html,
 body,
 #app {
 	font-family: var(--app-font-family);
-	min-height: 100%;
+	height: 100%;
 }
 
 button,

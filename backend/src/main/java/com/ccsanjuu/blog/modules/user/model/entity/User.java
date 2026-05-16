@@ -29,11 +29,9 @@ public class User {
 
     private String passwordHash;
 
-    @Builder.Default
-    private UserRole role = UserRole.USER;
+    private UserRole role;
 
-    @Builder.Default
-    private UserStatus status = UserStatus.ACTIVE;
+    private UserStatus status;
 
     private String avatarUrl;
 

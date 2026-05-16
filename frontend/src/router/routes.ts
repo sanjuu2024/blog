@@ -1,3 +1,44 @@
+// 后台路由
+export const adminRoutes = [
+	{
+		path: '/admin/dashboard',
+		name: 'Dashboard',
+		component: () => import('@/modules/admin/dashboard/views/AdminDashboardPage.vue'),
+		meta: {
+			icon: 'dashboard',
+			title: '仪表盘',
+		},
+	},
+	{
+		path: '/admin/users',
+		name: 'AdminUserList',
+		component: () => import('@/modules/admin/user/views/AdminUserListPage.vue'),
+		meta: {
+			icon: 'user',
+			title: '用户管理',
+		},
+	},
+	{
+		path: '/admin/articles',
+		name: 'AdminArticleList',
+		component: () => import('@/modules/admin/article/views/AdminArticleListPage.vue'),
+		meta: {
+			icon: 'article',
+			title: '文章管理',
+		},
+	},
+	{
+		path: '/admin/categories',
+		name: 'AdminCategoryList',
+		component: () => import('@/modules/admin/category/views/AdminCategoryListPage.vue'),
+		meta: {
+			icon: 'category',
+			title: '分类管理',
+		},
+	},
+];
+
+// 全部路由
 export const routes = [
 	// 主页面
 	{
@@ -7,29 +48,44 @@ export const routes = [
 		component: () => import('@/layouts/MainLayout.vue'), // 路由懒加载
 		children: [
 			{
-				path: 'home',
+				path: '/home',
 				name: 'Home',
 				component: () => import('@/modules/home/views/HomePage.vue'),
+				meta: {
+					title: '首页',
+				},
 			},
 			{
-				path: 'articles',
+				path: '/articles',
 				name: 'Article',
 				component: () => import('@/modules/article/views/ArticlePage.vue'),
+				meta: {
+					title: '文章',
+				},
 			},
 			{
-				path: 'categories',
+				path: '/categories',
 				name: 'Category',
 				component: () => import('@/modules/category/views/CategoryPage.vue'),
+				meta: {
+					title: '分类',
+				},
 			},
 			{
-				path: 'links',
+				path: '/links',
 				name: 'Link',
 				component: () => import('@/modules/link/views/LinkPage.vue'),
+				meta: {
+					title: '友链',
+				},
 			},
 			{
-				path: 'about',
+				path: '/about',
 				name: 'About',
 				component: () => import('@/modules/about/views/AboutPage.vue'),
+				meta: {
+					title: '关于',
+				},
 			},
 		],
 	},
@@ -41,7 +97,7 @@ export const routes = [
 		component: () => import('@/layouts/AuthLayout.vue'),
 		children: [
 			{
-				path: 'register',
+				path: '/auth/register',
 				name: 'Register',
 				component: () => import('@/modules/auth/views/RegisterPage.vue'),
 				meta: {
@@ -49,7 +105,7 @@ export const routes = [
 				},
 			},
 			{
-				path: 'login',
+				path: '/auth/login',
 				name: 'Login',
 				component: () => import('@/modules/auth/views/LoginPage.vue'),
 				meta: {
@@ -62,11 +118,14 @@ export const routes = [
 	{
 		path: '/admin',
 		name: 'AdminLayout',
+		redirect: '/admin/users',
 		component: () => import('@/layouts/AdminLayout.vue'),
 		meta: {
+			title: '后台管理',
 			requiresAuth: true, // 需要登录
-			roles: ['ADMIN'], // 需要 admin 角色
+			requiresAdmin: true, // 需要管理员权限
 		},
+		children: adminRoutes,
 	},
 	// 404 NOT FOUND 页面
 	{

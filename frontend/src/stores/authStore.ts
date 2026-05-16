@@ -1,6 +1,7 @@
-import { logout, refreshToken } from '@/modules/auth/api/authApi';
+import { logout, refreshToken as refreshTokenApi } from '@/modules/auth/api/authApi';
 import type { RefreshTokenData } from '@/modules/auth/types/auth';
 import { defineStore } from 'pinia';
+import { useUserStore } from './userStore';
 
 export const useAuthStore = defineStore('auth', {
 	state: () => ({
@@ -15,11 +16,26 @@ export const useAuthStore = defineStore('auth', {
 
 		clearAuth() {
 			this.accessToken = '';
+			const userStore = useUserStore();
+			userStore.clearUserInfo();
 		},
 
 		async refreshToken() {
-			const data: RefreshTokenData = await refreshToken();
-			this.setAccessToken(data.accessToken);
+			const userStore = useUserStore();
+
+			try {
+				const data: RefreshTokenData = await refreshTokenApi();
+				this.setAccessToken(data.accessToken);
+				await userStore.getCurrentUserProfile({
+					meta: {
+						skipAuthRefresh: true,
+						showError: false,
+					},
+				});
+			} catch (err) {
+				this.clearAuth();
+				throw err;
+			}
 		},
 
 		async logout() {
