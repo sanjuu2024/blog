@@ -50,13 +50,13 @@
 				<el-link
 					type="primary"
 					class="auth-footer-link"
-					@click="router.push('/auth/register')"
+					@click="router.replace('/auth/register')"
 					>没有账号？立即注册
 				</el-link>
 				<el-link
 					type="primary"
 					class="auth-footer-link"
-					@click="router.push('/')"
+					@click="router.replace('/')"
 					>返回首页
 				</el-link>
 			</div>
@@ -71,6 +71,7 @@ import type { LoginData, LoginRequest } from '../types/auth';
 import { login } from '../api/authApi';
 import type { FormItemRule } from 'element-plus';
 import { useAuthStore } from '@/stores/authStore';
+import { useUserStore } from '@/stores/userStore';
 
 defineOptions({
 	name: 'LoginPage',
@@ -149,7 +150,9 @@ async function handlerLogin() {
 		useAuthStore().setAccessToken(res.accessToken);
 		const redirectQuery = route.query.redirect;
 		const redirect = Array.isArray(redirectQuery) ? redirectQuery[0] : redirectQuery;
-		router.push(typeof redirect === 'string' && redirect.startsWith('/') ? redirect : '/'); // 如果是从其他需要登录的页面跳过来登录页的，登录后跳转回去。
+		const userStore = useUserStore();
+		userStore.setUserInfo(res.user);
+		router.replace(typeof redirect === 'string' && redirect.startsWith('/') ? redirect : '/'); // 如果是从其他需要登录的页面跳过来登录页的，登录后跳转回去。
 	} catch {
 		// 错误提示已经由 request 响应拦截器统一处理
 	}

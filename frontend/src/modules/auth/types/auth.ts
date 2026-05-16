@@ -1,8 +1,5 @@
 import type { ApiResult } from '@/types/api';
-
-export type UserRole = 'ADMIN' | 'USER';
-
-export type UserStatus = 'ACTIVE' | 'DISABLED';
+import type { UserInfo } from '@/modules/user/types/user';
 
 export type TokenType = 'Bearer';
 
@@ -19,16 +16,7 @@ export interface LoginRequest {
 	password: string;
 }
 
-export interface LoginUserInfo {
-	id: number;
-	username: string;
-	nickname: string;
-	email: string;
-	role: UserRole;
-	status: UserStatus;
-	avatarUrl: string;
-	bio: string;
-}
+export type LoginUserInfo = UserInfo;
 
 export interface AuthSessionData {
 	accessToken: string;

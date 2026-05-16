@@ -69,7 +69,7 @@ request.interceptors.response.use(
 							// 已尝试过原请求失败之后刷新 token；虽然这次原请求还是失败，但不再尝试刷新 token 了，避免死循环
 							if (originalRequest._retry) {
 								authStore.clearAuth();
-								router.push({
+								router.replace({
 									path: '/auth/login',
 									query: { redirect: router.currentRoute.value.fullPath },
 								});
@@ -84,7 +84,7 @@ request.interceptors.response.use(
 								return request(originalRequest); // 🔺刷新 token 后重试原请求
 							} catch {
 								authStore.clearAuth();
-								router.push({
+								router.replace({
 									path: '/auth/login',
 									query: { redirect: router.currentRoute.value.fullPath },
 								});
@@ -97,7 +97,9 @@ request.interceptors.response.use(
 				}
 				case 403: {
 					if (code === ApiCode.USER_DISABLED) {
-						router.push({
+						const authStore = useAuthStore();
+						authStore.clearAuth();
+						router.replace({
 							path: '/auth/login',
 							query: { redirect: router.currentRoute.value.fullPath },
 						});

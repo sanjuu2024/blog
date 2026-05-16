@@ -463,7 +463,7 @@ paths:
       tags:
         - Admin Users
       summary: 获取用户分页列表
-      description: 权限级别 `ADMIN`。支持按用户名、邮箱、状态、角色筛选。默认按创建时间倒序、用户 ID 倒序返回，不提供自定义排序参数。
+      description: 权限级别 `ADMIN`。P0 阶段通过 keyword 同时匹配用户名和邮箱，并支持按状态、角色筛选。P1 阶段必须废弃 keyword，改为 username 与 email 两个独立 Query 参数。默认按创建时间倒序、用户 ID 倒序返回，不提供自定义排序参数。
       operationId: listAdminUsers
       security:
         - bearerAuth: []
@@ -472,7 +472,7 @@ paths:
         - $ref: '#/components/parameters/PageSize'
         - name: keyword
           in: query
-          description: 用户名或邮箱模糊搜索关键字
+          description: 用户名或邮箱模糊搜索关键字。P1 阶段将废弃该参数，改用 username 和 email 独立筛选。
           required: false
           schema:
             type: string

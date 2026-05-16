@@ -2,6 +2,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { ElMessage } from 'element-plus';
 import type { Router } from 'vue-router';
 import NProgress from 'nprogress'; // 引入进度条
+import { useUserStore } from '@/stores/userStore';
 
 NProgress.configure({ showSpinner: false });
 
@@ -11,9 +12,12 @@ export default function setupRouterGuards(router: Router) {
 		NProgress.start();
 
 		const authStore = useAuthStore();
+		// 在当前匹配到的父子路由里，只要有任意一个路由写了 meta.requiresAuth，就认为这个页面需要登录
+		const requiresAuth = to.matched.some((route) => route.meta.requiresAuth);
+		const requiresAdmin = to.matched.some((route) => route.meta.requiresAdmin);
 
 		// 需要权限
-		if (to.meta.requiresAuth) {
+		if (requiresAuth) {
 			// 没有 AT
 			if (!authStore.accessToken) {
 				try {
@@ -35,10 +39,27 @@ export default function setupRouterGuards(router: Router) {
 					},
 				};
 			} else {
-				// if (to.meta.roles){
-				//     // TODO 需要校验角色
-				//     return false;
-				// }
+				const userStore = useUserStore();
+
+				if (!userStore.userInfo) {
+					try {
+						await userStore.getCurrentUserProfile();
+					} catch {
+						authStore.clearAuth();
+						ElMessage.error('登录状态已失效。正在跳转到登录页...');
+						return {
+							path: '/auth/login',
+							query: {
+								redirect: to.fullPath,
+							},
+						};
+					}
+				}
+
+				if (requiresAdmin && userStore.userInfo?.role !== 'ADMIN') {
+					ElMessage.error('权限不足，无法访问该页面。正在跳转到主页...');
+					return '/';
+				}
 				return true;
 			}
 		}

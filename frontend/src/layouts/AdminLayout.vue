@@ -1,11 +1,37 @@
 <template>
-	<h1>这里是 AdminLayout。</h1>
+	<div
+		class="admin-layout"
+		:style="adminLayoutStyle"
+	>
+		<AdminHeader />
+		<AdminSidebar v-model:collapsed="isSidebarCollapsed" />
+		<AdminMain />
+	</div>
 </template>
 
 <script setup lang="ts">
+import { computed, ref, type CSSProperties } from 'vue';
+import AdminHeader from './components/AdminHeader.vue';
+import AdminMain from './components/AdminMain.vue';
+import AdminSidebar from './components/AdminSidebar.vue';
+
 defineOptions({
 	name: 'AdminLayout',
 });
+
+const isSidebarCollapsed = ref(false);
+
+const adminLayoutStyle = computed<CSSProperties>(() => ({
+	'--app-admin-sidebar-width': isSidebarCollapsed.value
+		? 'var(--app-admin-min-sidebar-width)'
+		: 'var(--app-admin-max-sidebar-width)',
+}));
 </script>
 
-<style></style>
+<style>
+.admin-layout {
+	position: relative;
+	height: 100dvh;
+	overflow: hidden;
+}
+</style>
