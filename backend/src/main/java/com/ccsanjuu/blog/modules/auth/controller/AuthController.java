@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/auth")
 @Validated   // 需要参数校验
-@Tag(name = "鉴权", description = "鉴权相关接口")
+@Tag(name = "鉴权相关接口")
 @RequiredArgsConstructor
 @Slf4j
 public class AuthController {

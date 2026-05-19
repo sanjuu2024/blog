@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/users")
 @Validated
-@Tag(name = "用户", description = "用户资料相关接口")
+@Tag(name = "用户相关接口")
 @RequiredArgsConstructor
 public class UserController {
 
