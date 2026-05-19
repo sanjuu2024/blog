@@ -17,6 +17,6 @@ defineOptions({
 <style>
 .app-layout {
 	height: 100dvh;
-	overflow: scroll;
+	overflow-y: scroll;
 }
 </style>

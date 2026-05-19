@@ -75,7 +75,7 @@
 				border
 				stripe
 				:data="userList"
-				class="mt-12 mb-8"
+				class="admin-user-table mt-12 mb-8"
 			>
 				<el-table-column
 					label="序号"
@@ -156,26 +156,40 @@
 					fixed="right"
 				>
 					<template #default="{ row }">
-						<el-button
-							type="warning"
-							title="修改用户状态"
-							@click="toggleUserStatus(row)"
+						<el-popconfirm
+							:title="`确认修改 ${row.username} 的状态为 ${row.status === USER_STATUS.ACTIVE ? '禁用' : '正常'} ？`"
+							@confirm="toggleUserStatus(row)"
 						>
-							<template #icon>
-								<i-ep-edit />
+							<template #reference>
+								<el-button
+									type="warning"
+									title="修改用户状态"
+									:disabled="userStore.userInfo?.id === row.id"
+								>
+									<template #icon>
+										<i-ep-edit />
+									</template>
+									修改状态
+								</el-button>
 							</template>
-							修改状态
-						</el-button>
-						<el-button
-							type="warning"
-							title="修改用户角色"
-							@click="toggleUserRole(row)"
+						</el-popconfirm>
+						<el-popconfirm
+							:title="`确认修改 ${row.username} 为 ${row.role === USER_ROLE.ADMIN ? '普通用户' : '管理员'} ？`"
+							@confirm="toggleUserRole(row)"
 						>
-							<template #icon>
-								<i-solar-user-id-linear />
+							<template #reference>
+								<el-button
+									type="warning"
+									title="修改用户角色"
+									:disabled="userStore.userInfo?.id === row.id"
+								>
+									<template #icon>
+										<i-solar-user-id-linear />
+									</template>
+									修改角色
+								</el-button>
 							</template>
-							修改角色
-						</el-button>
+						</el-popconfirm>
 					</template>
 				</el-table-column>
 			</el-table>
@@ -210,6 +224,7 @@ import { listUsers, updateRole, updateStatus } from '../api/adminUserApi';
 import { ElMessage } from 'element-plus';
 import { formatDateTime } from '@/utils/datetime';
 import { USER_ROLE, USER_STATUS, type UserRole, type UserStatus } from '@/modules/user/types/user';
+import { useUserStore } from '@/stores/userStore';
 
 type UserRoleFilter = UserRole | '';
 type UserStatusFilter = UserStatus | '';
@@ -217,6 +232,8 @@ type UserStatusFilter = UserStatus | '';
 defineOptions({
 	name: 'AdminUserListPage',
 });
+
+const userStore = useUserStore();
 
 // 用户列表数据
 let userList = ref<AdminUserListItem[]>([]);
@@ -250,8 +267,8 @@ async function getUserList(page: number = pageNum.value) {
 		userList.value = data.records;
 		pageSize.value = data.pageSize;
 		total.value = data.total;
-	} catch (err) {
-		ElMessage.error('获取用户列表失败，请稍后重试。' + err);
+	} catch {
+		ElMessage.error('获取用户列表失败，请稍后重试。');
 	}
 }
 
@@ -286,4 +303,13 @@ onMounted(async () => {
 });
 </script>
 
-<style></style>
+<style scoped lang="scss">
+// 自定义表格样式，覆盖 Element Plus 默认的行 hover 和斑马纹背景色
+.admin-user-table {
+	--el-table-row-hover-bg-color: #eef6f0;
+}
+
+.admin-user-table :deep(.el-table__body tr.el-table__row--striped td.el-table__cell) {
+	background: #f7faf8;
+}
+</style>
