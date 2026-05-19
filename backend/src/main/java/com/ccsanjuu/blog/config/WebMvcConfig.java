@@ -13,7 +13,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void configurePathMatch(PathMatchConfigurer configurer) {
         configurer.addPathPrefix(
                 "/api/v1",
-                HandlerTypePredicate.forAnnotation(RestController.class)
+                HandlerTypePredicate.forBasePackage("com.ccsanjuu.blog.modules")
+                        .and(HandlerTypePredicate.forAnnotation(RestController.class))
         );
     }
 }

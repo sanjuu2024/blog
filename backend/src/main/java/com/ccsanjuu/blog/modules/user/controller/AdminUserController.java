@@ -11,6 +11,7 @@ import com.ccsanjuu.blog.modules.user.model.vo.UpdatedUserRoleVO;
 import com.ccsanjuu.blog.modules.user.model.vo.UpdatedUserStatusVO;
 import com.ccsanjuu.blog.modules.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/admin/users")
 @RequiredArgsConstructor
+@Tag(name = "用户管理接口")
 public class AdminUserController {
 
     private final UserService userService;
