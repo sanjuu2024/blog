@@ -5,6 +5,7 @@ import com.ccsanjuu.blog.modules.auth.controller.AuthController;
 import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.auth.support.RefreshTokenCookieManager;
 import com.ccsanjuu.blog.modules.auth.service.AuthService;
+import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import jakarta.validation.constraints.NotNull;
 import org.junit.jupiter.api.Test;
@@ -19,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -57,6 +59,9 @@ class ApiErrorHandlingTest {
 
     @MockitoBean
     private UserMapper userMapper;
+
+    @MockitoBean
+    private CategoryMapper categoryMapper;
 
     @MockitoBean
     private SecretKey jwtSigningKey;
@@ -150,6 +155,7 @@ class ApiErrorHandlingTest {
     }
 
     @RestController
+    @RequestMapping("/api/v1")
     @Validated
     public static class ValidationTestController {
 

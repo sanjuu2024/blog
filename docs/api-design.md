@@ -113,7 +113,14 @@ Authorization: Bearer <access_token>
 | `102006` | `400` | `原密码错误` | 修改密码时原密码校验失败 |
 | `102007` | `403` | `当前用户不允许修改自己的角色` | 管理员修改当前登录用户自身角色时被拒绝 |
 | `102008` | `403` | `当前用户不允许修改自己的状态` | 管理员修改当前登录用户自身状态时被拒绝 |
-| `104001` | `409` | `分类下存在文章，不能删除` | 删除分类时，该分类或其子分类下仍有关联文章 |
+| `104001` | `409` | `分类名称已存在` | 创建或更新分类时，同级分类下名称冲突 |
+| `104002` | `409` | `该分类下存在子分类，请先删除或迁移子分类` | 删除一级分类时，该分类下仍存在二级分类 |
+| `104003` | `409` | `该分类下存在文章，请先迁移文章或删除文章` | 删除二级分类时，该分类下仍有关联文章 |
+| `104004` | `404` | `该分类不存在` | 指定分类不存在 |
+| `104005` | `400` | `二级分类必须指定父分类` | 创建或更新二级分类时未传父分类 |
+| `104006` | `400` | `一级分类不能指定父分类` | 创建或更新一级分类时传入了父分类 |
+| `104007` | `400` | `父分类不存在或父分类不是一级分类` | 创建或更新二级分类时父分类不合法 |
+| `104008` | `409` | `不允许更新分类的级别` | 更新分类时尝试修改一级/二级分类层级 |
 
 ### 2.7 分页结构
 
@@ -640,7 +647,7 @@ GET /api/v1/categories
 | `name` | `String` | 一级分类名称 | `技术` |
 | `level` | `Integer` | 分类层级，一级固定为 `1` | `1` |
 | `description` | `String` | 分类描述 | `技术内容一级分类` |
-| `sortNo` | `Integer` | 排序值 | `10` |
+| `sortNo` | `Integer` | 排序值，值越小越靠前 | `10` |
 | `articleCount` | `Integer` | 一级分类下已发布文章总数 | `18` |
 | `children` | `Array<Object>` | 二级分类列表 | `[{"id":21001,"name":"Java"}]` |
 | `children[].id` | `Long` | 二级分类 ID | `21001` |
@@ -648,7 +655,7 @@ GET /api/v1/categories
 | `children[].name` | `String` | 二级分类名称 | `Java` |
 | `children[].level` | `Integer` | 分类层级，二级固定为 `2` | `2` |
 | `children[].description` | `String` | 二级分类描述 | `Java 相关文章` |
-| `children[].sortNo` | `Integer` | 排序值 | `11` |
+| `children[].sortNo` | `Integer` | 排序值，值越小越靠前 | `11` |
 | `children[].articleCount` | `Integer` | 该二级分类下已发布文章数量 | `6` |
 
 ### 响应样例
@@ -1530,6 +1537,17 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | `level` | `Integer` | 否 | 分类层级筛选，`1` 为一级分类，`2` 为二级分类 | `2` |
 | `parentId` | `Long` | 否 | 父分类 ID，查询某个一级分类下的二级分类时使用 | `20001` |
 
+### 返回规则
+
+- 不传 `keyword`、`level` 和 `parentId` 时，返回完整分类树，一级分类下包含二级分类。
+- 传 `keyword` 时，返回分类名称匹配的平铺列表，每个节点的 `children` 为空数组。
+- `keyword` 可与 `status`、`level`、`parentId` 组合筛选；只要传入有效 `keyword`，结果仍为平铺列表。
+- 传 `parentId` 时，返回该一级分类下的二级分类平铺列表，每个节点的 `children` 为空数组。
+- 传 `level=2` 时，返回二级分类平铺列表，每个节点的 `children` 为空数组。
+- 传 `level=1` 时，返回一级分类平铺列表，每个节点的 `children` 为空数组。
+- `parentId` 与 `level=1` 不能同时使用；若同时传入，后端返回参数错误。
+- `parentId` 与 `level=2` 可以同时使用，但 `level=2` 只是冗余限定。
+
 ### 请求样例
 
 ```http
@@ -1541,7 +1559,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 #### data 字段说明
 
-默认返回分类树，一级分类下包含二级分类列表。
+默认返回分类树，一级分类下包含二级分类列表，二级分类的 `children` 为空数组。
 
 | 字段名称 | 字段类型 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- |
@@ -1550,11 +1568,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | `level` | `Integer` | 分类层级 | `1`、`2` |
 | `name` | `String` | 分类名称 | `技术`、`Java` |
 | `description` | `String` | 分类描述 | `技术内容一级分类` |
-| `sortNo` | `Integer` | 排序值 | `10` |
+| `sortNo` | `Integer` | 排序值，值越小越靠前 | `10` |
 | `status` | `String` | 分类状态 | `ENABLED` |
 | `articleCount` | `Integer` | 关联文章数。一级分类为其下全部二级分类汇总，二级分类为自身文章数 | `18` |
 | `createdAt` | `String` | 创建时间 | `2026-04-22T21:10:00+08:00` |
-| `children` | `Array<Object>` | 二级分类列表，仅一级分类节点返回 | `[{"id":21001,"name":"Java"}]` |
+| `children` | `Array<Object>` | 子分类列表。一级分类下返回二级分类，二级分类返回空数组 | `[{"id":21001,"name":"Java","children":[]}]` |
 
 ### 响应样例
 
@@ -1583,7 +1601,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
           "sortNo": 11,
           "status": "ENABLED",
           "articleCount": 6,
-          "createdAt": "2026-04-22T21:20:00+08:00"
+          "createdAt": "2026-04-22T21:20:00+08:00",
+          "children": []
         },
         {
           "id": 21002,
@@ -1594,7 +1613,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
           "sortNo": 12,
           "status": "ENABLED",
           "articleCount": 4,
-          "createdAt": "2026-04-22T21:21:00+08:00"
+          "createdAt": "2026-04-22T21:21:00+08:00",
+          "children": []
         }
       ]
     }
@@ -1618,7 +1638,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | `level` | `Integer` | 是 | 分类层级，`1` 为一级分类，`2` 为二级分类 | `2` |
 | `name` | `String` | 是 | 分类名称。一级分类全局唯一；二级分类在同一父分类下唯一 | `Java` |
 | `description` | `String` | 否 | 分类描述 | `Java 相关文章` |
-| `sortNo` | `Integer` | 否 | 排序值，默认 `0` | `10` |
+| `sortNo` | `Integer` | 否 | 排序值，值越小越靠前，默认 `0` | `10` |
 | `status` | `String` | 否 | 分类状态，默认 `ENABLED` | `ENABLED` |
 
 ### 请求样例
@@ -1674,6 +1694,11 @@ Content-Type: application/json
 - 路径：`/api/v1/admin/categories/{categoryId}`
 - 权限：`ADMIN`
 
+说明：
+
+- 更新分类时不允许修改分类层级，`level` 必须与当前分类原层级保持一致。
+- 若需调整分类层级，应先新建目标层级分类，再迁移相关内容后删除原分类。
+
 ### 请求参数
 
 #### Path 参数
@@ -1687,10 +1712,10 @@ Content-Type: application/json
 | 字段名称 | 字段类型 | 必填 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- | --- |
 | `parentId` | `Long` | 否 | 父分类 ID。一级分类为空，二级分类必须指向一级分类 | `NULL`、`20001` |
-| `level` | `Integer` | 是 | 分类层级 | `2` |
+| `level` | `Integer` | 是 | 分类层级，更新时必须与当前分类原层级保持一致 | `2` |
 | `name` | `String` | 是 | 分类名称 | `Java` |
 | `description` | `String` | 否 | 分类描述 | `Java 相关文章` |
-| `sortNo` | `Integer` | 否 | 排序值 | `5` |
+| `sortNo` | `Integer` | 否 | 排序值，值越小越靠前 | `5` |
 | `status` | `String` | 否 | 分类状态 | `ENABLED` |
 
 ### 请求样例
@@ -1748,8 +1773,8 @@ Content-Type: application/json
 
 说明：
 
-- 删除一级分类时，需要保证该一级分类本身及其下所有二级分类都没有关联文章
-- 删除二级分类时，需要保证该二级分类下没有关联文章
+-   删除一级分类前，必须先删除其下所有二级分类。
+-   删除二级分类前，必须确认该分类下没有关联文章。
 
 ### 请求参数
 

@@ -11,6 +11,7 @@
 				<el-button
 					type="primary"
 					class="ml-2"
+					aria-label="搜索"
 					@click="getUserList(1)"
 				>
 					<i-lets-icons-search-alt />

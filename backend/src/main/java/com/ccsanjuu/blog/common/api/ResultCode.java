@@ -29,7 +29,14 @@ public enum ResultCode {
 
 
     // category 模块 04xxxx
-    CATEGORY_HAS_ARTICLES(104001, "分类下存在文章，不能删除", 409);
+    CATEGORY_NAME_ALREADY_EXISTS(104001, "分类名称已存在", 409),
+    CATEGORY_HAS_CHILDREN(104002, "该分类下存在子分类，请先删除或迁移子分类", 409),
+    CATEGORY_HAS_ARTICLES(104003, "该分类下存在文章，请先迁移文章或删除文章", 409),
+    CATEGORY_NOT_FOUND(104004, "该分类不存在", 404),
+    CATEGORY_PARENT_REQUIRED(104005, "二级分类必须指定父分类", 400),
+    CATEGORY_PARENT_NOT_ALLOWED(104006, "一级分类不能指定父分类", 400),
+    CATEGORY_PARENT_INVALID(104007, "父分类不存在或父分类不是一级分类", 400),
+    CATEGORY_UPDATE_LEVEL_NOT_ALLOWED(104008, "不允许更新分类的级别", 409);
 
     private final int code;
     private final String message;
