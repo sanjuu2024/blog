@@ -33,8 +33,8 @@ public class AdminCategoryController {
      */
     @GetMapping
     @Operation(description = "获取分类列表")
-    public Result<List<AdminCategoryItemVO>> categoryPageQuery(@Valid @ModelAttribute AdminCategoryQueryDTO adminCategoryQueryDTO){
-        return Result.success(categoryService.categoryPageQuery(adminCategoryQueryDTO));
+    public Result<List<AdminCategoryItemVO>> getCategoryList(@Valid @ModelAttribute AdminCategoryQueryDTO adminCategoryQueryDTO){
+        return Result.success(categoryService.getCategoryList(adminCategoryQueryDTO));
     }
 
     /**

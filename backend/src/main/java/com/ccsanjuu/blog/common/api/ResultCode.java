@@ -36,7 +36,12 @@ public enum ResultCode {
     CATEGORY_PARENT_REQUIRED(104005, "二级分类必须指定父分类", 400),
     CATEGORY_PARENT_NOT_ALLOWED(104006, "一级分类不能指定父分类", 400),
     CATEGORY_PARENT_INVALID(104007, "父分类不存在或父分类不是一级分类", 400),
-    CATEGORY_UPDATE_LEVEL_NOT_ALLOWED(104008, "不允许更新分类的级别", 409);
+    CATEGORY_UPDATE_LEVEL_NOT_ALLOWED(104008, "不允许更新分类的级别", 409),
+
+    // tag 模块 05xxxx
+    TAG_NAME_ALREADY_EXISTS(105001, "标签名称已存在", 409),
+    TAG_NOT_FOUND(105002, "该标签不存在", 404),
+    TAG_HAS_ARTICLES(105003, "该标签下存在文章，请先迁移文章或删除文章", 409);
 
     private final int code;
     private final String message;
