@@ -6,6 +6,7 @@ import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.auth.support.RefreshTokenCookieManager;
 import com.ccsanjuu.blog.modules.auth.service.AuthService;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
+import com.ccsanjuu.blog.modules.tag.mapper.TagMapper;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import jakarta.validation.constraints.NotNull;
 import org.junit.jupiter.api.Test;
@@ -62,6 +63,9 @@ class ApiErrorHandlingTest {
 
     @MockitoBean
     private CategoryMapper categoryMapper;
+
+    @MockitoBean
+    private TagMapper tagMapper;
 
     @MockitoBean
     private SecretKey jwtSigningKey;

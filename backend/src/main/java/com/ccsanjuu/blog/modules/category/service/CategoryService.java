@@ -9,13 +9,13 @@ import jakarta.validation.constraints.Positive;
 
 import java.util.List;
 
-public interface CategoryService{
+public interface CategoryService {
     /**
      * 获取分类列表
      * @param adminCategoryQueryDTO
      * @return
      */
-    List<AdminCategoryItemVO> categoryPageQuery(AdminCategoryQueryDTO adminCategoryQueryDTO);
+    List<AdminCategoryItemVO> getCategoryList(AdminCategoryQueryDTO adminCategoryQueryDTO);
 
     /**
      * 创建分类

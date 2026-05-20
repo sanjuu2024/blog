@@ -18,6 +18,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -39,7 +40,7 @@ public class CategoryServiceImpl implements CategoryService {
      * @return
      */
     @Override
-    public List<AdminCategoryItemVO> categoryPageQuery(AdminCategoryQueryDTO adminCategoryQueryDTO) {
+    public List<AdminCategoryItemVO> getCategoryList(AdminCategoryQueryDTO adminCategoryQueryDTO) {
 
         String keyword = adminCategoryQueryDTO.getKeyword();
         if (StringUtils.hasText(keyword)) {
@@ -191,25 +192,18 @@ public class CategoryServiceImpl implements CategoryService {
 
         // 2. 提取二级分类
         Map<Long, List<AdminCategoryItemVO>> m = categoryList.stream()
-                .filter(
-                        c -> {
-                            if (c.getLevel() == 2)
-                                return true;
-                            else
-                                return false;
-                        })
+                .filter(c -> c.getLevel() == 2)
                 .collect(Collectors.groupingBy(AdminCategoryItemVO::getParentId));
 
         // 3.把二级分类放到对应的父级分类下
         for (AdminCategoryItemVO parent : res) {
             List<AdminCategoryItemVO> children = m.get(parent.getId());
             if (children != null) {
-                List<AdminCategoryItemVO> childrenVO = BeanUtil.copyToList(children, AdminCategoryItemVO.class);
-                childrenVO.forEach(c -> {
+                children.forEach(c -> {
                     c.setArticleCount(0);   // TODO 后续文章模块开发后再完善
                     c.setChildren(List.of());
                 });
-                parent.setChildren(childrenVO);
+                parent.setChildren(children);
             }
         }
 
@@ -269,7 +263,7 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     /**
-     * 校验分类名字唯一性
+     * 校验分类名称唯一性
      * - 一级分类查重：parentId IS NULL + name
      * - 二级分类查重：parentId = 当前父分类ID + name
      *
@@ -279,10 +273,10 @@ public class CategoryServiceImpl implements CategoryService {
      */
     private void checkCategoryNameUnique(Long parentId, String name, Long excludeCategoryId) {
         boolean existing = false;
-        String lowerCaseName = name.toLowerCase();
+        String lowerCaseName = name.trim().toLowerCase(Locale.ROOT);
 
         if (parentId == null) {
-            // 创建 / 更新的是一级分类（所有 parentId 为 null 的分类中名字唯一）
+            // 创建 / 更新的是一级分类（所有 parentId 为 null 的分类中名称唯一）
             existing = categoryMapper.exists(
                     new LambdaQueryWrapper<Category>()
                             .isNull(Category::getParentId)
@@ -292,7 +286,7 @@ public class CategoryServiceImpl implements CategoryService {
         }
 
         else {
-            // 创建 / 更新的是二级分类（同一父分类下名字唯一）
+            // 创建 / 更新的是二级分类（同一父分类下名称唯一）
             existing = categoryMapper.exists(
                     new LambdaQueryWrapper<Category>()
                             .eq(Category::getParentId, parentId)
