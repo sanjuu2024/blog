@@ -927,7 +927,7 @@ paths:
       tags:
         - Admin Categories
       summary: 获取分类列表
-      description: 权限级别 `ADMIN`。默认返回一级分类树，二级分类挂载在 `children` 字段。
+      description: 权限级别 `ADMIN`。不传 `keyword`、`level` 和 `parentId` 时返回完整分类树；传 `keyword` 时返回分类名称匹配的平铺列表，且可与 `status`、`level`、`parentId` 组合筛选；传 `parentId` 时返回该一级分类下的二级分类平铺列表；传 `level=2` 时返回二级分类平铺列表；传 `level=1` 时返回一级分类平铺列表。平铺列表节点的 `children` 为空数组。`parentId` 不能与 `level=1` 同时使用；`parentId` 与 `level=2` 同时使用时，`level=2` 只是冗余限定。
       operationId: listAdminCategories
       security:
         - bearerAuth: []
@@ -951,7 +951,7 @@ paths:
             example: ENABLED
         - name: level
           in: query
-          description: 分类层级筛选，1 为一级分类，2 为二级分类
+          description: 分类层级筛选，1 为一级分类平铺列表，2 为二级分类平铺列表
           required: false
           schema:
             type: integer
@@ -961,7 +961,7 @@ paths:
             example: 2
         - name: parentId
           in: query
-          description: 父分类 ID，查询某个一级分类下的二级分类时使用
+          description: 父分类 ID，查询某个一级分类下的二级分类平铺列表时使用
           required: false
           schema:
             type: integer
@@ -997,6 +997,7 @@ paths:
                         status: ENABLED
                         articleCount: 6
                         createdAt: '2026-04-22T21:20:00+08:00'
+                        children: []
     post:
       tags:
         - Admin Categories
@@ -1040,7 +1041,7 @@ paths:
       tags:
         - Admin Categories
       summary: 更新分类
-      description: 权限级别 `ADMIN`。支持维护一级/二级分类以及父子关系。
+      description: 权限级别 `ADMIN`。支持维护分类名称、描述、排序、状态和父分类；不允许修改分类层级，`level` 必须与当前分类原层级保持一致。
       operationId: updateAdminCategory
       security:
         - bearerAuth: []
@@ -1080,7 +1081,7 @@ paths:
       tags:
         - Admin Categories
       summary: 删除分类
-      description: 权限级别 `ADMIN`。删除一级分类前需校验其自身及全部子分类是否有文章；删除二级分类前需校验该分类下是否有文章。
+      description: 权限级别 `ADMIN`。删除一级分类前必须先删除其下所有二级分类；删除二级分类前需校验该分类下没有文章。
       operationId: deleteAdminCategory
       security:
         - bearerAuth: []
@@ -1098,7 +1099,7 @@ paths:
                 message: 成功
                 data: null
         '409':
-          $ref: '#/components/responses/CategoryHasArticlesResponse'
+          $ref: '#/components/responses/CategoryDeleteConflictResponse'
   /api/v1/admin/tags:
     get:
       tags:
@@ -1779,6 +1780,7 @@ components:
           example: Java 相关文章
         sortNo:
           type: integer
+          description: 排序值，值越小越靠前
           example: 11
         articleCount:
           type: integer
@@ -1811,6 +1813,7 @@ components:
           example: 技术内容一级分类
         sortNo:
           type: integer
+          description: 排序值，值越小越靠前
           example: 10
         articleCount:
           type: integer
@@ -2447,54 +2450,6 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/ArticleStatusData'
-    AdminCategoryChildItem:
-      type: object
-      required:
-        - id
-        - parentId
-        - level
-        - name
-        - description
-        - sortNo
-        - status
-        - articleCount
-        - createdAt
-      properties:
-        id:
-          type: integer
-          format: int64
-          example: 21001
-        parentId:
-          type: integer
-          format: int64
-          example: 20001
-        level:
-          type: integer
-          enum:
-            - 2
-          example: 2
-        name:
-          type: string
-          example: Java
-        description:
-          type: string
-          example: Java 相关文章
-        sortNo:
-          type: integer
-          example: 11
-        status:
-          type: string
-          enum:
-            - ENABLED
-            - DISABLED
-          example: ENABLED
-        articleCount:
-          type: integer
-          example: 6
-        createdAt:
-          type: string
-          format: date-time
-          example: '2026-04-22T21:20:00+08:00'
     AdminCategoryItem:
       type: object
       required:
@@ -2522,6 +2477,7 @@ components:
           type: integer
           enum:
             - 1
+            - 2
           example: 1
         name:
           type: string
@@ -2531,6 +2487,7 @@ components:
           example: 技术内容一级分类
         sortNo:
           type: integer
+          description: 排序值，值越小越靠前
           example: 10
         status:
           type: string
@@ -2547,8 +2504,9 @@ components:
           example: '2026-04-22T21:10:00+08:00'
         children:
           type: array
+          description: 子分类列表。一级分类下返回二级分类，二级分类返回空数组。
           items:
-            $ref: '#/components/schemas/AdminCategoryChildItem'
+            $ref: '#/components/schemas/AdminCategoryItem'
     AdminCategoryListResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
@@ -2584,6 +2542,7 @@ components:
           example: Java 相关文章
         sortNo:
           type: integer
+          description: 排序值，值越小越靠前，默认 0
           example: 11
         status:
           type: string
@@ -2904,13 +2863,13 @@ components:
             code: 102001
             message: 用户不存在
             data: null
-    CategoryHasArticlesResponse:
-      description: 分类或其子分类下存在文章，不能删除
+    CategoryDeleteConflictResponse:
+      description: 分类存在子分类或文章，不能删除
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            code: 104001
-            message: 分类下存在文章，不能删除
+            code: 104002
+            message: 该分类下存在子分类，请先删除或迁移子分类
             data: null
