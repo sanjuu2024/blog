@@ -47,7 +47,7 @@ public class TagServiceImpl implements TagService {
         );
 
         List<AdminTagItemVO> res = BeanUtil.copyToList(tagList, AdminTagItemVO.class);
-        res.stream().forEach(c -> c.setArticleCount(0));   // TODO 文章模块开发后进一步完善
+        res.forEach(c -> c.setArticleCount(0));   // TODO 文章模块开发后进一步完善
         return res;
     }
 
@@ -62,9 +62,15 @@ public class TagServiceImpl implements TagService {
         checkTagNameUnique(tagUpsertRequestDTO.getName(), null);
 
         Tag tag = BeanUtil.copyProperties(tagUpsertRequestDTO, Tag.class);
-        tag.setName(tag.getName().trim());
+        String name = tag.getName().trim();
+        tag.setName(name);
         tagMapper.insert(tag);
-        return BeanUtil.copyProperties(tag, CreatedTagVO.class);
+
+        Tag newTag = tagMapper.selectOne(
+                new LambdaQueryWrapper<Tag>()
+                        .eq(Tag::getName, name)
+        );
+        return BeanUtil.copyProperties(newTag == null ? tag : newTag, CreatedTagVO.class);
     }
 
     /**
@@ -116,13 +122,13 @@ public class TagServiceImpl implements TagService {
     /**
      * 校验标签名称唯一性
      * @param tagName
-     * @param excludeCategoryId
+     * @param excludeTagId
      */
-    private void checkTagNameUnique(String tagName, Long excludeCategoryId) {
+    private void checkTagNameUnique(String tagName, Long excludeTagId) {
         boolean existing = tagMapper.exists(
                 new LambdaQueryWrapper<Tag>()
                         .apply("LOWER(name) = {0}", tagName.trim().toLowerCase(Locale.ROOT))
-                        .ne(excludeCategoryId != null, Tag::getId, excludeCategoryId)   // 更新后可以和更新前的自己名称相同
+                        .ne(excludeTagId != null, Tag::getId, excludeTagId)   // 更新后可以和更新前的自己名称相同
         );
 
         if (existing){

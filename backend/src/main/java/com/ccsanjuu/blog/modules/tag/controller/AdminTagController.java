@@ -8,6 +8,7 @@ import com.ccsanjuu.blog.modules.tag.model.vo.CreatedTagVO;
 import com.ccsanjuu.blog.modules.tag.model.vo.UpdatedTagVO;
 import com.ccsanjuu.blog.modules.tag.service.TagService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ import java.util.List;
 @RequestMapping("/admin/tags")
 @Validated
 @RequiredArgsConstructor
+@Tag(name = "标签管理接口")
 public class AdminTagController {
 
     private final TagService tagService;
