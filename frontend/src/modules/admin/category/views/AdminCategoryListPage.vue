@@ -33,7 +33,7 @@
 							type="primary"
 							class="ml-2"
 							aria-label="搜索"
-							@click="getCategoryList()"
+							@click="getCategoryList"
 						>
 							<template #icon>
 								<i-lets-icons-search-alt />
@@ -100,7 +100,10 @@
 						prop="status"
 						label="分类状态"
 					>
-						<el-radio-group v-model="queryParams.status">
+						<el-radio-group
+							v-model="queryParams.status"
+							@change="getCategoryList"
+						>
 							<el-radio :value="''">全部</el-radio>
 							<el-radio :value="CATEGORY_STATUS.ENABLED">启用</el-radio>
 							<el-radio :value="CATEGORY_STATUS.DISABLED">禁用</el-radio>
@@ -312,7 +315,7 @@
 					>
 						<el-input
 							type="textarea"
-							v-model="categoryForm.description"
+							v-model.trim="categoryForm.description"
 							placeholder="请输入分类描述"
 						></el-input>
 					</el-form-item>
@@ -353,7 +356,7 @@
 				<el-button @click="showDrawer = false">取消</el-button>
 				<el-button
 					type="primary"
-					@click="submitCategory()"
+					@click="submitCategory"
 				>
 					确定
 				</el-button>
