@@ -33,7 +33,7 @@
 							type="primary"
 							class="ml-2"
 							aria-label="搜索"
-							@click="getCategoryList()"
+							@click="getCategoryList"
 						>
 							<template #icon>
 								<i-lets-icons-search-alt />
@@ -100,7 +100,10 @@
 						prop="status"
 						label="分类状态"
 					>
-						<el-radio-group v-model="queryParams.status">
+						<el-radio-group
+							v-model="queryParams.status"
+							@change="getCategoryList"
+						>
 							<el-radio :value="''">全部</el-radio>
 							<el-radio :value="CATEGORY_STATUS.ENABLED">启用</el-radio>
 							<el-radio :value="CATEGORY_STATUS.DISABLED">禁用</el-radio>
@@ -220,7 +223,7 @@
 
 							<el-popconfirm
 								:title="`确认删除分类 ${row.name} 吗？`"
-								@confirm="handleDeleteCategory(row.id)"
+								@confirm="clickDeleteCategory(row.id)"
 							>
 								<template #reference>
 									<el-button
@@ -245,10 +248,9 @@
 			v-model="showDrawer"
 			resizable
 			direction="rtl"
-			class="min-sm"
 		>
 			<template #header>
-				<p class="lg font-bold">{{ drawerMode === 'create' ? '新建' : '编辑' }}分类</p>
+				<p class="font-bold">{{ drawerMode === 'create' ? '新建' : '编辑' }}分类</p>
 			</template>
 
 			<template #default>
@@ -312,7 +314,7 @@
 					>
 						<el-input
 							type="textarea"
-							v-model="categoryForm.description"
+							v-model.trim="categoryForm.description"
 							placeholder="请输入分类描述"
 						></el-input>
 					</el-form-item>
@@ -353,7 +355,7 @@
 				<el-button @click="showDrawer = false">取消</el-button>
 				<el-button
 					type="primary"
-					@click="submitCategory()"
+					@click="submitCategory"
 				>
 					确定
 				</el-button>
@@ -407,6 +409,12 @@ async function submitCategory() {
 	if (!success) return;
 
 	await getCategoryList();
+	await getParentCategoryOptions();
+}
+
+// 点击删除分类时，调用 handleDeleteCategory 处理函数发送请求，成功后重新刷新分类列表、一级分类下拉列表
+async function clickDeleteCategory(categoryId: number) {
+	await handleDeleteCategory(categoryId);
 	await getParentCategoryOptions();
 }
 </script>
