@@ -43,10 +43,12 @@ public class CategoryServiceImpl implements CategoryService {
     public List<AdminCategoryItemVO> getCategoryList(AdminCategoryQueryDTO adminCategoryQueryDTO) {
 
         String keyword = adminCategoryQueryDTO.getKeyword();
-        if (StringUtils.hasText(keyword)) {
-            keyword = keyword.trim();
-        }
         boolean hasKeyword = StringUtils.hasText(keyword);
+        String likeKeyword = "";
+        if (hasKeyword) {
+            keyword = keyword.trim();
+            likeKeyword = "%" + keyword.toLowerCase(Locale.ROOT) + "%";
+        }
 
         // 拦截非法查询请求
         Integer level = adminCategoryQueryDTO.getLevel();
@@ -58,7 +60,7 @@ public class CategoryServiceImpl implements CategoryService {
         // 1. 查询所有符合条件的分类
         List<Category> categoryList = categoryMapper.selectList(
                 new LambdaQueryWrapper<Category>()
-                        .like(hasKeyword, Category::getName, keyword)
+                        .apply(hasKeyword, "LOWER(name) like {0}", likeKeyword)   // 🔺🔺🔺mysql 的 like 默认大小写不敏感，但 pg 的 like 是大小写敏感的！最好统一转化为小写查询
                         .eq(adminCategoryQueryDTO.getStatus() != null, Category::getStatus, adminCategoryQueryDTO.getStatus())
                         .eq(adminCategoryQueryDTO.getLevel() != null, Category::getLevel, adminCategoryQueryDTO.getLevel())
                         .eq(adminCategoryQueryDTO.getParentId() != null, Category::getParentId, adminCategoryQueryDTO.getParentId())

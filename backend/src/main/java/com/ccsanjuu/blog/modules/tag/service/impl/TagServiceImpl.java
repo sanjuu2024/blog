@@ -33,14 +33,16 @@ public class TagServiceImpl implements TagService {
     @Override
     public List<AdminTagItemVO> getTagList(AdminTagQueryDTO adminTagQueryDTO) {
         String keyword = adminTagQueryDTO.getKeyword();
-        boolean hasText = StringUtils.hasText(keyword);
-        if (hasText) {
+        boolean hasKeyword = StringUtils.hasText(keyword);
+        String likeKeyword = "";
+        if (hasKeyword) {
             keyword = keyword.trim();
+            likeKeyword = "%" + keyword.toLowerCase(Locale.ROOT) + "%";
         }
 
         List<Tag> tagList = tagMapper.selectList(
                 new LambdaQueryWrapper<Tag>()
-                        .like(hasText, Tag::getName, keyword)
+                        .apply(hasKeyword, "LOWER(name) like {0}", likeKeyword)   // 🔺🔺🔺mysql 的 like 默认大小写不敏感，但 pg 的 like 是大小写敏感的！最好统一转化为小写查询
                         .eq(adminTagQueryDTO.getStatus() != null, Tag::getStatus, adminTagQueryDTO.getStatus())
                         .orderByDesc(Tag::getUpdatedAt)
                         .orderByAsc(Tag::getId)
