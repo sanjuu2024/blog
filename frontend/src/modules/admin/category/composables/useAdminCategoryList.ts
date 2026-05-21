@@ -79,8 +79,10 @@ export function useAdminCategoryList() {
 			getCategoryList(); // 刷新列表
 
 			ElMessage.success('删除分类成功');
+			return true;
 		} catch {
 			// 错误提示已经由 request 响应拦截器统一处理
+			return false;
 		}
 	}
 

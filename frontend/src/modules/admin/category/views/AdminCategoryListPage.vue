@@ -414,8 +414,11 @@ async function submitCategory() {
 
 // 点击删除分类时，调用 handleDeleteCategory 处理函数发送请求，成功后重新刷新分类列表、一级分类下拉列表
 async function clickDeleteCategory(categoryId: number) {
-	await handleDeleteCategory(categoryId);
-	await getParentCategoryOptions();
+	const success = await handleDeleteCategory(categoryId);
+	if (success) {
+		await getCategoryList();
+		await getParentCategoryOptions();
+	}
 }
 </script>
 
