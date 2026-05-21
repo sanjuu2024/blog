@@ -2,7 +2,7 @@
 export const adminRoutes = [
 	{
 		path: '/admin/dashboard',
-		name: 'Dashboard',
+		name: 'AdminDashboard',
 		component: () => import('@/modules/admin/dashboard/views/AdminDashboardPage.vue'),
 		meta: {
 			icon: 'dashboard',
@@ -34,6 +34,15 @@ export const adminRoutes = [
 		meta: {
 			icon: 'category',
 			title: '分类管理',
+		},
+	},
+	{
+		path: '/admin/tags',
+		name: 'AdminTagList',
+		component: () => import('@/modules/admin/tag/views/AdminTagListPage.vue'),
+		meta: {
+			icon: 'tag',
+			title: '标签管理',
 		},
 	},
 ];
