@@ -108,7 +108,10 @@ export function useAdminTagForm() {
 	function openUpdateDrawer(tag: AdminTagItem) {
 		drawerMode.value = 'edit';
 		editingTagId.value = tag.id;
-		Object.assign(tagForm, tag);
+
+		tagForm.name = tag.name;
+		tagForm.description = tag.description;
+		tagForm.status = tag.status;
 
 		nextTick(() => {
 			showDrawer.value = true;
