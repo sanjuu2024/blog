@@ -113,7 +113,6 @@ export function useAdminCategoryForm() {
 		description: [
 			{
 				trigger: 'blur',
-				required: true,
 				validator: (
 					_rule: unknown,
 					value: string | undefined,
@@ -135,7 +134,6 @@ export function useAdminCategoryForm() {
 		sortNo: [
 			{
 				trigger: 'blur',
-				required: true,
 				validator: (
 					_rule: unknown,
 					value: number | undefined,

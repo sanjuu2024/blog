@@ -223,7 +223,7 @@
 
 							<el-popconfirm
 								:title="`确认删除分类 ${row.name} 吗？`"
-								@confirm="handleDeleteCategory(row.id)"
+								@confirm="clickDeleteCategory(row.id)"
 							>
 								<template #reference>
 									<el-button
@@ -248,10 +248,9 @@
 			v-model="showDrawer"
 			resizable
 			direction="rtl"
-			class="min-sm"
 		>
 			<template #header>
-				<p class="lg font-bold">{{ drawerMode === 'create' ? '新建' : '编辑' }}分类</p>
+				<p class="font-bold">{{ drawerMode === 'create' ? '新建' : '编辑' }}分类</p>
 			</template>
 
 			<template #default>
@@ -410,6 +409,12 @@ async function submitCategory() {
 	if (!success) return;
 
 	await getCategoryList();
+	await getParentCategoryOptions();
+}
+
+// 点击删除分类时，调用 handleDeleteCategory 处理函数发送请求，成功后重新刷新分类列表、一级分类下拉列表
+async function clickDeleteCategory(categoryId: number) {
+	await handleDeleteCategory(categoryId);
 	await getParentCategoryOptions();
 }
 </script>
