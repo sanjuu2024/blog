@@ -1,37 +1,44 @@
 import { ElMessage } from 'element-plus';
 import { deleteCategory, listCategories, updateCategory } from '../api/adminCategoryApi';
 import {
+	CATEGORY_LEVEL,
 	CATEGORY_STATUS,
 	type AdminCategoryItem,
 	type AdminCategoryListQuery,
+	type CategoryLevel,
 	type CategoryStatus,
 	type UpdatedCategoryData,
 } from '../types/adminCategory';
 
 // 🔺由于筛选条件中分类“状态”单选时选中后除了点击重置按钮之外无法取消、用户体验不好，这里让status可以取值空字符串（即“全部状态”的取值）
-type AdminCategoryQueryForm = Omit<AdminCategoryListQuery, 'status'> & {
+// 🔺并且大概率是 el-select 的一些实现原因，把级别的全部设置为空字符串无效（虽然也确实是我要的效果，点击可以拉取到所有的级别，但是UI上不会显示选中了“全部”的选项；所以还是给全部级别赋值了"ALL"
+type AdminCategoryQueryForm = Omit<AdminCategoryListQuery, 'status' | 'level'> & {
 	status?: CategoryStatus | '';
+	level?: CategoryLevel | 'ALL';
 };
 
 export function useAdminCategoryList() {
 	// 分类列表数据
 	const categoryList = ref<AdminCategoryItem[]>([]);
 
-	// 查询分类列表条件
-	const queryParams = reactive<AdminCategoryQueryForm>({
+	const initQueryParams: AdminCategoryQueryForm = {
 		keyword: undefined,
 		status: '',
-		level: undefined,
+		level: 'ALL',
 		parentId: undefined,
-	});
+	};
+
+	// 查询分类列表条件
+	const queryParams = reactive<AdminCategoryQueryForm>({ ...initQueryParams });
 
 	// 构造分类列表查询条件（AdminCategoryQueryForm 转 AdminCategoryListQuery）
 	function buildCategoryListQuery(): AdminCategoryListQuery {
 		return {
 			keyword: queryParams.keyword || undefined,
 			status: queryParams.status || undefined,
-			level: queryParams.level,
-			parentId: queryParams.level === 2 ? queryParams.parentId : undefined, // 只有当查询二级分类时才传 parentId
+			level: queryParams.level === 'ALL' ? undefined : queryParams.level,
+			parentId:
+				queryParams.level === CATEGORY_LEVEL.SECOND ? queryParams.parentId : undefined, // 只有当查询二级分类时才传 parentId
 		};
 	}
 
@@ -92,7 +99,7 @@ export function useAdminCategoryList() {
 		Object.assign(queryParams, {
 			keyword: undefined,
 			status: '',
-			level: undefined,
+			level: 'ALL',
 			parentId: undefined,
 		});
 
