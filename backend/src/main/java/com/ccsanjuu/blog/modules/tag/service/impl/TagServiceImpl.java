@@ -66,10 +66,7 @@ public class TagServiceImpl implements TagService {
         tag.setName(name);
         tagMapper.insert(tag);
 
-        Tag newTag = tagMapper.selectOne(
-                new LambdaQueryWrapper<Tag>()
-                        .eq(Tag::getName, name)
-        );
+        Tag newTag = tagMapper.selectById(tag.getId());   // mp 回填 id
         return BeanUtil.copyProperties(newTag == null ? tag : newTag, CreatedTagVO.class);
     }
 
