@@ -37,7 +37,7 @@ export function useAdminTagList() {
 		try {
 			const res = await listTags(buildTagQueryParams());
 			tagList.value = res;
-		} catch (error) {
+		} catch {
 			// 错误提示已经由 request 响应拦截器统一处理
 		}
 	}
@@ -76,7 +76,6 @@ export function useAdminTagList() {
 			ElMessage.success(
 				`标签 ${tag.name} 已${newStatus === TAG_STATUS.ENABLED ? '启用' : '禁用'}`,
 			);
-			await getTagList();
 		} catch (error) {
 			// 错误提示已经由 request 响应拦截器统一处理
 		}
