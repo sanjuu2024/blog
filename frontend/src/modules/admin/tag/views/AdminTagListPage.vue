@@ -15,15 +15,19 @@
 			</template>
 			<template #default>
 				<!-- 查询条件 -->
+				<!-- @submit.prevent：阻止表单的原生回车提交 -->
 				<el-form
 					label-width="auto"
 					label-position="right"
 					:model="queryParams"
+					@submit.prevent
 				>
 					<div class="mb-6 flex">
+						<!-- 搜索框内按下回车键也触发搜索 -->
 						<el-input
 							v-model.trim="queryParams.keyword"
 							placeholder="请输入标签名称模糊搜索"
+							@keyup.enter="getTagList"
 						/>
 						<el-button
 							type="primary"

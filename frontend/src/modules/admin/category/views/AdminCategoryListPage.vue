@@ -15,19 +15,23 @@
 			</template>
 
 			<template #default>
+				<!-- @submit.prevent：阻止表单的原生回车提交 -->
 				<el-form
 					label-width="auto"
 					label-position="right"
 					:model="queryParams"
+					@submit.prevent
 				>
 					<!-- <el-form-item
 						prop="keyword"
 						label="关键字搜索"
 					> -->
 					<div class="mb-6 flex">
+						<!-- 搜索框内按下回车键也触发搜索 -->
 						<el-input
 							v-model.trim="queryParams.keyword"
 							placeholder="请输入分类名称模糊搜索"
+							@keyup.enter="getCategoryList"
 						/>
 						<el-button
 							type="primary"
@@ -64,7 +68,12 @@
 							<el-select
 								v-model="queryParams.level"
 								placeholder="请选择分类级别"
+								@change="getCategoryList"
 							>
+								<el-option
+									:value="'ALL'"
+									label="全部"
+								/>
 								<el-option
 									:value="1"
 									label="一级分类"
@@ -85,6 +94,7 @@
 							<el-select
 								v-model="queryParams.parentId"
 								placeholder="请选择父级分类"
+								@change="getCategoryList"
 							>
 								<el-option
 									v-for="category in parentCategoryOptions"
