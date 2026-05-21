@@ -416,7 +416,6 @@ async function submitCategory() {
 async function clickDeleteCategory(categoryId: number) {
 	const success = await handleDeleteCategory(categoryId);
 	if (success) {
-		await getCategoryList();
 		await getParentCategoryOptions();
 	}
 }
