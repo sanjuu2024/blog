@@ -96,12 +96,7 @@ export function useAdminCategoryList() {
 	// 重置查询条件
 	function resetQueryParams() {
 		// 注意是 reactive，不能整个直接重新赋值，会断响应式
-		Object.assign(queryParams, {
-			keyword: undefined,
-			status: '',
-			level: 'ALL',
-			parentId: undefined,
-		});
+		Object.assign(queryParams, initQueryParams);
 
 		getCategoryList();
 	}
