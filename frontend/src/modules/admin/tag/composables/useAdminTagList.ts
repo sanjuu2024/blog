@@ -56,7 +56,7 @@ export function useAdminTagList() {
 
 			ElMessage.success(`标签 ${name} 删除成功`);
 			await getTagList();
-		} catch (error) {
+		} catch {
 			// 错误提示已经由 request 响应拦截器统一处理
 		}
 	}
@@ -74,9 +74,9 @@ export function useAdminTagList() {
 
 			tag.status = res.status; // 直接更新状态，不需要重新拉取列表
 			ElMessage.success(
-				`标签 ${tag.name} 已${newStatus === TAG_STATUS.ENABLED ? '启用' : '禁用'}`,
+				`标签 ${tag.name} 已${res.status === TAG_STATUS.ENABLED ? '启用' : '禁用'}`,
 			);
-		} catch (error) {
+		} catch {
 			// 错误提示已经由 request 响应拦截器统一处理
 		}
 	}
