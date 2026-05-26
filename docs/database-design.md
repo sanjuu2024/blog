@@ -367,7 +367,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_top_publish
 | --- | --- | --- | --- |
 | `id` | `BIGSERIAL` | 文章主键 ID | `40001` |
 | `title` | `VARCHAR(200)` | 文章标题 | `Spring Boot 双 Token 登录实践` |
-| `slug` | `VARCHAR(200)` | 文章 SEO 路径标识，当前版本可为空 | `spring-boot-dual-token` |
+| `slug` | `VARCHAR(200)` | 文章 SEO 路径标识，P0 可为空；P2 再用于 URL 可读化优化 | `spring-boot-dual-token` |
 | `summary` | `VARCHAR(500)` | 文章摘要，列表页用于简介展示 | `本文记录双 Token 的实现思路与接口设计` |
 | `content_md` | `TEXT` | Markdown 正文内容，作为后台编辑源 | `# 一、背景\n...` |
 | `content_html` | `TEXT` | 由 Markdown 转译得到的 HTML 正文，供前台渲染使用 | `<h1>一、背景</h1><p>...</p>` |
@@ -391,6 +391,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_top_publish
 - 例如一级分类 `技术` 下可挂二级分类 `Java`、`算法`、`前端三剑客`
 - 文章的 `category_id` 应指向 `Java`、`算法` 这类二级分类，而不是 `技术` 这类一级分类
 - 保存或更新文章时，应用层应以 `content_md` 为源生成 `content_html` 与 `content_text`
+- P0 阶段文章详情 URL 以 `id` 作为稳定定位标识；`slug` 不作为必填字段，也不要求管理员手动维护
+- P2 阶段可在前台 URL 中追加 `slug` 提升可读性，例如 `/articles/40001-spring-boot-dual-token-login`，实际定位仍优先以 `id` 为准
 
 ## 3.6 表名：`blog_article_tag`
 

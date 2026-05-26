@@ -26,7 +26,13 @@ public enum ResultCode {
     SELF_ROLE_CHANGE_NOT_ALLOWED(102007, "当前用户不允许修改自己的角色", 403),
     SELF_STATUS_CHANGE_NOT_ALLOWED(102008, "当前用户不允许修改自己的状态", 403),
 
-
+    // article 模块 03xxxx
+    ARTICLE_NOT_FOUND(103001, "文章不存在", 404),
+    ARTICLE_CATEGORY_NOT_FOUND(103002, "文章分类不存在", 404),
+    ARTICLE_CATEGORY_LEVEL_INVALID(103003, "文章只能绑定二级分类", 400),
+    ARTICLE_CATEGORY_DISABLED(103004, "文章分类已禁用", 409),
+    ARTICLE_TAG_NOT_FOUND(103005, "文章标签不存在", 404),
+    ARTICLE_TAG_DISABLED(103006, "文章标签已禁用", 409),
 
     // category 模块 04xxxx
     CATEGORY_NAME_ALREADY_EXISTS(104001, "分类名称已存在", 409),

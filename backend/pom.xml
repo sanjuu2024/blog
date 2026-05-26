@@ -153,6 +153,14 @@
             <version>${hutool.version}</version>
             <scope>compile</scope>
         </dependency>
+
+        <!--添加文章 md 转 html 和纯文本的第三方库-->
+        <!-- Source: https://mvnrepository.com/artifact/com.vladsch.flexmark/flexmark-all -->
+        <dependency>
+            <groupId>com.vladsch.flexmark</groupId>
+            <artifactId>flexmark-all</artifactId>
+            <version>0.64.8</version>
+        </dependency>
     </dependencies>
 
     <build>
