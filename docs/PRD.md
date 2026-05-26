@@ -81,6 +81,7 @@
 - 收藏功能
 - 友链管理
 - SMTP 邮箱验证
+- 文章详情 URL 可读化与 SEO 优化，例如在 URL 中追加 `slug`
 - 更多统计与运营能力
 
 ## 5. 信息架构
@@ -532,6 +533,7 @@
 - `content_md` 用于后台编辑与版本维护
 - `content_html` 由 `content_md` 转译得到，用于前台渲染
 - `content_text` 由 `content_md` 提取纯文本得到，用于全文搜索
+- P0 文章详情 URL 使用文章 ID，例如 `/articles/40001`；`slug` 仅作为 P2 URL 可读化与 SEO 优化预留
 
 为后续版本预留：
 

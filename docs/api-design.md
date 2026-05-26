@@ -528,6 +528,8 @@ GET /api/v1/articles?pageNum=1&pageSize=10&categoryId=20001
 - 路径：`/api/v1/articles/{articleId}`
 - 权限：`PUBLIC`
 
+说明：P0 阶段文章详情接口和前台文章详情页均以 `articleId` 作为稳定定位标识。`slug` 仅作为 P2 URL 可读化与 SEO 优化预留，后续可扩展为类似 `/articles/{articleId}-{slug}` 的前台展示 URL。
+
 ### 请求参数
 
 #### Path 参数
@@ -2041,6 +2043,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 文章保存或更新时，后端应以 `contentMd` 为源自动生成并持久化 `contentHtml`
 - 文章保存或更新时，后端应以 `contentMd` 为源自动提取并持久化 `contentText`
 - 前台文章详情接口优先返回 `contentHtml` 用于页面渲染
+- P0 文章详情以 `articleId` 定位；P2 再考虑将 `slug` 追加到前台 URL 中提升可读性与 SEO 表达
 - 文章从 `PUBLISHED` 修改为 `OFFLINE` 后，前台立即不可见
 
 ### 11.3 分类和标签相关
