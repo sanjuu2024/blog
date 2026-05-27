@@ -33,6 +33,9 @@ import org.springframework.util.StringUtils;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -52,16 +55,18 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
      */
     @Override
     public PageResult<AdminArticleListItemVO> getArticleList(AdminArticleQueryDTO adminArticleQueryDTO) {
+        // 1. 构建分页配置
         Page<Article> page = Page.of(adminArticleQueryDTO.getPageNum(), adminArticleQueryDTO.getPageSize());
 
+        // 2. 清洗 title（trim、lowerCase）
         String likeTitle = "";
         boolean hasText = StringUtils.hasText(adminArticleQueryDTO.getTitle());
         if (hasText) {
             likeTitle = "%"+adminArticleQueryDTO.getTitle().trim().toLowerCase()+"%";
         }
 
-        // 🔺查询分类时，支持按照 一级 / 二级 分类查询，所以这里需要额外处理下分类的查询条件
-        List<Long> categoryIds = List.of();
+        // 3. 🔺查询分类时，支持按照 一级 / 二级 分类查询，所以这里需要额外处理下分类的查询条件
+        List<Long> queryCategoryIds = List.of();
         if (adminArticleQueryDTO.getCategoryId() != null) {
              Category category = categoryMapper.selectById(adminArticleQueryDTO.getCategoryId());
 
@@ -69,18 +74,24 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
                  throw new BizException(ResultCode.ARTICLE_CATEGORY_NOT_FOUND);
              }
 
-             categoryIds = category.getLevel() == 2
+             queryCategoryIds = category.getLevel() == 2
                             ? List.of(category.getId())
                             : categoryMapper.selectList(
                                 new LambdaQueryWrapper<Category>()
                                         .eq(Category::getParentId, category.getId())
                             ).stream().map(Category::getId).toList();
+
+             if (category.getLevel() == 1 && queryCategoryIds.isEmpty()){
+                 // 查询的该一级分类下没有二级分类，查询结果一定为空
+                 // 防止后续查询空的 queryCategoryIds 导致 SQL 错误（where category_id in ()），直接返回空结果
+                 return PageResult.of(page.getTotal(), page.getCurrent(), page.getSize(), List.of());
+             }
         }
 
-
+        // 4. 查询
         lambdaQuery()
                 .apply(hasText, "LOWER(title) like {0}", likeTitle)
-                .in(adminArticleQueryDTO.getCategoryId() != null, Article::getCategoryId, categoryIds)
+                .in(adminArticleQueryDTO.getCategoryId() != null, Article::getCategoryId, queryCategoryIds)
                 .eq(adminArticleQueryDTO.getStatus() != null, Article::getStatus, adminArticleQueryDTO.getStatus())
                 .eq(adminArticleQueryDTO.getIsTop() != null, Article::getIsTop, adminArticleQueryDTO.getIsTop())
                 .orderByDesc(Article::getIsTop)
@@ -88,15 +99,46 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
                 .page(page);
 
         List<AdminArticleListItemVO> res = new ArrayList<>();
-        page.getRecords().forEach(article -> {
+
+        // 5. 获取 vo 中的 ArticleCategoryVO 数据
+        List<Article> records = page.getRecords();
+        if (records.isEmpty()){
+            // 防止后续查询空的 categoryIds 导致 SQL 错误（where id in ()），直接返回空结果
+            return PageResult.of(page.getTotal(), page.getCurrent(), page.getSize(), List.of());
+        }
+
+        // 注意 distinct() 对象是 Long id 而不是 Article 对象
+        List<Long> categoryIds = records.stream().map(Article::getCategoryId).distinct().toList();
+        List<Category> categoryList = categoryMapper.selectList(
+                new LambdaQueryWrapper<Category>()
+                        .in(Category::getId, categoryIds)
+        );
+
+        // p.s. Objects::nonNull 其实不加也可以，因为 categoryId 是 Article 的必填字段，理论上就是全都是二级分类，不会有父分类 Id 为 null 的情况；加上增强健壮性。
+        // 注意 distinct() 对象是 Long id 而不是 Category 对象、filter 的对象也是 Long id 而不是 Category 对象
+        // 即注意 distinct() 和 filter() 在流中的位置
+        List<Long> parentCategoryIds = categoryList.stream().map(Category::getParentId).filter(Objects::nonNull).distinct().toList();
+        Map<Long, ArticleCategoryParentVO> parentCategoryVoMap = parentCategoryIds.isEmpty()
+                ? Map.of()
+                : BeanUtil.copyToList(
+                categoryMapper.selectList(
+                        new LambdaQueryWrapper<Category>()
+                                .in(Category::getId, parentCategoryIds)
+                ), ArticleCategoryParentVO.class)
+                .stream().collect(Collectors.toMap(ArticleCategoryParentVO::getId, category -> category));
+
+        List<ArticleCategoryVO> categoryVoList = new ArrayList<>();
+        categoryList.forEach(category -> {
+            ArticleCategoryVO vo = BeanUtil.copyProperties(category, ArticleCategoryVO.class);
+            vo.setParent(parentCategoryVoMap.get(category.getParentId()));
+            categoryVoList.add(vo);
+        });
+        Map<Long, ArticleCategoryVO> categoryVoMap = categoryVoList.stream().collect(Collectors.toMap(ArticleCategoryVO::getId, category -> category));
+
+        // 6. 封装返回
+        records.forEach(article -> {
             AdminArticleListItemVO vo = BeanUtil.copyProperties(article, AdminArticleListItemVO.class);
-
-            Category category = categoryMapper.selectById(article.getCategoryId());
-            ArticleCategoryVO categoryVo = BeanUtil.copyProperties(category, ArticleCategoryVO.class);
-            Category parentCategory = categoryMapper.selectById(category.getParentId());
-            categoryVo.setParent(BeanUtil.copyProperties(parentCategory, ArticleCategoryParentVO.class));
-
-            vo.setCategory(categoryVo);
+            vo.setCategory(categoryVoMap.get(article.getCategoryId()));
             res.add(vo);
         });
 
@@ -224,12 +266,17 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
      * 修改文章状态
      *
      * @param articleId
+     * @param userId
      * @param updateArticleStatusRequestDTO
      * @return
      */
     @Override
-    public UpdatedArticleStatusVO updateArticleStatus(Long articleId, UpdateArticleStatusRequestDTO updateArticleStatusRequestDTO) {
-        checkArticleExists(articleId);
+    public UpdatedArticleStatusVO updateArticleStatus(Long articleId, Long userId, UpdateArticleStatusRequestDTO updateArticleStatusRequestDTO) {
+
+        Article article = checkArticleExists(articleId);
+        if (!article.getAuthorId().equals(userId)){
+            throw new BizException(ResultCode.NO_PERMISSION);
+        }
 
         lambdaUpdate()
                 .eq(Article::getId, articleId)
@@ -237,8 +284,8 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
                 .set(updateArticleStatusRequestDTO.getStatus() == ArticleStatus.PUBLISHED, Article::getPublishedAt, OffsetDateTime.now())
                 .update();
 
-        Article article = getById(articleId);
-        return BeanUtil.copyProperties(article, UpdatedArticleStatusVO.class);
+        Article newArticle = getById(articleId);
+        return BeanUtil.copyProperties(newArticle, UpdatedArticleStatusVO.class);
     }
 
 
