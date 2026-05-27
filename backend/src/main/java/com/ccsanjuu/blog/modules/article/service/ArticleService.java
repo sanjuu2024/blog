@@ -58,8 +58,9 @@ public interface ArticleService extends IService<Article> {
      * 修改文章状态
      *
      * @param articleId
+     * @param userId
      * @param updateArticleStatusRequestDTO
      * @return
      */
-    UpdatedArticleStatusVO updateArticleStatus(@Positive Long articleId, UpdateArticleStatusRequestDTO updateArticleStatusRequestDTO);
+    UpdatedArticleStatusVO updateArticleStatus(@Positive Long articleId, Long userId, UpdateArticleStatusRequestDTO updateArticleStatusRequestDTO);
 }

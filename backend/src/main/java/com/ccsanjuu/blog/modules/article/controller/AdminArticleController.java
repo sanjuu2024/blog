@@ -112,8 +112,9 @@ public class AdminArticleController {
     @Operation(description = "修改文章状态")
     public Result<UpdatedArticleStatusVO> updateArticleStatus(
             @Positive @PathVariable Long articleId,
-            @Valid @RequestBody UpdateArticleStatusRequestDTO updateArticleStatusRequestDTO
+            @Valid @RequestBody UpdateArticleStatusRequestDTO updateArticleStatusRequestDTO,
+            @AuthenticationPrincipal JwtPrincipal jwtPrincipal
     ){
-        return Result.success(articleService.updateArticleStatus(articleId, updateArticleStatusRequestDTO));
+        return Result.success(articleService.updateArticleStatus(articleId, jwtPrincipal.userId(), updateArticleStatusRequestDTO));
     }
 }
