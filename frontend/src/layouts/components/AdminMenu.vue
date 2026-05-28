@@ -1,11 +1,11 @@
 <template>
 	<!-- 遍历一级路由 -->
 	<template
-		v-for="route in menuList"
+		v-for="route in visibleMenuList"
 		:key="route.path"
 	>
 		<!-- 🍰如果没有子路由那就是普通菜单 -->
-		<template v-if="!route.children">
+		<template v-if="!getVisibleChildren(route).length">
 			<el-menu-item
 				:index="route.path"
 				:key="route.path"
@@ -37,13 +37,14 @@
 					</el-icon>
 					<span>{{ route.meta?.title }}</span>
 				</template>
-				<AdminMenu :menuList="route.children"></AdminMenu>
+				<AdminMenu :menuList="getVisibleChildren(route)"></AdminMenu>
 			</el-sub-menu>
 		</template>
 	</template>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import type { RouteRecordRaw } from 'vue-router';
 import getRouteIcon from '@/utils/getRouteIcon';
@@ -54,7 +55,7 @@ defineOptions({
 
 const router = useRouter();
 
-withDefaults(
+const props = withDefaults(
 	defineProps<{
 		menuList?: RouteRecordRaw[];
 	}>(),
@@ -62,6 +63,12 @@ withDefaults(
 		menuList: () => [], // 🔺数组是引用类型！不能直接赋值[]，要写成 getter
 	},
 );
+
+const visibleMenuList = computed(() => props.menuList.filter((route) => !route.meta?.hidden));
+
+function getVisibleChildren(route: RouteRecordRaw) {
+	return route.children?.filter((child) => !child.meta?.hidden) ?? [];
+}
 </script>
 
 <style></style>

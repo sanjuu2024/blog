@@ -113,6 +113,13 @@ Authorization: Bearer <access_token>
 | `102006` | `400` | `原密码错误` | 修改密码时原密码校验失败 |
 | `102007` | `403` | `当前用户不允许修改自己的角色` | 管理员修改当前登录用户自身角色时被拒绝 |
 | `102008` | `403` | `当前用户不允许修改自己的状态` | 管理员修改当前登录用户自身状态时被拒绝 |
+| `103001` | `404` | `文章不存在` | 指定文章不存在 |
+| `103002` | `404` | `文章分类不存在` | 创建、更新或筛选文章时指定分类不存在 |
+| `103003` | `400` | `文章只能绑定二级分类` | 创建或更新文章时绑定了一级分类 |
+| `103004` | `409` | `文章分类已禁用` | 创建或更新文章时绑定了已禁用分类 |
+| `103005` | `404` | `文章标签不存在` | 创建或更新文章时指定标签不存在 |
+| `103006` | `409` | `文章标签已禁用` | 创建或更新文章时指定标签已禁用 |
+| `103007` | `409` | `文章状态流转不合法` | 创建、更新或修改文章状态时不符合状态流转规则 |
 | `104001` | `409` | `分类名称已存在` | 创建或更新分类时，同级分类下名称冲突 |
 | `104002` | `409` | `该分类下存在子分类，请先删除或迁移子分类` | 删除一级分类时，该分类下仍存在二级分类 |
 | `104003` | `409` | `该分类下存在文章，请先迁移文章或删除文章` | 删除二级分类时，该分类下仍有关联文章 |
@@ -1306,7 +1313,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | `tagIds` | `Array<Long>` | 否 | 标签 ID 列表 | `[30001, 30002]` |
 | `coverUrl` | `String` | 否 | 封面地址 | `https://cdn.example.com/cover/token.png` |
 | `isTop` | `Boolean` | 否 | 是否置顶，默认 `false` | `true` |
-| `status` | `String` | 是 | 创建时状态，建议 `DRAFT` 或 `PUBLISHED` | `DRAFT` |
+| `status` | `String` | 是 | 创建时状态，仅允许 `DRAFT` 或 `PUBLISHED`，不允许直接创建为 `OFFLINE` | `DRAFT` |
 | `allowComment` | `Boolean` | 否 | 是否允许评论，预留字段 | `true` |
 
 ### 请求样例
@@ -1337,7 +1344,7 @@ Content-Type: application/json
 | --- | --- | --- | --- |
 | `id` | `Long` | 新建文章 ID | `40001` |
 | `status` | `String` | 当前文章状态 | `DRAFT` |
-| `publishedAt` | `String` | 发布时间，草稿可为空 | `null` |
+| `publishedAt` | `String` | 首次发布时间，草稿可为空 | `null` |
 | `createdAt` | `String` | 创建时间 | `2026-04-22T23:45:00+08:00` |
 
 ### 响应样例
@@ -1380,7 +1387,7 @@ Content-Type: application/json
 | `tagIds` | `Array<Long>` | 否 | 标签 ID 列表 | `[30001, 30002]` |
 | `coverUrl` | `String` | 否 | 封面地址 | `https://cdn.example.com/cover/token.png` |
 | `isTop` | `Boolean` | 否 | 是否置顶 | `true` |
-| `status` | `String` | 是 | 编辑后的状态 | `PUBLISHED` |
+| `status` | `String` | 是 | 编辑后的状态；从未发布过的文章允许 `DRAFT` 或 `PUBLISHED`，已发布过的文章仅允许 `PUBLISHED` 或 `OFFLINE` | `PUBLISHED` |
 | `allowComment` | `Boolean` | 否 | 是否允许评论 | `true` |
 
 ### 请求样例
@@ -1411,7 +1418,7 @@ Content-Type: application/json
 | --- | --- | --- | --- |
 | `id` | `Long` | 文章 ID | `40001` |
 | `status` | `String` | 更新后的状态 | `PUBLISHED` |
-| `publishedAt` | `String` | 发布时间 | `2026-04-22T23:50:00+08:00` |
+| `publishedAt` | `String` | 首次发布时间，仅在文章第一次变为 `PUBLISHED` 时写入 | `2026-04-22T23:50:00+08:00` |
 | `updatedAt` | `String` | 更新时间 | `2026-04-22T23:50:00+08:00` |
 
 ### 响应样例
@@ -1447,7 +1454,7 @@ Content-Type: application/json
 
 | 字段名称 | 字段类型 | 必填 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- | --- |
-| `status` | `String` | 是 | 目标状态，建议用于 `PUBLISHED` 或 `OFFLINE` | `OFFLINE` |
+| `status` | `String` | 是 | 目标状态；从未发布过的文章仅允许发布为 `PUBLISHED`，已发布过的文章仅允许在 `PUBLISHED` 与 `OFFLINE` 间流转 | `OFFLINE` |
 
 ### 请求样例
 
@@ -2038,7 +2045,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 - 前台文章列表和详情仅返回 `PUBLISHED` 状态文章
 - 草稿和下线文章仅后台可见
-- 文章创建或更新为 `PUBLISHED` 时，后端应自动写入 `publishedAt`
+- `DRAFT` 表示从未发布过的草稿；`OFFLINE` 表示曾经发布过但当前下线
+- 创建文章时仅允许 `DRAFT` 或 `PUBLISHED`，不允许直接创建为 `OFFLINE`
+- 从未发布过的文章可保持 `DRAFT` 或发布为 `PUBLISHED`，不允许转为 `OFFLINE`
+- 已发布过的文章仅允许在 `PUBLISHED` 与 `OFFLINE` 之间流转，不允许回退为 `DRAFT`
+- `publishedAt` 表示首次发布时间，仅在文章第一次变为 `PUBLISHED` 时写入；下线、重新发布或更新已发布文章时不刷新
 - 文章必须绑定二级分类，不能直接绑定一级分类
 - 文章保存或更新时，后端应以 `contentMd` 为源自动生成并持久化 `contentHtml`
 - 文章保存或更新时，后端应以 `contentMd` 为源自动提取并持久化 `contentText`

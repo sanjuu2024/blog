@@ -722,7 +722,7 @@ paths:
       tags:
         - Admin Articles
       summary: 创建文章
-      description: 权限级别 `ADMIN`。创建新文章，支持直接保存为草稿或发布。
+      description: 权限级别 `ADMIN`。创建新文章，仅允许直接保存为草稿或发布，不允许直接创建为下线状态。
       operationId: createAdminArticle
       security:
         - bearerAuth: []
@@ -768,12 +768,14 @@ paths:
           $ref: '#/components/responses/UnauthorizedResponse'
         '403':
           $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ArticleConflictResponse'
   /api/v1/admin/articles/{articleId}:
     get:
       tags:
         - Admin Articles
       summary: 获取后台文章详情
-      description: 权限级别 `ADMIN`。
+      description: 权限级别 `ADMIN`。用于后台编辑页回显完整文章内容。
       operationId: getAdminArticleDetail
       security:
         - bearerAuth: []
@@ -816,7 +818,7 @@ paths:
       tags:
         - Admin Articles
       summary: 更新文章
-      description: 权限级别 `ADMIN`。
+      description: 权限级别 `ADMIN`。从未发布过的文章可保持草稿或发布；已发布过的文章仅允许在已发布与已下线之间流转，不允许回退为草稿。
       operationId: updateAdminArticle
       security:
         - bearerAuth: []
@@ -862,6 +864,8 @@ paths:
           $ref: '#/components/responses/BadRequestResponse'
         '404':
           $ref: '#/components/responses/ArticleNotFoundResponse'
+        '409':
+          $ref: '#/components/responses/ArticleConflictResponse'
     delete:
       tags:
         - Admin Articles
@@ -890,7 +894,7 @@ paths:
       tags:
         - Admin Articles
       summary: 修改文章状态
-      description: 权限级别 `ADMIN`。支持草稿、发布、下线的状态流转。
+      description: 权限级别 `ADMIN`。从未发布过的文章仅允许发布；已发布过的文章仅允许在已发布与已下线之间流转。
       operationId: updateAdminArticleStatus
       security:
         - bearerAuth: []
@@ -922,6 +926,8 @@ paths:
           $ref: '#/components/responses/BadRequestResponse'
         '404':
           $ref: '#/components/responses/ArticleNotFoundResponse'
+        '409':
+          $ref: '#/components/responses/ArticleConflictResponse'
   /api/v1/admin/categories:
     get:
       tags:
@@ -2162,6 +2168,7 @@ components:
           example: 本文记录双 Token 的实现思路与接口设计
         status:
           type: string
+          description: 文章当前状态。`DRAFT` 表示从未发布过的草稿，`PUBLISHED` 表示前台可见，`OFFLINE` 表示已下线。
           enum:
             - DRAFT
             - PUBLISHED
@@ -2176,6 +2183,7 @@ components:
         publishedAt:
           type: string
           format: date-time
+          description: 首次发布时间，草稿可为空。
           nullable: true
           example: null
         updatedAt:
@@ -2248,6 +2256,7 @@ components:
           example: https://cdn.example.com/cover/token.png
         status:
           type: string
+          description: 文章当前状态。`DRAFT` 表示从未发布过的草稿，`PUBLISHED` 表示前台可见，`OFFLINE` 表示已下线。
           enum:
             - DRAFT
             - PUBLISHED
@@ -2331,6 +2340,7 @@ components:
           example: true
         status:
           type: string
+          description: 提交后的文章状态。创建时仅允许 `DRAFT` 或 `PUBLISHED`；更新时从未发布过的文章允许 `DRAFT` 或 `PUBLISHED`，已发布过的文章仅允许 `PUBLISHED` 或 `OFFLINE`。
           enum:
             - DRAFT
             - PUBLISHED
@@ -2396,6 +2406,7 @@ components:
         publishedAt:
           type: string
           format: date-time
+          description: 首次发布时间。下线、重新发布或更新已发布文章时不刷新。
           nullable: true
           example: '2026-04-22T23:50:00+08:00'
         updatedAt:
@@ -2416,6 +2427,7 @@ components:
       properties:
         status:
           type: string
+          description: 目标状态。从未发布过的文章仅允许变为 `PUBLISHED`；已发布过的文章仅允许在 `PUBLISHED` 与 `OFFLINE` 间流转。
           enum:
             - DRAFT
             - PUBLISHED
@@ -2850,8 +2862,18 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            code: 199404
-            message: 请求资源不存在
+            code: 103001
+            message: 文章不存在
+            data: null
+    ArticleConflictResponse:
+      description: 文章关联资源冲突或状态流转不合法
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 103007
+            message: 文章状态流转不合法
             data: null
     UserNotFoundResponse:
       description: 用户不存在

@@ -6,7 +6,7 @@ import {
 	type AdminCategoryItem,
 	type CategoryUpsertRequest,
 } from '../types/adminCategory';
-import { createCategory, listCategories, updateCategory } from '../api/adminCategoryApi';
+import { createCategory, updateCategory } from '../api/adminCategoryApi';
 
 const CATEGORY_NAME_MAX_LENGTH = 50;
 const CATEGORY_DESCRIPTION_MAX_LENGTH = 255;
@@ -14,9 +14,6 @@ const CATEGORY_SORT_NO_MIN = 0;
 const CATEGORY_SORT_NO_MAX = 999;
 
 export function useAdminCategoryForm() {
-	// 一级分类下拉选项
-	const parentCategoryOptions = ref<AdminCategoryItem[]>([]);
-
 	// 是否显示新建 / 编辑分类的抽屉
 	const showDrawer = ref(false);
 	const drawerMode = ref<'create' | 'edit'>('create');
@@ -181,15 +178,6 @@ export function useAdminCategoryForm() {
 		],
 	};
 
-	// 获取一级分类下拉选项（即所有的一级分类列表）
-	async function getParentCategoryOptions() {
-		try {
-			parentCategoryOptions.value = await listCategories({ level: CATEGORY_LEVEL.FIRST });
-		} catch {
-			// 错误提示已经由 request 响应拦截器统一处理
-		}
-	}
-
 	// 构建创建/更新分类的请求体
 	function buildCategoryPayload(form: CategoryUpsertRequest): CategoryUpsertRequest {
 		return {
@@ -296,7 +284,6 @@ export function useAdminCategoryForm() {
 	}
 
 	return {
-		parentCategoryOptions,
 		showDrawer,
 		drawerMode,
 		editingCategoryId,
@@ -307,6 +294,5 @@ export function useAdminCategoryForm() {
 		openCreateDrawer,
 		openUpdateDrawer,
 		handleUpsertCategory,
-		getParentCategoryOptions,
 	};
 }

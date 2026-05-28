@@ -183,7 +183,11 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     @Transactional
     public CreatedArticleVO createArticle(Long userId, ArticleUpsertRequestDTO articleUpsertRequestDTO) {
         // 1. 校验、基础字段填入补充
-        Article article = upsertArticleCommonOperation(articleUpsertRequestDTO);
+        if (articleUpsertRequestDTO.getStatus() == ArticleStatus.OFFLINE){
+            // 创建文章的时候只能指定状态为 草稿 或者 已发布
+            throw new BizException(ResultCode.ARTICLE_STATUS_TRANSITION_INVALID);
+        }
+        Article article = upsertArticleCommonOperation(null, articleUpsertRequestDTO);
 
         // 2. 填入作者（即当前登录用户）
         article.setAuthorId(userId);
@@ -221,7 +225,8 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         }
 
         // 2. 校验、填入基础字段
-        Article article = upsertArticleCommonOperation(articleUpsertRequestDTO);
+        checkUpdateArticleStatus(oldArticle, articleUpsertRequestDTO.getStatus());
+        Article article = upsertArticleCommonOperation(oldArticle, articleUpsertRequestDTO);
         article.setId(articleId);
 
         // 3. 更新文章
@@ -278,10 +283,12 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
             throw new BizException(ResultCode.NO_PERMISSION);
         }
 
+        checkUpdateArticleStatus(article, updateArticleStatusRequestDTO.getStatus());
+
         lambdaUpdate()
                 .eq(Article::getId, articleId)
                 .set(Article::getStatus, updateArticleStatusRequestDTO.getStatus())
-                .set(updateArticleStatusRequestDTO.getStatus() == ArticleStatus.PUBLISHED, Article::getPublishedAt, OffsetDateTime.now())
+                .set(updateArticleStatusRequestDTO.getStatus() == ArticleStatus.PUBLISHED && article.getPublishedAt() == null, Article::getPublishedAt, OffsetDateTime.now())
                 .update();
 
         Article newArticle = getById(articleId);
@@ -315,16 +322,17 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
      * 2. 判断是否需要填入发表时间
      * 3. 渲染文章内容
      *
+     * @param oldArticle 为空则是创建文章，非空则是更新文章
      * @param articleUpsertRequestDTO
      * @return 基本填充完毕的文章对象
      */
-    private Article upsertArticleCommonOperation(ArticleUpsertRequestDTO articleUpsertRequestDTO) {
+    private Article upsertArticleCommonOperation(Article oldArticle, ArticleUpsertRequestDTO articleUpsertRequestDTO) {
         // 1. 校验分类合法性
         checkArticleCategory(articleUpsertRequestDTO.getCategoryId());
 
         // 2. 判断是否需要填入发表时间
         Article article = BeanUtil.copyProperties(articleUpsertRequestDTO, Article.class);
-        if (articleUpsertRequestDTO.getStatus() == ArticleStatus.PUBLISHED){
+        if (articleUpsertRequestDTO.getStatus() == ArticleStatus.PUBLISHED && (oldArticle == null || oldArticle.getPublishedAt() == null)){
             article.setPublishedAt(OffsetDateTime.now());
         }
 
@@ -352,6 +360,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         return article;
     }
 
+
     /**
      * 删除目标文章关联的标签联系
      *
@@ -363,6 +372,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
                         .eq(ArticleTag::getArticleId, articleId)
         );
     }
+
 
     /**
      * 校验标签合法性并插入文章与标签的关联
@@ -394,5 +404,27 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
 
         // 插入关联关系
         articleTagMapper.insertBatch(articleId, distinctTagIds);
+    }
+
+
+    /**
+     * 校验更新的文章状态是否合法
+     *
+     * @param oldArticle
+     * @param newStatus
+     */
+    private void checkUpdateArticleStatus(Article oldArticle, ArticleStatus newStatus) {
+        if (oldArticle.getPublishedAt() == null) {
+            if (newStatus == ArticleStatus.OFFLINE){
+                // 草稿 只能转 已发布
+                throw new BizException(ResultCode.ARTICLE_STATUS_TRANSITION_INVALID);
+            }
+        }
+        else{
+            if (newStatus == ArticleStatus.DRAFT){
+                // 已发布 只能转 下线，下线 只能转 已发布
+                throw new BizException(ResultCode.ARTICLE_STATUS_TRANSITION_INVALID);
+            }
+        }
     }
 }

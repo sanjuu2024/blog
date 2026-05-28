@@ -1,6 +1,12 @@
 <template>
 	<div class="container">
 		<el-card>
+			<template #header>
+				<div class="header flex items-center justify-between">
+					<span class="my-4 text-xl font-bold">用户列表</span>
+				</div>
+			</template>
+
 			<!-- 筛选条件 -->
 			<div class="mb-4 flex">
 				<el-input

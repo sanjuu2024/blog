@@ -381,13 +381,11 @@ import { CATEGORY_STATUS, type AdminCategoryItem } from '../types/adminCategory'
 
 import { useAdminCategoryForm } from '../composables/useAdminCategoryForm';
 const {
-	parentCategoryOptions,
 	showDrawer,
 	drawerMode,
 	categoryForm,
 	rules,
 	setCategoryFormRef,
-	getParentCategoryOptions,
 	handleUpsertCategory,
 	openCreateDrawer,
 	openUpdateDrawer,
@@ -402,6 +400,9 @@ const {
 	handleDeleteCategory,
 	resetQueryParams,
 } = useAdminCategoryList();
+
+import { useAdminCategoryOptions } from '../composables/useAdminCategoryOptions';
+const { parentCategoryOptions, getParentCategoryOptions } = useAdminCategoryOptions();
 
 defineOptions({
 	name: 'AdminCategoryListPage',
