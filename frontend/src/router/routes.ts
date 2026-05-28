@@ -20,12 +20,42 @@ export const adminRoutes = [
 	},
 	{
 		path: '/admin/articles',
-		name: 'AdminArticleList',
-		component: () => import('@/modules/admin/article/views/AdminArticleListPage.vue'),
+		name: 'AdminArticle',
+		component: () => import('@/layouts/AdminArticleLayout.vue'),
+		redirect: '/admin/articles/list',
 		meta: {
 			icon: 'article',
 			title: '文章管理',
 		},
+		children: [
+			{
+				path: '/admin/articles/list',
+				name: 'AdminArticleList',
+				component: () => import('@/modules/admin/article/views/AdminArticleListPage.vue'),
+				meta: {
+					title: '文章列表',
+					hidden: true, // 在侧边栏隐藏该路由
+				},
+			},
+			{
+				path: '/admin/articles/create',
+				name: 'AdminArticleCreate',
+				component: () => import('@/modules/admin/article/views/AdminArticleEditPage.vue'),
+				meta: {
+					title: '创建文章',
+					hidden: true, // 在侧边栏隐藏该路由
+				},
+			},
+			{
+				path: '/admin/articles/:articleId/edit',
+				name: 'AdminArticleEdit',
+				component: () => import('@/modules/admin/article/views/AdminArticleEditPage.vue'),
+				meta: {
+					title: '编辑文章',
+					hidden: true, // 在侧边栏隐藏该路由
+				},
+			},
+		],
 	},
 	{
 		path: '/admin/categories',
