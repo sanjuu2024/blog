@@ -29,9 +29,9 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue';
-import AdminArticleHeader from '../components/AdminArticleHeader.vue';
-import AdminArticleSearchPanel from '../components/AdminArticleSearchPanel.vue';
-import AdminArticleList from '../components/AdminArticleList.vue';
+import AdminArticleHeader from '../components/AdminArticleListHeader.vue';
+import AdminArticleSearchPanel from '../components/AdminArticleListSearchPanel.vue';
+import AdminArticleList from '../components/AdminArticleListTable.vue';
 import { useAdminCategoryList } from '../../category/composables/useAdminCategoryList';
 import { useAdminArticleList } from '../composables/useAdminArticleList';
 import { useAdminArticleActions } from '../composables/useAdminArticleActions.ts';
@@ -73,7 +73,10 @@ async function clickUpdateArticleStatus(row: AdminArticleListItem) {
 				? ARTICLE_STATUS.OFFLINE
 				: ARTICLE_STATUS.PUBLISHED,
 		);
-		if (data?.status) row.status = data.status;
+		if (data) {
+			row.status = data.status;
+			row.updatedAt = data.updatedAt;
+		}
 	} catch {
 		// 错误提示已经由 request 响应拦截器统一处理
 	}

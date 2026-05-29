@@ -29,12 +29,18 @@
 					<el-tree-select
 						v-model="upsertRequest.categoryId"
 						value-key="id"
-						:data="categoryList"
+						:data="
+							categoryList.map((category) => ({
+								...category,
+								disabled: true,
+							}))
+						"
 						:props="{
 							label: 'name',
+							disabled: 'disabled',
 						}"
 						check-strictly
-						placeholder="请选择分类"
+						placeholder="请选择二级分类"
 						clearable
 						default-expand-all
 					/>
