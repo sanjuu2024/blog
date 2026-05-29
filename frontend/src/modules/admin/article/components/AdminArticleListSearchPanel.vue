@@ -95,7 +95,7 @@ const emit = defineEmits<{
 }>();
 
 defineOptions({
-	name: 'AdminArticleSearchPanel',
+	name: 'AdminArticleListSearchPanel',
 });
 </script>
 

@@ -17,7 +17,7 @@ import { useRouter } from 'vue-router';
 const router = useRouter();
 
 defineOptions({
-	name: 'AdminArticleHeader',
+	name: 'AdminArticleListHeader',
 });
 </script>
 
