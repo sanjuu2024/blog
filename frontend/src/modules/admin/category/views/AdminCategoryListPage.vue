@@ -126,10 +126,10 @@
 					:data="categoryList"
 					style="width: 100%"
 					row-key="id"
-					border
 					:lazy="false"
 					:tree-props="{ children: 'children' }"
 					default-expand-all
+					class="admin-category-table"
 				>
 					<el-table-column
 						prop="level"
@@ -432,4 +432,13 @@ async function clickDeleteCategory(categoryId: number) {
 }
 </script>
 
-<style></style>
+<style scoped lang="scss">
+// 自定义表格样式，覆盖 Element Plus 默认的行 hover 和斑马纹背景色
+.admin-category-table {
+	--el-table-row-hover-bg-color: #eef6f0;
+}
+
+.admin-category-table :deep(.el-table__body tr.el-table__row--striped td.el-table__cell) {
+	background: #f7faf8;
+}
+</style>

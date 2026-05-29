@@ -79,8 +79,6 @@
 
 			<!-- 表格部分 -->
 			<el-table
-				border
-				stripe
 				:data="userList"
 				class="admin-user-table mt-12 mb-8"
 			>

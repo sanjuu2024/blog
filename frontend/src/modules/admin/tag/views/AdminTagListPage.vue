@@ -76,7 +76,7 @@
 				<el-table
 					:data="tagList"
 					row-key="id"
-					border
+					class="admin-tag-table"
 				>
 					<el-table-column
 						prop="id"
@@ -308,4 +308,13 @@ async function submitTag() {
 }
 </script>
 
-<style></style>
+<style scoped lang="scss">
+// 自定义表格样式，覆盖 Element Plus 默认的行 hover 和斑马纹背景色
+.admin-tag-table {
+	--el-table-row-hover-bg-color: #eef6f0;
+}
+
+.admin-tag-table :deep(.el-table__body tr.el-table__row--striped td.el-table__cell) {
+	background: #f7faf8;
+}
+</style>
