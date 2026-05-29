@@ -1,5 +1,8 @@
 <template>
-	<main class="admin-main">
+	<main
+		class="admin-main"
+		ref="adminMainRef"
+	>
 		<div class="admin-main__inner">
 			<RouterView v-slot="{ Component }">
 				<transition
@@ -14,13 +17,32 @@
 </template>
 
 <script setup lang="ts">
+import { ref, nextTick, watch } from 'vue';
+import { useRoute } from 'vue-router';
+
 defineOptions({
 	name: 'AdminMain',
 });
+
+const route = useRoute();
+const adminMainRef = ref<HTMLElement>();
+
+watch(
+	() => route.fullPath,
+	async () => {
+		// 路由切换后重置滚动条位置
+		await nextTick();
+		adminMainRef.value?.scrollTo({
+			top: 0,
+			left: 0,
+		});
+	},
+);
 </script>
 
 <style lang="scss" scoped>
-// 设计上后台管理模块只有 main 区域内部会有滚动条，整个页面的高度是直接固定的。（前台的话就是页面级滚动条）
+/* 设计上后台管理模块只有 main 区域内部会有滚动条，整个页面的高度是直接固定的。（前台的话就是页面级滚动条） */
+/* 也因此 src/router/index.ts 中的路由切换后滚动条位置重置只对前台有效，后台这边需要自己写滚动条位置重置逻辑。 */
 .admin-main {
 	position: absolute;
 	top: var(--app-admin-header-height);

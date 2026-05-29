@@ -29,9 +29,10 @@ export function useAdminArticleDetail() {
 		try {
 			const data: AdminArticleDetailData = await getArticleDetails(articleId);
 			Object.assign(articleDetail, data);
+			return true;
 		} catch {
 			// 错误提示已经由 request 响应拦截器统一处理
-			return null;
+			return false;
 		}
 	}
 

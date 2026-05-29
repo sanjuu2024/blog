@@ -91,4 +91,13 @@ export default function setupRouterGuards(router: Router) {
 		NProgress.done();
 		document.title = to.meta.title || import.meta.env.VITE_APP_TITLE || 'Sanjuu Blog';
 	});
+
+	// 3. 全局路由错误日志
+	router.onError((error, to, from) => {
+		NProgress.done();
+
+		if (import.meta.env.DEV) {
+			console.error('router error:', error, { to, from });
+		}
+	});
 }
