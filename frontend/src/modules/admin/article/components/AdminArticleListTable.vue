@@ -3,30 +3,70 @@
 		<!-- 文章列表 -->
 		<el-table
 			:data="articleList"
-			style="width: 100%"
 			row-key="id"
-			border
+			class="admin-article-table"
 		>
+			<el-table-column
+				align="center"
+				width="30"
+				prop="isTop"
+			>
+				<template #default="{ row }">
+					<div class="admin-article-is-top">
+						<i-solar-pin-bold
+							v-if="row.isTop"
+							style="color: var(--app-button-bg)"
+						/>
+						<i-solar-pin-outline v-else />
+					</div>
+				</template>
+			</el-table-column>
 			<el-table-column
 				align="center"
 				label="总览"
 			>
 				<template #default="{ row }: { row: AdminArticleListItem }">
-					<div>
+					<div class="flex items-center">
 						<router-link
 							:to="`/admin/articles/${row.id}/edit`"
 							class="flex items-center font-bold"
 						>
 							<div
-								class="admin-article-overview-cover rounded border border-gray-200"
+								class="admin-article-overview-cover h-16 w-16 shrink-0 rounded border border-gray-200"
 							>
+								<!-- 加载中 -->
+								<div
+									v-if="
+										row.coverUrl &&
+										!coverLoadedArticleIds.has(row.id) &&
+										!coverLoadFailedArticleIds.has(row.id)
+									"
+									class="flex h-full w-full animate-pulse items-center justify-center bg-gray-100 text-gray-300"
+								>
+									<i-lucide-image class="text-xl" />
+								</div>
+
+								<!-- 加载成功 -->
 								<img
+									v-if="row.coverUrl && !coverLoadFailedArticleIds.has(row.id)"
 									:src="row.coverUrl"
 									alt="文章封面"
 									class="h-16 w-16 rounded object-cover"
+									:class="{ 'opacity-0': !coverLoadedArticleIds.has(row.id) }"
+									@load="markCoverLoaded(row.id)"
+									@error="markCoverFailed(row.id)"
 								/>
+
+								<!-- 加载失败 -->
+								<div
+									v-else
+									class="flex h-full w-full items-center justify-center rounded bg-gray-100 text-gray-400"
+								>
+									<i-lucide-image-off class="text-xl" />
+								</div>
 							</div>
-							<span class="ml-2">{{ row.title }}</span>
+
+							<span class="mx-4 text-left">{{ row.title }}</span>
 						</router-link>
 					</div>
 				</template>
@@ -196,6 +236,7 @@
 </template>
 
 <script setup lang="ts">
+import { reactive, onActivated } from 'vue';
 import { formatDateTime } from '@/utils/datetime';
 import { useRouter } from 'vue-router';
 import {
@@ -206,8 +247,21 @@ import {
 
 const router = useRouter();
 
+// 封面图片加载失败的文章 ID 集合，用于判断是否需要显示图片加载失败展位图
+const coverLoadFailedArticleIds = reactive(new Set<number>());
+
+function markCoverFailed(articleId: number) {
+	coverLoadFailedArticleIds.add(articleId);
+}
+
+// 封面图片加载好了的文章 ID 集合，用于判断是否需要显示图片加载中展位图
+const coverLoadedArticleIds = reactive(new Set<number>());
+function markCoverLoaded(articleId: number) {
+	coverLoadedArticleIds.add(articleId);
+}
+
 defineOptions({
-	name: 'AdminArticleList',
+	name: 'AdminArticleListTable',
 });
 
 // 注意 pageNum 和 pageSize 是通过 v-model 双向绑定的，所以用 defineModel，而不是 defineProps
@@ -224,6 +278,23 @@ const emit = defineEmits<{
 	updateStatus: [AdminArticleListItem];
 	pageChange: [];
 }>();
+
+onActivated(() => {
+	// 组件激活时重置封面加载失败和加载成功的 ID 集合，以便重新尝试加载封面图片 / 加载新的封面图片
+	coverLoadFailedArticleIds.clear();
+	coverLoadedArticleIds.clear();
+	// 并且重新拉取可能更新后的文章列表数据
+	emit('pageChange');
+});
 </script>
 
-<style></style>
+<style scoped lang="scss">
+// 自定义表格样式，覆盖 Element Plus 默认的行 hover 和斑马纹背景色
+.admin-article-table {
+	--el-table-row-hover-bg-color: #eef6f0;
+}
+
+.admin-article-table :deep(.el-table__body tr.el-table__row--striped td.el-table__cell) {
+	background: #f7faf8;
+}
+</style>

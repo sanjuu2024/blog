@@ -157,7 +157,7 @@ export const routes = [
 	{
 		path: '/admin',
 		name: 'AdminLayout',
-		redirect: '/admin/users',
+		redirect: '/admin/dashboard',
 		component: () => import('@/layouts/AdminLayout.vue'),
 		meta: {
 			title: '后台管理',

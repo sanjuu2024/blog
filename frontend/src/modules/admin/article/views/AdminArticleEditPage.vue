@@ -1,22 +1,57 @@
 <template>
 	<div class="admin-article-edit">
 		<el-card>
+			<template #header>
+				<router-link
+					to="/admin/articles"
+					class="admin-article-edit-header flex items-center"
+				>
+					<i-ep-back />
+					<span class="ml-2">返回文章列表页</span>
+				</router-link>
+			</template>
 			<!-- 文章元信息 -->
 			<el-form
 				:model="upsertRequest"
+				:rules="rules"
 				label-position="right"
 				label-width="auto"
 				@submit.prevent
 				class="mt-4 ml-2"
+				ref="theFormRef"
 			>
-				<el-form-item label="文章标题">
+				<el-form-item
+					label="文章标题"
+					prop="title"
+				>
 					<el-input
 						v-model="upsertRequest.title"
 						placeholder="请输入文章标题"
 					/>
 				</el-form-item>
 
-				<el-form-item label="文章摘要">
+				<el-form-item
+					label="文章封面"
+					prop="coverUrl"
+				>
+					<el-input
+						v-model="upsertRequest.coverUrl"
+						placeholder="请输入文章封面链接"
+					/>
+					<div class="preview-cover">
+						<img
+							v-if="upsertRequest.coverUrl"
+							:src="upsertRequest.coverUrl"
+							alt="文章封面预览"
+							class="mt-4 h-48 w-48 rounded object-cover"
+						/>
+					</div>
+				</el-form-item>
+
+				<el-form-item
+					label="文章摘要"
+					prop="summary"
+				>
 					<el-input
 						v-model="upsertRequest.summary"
 						type="textarea"
@@ -25,7 +60,10 @@
 					/>
 				</el-form-item>
 
-				<el-form-item label="文章分类">
+				<el-form-item
+					label="文章分类"
+					prop="categoryId"
+				>
 					<el-tree-select
 						v-model="upsertRequest.categoryId"
 						value-key="id"
@@ -48,6 +86,7 @@
 
 				<el-form-item
 					label="文章标签"
+					prop="tagIds"
 					class="flex items-center justify-center"
 				>
 					<el-tag
@@ -66,7 +105,10 @@
 					>
 				</el-form-item>
 
-				<el-form-item label="文章状态">
+				<el-form-item
+					label="文章状态"
+					prop="status"
+				>
 					<el-select
 						v-model="upsertRequest.status"
 						placeholder="请选择文章状态"
@@ -92,16 +134,22 @@
 					</el-select>
 				</el-form-item>
 
-				<el-form-item label="是否置顶">
+				<el-form-item
+					label="是否置顶"
+					prop="isTop"
+				>
 					<el-switch v-model="upsertRequest.isTop" />
 				</el-form-item>
 
-				<el-form-item label="是否允许评论">
+				<el-form-item
+					label="是否允许评论"
+					prop="allowComment"
+				>
 					<el-switch v-model="upsertRequest.allowComment" />
 				</el-form-item>
 			</el-form>
 
-			<!-- 文章内容编辑器 -->
+			<!-- md 编辑器 -->
 			<MdEditor
 				v-model="upsertRequest.contentMd"
 				class="rounded-2xl"
@@ -116,6 +164,8 @@
 				type="primary"
 				size="large"
 				class="w-full"
+				:disabled="submitting"
+				:loading="submitting"
 				@click="clickUpsertArticle"
 			>
 				{{ mode === 'create' ? '创建文章' : '更新文章' }}
@@ -160,6 +210,7 @@ import { useAdminArticleDetail } from '../composables/useAdminArticleDetail';
 import { useAdminArticleForm } from '../composables/useAdminArticleForm';
 import { ARTICLE_STATUS, type CheckTagItem } from '../types/adminArticle';
 import { useRouter } from 'vue-router';
+import { ElMessage, type FormInstance } from 'element-plus';
 
 const route = useRoute();
 const router = useRouter();
@@ -170,7 +221,11 @@ const { tagList, getTagList } = useAdminTagList();
 
 const { articleDetail, handleGetArticleDetails } = useAdminArticleDetail();
 
-const { upsertRequest, handleCreateArticle, handleUpdateArticle } = useAdminArticleForm();
+const { submitting, upsertRequest, rules, handleCreateArticle, handleUpdateArticle } =
+	useAdminArticleForm();
+
+// 表单引用
+let theFormRef = ref<FormInstance>();
 
 // 控制标签选择窗口是否可见
 let tagWindowVisible = ref(false);
@@ -199,7 +254,12 @@ onMounted(async () => {
 		mode.value = 'edit';
 
 		// 获取文章详情并填充 articleDetail
-		await handleGetArticleDetails(articleId);
+		const success = await handleGetArticleDetails(articleId);
+		if (!success) {
+			// 获取失败
+			router.replace('/admin/articles');
+			return;
+		}
 
 		upsertRequest.title = articleDetail?.title || '';
 		upsertRequest.summary = articleDetail?.summary || '';
@@ -239,6 +299,16 @@ function tagDialogCancel() {
 }
 
 async function clickUpsertArticle() {
+	try {
+		if (!upsertRequest.contentMd?.trim()) {
+			throw new Error('文章正文不能为空');
+		}
+		await theFormRef.value?.validate();
+	} catch (error) {
+		ElMessage.error(error instanceof Error ? error.message : '表单验证失败');
+		return;
+	}
+
 	let success: boolean;
 	if (mode.value === 'create') {
 		success = await handleCreateArticle();
