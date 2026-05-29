@@ -32,7 +32,7 @@
 							class="flex items-center font-bold"
 						>
 							<div
-								class="admin-article-overview-cover h-16 w-16 shrink-0 rounded border border-gray-200"
+								class="relative h-16 w-16 shrink-0 overflow-hidden rounded border border-gray-200"
 							>
 								<!-- 加载中 -->
 								<div
@@ -41,9 +41,10 @@
 										!coverLoadedArticleIds.has(row.id) &&
 										!coverLoadFailedArticleIds.has(row.id)
 									"
-									class="flex h-full w-full animate-pulse items-center justify-center bg-gray-100 text-gray-300"
+									class="absolute inset-0 flex h-full w-full items-center justify-center bg-gray-100 text-gray-300"
 								>
-									<i-lucide-image class="text-xl" />
+									<!-- tailwind css 自带的 animate-spin -->
+									<i-lucide-loader class="animate-spin text-xl" />
 								</div>
 
 								<!-- 加载成功 -->
@@ -51,7 +52,7 @@
 									v-if="row.coverUrl && !coverLoadFailedArticleIds.has(row.id)"
 									:src="row.coverUrl"
 									alt="文章封面"
-									class="h-16 w-16 rounded object-cover"
+									class="absolute inset-0 h-full w-full rounded object-cover"
 									:class="{ 'opacity-0': !coverLoadedArticleIds.has(row.id) }"
 									@load="markCoverLoaded(row.id)"
 									@error="markCoverFailed(row.id)"
@@ -60,7 +61,7 @@
 								<!-- 加载失败 -->
 								<div
 									v-else
-									class="flex h-full w-full items-center justify-center rounded bg-gray-100 text-gray-400"
+									class="absolute inset-0 flex h-full w-full items-center justify-center rounded bg-gray-100 text-gray-400"
 								>
 									<i-lucide-image-off class="text-xl" />
 								</div>
@@ -247,14 +248,14 @@ import {
 
 const router = useRouter();
 
-// 封面图片加载失败的文章 ID 集合，用于判断是否需要显示图片加载失败展位图
+// 封面图片加载失败的文章 ID 集合，用于判断是否需要显示图片加载失败占位图
 const coverLoadFailedArticleIds = reactive(new Set<number>());
 
 function markCoverFailed(articleId: number) {
 	coverLoadFailedArticleIds.add(articleId);
 }
 
-// 封面图片加载好了的文章 ID 集合，用于判断是否需要显示图片加载中展位图
+// 封面图片加载好了的文章 ID 集合，用于判断是否需要显示图片加载中占位图
 const coverLoadedArticleIds = reactive(new Set<number>());
 function markCoverLoaded(articleId: number) {
 	coverLoadedArticleIds.add(articleId);
