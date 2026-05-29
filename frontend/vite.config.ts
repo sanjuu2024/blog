@@ -45,6 +45,7 @@ export default defineConfig(({ mode }) => {
 							'lets-icons',
 							'material-symbols',
 							'mdi',
+							'lucide',
 						],
 					}),
 				],

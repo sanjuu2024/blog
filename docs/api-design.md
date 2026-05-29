@@ -2086,3 +2086,4 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | 留言 | `POST` | `/api/v1/messages` | P1 |
 | 项目 | `GET` | `/api/v1/projects` | P1 |
 | 项目详情 | `GET` | `/api/v1/projects/{projectId}` | P1 |
+| 后台图片上传 | `POST` | `/api/v1/admin/files/images` | P1，用于文章封面和 Markdown 正文图片上传，返回图片 URL |

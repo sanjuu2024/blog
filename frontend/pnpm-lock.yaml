@@ -8,12 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@iconify-json/material-symbols':
-        specifier: ^1.2.73
-        version: 1.2.73
-      '@iconify-json/mdi':
-        specifier: ^1.2.3
-        version: 1.2.3
       axios:
         specifier: ^1.16.0
         version: 1.16.0
@@ -48,6 +42,15 @@ importers:
       '@iconify-json/lets-icons':
         specifier: ^1.2.2
         version: 1.2.2
+      '@iconify-json/lucide':
+        specifier: ^1.2.110
+        version: 1.2.110
+      '@iconify-json/material-symbols':
+        specifier: ^1.2.73
+        version: 1.2.73
+      '@iconify-json/mdi':
+        specifier: ^1.2.3
+        version: 1.2.3
       '@iconify-json/solar':
         specifier: ^1.2.5
         version: 1.2.5
@@ -331,6 +334,9 @@ packages:
 
   '@iconify-json/lets-icons@1.2.2':
     resolution: {integrity: sha512-GBCeFoWNLA5v1ZRIM54cZGpE/lHtFcSJjxXXCi2W5SxkJoPDonNoLGf61/z8eNxiBkegynClvEgCAs0YjLeZkA==}
+
+  '@iconify-json/lucide@1.2.110':
+    resolution: {integrity: sha512-rLeHqnZZBxZbprbVwf6uY7HB5GkGVgvT9VujhjvaUEqFDLKZON6zR8K1f8uD1brBwf5TJ0TIvvW8mz5u2XJU+w==}
 
   '@iconify-json/material-symbols@1.2.73':
     resolution: {integrity: sha512-XCZ9PiO47hofN9p8VTfLyCCJXd95OH4gIkkplkBfeZpz3K6cWYDj7oCy+rnc1AVMmoFyDEyjdEVvr+Oqz9yVTA==}
@@ -2468,6 +2474,10 @@ snapshots:
       '@iconify/types': 2.0.0
 
   '@iconify-json/lets-icons@1.2.2':
+    dependencies:
+      '@iconify/types': 2.0.0
+
+  '@iconify-json/lucide@1.2.110':
     dependencies:
       '@iconify/types': 2.0.0
 
