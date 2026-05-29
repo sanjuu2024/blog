@@ -51,7 +51,6 @@ export function useAdminArticleForm() {
 		coverUrl: [
 			{
 				trigger: 'blur',
-				min: 1,
 				max: 500,
 				validator: (
 					_rule: unknown,
