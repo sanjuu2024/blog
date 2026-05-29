@@ -58,6 +58,14 @@
 									@error="markCoverFailed(row.id)"
 								/>
 
+								<!-- 无封面 -->
+								<div
+									v-else-if="!row.coverUrl"
+									class="absolute inset-0 flex h-full w-full items-center justify-center rounded bg-gray-100 text-gray-400"
+								>
+									<i-lucide-image class="text-xl" />
+								</div>
+
 								<!-- 加载失败 -->
 								<div
 									v-else
@@ -281,9 +289,8 @@ const emit = defineEmits<{
 }>();
 
 onActivated(() => {
-	// 组件激活时重置封面加载失败和加载成功的 ID 集合，以便重新尝试加载封面图片 / 加载新的封面图片
+	// 组件激活时重置封面加载失败的 ID 集合，重新尝试加载封面图片
 	coverLoadFailedArticleIds.clear();
-	coverLoadedArticleIds.clear();
 	// 并且重新拉取可能更新后的文章列表数据
 	emit('pageChange');
 });
