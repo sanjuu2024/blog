@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.ccsanjuu.blog.common.api.PageResult;
 import com.ccsanjuu.blog.modules.article.model.dto.AdminArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
+import com.ccsanjuu.blog.modules.article.model.dto.PublicArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.UpdateArticleStatusRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
 import com.ccsanjuu.blog.modules.article.model.vo.*;
@@ -63,4 +64,20 @@ public interface ArticleService extends IService<Article> {
      * @return
      */
     UpdatedArticleStatusVO updateArticleStatus(@Positive Long articleId, Long userId, UpdateArticleStatusRequestDTO updateArticleStatusRequestDTO);
+
+    /**
+     * 获取已发布文章分页列表
+     *
+     * @param queryDTO
+     * @return
+     */
+    PageResult<PublicArticleListItemVO> getPublicArticleList(@Valid PublicArticleQueryDTO queryDTO);
+
+    /**
+     * 获取前台文章详情
+     *
+     * @param articleId
+     * @return
+     */
+    PublicArticleDetailVO getPublicArticleDetail(Long articleId);
 }

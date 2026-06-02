@@ -1,32 +1,38 @@
 package com.ccsanjuu.blog.modules.category.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.collection.CollectionUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
+import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
+import com.ccsanjuu.blog.modules.article.model.entity.Article;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.category.model.dto.AdminCategoryQueryDTO;
 import com.ccsanjuu.blog.modules.category.model.dto.CategoryUpsertRequestDTO;
 import com.ccsanjuu.blog.modules.category.model.entity.Category;
+import com.ccsanjuu.blog.modules.category.model.enums.CategoryStatus;
 import com.ccsanjuu.blog.modules.category.model.vo.AdminCategoryItemVO;
 import com.ccsanjuu.blog.modules.category.model.vo.CreatedCategoryVO;
+import com.ccsanjuu.blog.modules.category.model.vo.PublicCategoryItemVO;
 import com.ccsanjuu.blog.modules.category.model.vo.UpdatedCategoryVO;
 import com.ccsanjuu.blog.modules.category.service.CategoryService;
+import com.ccsanjuu.blog.modules.article.model.bo.CategoryArticleCountBO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
 public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryMapper categoryMapper;
+    private final ArticleMapper articleMapper;
 
     /**
      * 获取分类列表，返回规则：
@@ -68,10 +74,48 @@ public class CategoryServiceImpl implements CategoryService {
                         .orderByAsc(Category::getId)
         );
 
-        // 2. 转换为 VO 列表
-        List<AdminCategoryItemVO> categoryVoList = categoryList.stream().map(c -> toAdminCategoryItemVO(c)).toList();
+        // 2. 处理 articleCount 字段
+        // 获取需要查询文章数的分类 id 们（符合筛选条件的各二级分类，以及符合筛选条件的所有一级分类下的所有二级分类）
+        // 符合筛选条件的所有一级分类下的所有二级分类：
+        List<Long> level1CategoryIds = categoryList.stream().filter(c -> c.getLevel() == 1).map(Category::getId).toList();
+        List<Category> tmp = new ArrayList<>();
+        if (!CollectionUtil.isEmpty(level1CategoryIds)){
+            tmp = categoryMapper.selectList(
+                    new LambdaQueryWrapper<Category>()
+                            .in(Category::getParentId, level1CategoryIds)
+            );
+        }
+        List<Category> categoriesForArticleCount = Stream.concat(
+                    tmp.stream(),
+                    categoryList.stream().filter(c -> c.getLevel() == 2)
+                ).toList();
+        // 去重（其实不 override 也是一样的，查询的是一样的数据）
+        categoriesForArticleCount = CollUtil.distinct(categoriesForArticleCount, Category::getId, true);
 
-        // 3. 组装返回值
+        // 获取每一个二级分类（包括启用和禁用的）下的文章数（包括所有状态的文章，不止已发布）
+        Map<Long, Long> categoryArticleCountMap = getArticleCountByCategoryIds(categoriesForArticleCount.stream().map(Category::getId).toList(), false)
+                .stream().collect(Collectors.toMap(CategoryArticleCountBO::getCategoryId, CategoryArticleCountBO::getArticleCount));
+        // 将二级分类的文章数累加进其父分类
+        categoriesForArticleCount.forEach(c -> {
+            Long cur = categoryArticleCountMap.getOrDefault(c.getId(), 0L);
+            Long tot = categoryArticleCountMap.get(c.getParentId());
+            if (tot == null){
+                tot = 0L;
+            }
+            tot += cur;
+            categoryArticleCountMap.put(c.getParentId(), tot);
+        });
+
+        // 3. 转换为 VO 列表
+        List<AdminCategoryItemVO> categoryVoList = new ArrayList<>();
+        categoryList.forEach(c -> {
+            AdminCategoryItemVO vo = BeanUtil.copyProperties(c, AdminCategoryItemVO.class);
+            vo.setArticleCount(categoryArticleCountMap.getOrDefault(c.getId(), 0L));
+            vo.setChildren(List.of());
+            categoryVoList.add(vo);
+        });
+
+        // 4. 组装返回值
         List<AdminCategoryItemVO> res = new ArrayList<>();
         // (1) 不传 keyword、level、parentId：返回完整分类树，一级分类下包含二级分类。
         if (!hasKeyword && level == null && parentId == null) {
@@ -89,6 +133,7 @@ public class CategoryServiceImpl implements CategoryService {
         return res;
     }
 
+
     /**
      * 创建分类
      *
@@ -105,6 +150,7 @@ public class CategoryServiceImpl implements CategoryService {
         categoryMapper.insert(category);
         return BeanUtil.copyProperties(category, CreatedCategoryVO.class);
     }
+
 
     /**
      * 更新分类
@@ -137,6 +183,7 @@ public class CategoryServiceImpl implements CategoryService {
         return BeanUtil.copyProperties(newCategory, UpdatedCategoryVO.class);
     }
 
+
     /**
      * 删除分类
      *
@@ -166,8 +213,10 @@ public class CategoryServiceImpl implements CategoryService {
 
         // 2. 删除二级分类前，必须确认该分类下没有关联文章。
         else {
-            // TODO 后续文章模块开发后再完善：查询该分类下是否有文章关联
-            boolean hasArticles = false;
+            boolean hasArticles = articleMapper.exists(
+                    new LambdaQueryWrapper<Article>()
+                            .eq(Article::getCategoryId, categoryId)
+            );
 
             if (hasArticles) {
                 throw new BizException(ResultCode.CATEGORY_HAS_ARTICLES);
@@ -175,6 +224,73 @@ public class CategoryServiceImpl implements CategoryService {
 
             categoryMapper.deleteById(categoryId);
         }
+    }
+
+
+    /**
+     * 前台获取启用分类列表
+     *
+     * @return
+     */
+    @Override
+    public List<PublicCategoryItemVO> getEnabledCategoryList() {
+        // 启用的所有分类
+        List<Category> enabledCategoryList = categoryMapper.selectList(
+                new LambdaQueryWrapper<Category>()
+                        .eq(Category::getStatus, CategoryStatus.ENABLED)
+                        .orderByAsc(Category::getSortNo)
+                        .orderByAsc(Category::getId)
+        );
+        // 启用的一级分类
+        List<Category> parentCategoryList = enabledCategoryList.stream().filter(c -> c.getLevel() == 1).toList();
+        // 启用的二级分类
+        List<Category> childrenCategoryList = enabledCategoryList.stream().filter(c -> c.getLevel() == 2).toList();
+
+        // 获取每一个启用的二级分类下的已发表文章数
+        Map<Long, Long> categoryArticleCountMap = getArticleCountByCategoryIds(childrenCategoryList.stream().map(Category::getId).toList(), true)
+                .stream().collect(Collectors.toMap(CategoryArticleCountBO::getCategoryId, CategoryArticleCountBO::getArticleCount));
+
+        // 启用的一级分类的 map
+        Map<Long, List<PublicCategoryItemVO>> childrenMap = new HashMap<>();   // children
+        Map<Long, Long> articleCountMap = new HashMap<>();   // articleCount
+
+        childrenCategoryList.forEach(c -> {
+            PublicCategoryItemVO vo = BeanUtil.copyProperties(c,PublicCategoryItemVO.class);
+
+            // 填入二级分类的文章数
+            Long articleCount = categoryArticleCountMap.getOrDefault(c.getId(), 0L);
+            vo.setArticleCount(articleCount);
+
+            // 累加进其父分类的总文章数
+            Long tot = articleCountMap.get(c.getParentId());
+            if (tot == null) {
+                tot = articleCount;
+            }
+            else {
+                tot += articleCount;
+            }
+            articleCountMap.put(c.getParentId(), tot);
+
+            // 把二级分类封装成的 vo 放入其父分类的 children 列表中
+            List<PublicCategoryItemVO> tmp =  childrenMap.get(c.getParentId());
+            if (tmp == null){
+                tmp = new ArrayList<>();
+                tmp.add(vo);
+                childrenMap.put(c.getParentId(), tmp);
+            }
+            else{
+                tmp.add(vo);
+            }
+        });
+
+        // 填入要返回的 children 和 总 articleCount
+        List<PublicCategoryItemVO> res = BeanUtil.copyToList(parentCategoryList, PublicCategoryItemVO.class);
+        res.forEach(c -> {
+            c.setChildren(childrenMap.get(c.getId()) == null ? List.of() : childrenMap.get(c.getId()));
+            c.setArticleCount(articleCountMap.get(c.getId()) == null ? 0L : articleCountMap.get(c.getId()));
+        });
+
+        return res;
     }
 
 
@@ -202,7 +318,6 @@ public class CategoryServiceImpl implements CategoryService {
             List<AdminCategoryItemVO> children = m.get(parent.getId());
             if (children != null) {
                 children.forEach(c -> {
-                    c.setArticleCount(0);   // TODO 后续文章模块开发后再完善
                     c.setChildren(List.of());
                 });
                 parent.setChildren(children);
@@ -213,25 +328,6 @@ public class CategoryServiceImpl implements CategoryService {
         return res;
     }
 
-    /**
-     * 将 Category 类转换为 AdminCategoryItemVO 类
-     * @param c
-     * @return
-     */
-    private AdminCategoryItemVO toAdminCategoryItemVO(Category c) {
-        return AdminCategoryItemVO.builder()
-                        .id(c.getId())
-                        .parentId(c.getParentId())
-                        .level(c.getLevel())
-                        .name(c.getName())
-                        .description(c.getDescription())
-                        .sortNo(c.getSortNo())
-                        .status(c.getStatus())
-                        .articleCount(0)   // TODO 后续文章模块开发后再完善
-                        .createdAt(c.getCreatedAt())
-                        .children(List.of())
-                        .build();
-    }
 
     /**
      * 创建 / 更新分类时校验父分类的合法性
@@ -263,6 +359,7 @@ public class CategoryServiceImpl implements CategoryService {
             }
         }
     }
+
 
     /**
      * 校验分类名称唯一性
@@ -300,5 +397,21 @@ public class CategoryServiceImpl implements CategoryService {
         if (existing) {
             throw new BizException(ResultCode.CATEGORY_NAME_ALREADY_EXISTS);
         }
+    }
+
+
+    /**
+     * 获取给定的每个二级分类下的文章数
+     *
+     * @param categoryIds
+     * @param published 为 true 则文章数只统计已发表文章，为 false 则文章数统计所有状态的文章
+     * @return
+     */
+    private List<CategoryArticleCountBO> getArticleCountByCategoryIds(List<Long> categoryIds, boolean published) {
+        if (CollectionUtil.isEmpty(categoryIds)){
+            return List.of();
+        }
+
+        return articleMapper.getArticleCountByCategoryIds(categoryIds, published);
     }
 }

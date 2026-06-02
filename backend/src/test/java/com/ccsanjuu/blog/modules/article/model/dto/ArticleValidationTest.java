@@ -61,6 +61,24 @@ class ArticleValidationTest {
         assertFalse(VALIDATOR.validate(invalidRequest).isEmpty());
     }
 
+    @Test
+    void publicArticleQueryShouldValidatePageAndFilterFields() {
+        PublicArticleQueryDTO validRequest = new PublicArticleQueryDTO();
+        validRequest.setPageNum(1);
+        validRequest.setPageSize(20);
+        validRequest.setCategoryId(20001L);
+        validRequest.setTagIds(List.of(30001L, 30002L));
+
+        PublicArticleQueryDTO invalidRequest = new PublicArticleQueryDTO();
+        invalidRequest.setPageNum(0);
+        invalidRequest.setPageSize(21);
+        invalidRequest.setCategoryId(0L);
+        invalidRequest.setTagIds(List.of(30001L, 0L));
+
+        assertTrue(VALIDATOR.validate(validRequest).isEmpty());
+        assertFalse(VALIDATOR.validate(invalidRequest).isEmpty());
+    }
+
     private ArticleUpsertRequestDTO validUpsertRequest() {
         return ArticleUpsertRequestDTO.builder()
                 .title("Spring Boot notes")

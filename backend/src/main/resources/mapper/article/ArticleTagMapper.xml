@@ -9,4 +9,35 @@
             (#{articleId}, #{tagId})
         </foreach>
     </insert>
+
+    <select id="getArticleIdsByTagIds" resultType="java.lang.Long">
+        select article_id
+        from blog_article_tag
+        where tag_id in
+        <foreach collection="tagIds" item="tagId" separator="," open="(" close=")">
+            #{tagId}
+        </foreach>
+        group by article_id
+        having count(distinct tag_id) = #{tagCount}
+    </select>
+
+    <select id="getArticleCountByTagIds" resultType="com.ccsanjuu.blog.modules.article.model.bo.TagArticleCountBO">
+        select at.tag_id as tagId, count(a.id) as articleCount
+        from blog_article_tag at
+        left join blog_article a on at.article_id = a.id
+        where at.tag_id in
+        <foreach collection="tagIds" item="tagId" separator="," open="(" close=")">
+            #{tagId}
+        </foreach>
+        <if test="published != null and published">
+            and a.status = 'PUBLISHED'
+        </if>
+        <if test="categoryIds != null and categoryIds.size() > 0">
+            and a.category_id in
+            <foreach collection="categoryIds" item="categoryId" separator="," open="(" close=")">
+                #{categoryId}
+            </foreach>
+        </if>
+        group by at.tag_id
+    </select>
 </mapper>

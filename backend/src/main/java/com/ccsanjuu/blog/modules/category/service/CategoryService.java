@@ -2,8 +2,10 @@ package com.ccsanjuu.blog.modules.category.service;
 
 import com.ccsanjuu.blog.modules.category.model.dto.AdminCategoryQueryDTO;
 import com.ccsanjuu.blog.modules.category.model.dto.CategoryUpsertRequestDTO;
+import com.ccsanjuu.blog.modules.category.model.entity.Category;
 import com.ccsanjuu.blog.modules.category.model.vo.AdminCategoryItemVO;
 import com.ccsanjuu.blog.modules.category.model.vo.CreatedCategoryVO;
+import com.ccsanjuu.blog.modules.category.model.vo.PublicCategoryItemVO;
 import com.ccsanjuu.blog.modules.category.model.vo.UpdatedCategoryVO;
 import jakarta.validation.constraints.Positive;
 
@@ -37,4 +39,10 @@ public interface CategoryService {
      * @param categoryId
      */
     void deleteCategory(@Positive Long categoryId);
+
+    /**
+     * 获取启用分类列表
+     * @return
+     */
+    List<PublicCategoryItemVO> getEnabledCategoryList();
 }

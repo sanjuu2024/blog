@@ -10,6 +10,7 @@ import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
 import com.ccsanjuu.blog.modules.article.model.dto.AdminArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
+import com.ccsanjuu.blog.modules.article.model.dto.PublicArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.UpdateArticleStatusRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
 import com.ccsanjuu.blog.modules.article.model.entity.ArticleTag;
@@ -17,6 +18,8 @@ import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
 import com.ccsanjuu.blog.modules.article.model.vo.AdminArticleDetailVO;
 import com.ccsanjuu.blog.modules.article.model.vo.AdminArticleListItemVO;
 import com.ccsanjuu.blog.modules.article.model.vo.CreatedArticleVO;
+import com.ccsanjuu.blog.modules.article.model.vo.PublicArticleDetailVO;
+import com.ccsanjuu.blog.modules.article.model.vo.PublicArticleListItemVO;
 import com.ccsanjuu.blog.modules.article.model.vo.UpdatedArticleStatusVO;
 import com.ccsanjuu.blog.modules.article.model.vo.UpdatedArticleVO;
 import com.ccsanjuu.blog.modules.article.support.ArticleContentRenderer;
@@ -26,6 +29,8 @@ import com.ccsanjuu.blog.modules.category.model.enums.CategoryStatus;
 import com.ccsanjuu.blog.modules.tag.mapper.TagMapper;
 import com.ccsanjuu.blog.modules.tag.model.entity.Tag;
 import com.ccsanjuu.blog.modules.tag.model.enums.TagStatus;
+import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
+import com.ccsanjuu.blog.modules.user.model.entity.User;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -85,6 +90,9 @@ class ArticleServiceImplTest {
     @Mock
     private TagMapper tagMapper;
 
+    @Mock
+    private UserMapper userMapper;
+
     private ArticleServiceImpl articleService;
 
     @BeforeAll
@@ -102,7 +110,8 @@ class ArticleServiceImplTest {
                 articleContentRenderer,
                 categoryMapper,
                 articleMapper,
-                tagMapper
+                tagMapper,
+                userMapper
         );
         ReflectionTestUtils.setField(articleService, "baseMapper", articleMapper);
         ReflectionTestUtils.setField(articleService, "entityClass", Article.class);
@@ -240,6 +249,7 @@ class ArticleServiceImplTest {
     void createArticleShouldRenderContentInsertArticleAndDistinctTags() {
         AtomicReference<Article> insertedArticle = new AtomicReference<>();
         when(categoryMapper.selectById(CATEGORY_ID)).thenReturn(enabledChildCategory());
+        when(categoryMapper.selectById(PARENT_CATEGORY_ID)).thenReturn(enabledParentCategory());
         when(articleContentRenderer.convertMarkdownToHtml(CONTENT_MD)).thenReturn(CONTENT_HTML);
         when(articleContentRenderer.convertToText(CONTENT_MD)).thenReturn(CONTENT_TEXT);
         when(articleMapper.insert(any(Article.class))).thenAnswer(invocation -> {
@@ -350,6 +360,7 @@ class ArticleServiceImplTest {
                 existingArticle(ArticleStatus.PUBLISHED, PUBLISHED_AT)
         );
         when(categoryMapper.selectById(CATEGORY_ID)).thenReturn(enabledChildCategory());
+        when(categoryMapper.selectById(PARENT_CATEGORY_ID)).thenReturn(enabledParentCategory());
         when(articleContentRenderer.convertMarkdownToHtml(CONTENT_MD)).thenReturn(CONTENT_HTML);
         when(articleContentRenderer.convertToText(CONTENT_MD)).thenReturn(CONTENT_TEXT);
         when(tagMapper.selectByIds(any())).thenReturn(List.of(enabledTag(TAG_ID)));
@@ -440,9 +451,115 @@ class ArticleServiceImplTest {
         assertEquals(UPDATED_AT, result.getUpdatedAt());
     }
 
+    @Test
+    void getPublicArticleListShouldFilterByCategoryAndTagsThenHideDisabledResponseTags() {
+        PublicArticleQueryDTO query = new PublicArticleQueryDTO();
+        query.setPageNum(1);
+        query.setPageSize(10);
+        query.setCategoryId(CATEGORY_ID);
+        query.setTagIds(List.of(TAG_ID, TAG_ID, SECOND_TAG_ID));
+
+        List<ArticleTag> articleTags = List.of(
+                ArticleTag.builder().articleId(ARTICLE_ID).tagId(TAG_ID).build(),
+                ArticleTag.builder().articleId(ARTICLE_ID).tagId(SECOND_TAG_ID).build()
+        );
+        when(categoryMapper.selectById(CATEGORY_ID)).thenReturn(enabledChildCategory());
+        when(categoryMapper.selectById(PARENT_CATEGORY_ID)).thenReturn(enabledParentCategory());
+        when(tagMapper.selectList(any())).thenReturn(List.of(enabledTag(TAG_ID), enabledTag(SECOND_TAG_ID)));
+        when(articleTagMapper.getArticleIdsByTagIds(List.of(TAG_ID, SECOND_TAG_ID), 2))
+                .thenReturn(List.of(ARTICLE_ID));
+        when(articleMapper.selectPage(any(Page.class), any())).thenAnswer(invocation -> {
+            Page<Article> page = invocation.getArgument(0);
+            page.setTotal(1);
+            page.setRecords(List.of(existingArticle(ArticleStatus.PUBLISHED, PUBLISHED_AT)));
+            return page;
+        });
+        when(articleTagMapper.selectList(any())).thenReturn(articleTags, articleTags);
+        when(categoryMapper.selectList(any())).thenReturn(
+                List.of(enabledChildCategory()),
+                List.of(enabledParentCategory())
+        );
+        when(tagMapper.selectByIds(any())).thenReturn(List.of(enabledTag(TAG_ID), disabledTag(SECOND_TAG_ID)));
+
+        PageResult<PublicArticleListItemVO> result = articleService.getPublicArticleList(query);
+
+        assertEquals(1, result.getTotal());
+        assertEquals(1, result.getRecords().size());
+        PublicArticleListItemVO item = result.getRecords().getFirst();
+        assertEquals(ARTICLE_ID, item.getId());
+        assertEquals(CATEGORY_ID, item.getCategory().getId());
+        assertEquals(PARENT_CATEGORY_ID, item.getCategory().getParent().getId());
+        assertEquals(1, item.getTags().size());
+        assertEquals(TAG_ID, item.getTags().getFirst().getId());
+    }
+
+    @Test
+    void getPublicArticleListShouldRejectDisabledQueryTag() {
+        PublicArticleQueryDTO query = new PublicArticleQueryDTO();
+        query.setPageNum(1);
+        query.setPageSize(10);
+        query.setTagIds(List.of(TAG_ID));
+        when(tagMapper.selectList(any())).thenReturn(List.of(disabledTag(TAG_ID)));
+
+        BizException exception = assertThrows(BizException.class,
+                () -> articleService.getPublicArticleList(query));
+
+        assertEquals(ResultCode.ARTICLE_TAG_DISABLED, exception.getResultCode());
+        verify(articleMapper, never()).selectPage(any(Page.class), any());
+    }
+
+    @Test
+    void getPublicArticleDetailShouldReturnPublishedArticleWithAuthorAndEnabledTags() {
+        when(articleMapper.selectById(ARTICLE_ID)).thenReturn(existingArticle(ArticleStatus.PUBLISHED, PUBLISHED_AT));
+        when(categoryMapper.selectById(CATEGORY_ID)).thenReturn(enabledChildCategory());
+        when(categoryMapper.selectById(PARENT_CATEGORY_ID)).thenReturn(enabledParentCategory());
+        when(articleTagMapper.selectList(any())).thenReturn(List.of(
+                ArticleTag.builder().articleId(ARTICLE_ID).tagId(TAG_ID).build(),
+                ArticleTag.builder().articleId(ARTICLE_ID).tagId(SECOND_TAG_ID).build()
+        ));
+        when(tagMapper.selectList(any())).thenReturn(List.of(enabledTag(TAG_ID), disabledTag(SECOND_TAG_ID)));
+        when(userMapper.selectById(USER_ID)).thenReturn(author());
+
+        PublicArticleDetailVO result = articleService.getPublicArticleDetail(ARTICLE_ID);
+
+        assertEquals(ARTICLE_ID, result.getId());
+        assertEquals(CONTENT_HTML, result.getContentHtml());
+        assertEquals(CATEGORY_ID, result.getCategory().getId());
+        assertEquals(PARENT_CATEGORY_ID, result.getCategory().getParent().getId());
+        assertEquals(1, result.getTags().size());
+        assertEquals(TAG_ID, result.getTags().getFirst().getId());
+        assertEquals(USER_ID, result.getAuthor().getId());
+        assertEquals("ccsanjuu", result.getAuthor().getUsername());
+    }
+
+    @Test
+    void getPublicArticleDetailShouldRejectNonPublishedArticle() {
+        when(articleMapper.selectById(ARTICLE_ID)).thenReturn(existingArticle(ArticleStatus.DRAFT, null));
+
+        BizException exception = assertThrows(BizException.class,
+                () -> articleService.getPublicArticleDetail(ARTICLE_ID));
+
+        assertEquals(ResultCode.ARTICLE_NOT_VISIBLE, exception.getResultCode());
+        verifyNoInteractions(categoryMapper, articleTagMapper, tagMapper, userMapper);
+    }
+
+    @Test
+    void getPublicArticleDetailShouldRejectDisabledParentCategory() {
+        when(articleMapper.selectById(ARTICLE_ID)).thenReturn(existingArticle(ArticleStatus.PUBLISHED, PUBLISHED_AT));
+        when(categoryMapper.selectById(CATEGORY_ID)).thenReturn(enabledChildCategory());
+        when(categoryMapper.selectById(PARENT_CATEGORY_ID)).thenReturn(disabledParentCategory());
+
+        BizException exception = assertThrows(BizException.class,
+                () -> articleService.getPublicArticleDetail(ARTICLE_ID));
+
+        assertEquals(ResultCode.ARTICLE_CATEGORY_DISABLED, exception.getResultCode());
+        verifyNoInteractions(articleTagMapper, tagMapper, userMapper);
+    }
+
     private void mockSuccessfulArticleInsert() {
         AtomicReference<Article> insertedArticle = new AtomicReference<>();
         when(categoryMapper.selectById(CATEGORY_ID)).thenReturn(enabledChildCategory());
+        when(categoryMapper.selectById(PARENT_CATEGORY_ID)).thenReturn(enabledParentCategory());
         when(articleContentRenderer.convertMarkdownToHtml(CONTENT_MD)).thenReturn(CONTENT_HTML);
         when(articleContentRenderer.convertToText(CONTENT_MD)).thenReturn(CONTENT_TEXT);
         when(articleMapper.insert(any(Article.class))).thenAnswer(invocation -> {
@@ -520,6 +637,15 @@ class ArticleServiceImplTest {
                 .build();
     }
 
+    private Category disabledParentCategory() {
+        return Category.builder()
+                .id(PARENT_CATEGORY_ID)
+                .name("Tech")
+                .level(1)
+                .status(CategoryStatus.DISABLED)
+                .build();
+    }
+
     private Category enabledChildCategory() {
         return Category.builder()
                 .id(CATEGORY_ID)
@@ -553,6 +679,16 @@ class ArticleServiceImplTest {
                 .id(tagId)
                 .name("tag-" + tagId)
                 .status(TagStatus.DISABLED)
+                .build();
+    }
+
+    private User author() {
+        return User.builder()
+                .id(USER_ID)
+                .username("ccsanjuu")
+                .nickname("sanjuu")
+                .avatarUrl("https://example.com/avatar.png")
+                .bio("About me")
                 .build();
     }
 }

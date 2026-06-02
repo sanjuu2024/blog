@@ -12,6 +12,7 @@ import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
 import com.ccsanjuu.blog.modules.article.model.dto.AdminArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
+import com.ccsanjuu.blog.modules.article.model.dto.PublicArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.UpdateArticleStatusRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
 import com.ccsanjuu.blog.modules.article.model.entity.ArticleTag;
@@ -25,16 +26,15 @@ import com.ccsanjuu.blog.modules.category.model.enums.CategoryStatus;
 import com.ccsanjuu.blog.modules.tag.mapper.TagMapper;
 import com.ccsanjuu.blog.modules.tag.model.entity.Tag;
 import com.ccsanjuu.blog.modules.tag.model.enums.TagStatus;
+import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
+import com.ccsanjuu.blog.modules.user.model.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -46,6 +46,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     private final CategoryMapper categoryMapper;
     private final ArticleMapper articleMapper;
     private final TagMapper tagMapper;
+    private final UserMapper userMapper;
 
     /**
      * 获取后台文章分页列表
@@ -109,31 +110,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
 
         // 注意 distinct() 对象是 Long id 而不是 Article 对象
         List<Long> categoryIds = records.stream().map(Article::getCategoryId).distinct().toList();
-        List<Category> categoryList = categoryMapper.selectList(
-                new LambdaQueryWrapper<Category>()
-                        .in(Category::getId, categoryIds)
-        );
-
-        // p.s. Objects::nonNull 其实不加也可以，因为 categoryId 是 Article 的必填字段，理论上就是全都是二级分类，不会有父分类 Id 为 null 的情况；加上增强健壮性。
-        // 注意 distinct() 对象是 Long id 而不是 Category 对象、filter 的对象也是 Long id 而不是 Category 对象
-        // 即注意 distinct() 和 filter() 在流中的位置
-        List<Long> parentCategoryIds = categoryList.stream().map(Category::getParentId).filter(Objects::nonNull).distinct().toList();
-        Map<Long, ArticleCategoryParentVO> parentCategoryVoMap = parentCategoryIds.isEmpty()
-                ? Map.of()
-                : BeanUtil.copyToList(
-                categoryMapper.selectList(
-                        new LambdaQueryWrapper<Category>()
-                                .in(Category::getId, parentCategoryIds)
-                ), ArticleCategoryParentVO.class)
-                .stream().collect(Collectors.toMap(ArticleCategoryParentVO::getId, category -> category));
-
-        List<ArticleCategoryVO> categoryVoList = new ArrayList<>();
-        categoryList.forEach(category -> {
-            ArticleCategoryVO vo = BeanUtil.copyProperties(category, ArticleCategoryVO.class);
-            vo.setParent(parentCategoryVoMap.get(category.getParentId()));
-            categoryVoList.add(vo);
-        });
-        Map<Long, ArticleCategoryVO> categoryVoMap = categoryVoList.stream().collect(Collectors.toMap(ArticleCategoryVO::getId, category -> category));
+        Map<Long, ArticleCategoryVO> categoryVoMap = getCategoryVoMap(categoryIds);
 
         // 6. 封装返回
         records.forEach(article -> {
@@ -164,7 +141,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
                 new LambdaQueryWrapper<ArticleTag>()
                         .select(ArticleTag::getTagId)
                         .eq(ArticleTag::getArticleId, articleId)
-        ).stream().map(ArticleTag::getTagId).toList();   // 🔺🔺🔺只要 tagId！使用流转换 map。
+        ).stream().map(ArticleTag::getTagId).toList();   // 🔺只要 tagId！使用流转换 map。
 
         res.setTagIds(tagIds);
 
@@ -296,6 +273,252 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     }
 
 
+    /**
+     * 获取已发布文章分页列表
+     *
+     * @param queryDTO
+     * @return
+     */
+    @Override
+    public PageResult<PublicArticleListItemVO> getPublicArticleList(PublicArticleQueryDTO queryDTO) {
+        // 1. 构建分页
+        Page<Article> page = Page.of(queryDTO.getPageNum(), queryDTO.getPageSize());
+
+        // 2. 校验分类条件合法性
+        Category category = null;
+        if (queryDTO.getCategoryId() != null){
+            category = categoryMapper.selectById(queryDTO.getCategoryId());
+
+            if (category == null){
+                throw new BizException(ResultCode.ARTICLE_CATEGORY_NOT_FOUND);
+            }
+
+             if (category.getStatus() == CategoryStatus.DISABLED){
+                 throw new BizException(ResultCode.ARTICLE_CATEGORY_DISABLED);
+             }
+
+             if (category.getLevel() == 2){
+                 Category parentCategory = categoryMapper.selectById(category.getParentId());
+
+                 if (parentCategory == null){
+                     throw new BizException(ResultCode.ARTICLE_CATEGORY_NOT_FOUND);
+                 }
+
+                 if (parentCategory.getStatus() == CategoryStatus.DISABLED){
+                     throw new BizException(ResultCode.ARTICLE_CATEGORY_DISABLED);
+                 }
+             }
+        }
+
+        // 3. 校验标签条件合法性
+        List<Long> tagIds = List.of();
+        if (!CollectionUtil.isEmpty(queryDTO.getTagIds())) {
+            tagIds = queryDTO.getTagIds().stream().distinct().toList();
+        }
+
+        if (!tagIds.isEmpty()){
+            List<Tag> tags = tagMapper.selectList(
+                    new LambdaQueryWrapper<Tag>()
+                            .in(Tag::getId, queryDTO.getTagIds().stream().distinct().toList())
+            );
+
+            if (tags == null || tags.size() != tagIds.size()){
+                throw new BizException(ResultCode.ARTICLE_TAG_NOT_FOUND);
+            }
+
+            tags.forEach(tag -> {
+                if (tag.getStatus() == TagStatus.DISABLED){
+                    throw new BizException(ResultCode.ARTICLE_TAG_DISABLED);
+                }
+            });
+        }
+
+        // 4. 如果是一级分类，条件为其下所有二级分类的文章；如果是二级分类，直接查询
+        List<Long> categoryIds = List.of();
+        if (category != null){
+            // 传了分类条件
+            if (category.getLevel() == 1){
+                categoryIds = categoryMapper.selectList(
+                        new LambdaQueryWrapper<Category>()
+                                .eq(Category::getParentId, category.getId())
+                                .eq(Category::getStatus, CategoryStatus.ENABLED)
+                ).stream().map(Category::getId).toList();
+            }
+            else {
+                categoryIds = List.of(category.getId());
+            }
+        }
+        else {
+            // 不限分类
+            // 即自己不被禁用且父分类也未被禁用的所有二级分类
+            List<Category> categoryList = categoryMapper.selectList(
+                    new LambdaQueryWrapper<Category>()
+                            .eq(Category::getStatus, CategoryStatus.ENABLED)
+            );
+            Map<Long, Boolean> parentCategoryEnabled = categoryList.stream().filter(c -> c.getLevel() == 1 && c.getStatus() == CategoryStatus.ENABLED).collect(Collectors.toMap(Category::getId, c -> true));
+            categoryIds = categoryList.stream().filter(c -> c.getLevel() == 2 && parentCategoryEnabled.get(c.getParentId()) != null).map(Category::getId).toList();
+        }
+
+        if (CollectionUtil.isEmpty(categoryIds)){
+            // 要么是查询的是一级分类，其下无二级分类；要么目前数据库一个正常的二级分类都没有。
+            // 🔺防止后面查询由于传空列表反而把所有的分类都筛选查到了
+            return PageResult.of(page.getTotal(), page.getCurrent(), page.getSize(), List.of());
+        }
+
+        // 5. 获取包含所有标签的文章列表
+        List<Long> tagArticleIds = List.of();
+        if (!tagIds.isEmpty()) {
+            // tagIds 已去重
+            tagArticleIds = articleTagMapper.getArticleIdsByTagIds(tagIds, tagIds.size());
+
+            if (CollectionUtil.isEmpty(tagArticleIds)){
+                // 查询标签列表非空、包含这些标签的文章 id 列表却为空，则返回空结果即可
+                // 🔺同上，防空列表查询反而得到全部文章
+                return PageResult.of(page.getTotal(), page.getCurrent(), page.getSize(), List.of());
+            }
+        }
+
+        // 6. 查询
+        lambdaQuery()
+                .in(!CollectionUtil.isEmpty(tagIds), Article::getId, tagArticleIds)
+                .in(!CollectionUtil.isEmpty(categoryIds), Article::getCategoryId, categoryIds)
+                .eq(Article::getStatus, ArticleStatus.PUBLISHED)
+                .orderByDesc(Article::getIsTop)
+                .orderByDesc(Article::getCreatedAt)
+                .page(page);
+
+        // 7. 封装
+        List<Article> records = page.getRecords();
+        if (CollectionUtil.isEmpty(records)){
+            return PageResult.of(page.getTotal(), page.getCurrent(), page.getSize(), List.of());
+        }
+
+        // 分页中所有文章 id 并集
+        List<Long> articleIds = records.stream().map(Article::getId).toList();
+        // 分页中所有文章的分类 id 并集
+        List<Long> articleCategoryIds = records.stream().map(Article::getCategoryId).distinct().toList();
+        // 分页中所有文章的标签 id 并集
+        List<Long> articleTagIds = articleTagMapper.selectList(
+                new LambdaQueryWrapper<ArticleTag>()
+                        .select(ArticleTag::getTagId)
+                        .in(ArticleTag::getArticleId, articleIds)
+        ).stream().map(ArticleTag::getTagId).distinct().toList();
+
+        // 分类和标签对象的 map
+        Map<Long, ArticleCategoryVO> categoryVoMap = getCategoryVoMap(articleCategoryIds);
+        Map<Long, ArticleTagVO> tagVoMap = getTagVoMap(articleTagIds);   // 禁用的标签已过滤
+
+        // 每篇文章对应哪些 tagId 的 map
+        List<ArticleTag> articleTags = articleTagMapper.selectList(
+                new LambdaQueryWrapper<ArticleTag>()
+                        .in(ArticleTag::getArticleId, articleIds)
+        );
+        Map<Long, List<Long>> articleTagIdsMap = articleTags.stream()
+                .collect(Collectors.groupingBy(
+                        ArticleTag::getArticleId,
+                        Collectors.mapping(ArticleTag::getTagId, Collectors.toList())
+                ));
+
+        List<PublicArticleListItemVO> res = new ArrayList<>();
+        records.forEach(article -> {
+            PublicArticleListItemVO vo = BeanUtil.copyProperties(article, PublicArticleListItemVO.class);
+
+            vo.setCategory(categoryVoMap.get(article.getCategoryId()));
+
+            List<ArticleTagVO> articleTagVOList = new ArrayList<>();
+            List<Long> list = articleTagIdsMap.get(article.getId());
+            if (list != null){
+                list.forEach(tagId -> {
+                    ArticleTagVO articleTagVO = tagVoMap.get(tagId);
+                    if (articleTagVO != null) articleTagVOList.add(articleTagVO);
+                });
+            }
+
+            vo.setTags(articleTagVOList);
+
+            res.add(vo);
+        });
+
+        // 8. 返回
+        return PageResult.of(page.getTotal(), page.getCurrent(), page.getSize(), res);
+    }
+
+
+    /**
+     * 获取前台文章详情
+     *
+     * @param articleId
+     * @return
+     */
+    @Override
+    public PublicArticleDetailVO getPublicArticleDetail(Long articleId) {
+        Article article = articleMapper.selectById(articleId);
+        if (article == null){
+            throw new BizException(ResultCode.ARTICLE_NOT_FOUND);
+        }
+        if (article.getStatus() != ArticleStatus.PUBLISHED){
+            throw new BizException(ResultCode.ARTICLE_NOT_VISIBLE);
+        }
+
+        PublicArticleDetailVO vo = BeanUtil.copyProperties(article, PublicArticleDetailVO.class);
+
+        // 1. 封装分类
+        Category category = categoryMapper.selectById(article.getCategoryId());
+        if (category == null){
+            throw new BizException(ResultCode.ARTICLE_CATEGORY_NOT_FOUND);
+        }
+        if (category.getStatus() == CategoryStatus.DISABLED){
+            throw new BizException(ResultCode.ARTICLE_CATEGORY_DISABLED);
+        }
+        Category parentCategory = categoryMapper.selectById(category.getParentId());
+        if (parentCategory == null){
+            throw new BizException(ResultCode.ARTICLE_CATEGORY_NOT_FOUND);
+        }
+        if (parentCategory.getStatus() == CategoryStatus.DISABLED){
+            throw new BizException(ResultCode.ARTICLE_CATEGORY_DISABLED);
+        }
+        ArticleCategoryParentVO articleCategoryParentVO = BeanUtil.copyProperties(parentCategory, ArticleCategoryParentVO.class);
+        ArticleCategoryVO articleCategoryVO = BeanUtil.copyProperties(category, ArticleCategoryVO.class);
+        articleCategoryVO.setParent(articleCategoryParentVO);
+
+        vo.setCategory(articleCategoryVO);
+
+        // 2. 封装标签
+        List<Long> tagIds = articleTagMapper.selectList(
+                new LambdaQueryWrapper<ArticleTag>()
+                        .eq(ArticleTag::getArticleId, article.getId())
+        ).stream().map(ArticleTag::getTagId).toList();
+        List<ArticleTagVO> articleTagVOList = new ArrayList<>();
+        if (!CollectionUtil.isEmpty(tagIds)){
+            List<Tag> tags = tagMapper.selectList(
+                    new LambdaQueryWrapper<Tag>()
+                            .in(Tag::getId, tagIds)
+            );
+            // 关联标签如果不存在（属于数据异常，不报错，过滤掉继续返回文章详情）
+            /*if (tags == null || tags.size() != tagIds.size()){
+                throw new BizException(ResultCode.ARTICLE_TAG_NOT_FOUND);
+            }*/
+            tags.stream().filter(tag -> tag.getStatus() == TagStatus.ENABLED).forEach(tag -> {
+                // 标签失效通常不应该影响文章本身是否可读，不报错，过滤掉返回文章详情
+                /*if (tag.getStatus() == TagStatus.DISABLED){
+                    throw new BizException(ResultCode.ARTICLE_TAG_DISABLED);
+                }*/
+                articleTagVOList.add(BeanUtil.copyProperties(tag, ArticleTagVO.class));
+            });
+        }
+
+        vo.setTags(articleTagVOList);
+
+        // 3. 封装作者
+        User author = userMapper.selectById(article.getAuthorId());
+        ArticleAuthorVO articleAuthorVO = BeanUtil.copyProperties(author, ArticleAuthorVO.class);
+
+        vo.setAuthor(articleAuthorVO);
+
+        // 4. 返回
+        return vo;
+    }
+
 
     /**
      * 校验文章分类合法性
@@ -311,6 +534,14 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
             throw new BizException(ResultCode.ARTICLE_CATEGORY_LEVEL_INVALID);
         }
         if (category.getStatus() == CategoryStatus.DISABLED){
+            throw new BizException(ResultCode.ARTICLE_CATEGORY_DISABLED);
+        }
+
+        Category parentCategory = categoryMapper.selectById(category.getParentId());
+        if (parentCategory == null) {
+            throw new BizException(ResultCode.ARTICLE_CATEGORY_NOT_FOUND);
+        }
+        if (parentCategory.getStatus() == CategoryStatus.DISABLED){
             throw new BizException(ResultCode.ARTICLE_CATEGORY_DISABLED);
         }
     }
@@ -426,5 +657,63 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
                 throw new BizException(ResultCode.ARTICLE_STATUS_TRANSITION_INVALID);
             }
         }
+    }
+
+
+    /**
+     * 根据分类 id 数组（已去重）获取封装好了的 Map<Long,ArticleCategoryVO>（包括封装 ArticleCategoryParentVO）
+     *
+     * @param categoryIds
+     * @return
+     */
+    private Map<Long, ArticleCategoryVO> getCategoryVoMap(List<Long> categoryIds){
+        if (CollectionUtil.isEmpty(categoryIds)){
+            return new HashMap<>();
+        }
+
+        List<Category> categoryList = categoryMapper.selectList(
+                new LambdaQueryWrapper<Category>()
+                        .in(Category::getId, categoryIds)
+        );
+
+        // p.s. Objects::nonNull 其实不加也可以，因为 categoryId 是 Article 的必填字段，理论上就是全都是二级分类，不会有父分类 Id 为 null 的情况；加上增强健壮性。
+        // 注意 distinct() 对象是 Long id 而不是 Category 对象、filter 的对象也是 Long id 而不是 Category 对象
+        // 即注意 distinct() 和 filter() 在流中的位置
+        List<Long> parentCategoryIds = categoryList.stream().map(Category::getParentId).filter(Objects::nonNull).distinct().toList();
+        Map<Long, ArticleCategoryParentVO> parentCategoryVoMap = parentCategoryIds.isEmpty()
+                ? Map.of()
+                : BeanUtil.copyToList(
+                        categoryMapper.selectList(
+                                new LambdaQueryWrapper<Category>()
+                                        .in(Category::getId, parentCategoryIds)
+                        ), ArticleCategoryParentVO.class)
+                .stream().collect(Collectors.toMap(ArticleCategoryParentVO::getId, category -> category));
+
+        List<ArticleCategoryVO> categoryVoList = new ArrayList<>();
+        categoryList.forEach(category -> {
+            ArticleCategoryVO vo = BeanUtil.copyProperties(category, ArticleCategoryVO.class);
+            vo.setParent(parentCategoryVoMap.get(category.getParentId()));
+            categoryVoList.add(vo);
+        });
+        Map<Long, ArticleCategoryVO> categoryVoMap = categoryVoList.stream().collect(Collectors.toMap(ArticleCategoryVO::getId, category -> category));
+
+        return categoryVoMap;
+    }
+
+
+    /**
+     * 根据标签 id 数组（已去重）获取封装好了的 Map<Long,ArticleCategoryVO>
+     *     标签已禁用时过滤，不封装进返回对象。
+     *
+     * @param tagIds
+     * @return
+     */
+    private Map<Long, ArticleTagVO> getTagVoMap(List<Long> tagIds) {
+        if (CollectionUtil.isEmpty(tagIds)){
+            return new HashMap<>();
+        }
+
+        List<Tag> tags = tagMapper.selectByIds(tagIds);
+        return tags.stream().filter(t -> t.getStatus() == TagStatus.ENABLED).collect(Collectors.toMap(Tag::getId, tag -> BeanUtil.copyProperties(tag, ArticleTagVO.class)));
     }
 }
