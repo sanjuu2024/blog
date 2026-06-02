@@ -2,7 +2,6 @@ package com.ccsanjuu.blog.modules.category.service;
 
 import com.ccsanjuu.blog.modules.category.model.dto.AdminCategoryQueryDTO;
 import com.ccsanjuu.blog.modules.category.model.dto.CategoryUpsertRequestDTO;
-import com.ccsanjuu.blog.modules.category.model.entity.Category;
 import com.ccsanjuu.blog.modules.category.model.vo.AdminCategoryItemVO;
 import com.ccsanjuu.blog.modules.category.model.vo.CreatedCategoryVO;
 import com.ccsanjuu.blog.modules.category.model.vo.PublicCategoryItemVO;

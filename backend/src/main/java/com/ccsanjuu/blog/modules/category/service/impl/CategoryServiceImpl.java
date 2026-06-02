@@ -257,6 +257,9 @@ public class CategoryServiceImpl implements CategoryService {
         childrenCategoryList.forEach(c -> {
             PublicCategoryItemVO vo = BeanUtil.copyProperties(c,PublicCategoryItemVO.class);
 
+            // 填入二级分类的 children 数组（空数组）
+            vo.setChildren(List.of());
+
             // 填入二级分类的文章数
             Long articleCount = categoryArticleCountMap.getOrDefault(c.getId(), 0L);
             vo.setArticleCount(articleCount);

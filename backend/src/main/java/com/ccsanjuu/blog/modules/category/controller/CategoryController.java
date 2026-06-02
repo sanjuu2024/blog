@@ -1,7 +1,6 @@
 package com.ccsanjuu.blog.modules.category.controller;
 
 import com.ccsanjuu.blog.common.api.Result;
-import com.ccsanjuu.blog.modules.category.model.entity.Category;
 import com.ccsanjuu.blog.modules.category.model.vo.PublicCategoryItemVO;
 import com.ccsanjuu.blog.modules.category.service.CategoryService;
 import io.swagger.v3.oas.annotations.Operation;
