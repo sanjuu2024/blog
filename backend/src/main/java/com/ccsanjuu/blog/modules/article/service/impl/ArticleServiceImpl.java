@@ -511,9 +511,11 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
 
         // 3. 封装作者
         User author = userMapper.selectById(article.getAuthorId());
-        ArticleAuthorVO articleAuthorVO = BeanUtil.copyProperties(author, ArticleAuthorVO.class);
+        if (author == null) {
+            throw new BizException(ResultCode.ARTICLE_AUTHOR_NOT_FOUND);
+        }
 
-        vo.setAuthor(articleAuthorVO);
+        vo.setAuthor(BeanUtil.copyProperties(author, ArticleAuthorVO.class));
 
         // 4. 返回
         return vo;
