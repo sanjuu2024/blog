@@ -114,9 +114,9 @@ Authorization: Bearer <access_token>
 | `102007` | `403` | `当前用户不允许修改自己的角色` | 管理员修改当前登录用户自身角色时被拒绝 |
 | `102008` | `403` | `当前用户不允许修改自己的状态` | 管理员修改当前登录用户自身状态时被拒绝 |
 | `103001` | `404` | `文章不存在` | 指定文章不存在 |
-| `103002` | `404` | `文章分类不存在` | 创建、更新或筛选文章时指定分类不存在 |
+| `103002` | `404` | `文章分类不存在` | 创建、更新、筛选文章或前台展示文章时指定分类不存在 |
 | `103003` | `400` | `文章只能绑定二级分类` | 创建或更新文章时绑定了一级分类 |
-| `103004` | `409` | `文章分类已禁用` | 创建或更新文章时绑定了已禁用分类 |
+| `103004` | `409` | `文章分类已禁用` | 创建、更新、筛选文章或前台展示文章时关联分类已禁用 |
 | `103005` | `404` | `文章标签不存在` | 创建或更新文章时指定标签不存在 |
 | `103006` | `409` | `文章标签已禁用` | 创建或更新文章时指定标签已禁用 |
 | `103007` | `409` | `文章状态流转不合法` | 创建、更新或修改文章状态时不符合状态流转规则 |
@@ -177,6 +177,7 @@ Authorization: Bearer <access_token>
 | 前台文章 | `GET` | `/api/v1/articles` | `PUBLIC` | 获取已发布文章分页列表 |
 | 前台文章 | `GET` | `/api/v1/articles/{articleId}` | `PUBLIC` | 获取文章详情 |
 | 前台分类 | `GET` | `/api/v1/categories` | `PUBLIC` | 获取启用分类列表 |
+| 前台标签 | `GET` | `/api/v1/tags` | `PUBLIC` | 获取启用标签列表 |
 | 前台用户 | `GET` | `/api/v1/users/{userId}/public-profile` | `PUBLIC` | 获取用户公开资料卡 |
 | 个人中心 | `GET` | `/api/v1/users/me` | `LOGIN` | 获取当前登录用户信息 |
 | 个人中心 | `PUT` | `/api/v1/users/me/profile` | `LOGIN` | 更新个人资料 |
@@ -457,12 +458,12 @@ Set-Cookie: refresh_token=; Max-Age=0; Path=/api/v1/auth; HttpOnly; SameSite=Lax
 | `pageNum` | `Integer` | 否 | 页码，默认 `1` | `1` |
 | `pageSize` | `Integer` | 否 | 每页条数，默认 `10`，最大 `20` | `10` |
 | `categoryId` | `Long` | 否 | 分类 ID，用于分类筛选。支持一级分类或二级分类；传一级分类时返回其下所有二级分类文章 | `20001`、`21001` |
-| `tagId` | `Long` | 否 | 标签 ID，用于标签筛选 | `30001` |
+| `tagIds` | `Array<Long>` | 否 | 标签 ID 列表，用于标签筛选；传多个时表示文章必须同时包含这些标签 | `[30001, 30002]` |
 
 ### 请求样例
 
 ```http
-GET /api/v1/articles?pageNum=1&pageSize=10&categoryId=20001
+GET /api/v1/articles?pageNum=1&pageSize=10&categoryId=20001&tagIds=30001&tagIds=30002
 ```
 
 ### 响应参数
@@ -470,6 +471,14 @@ GET /api/v1/articles?pageNum=1&pageSize=10&categoryId=20001
 #### data 字段说明
 
 `data` 为分页结构，`records` 中单条记录字段如下：
+
+说明：
+
+- `tags` 仅返回当前启用且仍存在的关联标签。
+- 若文章存在历史关联的禁用标签或已被删除的标签，前台列表响应中不返回该标签。
+- 通过 Query 参数 `tagIds` 进行筛选时，传入的标签仍必须存在且启用；若标签不存在或已禁用，后端返回对应业务错误。
+- 通过 Query 参数 `categoryId` 进行筛选时，传入分类必须存在且启用；若分类不存在或已禁用，后端返回对应业务错误。
+- 前台文章列表仅展示所属二级分类及其父分类均存在且启用的文章。
 
 | 字段名称 | 字段类型 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- |
@@ -536,6 +545,10 @@ GET /api/v1/articles?pageNum=1&pageSize=10&categoryId=20001
 - 权限：`PUBLIC`
 
 说明：P0 阶段文章详情接口和前台文章详情页均以 `articleId` 作为稳定定位标识。`slug` 仅作为 P2 URL 可读化与 SEO 优化预留，后续可扩展为类似 `/articles/{articleId}-{slug}` 的前台展示 URL。
+
+文章详情返回的 `tags` 仅包含当前启用且仍存在的关联标签；历史关联的禁用标签或已被删除的标签不返回，不影响文章详情本身展示。
+
+文章详情要求文章所属二级分类及其父分类均存在且启用；若分类不存在，返回 `ARTICLE_CATEGORY_NOT_FOUND`；若分类已禁用，返回 `ARTICLE_CATEGORY_DISABLED`，前台不展示该文章详情。
 
 ### 请求参数
 
@@ -634,6 +647,12 @@ GET /api/v1/articles/40001
 - 路径：`/api/v1/categories`
 - 权限：`PUBLIC`
 
+说明：
+
+- 仅返回启用状态的分类。
+- 一级分类按 `sortNo ASC, id ASC` 排序。
+- 每个一级分类下的二级分类也按 `sortNo ASC, id ASC` 排序。
+
 ### 请求参数
 
 无
@@ -648,24 +667,18 @@ GET /api/v1/categories
 
 #### data 字段说明
 
-`data` 返回一级分类树，一级分类下包含二级分类列表。
+`data` 返回一级分类树，一级分类下包含二级分类列表；一级分类的 `parentId` 为空，二级分类的 `children` 为空数组。
 
 | 字段名称 | 字段类型 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- |
-| `id` | `Long` | 一级分类 ID | `20001` |
-| `name` | `String` | 一级分类名称 | `技术` |
-| `level` | `Integer` | 分类层级，一级固定为 `1` | `1` |
+| `id` | `Long` | 分类 ID | `20001` |
+| `parentId` | `Long` | 父分类 ID，一级分类为空，二级分类为所属一级分类 ID | `NULL`、`20001` |
+| `name` | `String` | 分类名称 | `技术` |
+| `level` | `Integer` | 分类层级，一级为 `1`，二级为 `2` | `1`、`2` |
 | `description` | `String` | 分类描述 | `技术内容一级分类` |
 | `sortNo` | `Integer` | 排序值，值越小越靠前 | `10` |
-| `articleCount` | `Integer` | 一级分类下已发布文章总数 | `18` |
-| `children` | `Array<Object>` | 二级分类列表 | `[{"id":21001,"name":"Java"}]` |
-| `children[].id` | `Long` | 二级分类 ID | `21001` |
-| `children[].parentId` | `Long` | 所属一级分类 ID | `20001` |
-| `children[].name` | `String` | 二级分类名称 | `Java` |
-| `children[].level` | `Integer` | 分类层级，二级固定为 `2` | `2` |
-| `children[].description` | `String` | 二级分类描述 | `Java 相关文章` |
-| `children[].sortNo` | `Integer` | 排序值，值越小越靠前 | `11` |
-| `children[].articleCount` | `Integer` | 该二级分类下已发布文章数量 | `6` |
+| `articleCount` | `Long` | 前台可见已发布文章数量。一级分类为其下二级分类汇总，二级分类为自身文章数 | `18` |
+| `children` | `Array<Object>` | 子分类列表。一级分类下返回二级分类，二级分类返回空数组 | `[{"id":21001,"name":"Java","children":[]}]` |
 
 ### 响应样例
 
@@ -676,6 +689,7 @@ GET /api/v1/categories
   "data": [
     {
       "id": 20001,
+      "parentId": null,
       "name": "技术",
       "level": 1,
       "description": "技术内容一级分类",
@@ -689,7 +703,8 @@ GET /api/v1/categories
           "level": 2,
           "description": "Java 相关文章",
           "sortNo": 11,
-          "articleCount": 6
+          "articleCount": 6,
+          "children": []
         },
         {
           "id": 21002,
@@ -698,7 +713,8 @@ GET /api/v1/categories
           "level": 2,
           "description": "算法相关内容",
           "sortNo": 12,
-          "articleCount": 4
+          "articleCount": 4,
+          "children": []
         }
       ]
     }
@@ -706,7 +722,63 @@ GET /api/v1/categories
 }
 ```
 
-## 5.4 获取用户公开资料卡
+## 5.4 获取启用标签列表
+
+- 路由：`GET`
+- 路径：`/api/v1/tags`
+- 权限：`PUBLIC`
+
+说明：
+
+- 该接口用于前台文章列表筛选面板、标签云等公开展示场景。
+- 仅返回启用状态的标签。
+- 按 `articleCount DESC, name ASC, id ASC` 排序，其中 `articleCount` 为该标签下前台可见已发布文章数量。
+- 前台文章列表通过 `tagIds` 进行标签筛选；后端仍需校验传入标签是否存在且启用，避免用户手动构造 URL 访问禁用标签。
+
+### 请求参数
+
+无
+
+### 请求样例
+
+```http
+GET /api/v1/tags
+```
+
+### 响应参数
+
+#### data 字段说明
+
+`data` 返回启用标签列表。
+
+| 字段名称 | 字段类型 | 字段解释 | 业务例子 |
+| --- | --- | --- | --- |
+| `id` | `Long` | 标签 ID | `30001` |
+| `name` | `String` | 标签名称 | `JWT` |
+| `articleCount` | `Long` | 该标签下前台可见已发布文章数量 | `8` |
+
+### 响应样例
+
+```json
+{
+  "code": 0,
+  "message": "成功",
+  "data": [
+    {
+      "id": 30001,
+      "name": "JWT",
+      "articleCount": 8
+    },
+    {
+      "id": 30002,
+      "name": "Spring Boot",
+      "articleCount": 6
+    }
+  ]
+}
+```
+
+## 5.5 获取用户公开资料卡
 
 - 路由：`GET`
 - 路径：`/api/v1/users/{userId}/public-profile`
@@ -1579,7 +1651,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | `description` | `String` | 分类描述 | `技术内容一级分类` |
 | `sortNo` | `Integer` | 排序值，值越小越靠前 | `10` |
 | `status` | `String` | 分类状态 | `ENABLED` |
-| `articleCount` | `Integer` | 关联文章数。一级分类为其下全部二级分类汇总，二级分类为自身文章数 | `18` |
+| `articleCount` | `Long` | 关联文章数。一级分类为其下全部二级分类汇总，二级分类为自身文章数 | `18` |
 | `createdAt` | `String` | 创建时间 | `2026-04-22T21:10:00+08:00` |
 | `children` | `Array<Object>` | 子分类列表。一级分类下返回二级分类，二级分类返回空数组 | `[{"id":21001,"name":"Java","children":[]}]` |
 
@@ -1848,7 +1920,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | `name` | `String` | 标签名称 | `JWT` |
 | `description` | `String` | 标签描述 | `和认证授权相关的文章标签` |
 | `status` | `String` | 标签状态 | `ENABLED` |
-| `articleCount` | `Integer` | 关联文章数 | `5` |
+| `articleCount` | `Long` | 关联文章数 | `5` |
 | `createdAt` | `String` | 创建时间 | `2026-04-22T21:15:00+08:00` |
 
 ### 响应样例
@@ -2054,6 +2126,10 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 文章保存或更新时，后端应以 `contentMd` 为源自动生成并持久化 `contentHtml`
 - 文章保存或更新时，后端应以 `contentMd` 为源自动提取并持久化 `contentText`
 - 前台文章详情接口优先返回 `contentHtml` 用于页面渲染
+- 前台文章列表和详情响应中的 `tags` 仅展示当前启用且仍存在的关联标签；历史关联的禁用标签或已删除标签不返回
+- 前台文章列表通过 `tagIds` 筛选时，传入标签必须存在且启用；不存在返回 `ARTICLE_TAG_NOT_FOUND`，禁用返回 `ARTICLE_TAG_DISABLED`
+- 前台文章列表通过 `categoryId` 筛选时，传入分类必须存在且启用；不存在返回 `ARTICLE_CATEGORY_NOT_FOUND`，禁用返回 `ARTICLE_CATEGORY_DISABLED`
+- 前台文章列表和详情要求文章所属二级分类及其父分类均存在且启用；分类不存在或禁用时，文章对前台不可见
 - P0 文章详情以 `articleId` 定位；P2 再考虑将 `slug` 追加到前台 URL 中提升可读性与 SEO 表达
 - 文章从 `PUBLISHED` 修改为 `OFFLINE` 后，前台立即不可见
 

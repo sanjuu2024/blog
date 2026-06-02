@@ -179,7 +179,7 @@ paths:
       tags:
         - Public Articles
       summary: 获取已发布文章分页列表
-      description: 权限级别 `PUBLIC`。仅返回已发布文章。
+      description: 权限级别 `PUBLIC`。仅返回已发布文章。响应中的 `tags` 仅包含当前启用且仍存在的关联标签；通过 `tagIds` 筛选时，传入标签必须存在且启用；通过 `categoryId` 筛选时，传入分类必须存在且启用。文章所属二级分类及其父分类均存在且启用时，文章才对前台可见。
       operationId: listPublishedArticles
       parameters:
         - $ref: '#/components/parameters/PageNum'
@@ -192,14 +192,20 @@ paths:
             type: integer
             format: int64
             example: 20001
-        - name: tagId
+        - name: tagIds
           in: query
-          description: 标签 ID
+          description: 标签 ID 列表；传多个时表示文章必须同时包含这些标签
           required: false
+          style: form
+          explode: true
           schema:
-            type: integer
-            format: int64
-            example: 30001
+            type: array
+            items:
+              type: integer
+              format: int64
+            example:
+              - 30001
+              - 30002
       responses:
         '200':
           description: 获取成功
@@ -241,7 +247,7 @@ paths:
       tags:
         - Public Articles
       summary: 获取文章详情
-      description: 权限级别 `PUBLIC`。仅可查看已发布文章详情。P0 以 articleId 定位文章；slug 仅作为 P2 URL 可读化与 SEO 优化预留，不参与当前接口路径。
+      description: 权限级别 `PUBLIC`。仅可查看已发布文章详情。响应中的 `tags` 仅包含当前启用且仍存在的关联标签；历史关联的禁用标签或已被删除的标签不返回，不影响文章详情展示。文章所属二级分类及其父分类必须均存在且启用；分类不存在返回 `ARTICLE_CATEGORY_NOT_FOUND`，分类已禁用返回 `ARTICLE_CATEGORY_DISABLED`。P0 以 articleId 定位文章；slug 仅作为 P2 URL 可读化与 SEO 优化预留，不参与当前接口路径。
       operationId: getPublishedArticleDetail
       parameters:
         - $ref: '#/components/parameters/ArticleId'
@@ -292,7 +298,7 @@ paths:
       tags:
         - Public Articles
       summary: 获取启用分类列表
-      description: 权限级别 `PUBLIC`。返回一级分类树，二级分类挂载在 `children` 字段。
+      description: 权限级别 `PUBLIC`。返回一级分类树，二级分类挂载在 `children` 字段。仅返回启用分类；一级分类按 `sortNo ASC, id ASC` 排序，每个一级分类下的二级分类也按 `sortNo ASC, id ASC` 排序。
       operationId: listEnabledCategories
       responses:
         '200':
@@ -306,6 +312,7 @@ paths:
                 message: 成功
                 data:
                   - id: 20001
+                    parentId: null
                     name: 技术
                     level: 1
                     description: 技术内容一级分类
@@ -319,6 +326,7 @@ paths:
                         description: Java 相关文章
                         sortNo: 11
                         articleCount: 6
+                        children: []
                       - id: 21002
                         parentId: 20001
                         name: 算法
@@ -326,6 +334,31 @@ paths:
                         description: 算法相关内容
                         sortNo: 12
                         articleCount: 4
+                        children: []
+  /api/v1/tags:
+    get:
+      tags:
+        - Public Articles
+      summary: 获取启用标签列表
+      description: 权限级别 `PUBLIC`。用于前台文章列表筛选面板、标签云等公开展示场景，仅返回启用状态的标签；按 `articleCount DESC, name ASC, id ASC` 排序，其中 `articleCount` 为该标签下前台可见已发布文章数量。
+      operationId: listEnabledTags
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicTagListResponse'
+              example:
+                code: 0
+                message: 成功
+                data:
+                  - id: 30001
+                    name: JWT
+                    articleCount: 8
+                  - id: 30002
+                    name: Spring Boot
+                    articleCount: 6
   /api/v1/users/{userId}/public-profile:
     get:
       tags:
@@ -1754,47 +1787,11 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/PublicArticleDetail'
-    PublicCategoryChildItem:
-      type: object
-      required:
-        - id
-        - parentId
-        - name
-        - level
-        - description
-        - sortNo
-        - articleCount
-      properties:
-        id:
-          type: integer
-          format: int64
-          example: 21001
-        parentId:
-          type: integer
-          format: int64
-          example: 20001
-        name:
-          type: string
-          example: Java
-        level:
-          type: integer
-          enum:
-            - 2
-          example: 2
-        description:
-          type: string
-          example: Java 相关文章
-        sortNo:
-          type: integer
-          description: 排序值，值越小越靠前
-          example: 11
-        articleCount:
-          type: integer
-          example: 6
     PublicCategoryItem:
       type: object
       required:
         - id
+        - parentId
         - name
         - level
         - description
@@ -1806,6 +1803,12 @@ components:
           type: integer
           format: int64
           example: 20001
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 一级分类为空，二级分类为所属一级分类 ID
+          example: null
         name:
           type: string
           example: 技术
@@ -1813,6 +1816,7 @@ components:
           type: integer
           enum:
             - 1
+            - 2
           example: 1
         description:
           type: string
@@ -1823,11 +1827,14 @@ components:
           example: 10
         articleCount:
           type: integer
+          format: int64
+          description: 前台可见已发布文章数量。一级分类为其下二级分类汇总，二级分类为自身文章数
           example: 18
         children:
           type: array
+          description: 子分类列表。一级分类下返回二级分类，二级分类返回空数组。
           items:
-            $ref: '#/components/schemas/PublicCategoryChildItem'
+            $ref: '#/components/schemas/PublicCategoryItem'
     PublicCategoryListResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
@@ -1837,6 +1844,34 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/PublicCategoryItem'
+    PublicTagItem:
+      type: object
+      required:
+        - id
+        - name
+        - articleCount
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 30001
+        name:
+          type: string
+          example: JWT
+        articleCount:
+          type: integer
+          format: int64
+          description: 该标签下前台可见已发布文章数量
+          example: 8
+    PublicTagListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/PublicTagItem'
     PublicUserProfile:
       type: object
       required:
@@ -2509,6 +2544,7 @@ components:
           example: ENABLED
         articleCount:
           type: integer
+          format: int64
           example: 18
         createdAt:
           type: string
@@ -2680,6 +2716,7 @@ components:
           example: ENABLED
         articleCount:
           type: integer
+          format: int64
           example: 5
         createdAt:
           type: string

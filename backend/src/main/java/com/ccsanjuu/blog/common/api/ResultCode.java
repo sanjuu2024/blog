@@ -34,6 +34,7 @@ public enum ResultCode {
     ARTICLE_TAG_NOT_FOUND(103005, "文章标签不存在", 404),
     ARTICLE_TAG_DISABLED(103006, "文章标签已禁用", 409),
     ARTICLE_STATUS_TRANSITION_INVALID(103007, "文章状态流转不合法", 409),
+    ARTICLE_NOT_VISIBLE(103008, "文章当前不可见", 404),
 
     // category 模块 04xxxx
     CATEGORY_NAME_ALREADY_EXISTS(104001, "分类名称已存在", 409),
