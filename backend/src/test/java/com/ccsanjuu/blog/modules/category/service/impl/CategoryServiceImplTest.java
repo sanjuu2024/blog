@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -70,8 +71,10 @@ class CategoryServiceImplTest {
         assertEquals(2, parent.getChildren().size());
         assertEquals(FIRST_CHILD_CATEGORY_ID, parent.getChildren().getFirst().getId());
         assertEquals(6L, parent.getChildren().getFirst().getArticleCount());
+        assertTrue(parent.getChildren().getFirst().getChildren().isEmpty());
         assertEquals(SECOND_CHILD_CATEGORY_ID, parent.getChildren().get(1).getId());
         assertEquals(4L, parent.getChildren().get(1).getArticleCount());
+        assertTrue(parent.getChildren().get(1).getChildren().isEmpty());
 
         PublicCategoryItemVO emptyParent = result.get(1);
         assertEquals(EMPTY_PARENT_CATEGORY_ID, emptyParent.getId());
