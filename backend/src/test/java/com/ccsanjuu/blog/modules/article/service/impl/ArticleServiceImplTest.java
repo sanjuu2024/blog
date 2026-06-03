@@ -533,6 +533,21 @@ class ArticleServiceImplTest {
     }
 
     @Test
+    void getPublicArticleDetailShouldRejectMissingAuthor() {
+        when(articleMapper.selectById(ARTICLE_ID)).thenReturn(existingArticle(ArticleStatus.PUBLISHED, PUBLISHED_AT));
+        when(categoryMapper.selectById(CATEGORY_ID)).thenReturn(enabledChildCategory());
+        when(categoryMapper.selectById(PARENT_CATEGORY_ID)).thenReturn(enabledParentCategory());
+        when(articleTagMapper.selectList(any())).thenReturn(List.of());
+        when(userMapper.selectById(USER_ID)).thenReturn(null);
+
+        BizException exception = assertThrows(BizException.class,
+                () -> articleService.getPublicArticleDetail(ARTICLE_ID));
+
+        assertEquals(ResultCode.ARTICLE_AUTHOR_NOT_FOUND, exception.getResultCode());
+        verify(userMapper).selectById(USER_ID);
+    }
+
+    @Test
     void getPublicArticleDetailShouldRejectNonPublishedArticle() {
         when(articleMapper.selectById(ARTICLE_ID)).thenReturn(existingArticle(ArticleStatus.DRAFT, null));
 

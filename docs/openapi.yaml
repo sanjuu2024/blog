@@ -247,7 +247,7 @@ paths:
       tags:
         - Public Articles
       summary: 获取文章详情
-      description: 权限级别 `PUBLIC`。仅可查看已发布文章详情。响应中的 `tags` 仅包含当前启用且仍存在的关联标签；历史关联的禁用标签或已被删除的标签不返回，不影响文章详情展示。文章所属二级分类及其父分类必须均存在且启用；分类不存在返回 `ARTICLE_CATEGORY_NOT_FOUND`，分类已禁用返回 `ARTICLE_CATEGORY_DISABLED`。P0 以 articleId 定位文章；slug 仅作为 P2 URL 可读化与 SEO 优化预留，不参与当前接口路径。
+      description: 权限级别 `PUBLIC`。仅可查看已发布文章详情。响应中的 `tags` 仅包含当前启用且仍存在的关联标签；历史关联的禁用标签或已被删除的标签不返回，不影响文章详情展示。文章所属二级分类及其父分类必须均存在且启用；分类不存在返回 `ARTICLE_CATEGORY_NOT_FOUND`，分类已禁用返回 `ARTICLE_CATEGORY_DISABLED`。文章关联作者必须存在；作者不存在返回 `ARTICLE_AUTHOR_NOT_FOUND`。P0 以 articleId 定位文章；slug 仅作为 P2 URL 可读化与 SEO 优化预留，不参与当前接口路径。
       operationId: getPublishedArticleDetail
       parameters:
         - $ref: '#/components/parameters/ArticleId'
@@ -292,7 +292,9 @@ paths:
                     avatarUrl: https://cdn.example.com/avatar/1.png
                     bio: 专注后端和前端工程化
         '404':
-          $ref: '#/components/responses/ArticleNotFoundResponse'
+          $ref: '#/components/responses/PublicArticleDetailNotFoundResponse'
+        '409':
+          $ref: '#/components/responses/PublicArticleDetailConflictResponse'
   /api/v1/categories:
     get:
       tags:
@@ -2901,6 +2903,47 @@ components:
           example:
             code: 103001
             message: 文章不存在
+            data: null
+    PublicArticleDetailNotFoundResponse:
+      description: 文章不存在、不可见、关联分类不存在或关联作者不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            articleNotFound:
+              summary: 文章不存在
+              value:
+                code: 103001
+                message: 文章不存在
+                data: null
+            articleCategoryNotFound:
+              summary: 文章分类不存在
+              value:
+                code: 103002
+                message: 文章分类不存在
+                data: null
+            articleNotVisible:
+              summary: 文章当前不可见
+              value:
+                code: 103008
+                message: 文章当前不可见
+                data: null
+            articleAuthorNotFound:
+              summary: 文章作者不存在
+              value:
+                code: 103009
+                message: 文章作者不存在
+                data: null
+    PublicArticleDetailConflictResponse:
+      description: 文章关联分类已禁用
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 103004
+            message: 文章分类已禁用
             data: null
     ArticleConflictResponse:
       description: 文章关联资源冲突或状态流转不合法
