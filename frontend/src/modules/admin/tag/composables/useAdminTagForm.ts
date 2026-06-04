@@ -1,6 +1,7 @@
 import { ElMessage, type FormInstance } from 'element-plus';
-import { TAG_STATUS, type AdminTagItem, type TagUpsertRequest } from '../types/adminTag';
+import { type AdminTagItem, type TagUpsertRequest } from '../types/adminTag';
 import { createTag, updateTag } from '../api/adminTagApi';
+import { TAG_STATUS } from '@/modules/tag/constants/tag';
 
 // 表单校验相关常量
 const TAG_NAME_MAX_LENGTH = 50;

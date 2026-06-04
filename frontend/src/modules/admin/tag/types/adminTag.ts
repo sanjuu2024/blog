@@ -1,11 +1,5 @@
+import type { TagStatus } from '@/modules/tag/constants/tag';
 import type { ApiResult } from '@/types/api';
-
-export const TAG_STATUS = {
-	ENABLED: 'ENABLED',
-	DISABLED: 'DISABLED',
-} as const;
-
-export type TagStatus = (typeof TAG_STATUS)[keyof typeof TAG_STATUS];
 
 export interface AdminTagListQuery {
 	keyword?: string;

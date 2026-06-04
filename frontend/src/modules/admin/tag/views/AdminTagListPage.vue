@@ -278,12 +278,13 @@ defineOptions({
 });
 
 import { useAdminTagList } from '../composables/useAdminTagList';
-import { TAG_STATUS, type AdminTagItem } from '../types/adminTag';
+import type { AdminTagItem } from '../types/adminTag';
 import { formatDateTime } from '@/utils/datetime';
 const { tagList, queryParams, getTagList, resetQueryParams, handleDeleteTag, toggleTagStatus } =
 	useAdminTagList();
 
 import { useAdminTagForm } from '../composables/useAdminTagForm';
+import { TAG_STATUS } from '@/modules/tag/constants/tag';
 const {
 	showDrawer,
 	drawerMode,

@@ -377,7 +377,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
 import { formatDateTime } from '@/utils/datetime';
-import { CATEGORY_STATUS, type AdminCategoryItem } from '../types/adminCategory';
+import type { AdminCategoryItem } from '../types/adminCategory';
 
 import { useAdminCategoryForm } from '../composables/useAdminCategoryForm';
 const {
@@ -402,6 +402,7 @@ const {
 } = useAdminCategoryList();
 
 import { useAdminCategoryOptions } from '../composables/useAdminCategoryOptions';
+import { CATEGORY_STATUS } from '@/modules/category/constants/category';
 const { parentCategoryOptions, getParentCategoryOptions } = useAdminCategoryOptions();
 
 defineOptions({

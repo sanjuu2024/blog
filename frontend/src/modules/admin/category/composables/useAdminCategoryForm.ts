@@ -1,12 +1,8 @@
 import { nextTick, reactive, ref } from 'vue';
 import { ElMessage, type FormInstance } from 'element-plus';
-import {
-	CATEGORY_LEVEL,
-	CATEGORY_STATUS,
-	type AdminCategoryItem,
-	type CategoryUpsertRequest,
-} from '../types/adminCategory';
+import { type AdminCategoryItem, type CategoryUpsertRequest } from '../types/adminCategory';
 import { createCategory, updateCategory } from '../api/adminCategoryApi';
+import { CATEGORY_LEVEL, CATEGORY_STATUS } from '@/modules/category/constants/category';
 
 const CATEGORY_NAME_MAX_LENGTH = 50;
 const CATEGORY_DESCRIPTION_MAX_LENGTH = 255;
