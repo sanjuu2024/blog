@@ -26,6 +26,9 @@ function refreshSession() {
 const request = axios.create({
 	baseURL: import.meta.env.VITE_API_BASE_URL, // 请求接口基础 url
 	timeout: 5000, // 请求超时时间
+	paramsSerializer: {
+		indexes: null, // 当 query 参数有数组时，格式会 e.g. tagIds=1&tagIds=2，而不是 tagIds[]=1&tagIds[]=2（虽然两种格式后端目前写法都能正常接收处理）
+	},
 });
 
 // 2. 为实例添加请求拦截器

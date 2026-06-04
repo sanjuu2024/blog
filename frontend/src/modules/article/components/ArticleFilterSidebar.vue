@@ -3,6 +3,7 @@
 		class="article-filter-sidebar-button"
 		:class="{ 'article-filter-sidebar-button-expanded': expanded }"
 		@click="expanded = !expanded"
+		aria-label="打开/关闭文章筛选侧栏"
 	>
 		<i-lucide-filter />
 	</button>
@@ -64,9 +65,10 @@
 								<el-checkbox
 									v-for="tag in tagList"
 									:key="tag.id"
-									:label="tag.name"
 									:value="tag.id"
-								/>
+								>
+									{{ tag.name }}
+								</el-checkbox>
 							</el-checkbox-group>
 						</div>
 					</section>
