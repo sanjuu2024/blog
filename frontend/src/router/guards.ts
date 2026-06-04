@@ -1,6 +1,6 @@
 import { useAuthStore } from '@/stores/authStore';
 import { ElMessage } from 'element-plus';
-import type { Router } from 'vue-router';
+import { isNavigationFailure, NavigationFailureType, type Router } from 'vue-router';
 import NProgress from 'nprogress'; // 引入进度条
 import { useUserStore } from '@/stores/userStore';
 
@@ -87,8 +87,25 @@ export default function setupRouterGuards(router: Router) {
 	});
 
 	// 2. 全局后置路由守卫
-	router.afterEach((to) => {
+	// router.afterEach((to) => {
+	// 	NProgress.done();
+	// 	document.title = to.meta.title || import.meta.env.VITE_APP_TITLE || 'Sanjuu Blog';
+	// });
+	router.afterEach((to, from, failure) => {
 		NProgress.done();
+
+		if (import.meta.env.DEV && failure) {
+			console.warn('router navigation failure:', {
+				to: to.fullPath,
+				from: from.fullPath,
+				type: failure.type,
+				aborted: isNavigationFailure(failure, NavigationFailureType.aborted),
+				cancelled: isNavigationFailure(failure, NavigationFailureType.cancelled),
+				duplicated: isNavigationFailure(failure, NavigationFailureType.duplicated),
+				failure,
+			});
+		}
+
 		document.title = to.meta.title || import.meta.env.VITE_APP_TITLE || 'Sanjuu Blog';
 	});
 

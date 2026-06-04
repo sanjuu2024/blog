@@ -1,5 +1,6 @@
-import { CATEGORY_LEVEL, type AdminCategoryItem } from '../types/adminCategory';
+import type { AdminCategoryItem } from '../types/adminCategory';
 import { listCategories } from '../api/adminCategoryApi';
+import { CATEGORY_LEVEL } from '@/modules/category/constants/category';
 
 export function useAdminCategoryOptions() {
 	// 一级分类下拉选项

@@ -23,6 +23,7 @@
 		"**/*.{json,md,mdx,css,scss,less,html,yml,yaml}": "prettier --write --ignore-unknown"
 	},
 	"dependencies": {
+		"@vueuse/core": "^14.3.0",
 		"axios": "^1.16.0",
 		"dayjs": "^1.11.20",
 		"element-plus": "^2.13.7",

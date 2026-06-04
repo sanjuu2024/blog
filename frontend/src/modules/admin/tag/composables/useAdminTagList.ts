@@ -1,13 +1,12 @@
 import { ElMessage } from 'element-plus';
 import { deleteTag, listTags, updateTag } from '../api/adminTagApi';
 import {
-	TAG_STATUS,
 	type AdminTagItem,
 	type AdminTagListQuery,
-	type TagStatus,
 	type TagUpsertRequest,
 	type UpdatedTagData,
 } from '../types/adminTag';
+import { TAG_STATUS, type TagStatus } from '@/modules/tag/constants/tag';
 
 // 🔺由于筛选条件中分类“状态”单选时选中后除了点击重置按钮之外无法取消、用户体验不好，这里让status可以取值空字符串（即“全部状态”的取值）
 type AdminTagQueryForm = Omit<AdminTagListQuery, 'status'> & {
