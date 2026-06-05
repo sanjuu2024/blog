@@ -4,7 +4,7 @@
 		<el-table
 			:data="articleList"
 			row-key="id"
-			class="admin-article-table"
+			class="admin-article-table mb-12"
 		>
 			<el-table-column
 				align="center"
@@ -27,56 +27,17 @@
 			>
 				<template #default="{ row }: { row: AdminArticleListItem }">
 					<div class="flex items-center">
-						<router-link
+						<RouterLink
 							:to="`/admin/articles/${row.id}/edit`"
 							class="flex items-center font-bold"
 						>
-							<div
-								class="relative h-16 w-16 shrink-0 overflow-hidden rounded border border-gray-200"
-							>
-								<!-- 加载中 -->
-								<div
-									v-if="
-										row.coverUrl &&
-										!coverLoadedArticleIds.has(row.id) &&
-										!coverLoadFailedArticleIds.has(row.id)
-									"
-									class="absolute inset-0 flex h-full w-full items-center justify-center bg-gray-100 text-gray-300"
-								>
-									<!-- tailwind css 自带的 animate-spin -->
-									<i-lucide-loader class="animate-spin text-xl" />
-								</div>
-
-								<!-- 加载成功 -->
-								<img
-									v-if="row.coverUrl && !coverLoadFailedArticleIds.has(row.id)"
-									:src="row.coverUrl"
-									alt="文章封面"
-									class="absolute inset-0 h-full w-full rounded object-cover"
-									:class="{ 'opacity-0': !coverLoadedArticleIds.has(row.id) }"
-									@load="markCoverLoaded(row.id)"
-									@error="markCoverFailed(row.id)"
-								/>
-
-								<!-- 无封面 -->
-								<div
-									v-else-if="!row.coverUrl"
-									class="absolute inset-0 flex h-full w-full items-center justify-center rounded bg-gray-100 text-gray-400"
-								>
-									<i-lucide-image class="text-xl" />
-								</div>
-
-								<!-- 加载失败 -->
-								<div
-									v-else
-									class="absolute inset-0 flex h-full w-full items-center justify-center rounded bg-gray-100 text-gray-400"
-								>
-									<i-lucide-image-off class="text-xl" />
-								</div>
-							</div>
-
+							<AppImage
+								:url="row.coverUrl"
+								alt="文章封面图"
+								class="mr-4 h-20 w-20 shrink-0 rounded border border-gray-200"
+							/>
 							<span class="mx-4 text-left">{{ row.title }}</span>
-						</router-link>
+						</RouterLink>
 					</div>
 				</template>
 			</el-table-column>
@@ -245,7 +206,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, onActivated } from 'vue';
+import { onActivated } from 'vue';
 import { formatDateTime } from '@/utils/datetime';
 import { useRouter } from 'vue-router';
 import {
@@ -253,21 +214,9 @@ import {
 	type AdminArticleListItem,
 	type AdminArticlePageMeta,
 } from '../types/adminArticle';
+import AppImage from '@/components/AppImage.vue';
 
 const router = useRouter();
-
-// 封面图片加载失败的文章 ID 集合，用于判断是否需要显示图片加载失败占位图
-const coverLoadFailedArticleIds = reactive(new Set<number>());
-
-function markCoverFailed(articleId: number) {
-	coverLoadFailedArticleIds.add(articleId);
-}
-
-// 封面图片加载好了的文章 ID 集合，用于判断是否需要显示图片加载中占位图
-const coverLoadedArticleIds = reactive(new Set<number>());
-function markCoverLoaded(articleId: number) {
-	coverLoadedArticleIds.add(articleId);
-}
 
 defineOptions({
 	name: 'AdminArticleListTable',
@@ -289,20 +238,14 @@ const emit = defineEmits<{
 }>();
 
 onActivated(() => {
-	// 组件激活时重置封面加载失败的 ID 集合，重新尝试加载封面图片
-	coverLoadFailedArticleIds.clear();
 	// 并且重新拉取可能更新后的文章列表数据
 	emit('pageChange');
 });
 </script>
 
 <style scoped lang="scss">
-// 自定义表格样式，覆盖 Element Plus 默认的行 hover 和斑马纹背景色
+// 自定义表格样式，覆盖 Element Plus 默认的行 hover
 .admin-article-table {
-	--el-table-row-hover-bg-color: #eef6f0;
-}
-
-.admin-article-table :deep(.el-table__body tr.el-table__row--striped td.el-table__cell) {
-	background: #f7faf8;
+	--el-table-row-hover-bg-color: var(--app-table-row-hover-bg-color);
 }
 </style>

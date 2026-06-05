@@ -1,219 +1,217 @@
 <template>
-	<div class="container">
-		<el-card>
-			<template #header>
-				<div class="header flex items-center justify-between">
-					<span class="my-4 text-xl font-bold">用户列表</span>
-				</div>
-			</template>
-
-			<!-- 筛选条件 -->
-			<div class="mb-4 flex">
-				<el-input
-					v-model.trim="listQuery.keyword"
-					placeholder="请输入用户名 / 邮箱进行搜索"
-					@keyup.enter="getUserList(1)"
-				/>
-				<el-button
-					type="primary"
-					class="ml-2"
-					aria-label="搜索"
-					@click="getUserList(1)"
-				>
-					<i-lets-icons-search-alt />
-				</el-button>
+	<el-card class="admin-user-list-card">
+		<template #header>
+			<div class="header flex items-center justify-between">
+				<span class="my-4 text-xl font-bold">用户列表</span>
 			</div>
+		</template>
 
-			<el-form
-				label-width="auto"
-				:model="listQuery"
-				class="pl-0.5"
-			>
-				<el-form-item label="用户角色">
-					<el-radio-group
-						v-model="listQuery.role"
-						@change="getUserList(1)"
-					>
-						<el-radio
-							label="全部"
-							value=""
-							>全部</el-radio
-						>
-						<el-radio
-							label="管理员"
-							:value="USER_ROLE.ADMIN"
-							>管理员</el-radio
-						>
-						<el-radio
-							label="普通用户"
-							:value="USER_ROLE.USER"
-							>普通用户</el-radio
-						>
-					</el-radio-group>
-				</el-form-item>
-				<el-form-item label="用户状态">
-					<el-radio-group
-						v-model="listQuery.status"
-						@change="getUserList(1)"
-					>
-						<el-radio
-							label="全部"
-							value=""
-							>全部</el-radio
-						>
-						<el-radio
-							label="正常"
-							:value="USER_STATUS.ACTIVE"
-							>正常</el-radio
-						>
-						<el-radio
-							label="禁用"
-							:value="USER_STATUS.DISABLED"
-							>禁用</el-radio
-						>
-					</el-radio-group>
-				</el-form-item>
-			</el-form>
-
-			<!-- <hr class="text-gray-400 my-4"/> -->
-
-			<!-- 表格部分 -->
-			<el-table
-				:data="userList"
-				class="admin-user-table mt-12 mb-8"
-			>
-				<el-table-column
-					label="序号"
-					align="center"
-					width="80px;"
-					type="index"
-				></el-table-column>
-				<el-table-column
-					label="用户 ID"
-					align="center"
-					prop="id"
-				></el-table-column>
-				<el-table-column
-					label="用户名"
-					align="center"
-					prop="username"
-					width="100"
-				></el-table-column>
-				<el-table-column
-					label="昵称"
-					align="center"
-					prop="nickname"
-					width="100"
-				></el-table-column>
-				<el-table-column
-					label="邮箱"
-					align="center"
-					prop="email"
-					width="100"
-				></el-table-column>
-				<el-table-column
-					label="角色"
-					align="center"
-					prop="role"
-				></el-table-column>
-				<el-table-column
-					label="状态"
-					align="center"
-					prop="status"
-				>
-					<template #default="{ row }">
-						<div class="flex items-center justify-center">
-							<i-lets-icons-check-fill
-								class="text-xl text-green-600"
-								v-if="row.status == USER_STATUS.ACTIVE"
-							/>
-							<i-lets-icons-cancel
-								class="text-xl text-red-600"
-								v-else
-							/>
-						</div>
-					</template>
-				</el-table-column>
-				<el-table-column
-					label="上次登录时间"
-					align="center"
-					prop="lastLoginAt"
-					width="120"
-				>
-					<template #default="{ row }">
-						{{ formatDateTime(row.lastLoginAt) }}
-					</template>
-				</el-table-column>
-				<el-table-column
-					label="注册时间"
-					align="center"
-					prop="createdAt"
-					width="100"
-				>
-					<template #default="{ row }">
-						{{ formatDateTime(row.createdAt) }}
-					</template>
-				</el-table-column>
-				<el-table-column
-					label="用户操作"
-					align="center"
-					width="300"
-					fixed="right"
-				>
-					<template #default="{ row }">
-						<el-popconfirm
-							:title="`确认修改 ${row.username} 的状态为 ${row.status === USER_STATUS.ACTIVE ? '禁用' : '正常'} ？`"
-							@confirm="toggleUserStatus(row)"
-						>
-							<template #reference>
-								<el-button
-									type="warning"
-									title="修改用户状态"
-									:disabled="userStore.userInfo?.id === row.id"
-								>
-									<template #icon>
-										<i-ep-edit />
-									</template>
-									修改状态
-								</el-button>
-							</template>
-						</el-popconfirm>
-						<el-popconfirm
-							:title="`确认修改 ${row.username} 为 ${row.role === USER_ROLE.ADMIN ? '普通用户' : '管理员'} ？`"
-							@confirm="toggleUserRole(row)"
-						>
-							<template #reference>
-								<el-button
-									type="warning"
-									title="修改用户角色"
-									:disabled="userStore.userInfo?.id === row.id"
-								>
-									<template #icon>
-										<i-solar-user-id-linear />
-									</template>
-									修改角色
-								</el-button>
-							</template>
-						</el-popconfirm>
-					</template>
-				</el-table-column>
-			</el-table>
-
-			<!-- 分页部分 -->
-			<!-- 注意 current-page 和 page-size 是 v-model 双向绑定，而不只是 v-bind -->
-			<el-pagination
-				v-model:current-page="pageNum"
-				v-model:page-size="pageSize"
-				:background="true"
-				layout="prev, pager, next, jumper, ->, sizes, total"
-				:total="total"
-				:pager-count="pagerCount"
-				:page-sizes="[3, 5, 7, 9]"
-				@current-change="getUserList"
-				@size-change="getUserList"
+		<!-- 筛选条件 -->
+		<div class="mb-4 flex">
+			<el-input
+				v-model.trim="listQuery.keyword"
+				placeholder="请输入用户名 / 邮箱进行搜索"
+				@keyup.enter="getUserList(1)"
 			/>
-		</el-card>
-	</div>
+			<el-button
+				type="primary"
+				class="ml-2"
+				aria-label="搜索"
+				@click="getUserList(1)"
+			>
+				<i-lets-icons-search-alt />
+			</el-button>
+		</div>
+
+		<el-form
+			label-width="auto"
+			:model="listQuery"
+			class="pl-0.5"
+		>
+			<el-form-item label="用户角色">
+				<el-radio-group
+					v-model="listQuery.role"
+					@change="getUserList(1)"
+				>
+					<el-radio
+						label="全部"
+						value=""
+						>全部</el-radio
+					>
+					<el-radio
+						label="管理员"
+						:value="USER_ROLE.ADMIN"
+						>管理员</el-radio
+					>
+					<el-radio
+						label="普通用户"
+						:value="USER_ROLE.USER"
+						>普通用户</el-radio
+					>
+				</el-radio-group>
+			</el-form-item>
+			<el-form-item label="用户状态">
+				<el-radio-group
+					v-model="listQuery.status"
+					@change="getUserList(1)"
+				>
+					<el-radio
+						label="全部"
+						value=""
+						>全部</el-radio
+					>
+					<el-radio
+						label="正常"
+						:value="USER_STATUS.ACTIVE"
+						>正常</el-radio
+					>
+					<el-radio
+						label="禁用"
+						:value="USER_STATUS.DISABLED"
+						>禁用</el-radio
+					>
+				</el-radio-group>
+			</el-form-item>
+		</el-form>
+
+		<!-- <hr class="text-gray-400 my-4"/> -->
+
+		<!-- 表格部分 -->
+		<el-table
+			:data="userList"
+			class="admin-user-table mb-12"
+		>
+			<el-table-column
+				label="序号"
+				align="center"
+				width="80px;"
+				type="index"
+			></el-table-column>
+			<el-table-column
+				label="用户 ID"
+				align="center"
+				prop="id"
+			></el-table-column>
+			<el-table-column
+				label="用户名"
+				align="center"
+				prop="username"
+				width="100"
+			></el-table-column>
+			<el-table-column
+				label="昵称"
+				align="center"
+				prop="nickname"
+				width="100"
+			></el-table-column>
+			<el-table-column
+				label="邮箱"
+				align="center"
+				prop="email"
+				width="100"
+			></el-table-column>
+			<el-table-column
+				label="角色"
+				align="center"
+				prop="role"
+			></el-table-column>
+			<el-table-column
+				label="状态"
+				align="center"
+				prop="status"
+			>
+				<template #default="{ row }">
+					<div class="flex items-center justify-center">
+						<i-lets-icons-check-fill
+							class="text-xl text-green-600"
+							v-if="row.status == USER_STATUS.ACTIVE"
+						/>
+						<i-lets-icons-cancel
+							class="text-xl text-red-600"
+							v-else
+						/>
+					</div>
+				</template>
+			</el-table-column>
+			<el-table-column
+				label="上次登录时间"
+				align="center"
+				prop="lastLoginAt"
+				width="120"
+			>
+				<template #default="{ row }">
+					{{ formatDateTime(row.lastLoginAt) }}
+				</template>
+			</el-table-column>
+			<el-table-column
+				label="注册时间"
+				align="center"
+				prop="createdAt"
+				width="100"
+			>
+				<template #default="{ row }">
+					{{ formatDateTime(row.createdAt) }}
+				</template>
+			</el-table-column>
+			<el-table-column
+				label="用户操作"
+				align="center"
+				width="300"
+				fixed="right"
+			>
+				<template #default="{ row }">
+					<el-popconfirm
+						:title="`确认修改 ${row.username} 的状态为 ${row.status === USER_STATUS.ACTIVE ? '禁用' : '正常'} ？`"
+						@confirm="toggleUserStatus(row)"
+					>
+						<template #reference>
+							<el-button
+								type="warning"
+								title="修改用户状态"
+								:disabled="userStore.userInfo?.id === row.id"
+							>
+								<template #icon>
+									<i-ep-edit />
+								</template>
+								修改状态
+							</el-button>
+						</template>
+					</el-popconfirm>
+					<el-popconfirm
+						:title="`确认修改 ${row.username} 为 ${row.role === USER_ROLE.ADMIN ? '普通用户' : '管理员'} ？`"
+						@confirm="toggleUserRole(row)"
+					>
+						<template #reference>
+							<el-button
+								type="warning"
+								title="修改用户角色"
+								:disabled="userStore.userInfo?.id === row.id"
+							>
+								<template #icon>
+									<i-solar-user-id-linear />
+								</template>
+								修改角色
+							</el-button>
+						</template>
+					</el-popconfirm>
+				</template>
+			</el-table-column>
+		</el-table>
+
+		<!-- 分页部分 -->
+		<!-- 注意 current-page 和 page-size 是 v-model 双向绑定，而不只是 v-bind -->
+		<el-pagination
+			v-model:current-page="pageNum"
+			v-model:page-size="pageSize"
+			:background="true"
+			layout="prev, pager, next, jumper, ->, sizes, total"
+			:total="total"
+			:pager-count="pagerCount"
+			:page-sizes="[3, 5, 7, 9]"
+			@current-change="getUserList"
+			@size-change="getUserList"
+		/>
+	</el-card>
 </template>
 
 <script setup lang="ts">
@@ -309,12 +307,13 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
-// 自定义表格样式，覆盖 Element Plus 默认的行 hover 和斑马纹背景色
-.admin-user-table {
-	--el-table-row-hover-bg-color: #eef6f0;
+.admin-user-list-card {
+	box-shadow: none;
+	border: none;
 }
 
-.admin-user-table :deep(.el-table__body tr.el-table__row--striped td.el-table__cell) {
-	background: #f7faf8;
+// 自定义表格样式，覆盖 Element Plus 默认的行 hover
+.admin-user-table {
+	--el-table-row-hover-bg-color: var(--app-table-row-hover-bg-color);
 }
 </style>

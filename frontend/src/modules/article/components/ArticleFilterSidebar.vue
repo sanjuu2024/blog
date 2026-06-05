@@ -1,97 +1,101 @@
 <template>
-	<button
-		class="article-filter-sidebar-button"
-		:class="{ 'article-filter-sidebar-button-expanded': expanded }"
-		@click="expanded = !expanded"
-		aria-label="打开/关闭文章筛选侧栏"
-	>
-		<i-lucide-filter />
-	</button>
+	<Teleport to="body">
+		<button
+			class="article-filter-sidebar-button"
+			:class="{ 'article-filter-sidebar-button-expanded': expanded }"
+			@click="expanded = !expanded"
+			aria-label="打开/关闭文章筛选侧栏"
+		>
+			<i-lucide-filter />
+		</button>
 
-	<aside
-		class="article-filter-sidebar"
-		:class="{ 'article-filter-sidebar-expanded': expanded }"
-	>
-		<div class="article-filter-sidebar__inner">
-			<div class="article-filter-sidebar__header">
-				<h2 class="font-bold">筛选文章</h2>
-			</div>
-			<div class="article-filter-sidebar__main">
-				<div class="article-filter-sidebar-form">
-					<section
-						label="分类"
-						class="font-bold"
-					>
-						<div class="article-filter-sidebar-form-category my-4 flex items-center">
-							<component
-								:is="getRouteIcon('category')"
-								class="mr-2 text-(--app-button-bg)"
-							/>
-							<span>选择文章分类</span>
-						</div>
-						<el-tree-select
-							:data="categoryList"
-							v-model="filterForm.categoryId"
-							value-key="id"
-							placeholder="选择分类"
-							clearable
-							check-strictly
-							default-expand-all
-							popper-class="article-category-tree-popper"
-							:props="{
-								children: 'children',
-								label: 'name',
-							}"
-							@visible-change="categorySelectVisible = $event"
-						/>
-					</section>
-
-					<section
-						label="标签"
-						class="font-bold"
-					>
-						<div class="article-filter-sidebar-form-tag my-4 flex items-center">
-							<component
-								:is="getRouteIcon('tag')"
-								class="mr-2 text-(--app-button-bg)"
-							/>
-							<span>选择文章标签</span>
-						</div>
-						<div class="article-checkbox-div">
-							<el-checkbox-group
-								class="article-tag-checkbox-group"
-								v-model="filterForm.tagIds"
+		<aside
+			class="article-filter-sidebar"
+			:class="{ 'article-filter-sidebar-expanded': expanded }"
+		>
+			<div class="article-filter-sidebar__inner">
+				<div class="article-filter-sidebar__header">
+					<h2 class="font-bold">筛选文章</h2>
+				</div>
+				<div class="article-filter-sidebar__main">
+					<div class="article-filter-sidebar-form">
+						<section
+							label="分类"
+							class="font-bold"
+						>
+							<div
+								class="article-filter-sidebar-form-category my-4 flex items-center"
 							>
-								<el-checkbox
-									v-for="tag in tagList"
-									:key="tag.id"
-									:value="tag.id"
+								<component
+									:is="getRouteIcon('category')"
+									class="mr-2 text-(--app-button-bg)"
+								/>
+								<span>选择文章分类</span>
+							</div>
+							<el-tree-select
+								:data="categoryList"
+								v-model="filterForm.categoryId"
+								value-key="id"
+								placeholder="选择分类"
+								clearable
+								check-strictly
+								default-expand-all
+								popper-class="article-category-tree-popper"
+								:props="{
+									children: 'children',
+									label: 'name',
+								}"
+								@visible-change="categorySelectVisible = $event"
+							/>
+						</section>
+
+						<section
+							label="标签"
+							class="font-bold"
+						>
+							<div class="article-filter-sidebar-form-tag my-4 flex items-center">
+								<component
+									:is="getRouteIcon('tag')"
+									class="mr-2 text-(--app-button-bg)"
+								/>
+								<span>选择文章标签</span>
+							</div>
+							<div class="article-checkbox-div">
+								<el-checkbox-group
+									class="article-tag-checkbox-group"
+									v-model="filterForm.tagIds"
 								>
-									{{ tag.name }}
-								</el-checkbox>
-							</el-checkbox-group>
-						</div>
-					</section>
+									<el-checkbox
+										v-for="tag in tagList"
+										:key="tag.id"
+										:value="tag.id"
+									>
+										{{ tag.name }}
+									</el-checkbox>
+								</el-checkbox-group>
+							</div>
+						</section>
+					</div>
+				</div>
+
+				<div class="article-filter-sidebar__footer w-full">
+					<el-button
+						type="warning"
+						dashed
+						class="mt-4 mb-2 w-full"
+						@click="emit('resetFilterForm')"
+						>重置</el-button
+					>
+					<el-button
+						type="default"
+						class="my-2 w-full"
+						@click="applyFilter"
+						>应用筛选条件</el-button
+					>
 				</div>
 			</div>
-
-			<div class="article-filter-sidebar__footer w-full">
-				<el-button
-					type="warning"
-					dashed
-					class="mt-4 mb-2 w-full"
-					@click="emit('resetFilterForm')"
-					>重置</el-button
-				>
-				<el-button
-					type="default"
-					class="my-2 w-full"
-					@click="applyFilter"
-					>应用筛选条件</el-button
-				>
-			</div>
-		</div>
-	</aside>
+		</aside>
+	</Teleport>
 </template>
 
 <script setup lang="ts">
@@ -171,6 +175,8 @@ useEventListener(
 	transition:
 		transform 0.2s ease,
 		background-color 0.1s ease;
+	z-index: 999;
+	cursor: pointer;
 
 	// &:hover {
 	//     background-color: var(--app-button-bg-hover);
@@ -201,6 +207,7 @@ useEventListener(
 	transition:
 		transform 0.2s ease,
 		background-color 0.1s ease;
+	z-index: 999;
 }
 
 .article-filter-sidebar-expanded {

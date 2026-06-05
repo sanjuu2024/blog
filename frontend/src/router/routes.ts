@@ -77,6 +77,74 @@ export const adminRoutes = [
 	},
 ];
 
+// 前台路由
+export const publicRoutes = [
+	{
+		path: '/home',
+		name: 'Home',
+		component: () => import('@/modules/home/views/HomePage.vue'),
+		meta: {
+			title: '首页',
+			nav: {
+				pos: 'left', // 在顶部导航栏左侧
+			},
+		},
+	},
+	{
+		path: '/articles',
+		name: 'ArticleList',
+		component: () => import('@/modules/article/views/ArticleListPage.vue'),
+		meta: {
+			title: '文章',
+			nav: {
+				pos: 'left', // 在顶部导航栏左侧
+			},
+		},
+	},
+	{
+		path: '/articles/:articleId',
+		name: 'ArticleDetail',
+		component: () => import('@/modules/article/views/ArticleDetailPage.vue'),
+		meta: {
+			title: '文章详情',
+			// hidden: true, // 在顶部导航栏隐藏该路由（只要判断没有 nav.pos 字段就不显示了）
+		},
+	},
+	{
+		path: '/categories',
+		name: 'Category',
+		component: () => import('@/modules/category/views/CategoryPage.vue'),
+		meta: {
+			title: '分类',
+			nav: {
+				pos: 'left', // 在顶部导航栏左侧
+			},
+		},
+	},
+	{
+		path: '/links',
+		name: 'Link',
+		component: () => import('@/modules/link/views/LinkPage.vue'),
+		meta: {
+			title: '友链',
+			nav: {
+				pos: 'right', // 在顶部导航栏右侧
+			},
+		},
+	},
+	{
+		path: '/about',
+		name: 'About',
+		component: () => import('@/modules/about/views/AboutPage.vue'),
+		meta: {
+			title: '关于',
+			nav: {
+				pos: 'right', // 在顶部导航栏右侧
+			},
+		},
+	},
+];
+
 // 全部路由
 export const routes = [
 	// 主页面
@@ -85,48 +153,7 @@ export const routes = [
 		name: 'MainLayout',
 		redirect: '/home',
 		component: () => import('@/layouts/MainLayout.vue'), // 路由懒加载
-		children: [
-			{
-				path: '/home',
-				name: 'Home',
-				component: () => import('@/modules/home/views/HomePage.vue'),
-				meta: {
-					title: '首页',
-				},
-			},
-			{
-				path: '/articles',
-				name: 'Article',
-				component: () => import('@/modules/article/views/ArticlePage.vue'),
-				meta: {
-					title: '文章',
-				},
-			},
-			{
-				path: '/categories',
-				name: 'Category',
-				component: () => import('@/modules/category/views/CategoryPage.vue'),
-				meta: {
-					title: '分类',
-				},
-			},
-			{
-				path: '/links',
-				name: 'Link',
-				component: () => import('@/modules/link/views/LinkPage.vue'),
-				meta: {
-					title: '友链',
-				},
-			},
-			{
-				path: '/about',
-				name: 'About',
-				component: () => import('@/modules/about/views/AboutPage.vue'),
-				meta: {
-					title: '关于',
-				},
-			},
-		],
+		children: publicRoutes,
 	},
 	// 认证相关页面
 	{

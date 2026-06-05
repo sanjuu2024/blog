@@ -82,6 +82,7 @@ const isCollapse = computed({
 	background-color: var(--app-surface);
 	overflow: hidden;
 	transition: width 0.2s ease;
+	z-index: 10;
 }
 
 .admin-sidebar__inner {

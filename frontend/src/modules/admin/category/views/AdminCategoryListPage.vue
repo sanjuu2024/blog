@@ -1,6 +1,6 @@
 <template>
 	<div class="admin-category">
-		<el-card>
+		<el-card class="admin-category-list-card">
 			<template #header>
 				<div class="header flex items-center justify-between">
 					<span class="text-xl font-bold">分类列表</span>
@@ -434,12 +434,13 @@ async function clickDeleteCategory(categoryId: number) {
 </script>
 
 <style scoped lang="scss">
-// 自定义表格样式，覆盖 Element Plus 默认的行 hover 和斑马纹背景色
-.admin-category-table {
-	--el-table-row-hover-bg-color: #eef6f0;
+.admin-category-list-card {
+	box-shadow: none;
+	border: none;
 }
 
-.admin-category-table :deep(.el-table__body tr.el-table__row--striped td.el-table__cell) {
-	background: #f7faf8;
+// 自定义表格样式，覆盖 Element Plus 默认的行 hover
+.admin-category-table {
+	--el-table-row-hover-bg-color: var(--app-table-row-hover-bg-color);
 }
 </style>
