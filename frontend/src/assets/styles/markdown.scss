@@ -1,0 +1,182 @@
+@media (max-width: 767px) {
+	.article-markdown.markdown-body {
+		padding: 15px;
+	}
+}
+
+.article-markdown.markdown-body {
+	max-width: var(--app-article-detail-width);
+	margin-inline: auto;
+	padding: 2rem;
+	border-radius: 1rem;
+	background: transparent;
+
+	/* 列表样式 */
+	ol {
+		list-style-type: decimal;
+	}
+
+	ul {
+		list-style-type: disc;
+	}
+
+	ol ol,
+	ul ol {
+		list-style-type: lower-roman;
+	}
+
+	ul ul,
+	ol ul {
+		list-style-type: circle;
+	}
+
+	/* 代码块 */
+	div.code-toolbar {
+		--code-header-height: 2.5rem;
+		--code-body-padding-top: 1rem;
+
+		margin: 1.5rem 0;
+		border-radius: 10px;
+		overflow: hidden;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+
+		> pre[class*='language-'] > code {
+			font-size: 0.9rem;
+		}
+
+		// 代码块容器顶栏三个圆点样式（仿 mac）
+		> pre[class*='language-'] {
+			position: relative;
+			margin: 0;
+			border-radius: 0;
+			box-sizing: border-box;
+			padding-top: calc(
+				var(--code-header-height) + var(--code-body-padding-top)
+			); // 顶开代码内容（>= 顶栏高度即可）
+		}
+
+		> pre[class*='language-']::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			height: var(--code-header-height); // 顶栏高度
+			border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+		}
+
+		> pre[class*='language-']::after {
+			content: '';
+			position: absolute;
+			top: 0.9rem;
+			left: 1.2rem;
+			width: 0.75rem;
+			height: 0.75rem;
+			border-radius: 999px;
+			background: #ff5f56;
+			box-shadow:
+				1.5rem 0 0 #ffbd2e,
+				3rem 0 0 #27c93f;
+		}
+
+		// copy 图标
+		.copy-to-clipboard-button::before {
+			content: '';
+			width: 0.8rem;
+			height: 0.8rem;
+			display: inline-block;
+			background-color: currentColor;
+			margin-right: 0.35rem;
+			// lucide-copy
+			mask: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxZW0iIGhlaWdodD0iMWVtIiB2aWV3Qm94PSIwIDAgMjQgMjQiPgoJPHBhdGggZD0iTTAgMGgyNHYyNEgweiIgZmlsbD0ibm9uZSIgLz4KCTxnIGZpbGw9Im5vbmUiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIHN0cm9rZS13aWR0aD0iMiI+CgkJPHJlY3Qgd2lkdGg9IjE0IiBoZWlnaHQ9IjE0IiB4PSI4IiB5PSI4IiByeD0iMiIgcnk9IjIiIC8+CgkJPHBhdGggZD0iTTQgMTZjLTEuMSAwLTItLjktMi0yVjRjMC0xLjEuOS0yIDItMmgxMGMxLjEgMCAyIC45IDIgMiIgLz4KCTwvZz4KPC9zdmc+Cg==')
+				center / contain no-repeat;
+		}
+
+		// 工具条
+		> .toolbar {
+			top: 0.5rem;
+			right: 0.75rem;
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+		}
+
+		> .toolbar .toolbar-item {
+			display: inline-flex;
+		}
+
+		> .toolbar > .toolbar-item > button,
+		> .toolbar > .toolbar-item > span {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			height: 24px;
+			padding: 0 0.7rem;
+			border: 1px solid rgba(255, 255, 255, 0.1);
+			border-radius: 999px;
+			background: rgba(255, 255, 255, 0.08);
+			box-shadow: none;
+			color: rgba(255, 255, 255, 0.72);
+			font-size: 12px;
+			line-height: 1;
+		}
+
+		> .toolbar button {
+			cursor: pointer;
+		}
+
+		> .toolbar button:hover {
+			background: rgba(255, 255, 255, 0.14);
+			color: #fff;
+		}
+
+		// 折叠后的代码块样式
+		&.is-code-collapsed > pre[class*='language-'] {
+			height: var(--code-header-height);
+			padding-top: 0;
+			overflow: hidden;
+		}
+
+		&.is-code-collapsed > pre[class*='language-'] code {
+			visibility: hidden;
+		}
+
+		&.is-code-collapsed .line-numbers-rows {
+			display: none;
+		}
+	}
+
+	/* 代码块行号样式 */
+	// 行号分割线的颜色
+	.line-numbers .line-numbers-rows {
+		border-right: 2px solid rgba(255, 255, 255, 0.2);
+	}
+
+	// 行号数字的颜色
+	.line-numbers-rows > span::before {
+		color: rgba(255, 255, 255, 0.5);
+	}
+
+	/* 代码块横向滚动条 */
+	pre[class*='language-'] {
+		overflow-x: auto;
+		scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+	}
+
+	pre[class*='language-']::-webkit-scrollbar {
+		height: 8px;
+	}
+
+	pre[class*='language-']::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	pre[class*='language-']::-webkit-scrollbar-thumb {
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.2);
+	}
+
+	pre[class*='language-']::-webkit-scrollbar-thumb:hover {
+		background: rgba(255, 255, 255, 0.25);
+	}
+}

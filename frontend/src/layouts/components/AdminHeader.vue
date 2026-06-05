@@ -1,5 +1,5 @@
 <template>
-	<header class="admin-header">
+	<header class="admin-header shadow">
 		<div class="admin-header__inner">
 			<el-breadcrumb :separator-icon="ArrowRight">
 				<template
@@ -50,6 +50,7 @@ const route = useRoute();
 	transition:
 		left 0.2s ease,
 		width 0.2s ease;
+	z-index: 9;
 }
 
 .admin-header__inner {

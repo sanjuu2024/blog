@@ -153,6 +153,7 @@
 			<MdEditor
 				v-model="upsertRequest.contentMd"
 				class="rounded-2xl"
+				:theme="resolvedTheme"
 			/>
 		</el-card>
 
@@ -208,6 +209,7 @@ import { useAdminCategoryList } from '../../category/composables/useAdminCategor
 import { useAdminTagList } from '../../tag/composables/useAdminTagList';
 import { useAdminArticleDetail } from '../composables/useAdminArticleDetail';
 import { useAdminArticleForm } from '../composables/useAdminArticleForm';
+import { useTheme } from '@/composables/useTheme';
 import { ARTICLE_STATUS, type CheckTagItem } from '../types/adminArticle';
 import { useRouter } from 'vue-router';
 import { ElMessage, type FormInstance } from 'element-plus';
@@ -223,6 +225,8 @@ const { articleDetail, handleGetArticleDetails } = useAdminArticleDetail();
 
 const { submitting, upsertRequest, rules, handleCreateArticle, handleUpdateArticle } =
 	useAdminArticleForm();
+
+const { resolvedTheme } = useTheme();
 
 // 表单引用
 let theFormRef = ref<FormInstance>();

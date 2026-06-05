@@ -1,6 +1,6 @@
 <template>
 	<div class="admin-article">
-		<el-card>
+		<el-card class="admin-article-list-card">
 			<template #header>
 				<AdminArticleHeader />
 			</template>
@@ -83,4 +83,9 @@ async function clickUpdateArticleStatus(row: AdminArticleListItem) {
 }
 </script>
 
-<style></style>
+<style scoped lang="scss">
+.admin-article-list-card {
+	box-shadow: none;
+	border: none;
+}
+</style>

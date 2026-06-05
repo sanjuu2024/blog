@@ -56,8 +56,8 @@ watch(
 }
 
 .admin-main__inner {
-	padding-inline: var(--app-main-padding-x);
-	padding-block: var(--app-main-padding-y);
+	padding-inline: var(--app-admin-main-padding-x);
+	padding-block: var(--app-admin-main-padding-y);
 }
 
 .fade-enter-from,

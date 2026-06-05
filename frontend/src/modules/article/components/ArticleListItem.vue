@@ -8,47 +8,11 @@
 					@mouseenter="coverHovered = true"
 					@mouseleave="coverHovered = false"
 				>
-					<div
-						class="relative aspect-16/10 w-44 shrink-0 overflow-hidden rounded border border-gray-200"
-					>
-						<!-- 加载中 -->
-						<div
-							v-if="article.coverUrl && !failed && !loaded"
-							class="absolute inset-0 flex h-full w-full items-center justify-center bg-gray-100 text-gray-300"
-						>
-							<!-- tailwind css 自带的 animate-spin -->
-							<i-lucide-loader class="animate-spin text-xl" />
-						</div>
-
-						<!-- 加载成功 -->
-						<img
-							v-if="article.coverUrl && !failed"
-							:src="article.coverUrl"
-							alt="文章封面"
-							class="absolute inset-0 h-full w-full rounded object-cover"
-							:class="{ 'opacity-0': !loaded }"
-							loading="lazy"
-							decoding="async"
-							@load="handleCoverLoad"
-							@error="handleCoverError"
-						/>
-
-						<!-- 无封面 -->
-						<div
-							v-else-if="!article.coverUrl"
-							class="absolute inset-0 flex h-full w-full items-center justify-center rounded bg-gray-100 text-gray-400"
-						>
-							<i-lucide-image class="text-xl" />
-						</div>
-
-						<!-- 加载失败 -->
-						<div
-							v-else
-							class="absolute inset-0 flex h-full w-full items-center justify-center rounded bg-gray-100 text-gray-400"
-						>
-							<i-lucide-image-off class="text-xl" />
-						</div>
-					</div>
+					<AppImage
+						:url="article.coverUrl"
+						alt="文章封面图"
+						class="aspect-16/10 w-44 shrink-0 rounded border border-gray-200"
+					/>
 				</RouterLink>
 			</div>
 
@@ -58,7 +22,7 @@
 					<!-- 标题 -->
 					<RouterLink :to="`/articles/${article.id}`">
 						<h3
-							class="article-list-item-title mb-4 text-xl font-bold transition-colors"
+							class="article-list-item-title mb-4 text-2xl font-bold transition-colors"
 							:class="{ 'text-(--app-button-bg)': coverHovered }"
 						>
 							{{ article.title }}
@@ -78,20 +42,15 @@
 
 					<!-- 标签 -->
 					<div
-						class="article-list-item-tags mb-2 flex items-center text-sm"
+						class="article-list-item-tags mb-2 flex items-center gap-2 text-sm"
 						v-if="article.tags.length > 0"
 					>
-						<component
-							:is="getRouteIcon('tag')"
-							class="mr-2"
-						/>
-						<span
+						<component :is="getRouteIcon('tag')" />
+						<AppTagCapsule
 							v-for="tag in article.tags"
 							:key="tag.id"
-							class="mr-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500"
-						>
-							#{{ tag.name }}
-						</span>
+							:name="tag.name"
+						/>
 					</div>
 
 					<!-- 摘要 -->
@@ -133,6 +92,8 @@ import { ref } from 'vue';
 import { formatDateTime } from '@/utils/datetime';
 import { type PublicArticleListItem } from '../types/article';
 import getRouteIcon from '@/utils/getRouteIcon';
+import AppImage from '@/components/AppImage.vue';
+import AppTagCapsule from '@/components/AppTagCapsule.vue';
 
 defineOptions({
 	name: 'ArticleListItem',
@@ -141,20 +102,6 @@ defineOptions({
 defineProps<{
 	article: PublicArticleListItem;
 }>();
-
-// 控制图片是否显示 加载失败 / 加载中 的图标
-const failed = ref<boolean>(false);
-const loaded = ref<boolean>(false);
-
-function handleCoverLoad() {
-	failed.value = false;
-	loaded.value = true;
-}
-
-function handleCoverError() {
-	failed.value = true;
-	loaded.value = false;
-}
 
 // 控制鼠标悬浮在封面图上时高亮标题
 const coverHovered = ref(false);

@@ -1,6 +1,6 @@
 <template>
 	<div class="admin-tag">
-		<el-card>
+		<el-card class="admin-tag-list-card">
 			<template #header>
 				<div class="header flex items-center justify-between">
 					<span class="text-xl font-bold">标签列表</span>
@@ -310,12 +310,13 @@ async function submitTag() {
 </script>
 
 <style scoped lang="scss">
-// 自定义表格样式，覆盖 Element Plus 默认的行 hover 和斑马纹背景色
-.admin-tag-table {
-	--el-table-row-hover-bg-color: #eef6f0;
+.admin-tag-list-card {
+	box-shadow: none;
+	border: none;
 }
 
-.admin-tag-table :deep(.el-table__body tr.el-table__row--striped td.el-table__cell) {
-	background: #f7faf8;
+// 自定义表格样式，覆盖 Element Plus 默认的行 hover
+.admin-tag-table {
+	--el-table-row-hover-bg-color: var(--app-table-row-hover-bg-color);
 }
 </style>

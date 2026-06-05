@@ -1,5 +1,5 @@
 <template>
-	<header class="app-header">
+	<header class="app-header shadow">
 		<div class="app-header__inner">
 			<div class="app-header__left">
 				<AppLogo
@@ -12,39 +12,31 @@
 					class="app-header__nav"
 				>
 					<RouterLink
-						to="/home"
+						v-for="r in leftNavItems"
+						:key="r.path"
+						:to="r.path"
 						class="app-header__link"
-						>首页</RouterLink
 					>
-					<RouterLink
-						to="/articles"
-						class="app-header__link"
-						>文章</RouterLink
-					>
-					<RouterLink
-						to="/categories"
-						class="app-header__link"
-						>分类</RouterLink
-					>
-					<RouterLink
-						to="/links"
-						class="app-header__link"
-						>友链</RouterLink
-					>
+						{{ r.meta.title }}
+					</RouterLink>
 				</nav>
 			</div>
 			<div class="app-header__right">
 				<RouterLink
-					to="/about"
+					v-for="r in rightNavItems"
+					:key="r.path"
+					:to="r.path"
 					class="app-header__link"
-					>关于</RouterLink
 				>
+					{{ r.meta.title }}
+				</RouterLink>
 				<RouterLink
 					to="/admin"
 					class="app-header__link"
-					v-if="useUserStore().userInfo?.role === 'ADMIN'"
-					>后台</RouterLink
+					v-if="userStore.userInfo?.role === 'ADMIN'"
 				>
+					后台
+				</RouterLink>
 				<RouterLink
 					to="/users/me"
 					class="app-header__avatar"
@@ -59,11 +51,31 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
+import { publicRoutes } from '@/router/routes';
 import { useUserStore } from '@/stores/userStore';
+
+const userStore = useUserStore();
 
 defineOptions({
 	name: 'AppHeader',
 });
+
+// 左侧路由
+const leftNavItems = computed(() =>
+	publicRoutes.filter((route) => {
+		if (route.meta?.nav?.pos !== 'left') return false;
+		return true;
+	}),
+);
+
+// 右侧路由
+const rightNavItems = computed(() =>
+	publicRoutes.filter((route) => {
+		if (route.meta?.nav?.pos !== 'right') return false;
+		return true;
+	}),
+);
 </script>
 
 <style lang="scss" scoped>
@@ -74,7 +86,6 @@ defineOptions({
 	width: 100%;
 	height: var(--app-header-height);
 	background-color: var(--app-surface);
-	box-shadow: var(--app-header-shadow);
 	font-weight: 550;
 	font-size: 1.1rem;
 }

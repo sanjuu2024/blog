@@ -9,6 +9,10 @@ export const useAuthStore = defineStore('auth', {
 		triedRefresh: false, // 无 AT 时会尝试 /auth/refreshToken，这是用于避免重复尝试的标志
 	}),
 
+	getters: {
+		isLogin: (state) => Boolean(state.accessToken),
+	},
+
 	actions: {
 		setAccessToken(token: string) {
 			this.accessToken = token;

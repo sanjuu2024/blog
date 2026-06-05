@@ -1,6 +1,6 @@
 <template>
-	<div class="article-page">
-		<div class="article-list divide-y divide-(--app-border) rounded bg-white px-8 shadow-sm">
+	<div class="article-list-page">
+		<div class="article-list divide-y divide-(--app-border) rounded bg-(--app-surface) px-8">
 			<!-- 文章列表 -->
 			<ArticleListItem
 				v-for="article in articles"
@@ -58,7 +58,7 @@ const { enabledCategoryList, getEnabledCategoryList } = useEnabledCategoryList()
 const { enabledTagList, getEnabledTagList } = useEnabledTagList();
 
 defineOptions({
-	name: 'ArticlePage',
+	name: 'ArticleListPage',
 });
 
 onMounted(() => {
