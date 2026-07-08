@@ -11,6 +11,15 @@
 	border-radius: 1rem;
 	background: transparent;
 
+	h1,
+	h2,
+	h3,
+	h4,
+	h5,
+	h6 {
+		scroll-margin-top: calc(var(--app-header-height) + 1rem);
+	}
+
 	/* 列表样式 */
 	ol {
 		list-style-type: decimal;
