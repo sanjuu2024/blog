@@ -58,7 +58,7 @@ const route = useRoute();
 	align-items: center;
 	justify-content: space-between;
 	height: 100%;
-	padding-inline: var(--app-main-padding-x);
+	padding-inline: 1rem;
 
 	:deep(.el-breadcrumb) {
 		display: flex;
