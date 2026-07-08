@@ -49,7 +49,6 @@ watch(
 	left: var(--app-admin-sidebar-width);
 	width: calc(100% - var(--app-admin-sidebar-width));
 	height: calc(100dvh - var(--app-admin-header-height));
-	overflow: auto;
 	transition:
 		left 0.2s ease,
 		width 0.2s ease;
