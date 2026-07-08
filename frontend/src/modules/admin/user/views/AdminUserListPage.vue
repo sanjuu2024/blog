@@ -77,126 +77,130 @@
 		<!-- <hr class="text-gray-400 my-4"/> -->
 
 		<!-- 表格部分 -->
-		<el-table
-			:data="userList"
-			class="admin-user-table mb-12"
-		>
-			<el-table-column
-				label="序号"
-				align="center"
-				width="80px;"
-				type="index"
-			></el-table-column>
-			<el-table-column
-				label="用户 ID"
-				align="center"
-				prop="id"
-			></el-table-column>
-			<el-table-column
-				label="用户名"
-				align="center"
-				prop="username"
-				width="100"
-			></el-table-column>
-			<el-table-column
-				label="昵称"
-				align="center"
-				prop="nickname"
-				width="100"
-			></el-table-column>
-			<el-table-column
-				label="邮箱"
-				align="center"
-				prop="email"
-				width="100"
-			></el-table-column>
-			<el-table-column
-				label="角色"
-				align="center"
-				prop="role"
-			></el-table-column>
-			<el-table-column
-				label="状态"
-				align="center"
-				prop="status"
+		<div class="admin-user-table-wrap">
+			<el-table
+				ref="userTableRef"
+				:data="userList"
+				class="admin-user-table"
+				height="100%"
 			>
-				<template #default="{ row }">
-					<div class="flex items-center justify-center">
-						<i-lets-icons-check-fill
-							class="text-xl text-green-600"
-							v-if="row.status == USER_STATUS.ACTIVE"
-						/>
-						<i-lets-icons-cancel
-							class="text-xl text-red-600"
-							v-else
-						/>
-					</div>
-				</template>
-			</el-table-column>
-			<el-table-column
-				label="上次登录时间"
-				align="center"
-				prop="lastLoginAt"
-				width="120"
-			>
-				<template #default="{ row }">
-					{{ formatDateTime(row.lastLoginAt) }}
-				</template>
-			</el-table-column>
-			<el-table-column
-				label="注册时间"
-				align="center"
-				prop="createdAt"
-				width="100"
-			>
-				<template #default="{ row }">
-					{{ formatDateTime(row.createdAt) }}
-				</template>
-			</el-table-column>
-			<el-table-column
-				label="用户操作"
-				align="center"
-				width="300"
-				fixed="right"
-			>
-				<template #default="{ row }">
-					<el-popconfirm
-						:title="`确认修改 ${row.username} 的状态为 ${row.status === USER_STATUS.ACTIVE ? '禁用' : '正常'} ？`"
-						@confirm="toggleUserStatus(row)"
-					>
-						<template #reference>
-							<el-button
-								type="warning"
-								title="修改用户状态"
-								:disabled="userStore.userInfo?.id === row.id"
-							>
-								<template #icon>
-									<i-ep-edit />
-								</template>
-								修改状态
-							</el-button>
-						</template>
-					</el-popconfirm>
-					<el-popconfirm
-						:title="`确认修改 ${row.username} 为 ${row.role === USER_ROLE.ADMIN ? '普通用户' : '管理员'} ？`"
-						@confirm="toggleUserRole(row)"
-					>
-						<template #reference>
-							<el-button
-								type="warning"
-								title="修改用户角色"
-								:disabled="userStore.userInfo?.id === row.id"
-							>
-								<template #icon>
-									<i-solar-user-id-linear />
-								</template>
-								修改角色
-							</el-button>
-						</template>
-					</el-popconfirm>
-				</template>
-			</el-table-column>
-		</el-table>
+				<el-table-column
+					label="序号"
+					align="center"
+					width="80px;"
+					type="index"
+				></el-table-column>
+				<el-table-column
+					label="用户 ID"
+					align="center"
+					prop="id"
+				></el-table-column>
+				<el-table-column
+					label="用户名"
+					align="center"
+					prop="username"
+					width="100"
+				></el-table-column>
+				<el-table-column
+					label="昵称"
+					align="center"
+					prop="nickname"
+					width="100"
+				></el-table-column>
+				<el-table-column
+					label="邮箱"
+					align="center"
+					prop="email"
+					width="100"
+				></el-table-column>
+				<el-table-column
+					label="角色"
+					align="center"
+					prop="role"
+				></el-table-column>
+				<el-table-column
+					label="状态"
+					align="center"
+					prop="status"
+				>
+					<template #default="{ row }">
+						<div class="flex items-center justify-center">
+							<i-lets-icons-check-fill
+								class="text-xl text-green-600"
+								v-if="row.status == USER_STATUS.ACTIVE"
+							/>
+							<i-lets-icons-cancel
+								class="text-xl text-red-600"
+								v-else
+							/>
+						</div>
+					</template>
+				</el-table-column>
+				<el-table-column
+					label="上次登录时间"
+					align="center"
+					prop="lastLoginAt"
+					width="120"
+				>
+					<template #default="{ row }">
+						{{ formatDateTime(row.lastLoginAt) }}
+					</template>
+				</el-table-column>
+				<el-table-column
+					label="注册时间"
+					align="center"
+					prop="createdAt"
+					width="100"
+				>
+					<template #default="{ row }">
+						{{ formatDateTime(row.createdAt) }}
+					</template>
+				</el-table-column>
+				<el-table-column
+					label="用户操作"
+					align="center"
+					width="300"
+					fixed="right"
+				>
+					<template #default="{ row }">
+						<el-popconfirm
+							:title="`确认修改 ${row.username} 的状态为 ${row.status === USER_STATUS.ACTIVE ? '禁用' : '正常'} ？`"
+							@confirm="toggleUserStatus(row)"
+						>
+							<template #reference>
+								<el-button
+									type="warning"
+									title="修改用户状态"
+									:disabled="userStore.userInfo?.id === row.id"
+								>
+									<template #icon>
+										<i-ep-edit />
+									</template>
+									修改状态
+								</el-button>
+							</template>
+						</el-popconfirm>
+						<el-popconfirm
+							:title="`确认修改 ${row.username} 为 ${row.role === USER_ROLE.ADMIN ? '普通用户' : '管理员'} ？`"
+							@confirm="toggleUserRole(row)"
+						>
+							<template #reference>
+								<el-button
+									type="warning"
+									title="修改用户角色"
+									:disabled="userStore.userInfo?.id === row.id"
+								>
+									<template #icon>
+										<i-solar-user-id-linear />
+									</template>
+									修改角色
+								</el-button>
+							</template>
+						</el-popconfirm>
+					</template>
+				</el-table-column>
+			</el-table>
+		</div>
 
 		<!-- 分页部分 -->
 		<!-- 注意 current-page 和 page-size 是 v-model 双向绑定，而不只是 v-bind -->
@@ -210,12 +214,14 @@
 			:page-sizes="[3, 5, 7, 9]"
 			@current-change="getUserList"
 			@size-change="getUserList"
+			class="admin-user-pagination"
 		/>
 	</el-card>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { nextTick, ref, reactive, onMounted, watch } from 'vue';
+import type { TableInstance } from 'element-plus';
 import type {
 	AdminUserListItem,
 	AdminUserListQuery,
@@ -240,6 +246,7 @@ const userStore = useUserStore();
 
 // 用户列表数据
 let userList = ref<AdminUserListItem[]>([]);
+const userTableRef = ref<TableInstance>();
 
 // 分页参数
 let pageNum = ref<number>(1); // 当前页
@@ -304,16 +311,42 @@ async function toggleUserRole(user: AdminUserListItem) {
 onMounted(async () => {
 	await getUserList();
 });
+
+watch(userList, async () => {
+	await nextTick();
+	userTableRef.value?.setScrollTop(0);
+});
 </script>
 
 <style scoped lang="scss">
 .admin-user-list-card {
+	display: flex;
+	height: 100%;
+	flex-direction: column;
 	box-shadow: none;
 	border: none;
+}
+
+.admin-user-list-card :deep(.el-card__body) {
+	display: flex;
+	min-height: 0;
+	flex: 1;
+	flex-direction: column;
+}
+
+.admin-user-table-wrap {
+	min-height: 0;
+	flex: 1;
 }
 
 // 自定义表格样式，覆盖 Element Plus 默认的行 hover
 .admin-user-table {
 	--el-table-row-hover-bg-color: var(--app-table-row-hover-bg-color);
+	height: 100%;
+}
+
+.admin-user-pagination {
+	flex: none;
+	margin-top: 1.5rem;
 }
 </style>

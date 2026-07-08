@@ -11,7 +11,7 @@
 					<AppImage
 						:url="article.coverUrl"
 						alt="文章封面图"
-						class="aspect-16/10 w-44 shrink-0 rounded border border-gray-200"
+						class="aspect-16/10 w-44 shrink-0 rounded border border-(--app-border)"
 					/>
 				</RouterLink>
 			</div>

@@ -24,7 +24,7 @@
 			<div class="admin-sidebar__nav">
 				<!-- 🔺collapse-transition="false"，不加上的话 el 自带的折叠动画会使得文字慢一拍折叠，ui 效果差。 -->
 				<el-menu
-					:default-active="route.path"
+					:default-active="activeMenuPath"
 					class="admin-sidebar__menu"
 					background-color="transparent"
 					:collapse="isCollapse"
@@ -51,6 +51,16 @@ defineOptions({
 });
 
 const route = useRoute();
+
+const activeMenuPath = computed(() => {
+	// router.matched 已经扁平化处理，是一个包含了当前路由匹配的所有路由记录（每一层单独一个记录）的数组，从父级到子级。
+	const activeTopRoute = route.matched.find((matchedRoute) =>
+		// 匹配后台管理的一级路由
+		adminRoutes.some((adminRoute) => adminRoute.name === matchedRoute.name),
+	);
+
+	return activeTopRoute?.path ?? route.path;
+});
 
 const props = withDefaults(
 	defineProps<{

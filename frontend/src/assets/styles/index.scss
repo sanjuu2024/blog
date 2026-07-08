@@ -23,6 +23,25 @@ body {
 	--el-font-family: var(--app-font-family);
 }
 
+// 全局 el 分页组件页码背景设置
+body .el-pagination.is-background {
+	--el-fill-color-light: var(--app-pagination-bg);
+}
+
+// el 分页组件中未选中的页码、上一页、下一页的背景设置
+body .el-pagination.is-background .el-pager li:not(.is-active),
+body .el-pagination.is-background .btn-prev,
+body .el-pagination.is-background .btn-next {
+	background-color: var(--app-pagination-bg);
+	// color: var(--app-text);
+}
+
+// el 分页组件中禁用的上一页 / 下一页背景设置
+body .el-pagination.is-background .btn-prev:disabled,
+body .el-pagination.is-background .btn-next:disabled {
+	background-color: var(--app-pagination-bg-muted);
+}
+
 html,
 body,
 #app {
