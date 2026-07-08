@@ -1,5 +1,8 @@
 <template>
-	<div class="article-content-wrapper">
+	<div
+		class="article-content-wrapper"
+		:class="{ 'article-content-wrapper-squeeze-to-the-right': expanded }"
+	>
 		<div
 			v-if="isLoading"
 			class="flex items-center justify-center"
@@ -8,6 +11,13 @@
 		</div>
 
 		<div v-else-if="article">
+			<ArticleCatalogSidebar
+				v-model:expanded="expanded"
+				:catalog-list="catalogList"
+				:active-catalog-id="activeCatalogId"
+				@select="scrollToHeading"
+			/>
+
 			<!-- 文章封面 -->
 			<AppImage
 				v-if="article.coverUrl"
@@ -113,6 +123,8 @@ import { formatDateTime } from '@/utils/datetime';
 import type { PublicArticleDetailData } from '../types/article';
 import AppImage from '@/components/AppImage.vue';
 import getRouteIcon from '@/utils/getRouteIcon';
+import ArticleCatalogSidebar from './ArticleCatalogSidebar.vue';
+import { useArticleCatalog } from '../composables/useArticleCatalog';
 // 语法高亮渲染器
 import { highlightCodeUnder } from '@/utils/prism';
 
@@ -129,13 +141,20 @@ const props = defineProps<{
 	errorMessage?: string;
 }>();
 
+// 控制目录侧栏是否展开
+const expanded = ref(false);
+
 // 显示文章内容的容器
 const contentRef = ref<HTMLElement | null>(null);
+const { activeCatalogId, catalogList, refreshCatalog, scrollToHeading } =
+	useArticleCatalog(contentRef);
 
 watch(
 	() => props.article?.contentHtml,
 	async () => {
 		await nextTick();
+
+		refreshCatalog();
 
 		if (contentRef.value) {
 			highlightCodeUnder(contentRef.value);
@@ -147,8 +166,17 @@ watch(
 
 <style scoped lang="scss">
 .article-content-wrapper {
+	box-sizing: border-box;
 	background-color: var(--app-bg);
 	padding-block: 4rem;
+	padding-inline: 0;
+	transition:
+		padding-left 0.2s ease,
+		background-color 0.1s ease;
+}
+
+.article-content-wrapper-squeeze-to-the-right {
+	padding-left: var(--app-article-catalog-sidebar-width);
 }
 
 .article-statis-item {
