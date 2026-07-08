@@ -84,8 +84,23 @@ async function clickUpdateArticleStatus(row: AdminArticleListItem) {
 </script>
 
 <style scoped lang="scss">
+.admin-article {
+	height: 100%;
+	min-height: 0;
+}
+
 .admin-article-list-card {
+	display: flex;
+	height: 100%;
+	flex-direction: column;
 	box-shadow: none;
 	border: none;
+}
+
+.admin-article-list-card :deep(.el-card__body) {
+	display: flex;
+	min-height: 0;
+	flex: 1;
+	flex-direction: column;
 }
 </style>

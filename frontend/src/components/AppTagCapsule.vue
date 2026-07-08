@@ -1,6 +1,6 @@
 <template>
 	<span
-		class="inline-flex shrink-0 items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs whitespace-nowrap text-gray-500"
+		class="inline-flex shrink-0 items-center rounded-full bg-(--app-tag-capsule-bg-color) px-2 py-0.5 text-xs whitespace-nowrap text-(--app-tag-capsule-text-color)"
 	>
 		#{{ name }}
 	</span>

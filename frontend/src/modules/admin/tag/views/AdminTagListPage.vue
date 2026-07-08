@@ -73,128 +73,136 @@
 				</el-form>
 
 				<!-- 标签列表 -->
-				<el-table
-					:data="tagList"
-					row-key="id"
-					class="admin-tag-table"
-				>
-					<el-table-column
-						prop="id"
-						align="center"
-						width="100"
-						label="ID"
-					/>
-					<el-table-column
-						prop="name"
-						align="center"
-						width="100"
-						label="名称"
-					/>
-					<el-table-column
-						prop="description"
-						align="center"
-						label="描述"
-					/>
-
-					<el-table-column
-						label="状态"
-						align="center"
-						width="80"
-						prop="status"
+				<div class="admin-tag-table-wrap">
+					<el-table
+						ref="tagTableRef"
+						:data="tagList"
+						row-key="id"
+						class="admin-tag-table"
+						height="100%"
 					>
-						<template #default="{ row }">
-							<div class="flex items-center justify-center">
-								<i-lets-icons-check-fill
-									class="text-xl text-green-600"
-									v-if="row.status == TAG_STATUS.ENABLED"
-								/>
-								<i-lets-icons-cancel
-									class="text-xl text-red-600"
-									v-else
-								/>
-							</div>
-						</template>
-					</el-table-column>
+						<el-table-column
+							prop="id"
+							align="center"
+							width="100"
+							label="ID"
+						/>
+						<el-table-column
+							prop="name"
+							align="center"
+							width="100"
+							label="名称"
+						/>
+						<el-table-column
+							prop="description"
+							align="center"
+							label="描述"
+						/>
 
-					<el-table-column
-						label="文章数量"
-						align="center"
-						width="80"
-						prop="articleCount"
-					>
-					</el-table-column>
+						<el-table-column
+							label="状态"
+							align="center"
+							width="80"
+							prop="status"
+						>
+							<template #default="{ row }">
+								<div class="flex items-center justify-center">
+									<i-lets-icons-check-fill
+										class="text-xl text-green-600"
+										v-if="row.status == TAG_STATUS.ENABLED"
+									/>
+									<i-lets-icons-cancel
+										class="text-xl text-red-600"
+										v-else
+									/>
+								</div>
+							</template>
+						</el-table-column>
 
-					<el-table-column
-						label="创建时间"
-						align="center"
-						width="200"
-						prop="createdAt"
-					>
-						<template #default="{ row }">
-							{{ formatDateTime(row.createdAt) }}
-						</template>
-					</el-table-column>
+						<el-table-column
+							label="文章数量"
+							align="center"
+							width="80"
+							prop="articleCount"
+						>
+						</el-table-column>
 
-					<el-table-column
-						label="标签操作"
-						align="center"
-						width="400"
-						fixed="right"
-					>
-						<template #default="{ row }: { row: AdminTagItem }">
-							<el-button
-								type="warning"
-								title="编辑标签信息"
-								@click="openUpdateDrawer(row)"
-							>
-								<template #icon>
-									<i-ep-edit />
-								</template>
-								编辑
-							</el-button>
+						<el-table-column
+							label="创建时间"
+							align="center"
+							width="200"
+							prop="createdAt"
+						>
+							<template #default="{ row }">
+								{{ formatDateTime(row.createdAt) }}
+							</template>
+						</el-table-column>
 
-							<el-popconfirm
-								:title="`确认修改 ${row.name} 的状态为 ${row.status === TAG_STATUS.ENABLED ? '禁用' : '启用'} ？`"
-								@confirm="toggleTagStatus(row)"
-							>
-								<template #reference>
-									<el-button
-										:type="
-											row.status === TAG_STATUS.ENABLED ? 'danger' : 'success'
-										"
-										:title="
-											row.status === TAG_STATUS.ENABLED
-												? `禁用标签：${row.name}`
-												: `启用标签：${row.name}`
-										"
-									>
-										<template #icon>
-											<i-ep-switch />
-										</template>
-										{{ row.status === TAG_STATUS.ENABLED ? '禁用' : '启用' }}
-									</el-button>
-								</template>
-							</el-popconfirm>
+						<el-table-column
+							label="标签操作"
+							align="center"
+							width="400"
+							fixed="right"
+						>
+							<template #default="{ row }: { row: AdminTagItem }">
+								<el-button
+									type="warning"
+									title="编辑标签信息"
+									@click="openUpdateDrawer(row)"
+								>
+									<template #icon>
+										<i-ep-edit />
+									</template>
+									编辑
+								</el-button>
 
-							<el-popconfirm
-								:title="`确认删除标签 ${row.name} 吗？`"
-								@confirm="handleDeleteTag(row)"
-							>
-								<template #reference>
-									<el-button
-										type="danger"
-										title="删除标签"
-									>
-										<template #icon>
-											<i-ep-delete />
-										</template>
-										删除
-									</el-button>
-								</template>
-							</el-popconfirm>
-						</template>
-					</el-table-column>
-				</el-table>
+								<el-popconfirm
+									:title="`确认修改 ${row.name} 的状态为 ${row.status === TAG_STATUS.ENABLED ? '禁用' : '启用'} ？`"
+									@confirm="toggleTagStatus(row)"
+								>
+									<template #reference>
+										<el-button
+											:type="
+												row.status === TAG_STATUS.ENABLED
+													? 'danger'
+													: 'success'
+											"
+											:title="
+												row.status === TAG_STATUS.ENABLED
+													? `禁用标签：${row.name}`
+													: `启用标签：${row.name}`
+											"
+										>
+											<template #icon>
+												<i-ep-switch />
+											</template>
+											{{
+												row.status === TAG_STATUS.ENABLED ? '禁用' : '启用'
+											}}
+										</el-button>
+									</template>
+								</el-popconfirm>
+
+								<el-popconfirm
+									:title="`确认删除标签 ${row.name} 吗？`"
+									@confirm="handleDeleteTag(row)"
+								>
+									<template #reference>
+										<el-button
+											type="danger"
+											title="删除标签"
+										>
+											<template #icon>
+												<i-ep-delete />
+											</template>
+											删除
+										</el-button>
+									</template>
+								</el-popconfirm>
+							</template>
+						</el-table-column>
+					</el-table>
+				</div>
 			</template>
 		</el-card>
 
@@ -272,7 +280,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { nextTick, onMounted, ref, watch } from 'vue';
+import type { TableInstance } from 'element-plus';
 defineOptions({
 	name: 'AdminTagListPage',
 });
@@ -296,8 +305,15 @@ const {
 	handleUpsertTag,
 } = useAdminTagForm();
 
+const tagTableRef = ref<TableInstance>();
+
 onMounted(() => {
 	getTagList();
+});
+
+watch(tagList, async () => {
+	await nextTick();
+	tagTableRef.value?.setScrollTop(0);
 });
 
 // 点击抽屉中的“确定”按钮时，调用 handleUpsertTag 处理函数发送请求，成功后重新刷新标签列表
@@ -310,13 +326,34 @@ async function submitTag() {
 </script>
 
 <style scoped lang="scss">
+.admin-tag {
+	height: 100%;
+	min-height: 0;
+}
+
 .admin-tag-list-card {
+	display: flex;
+	height: 100%;
+	flex-direction: column;
 	box-shadow: none;
 	border: none;
+}
+
+.admin-tag-list-card :deep(.el-card__body) {
+	display: flex;
+	min-height: 0;
+	flex: 1;
+	flex-direction: column;
+}
+
+.admin-tag-table-wrap {
+	min-height: 0;
+	flex: 1;
 }
 
 // 自定义表格样式，覆盖 Element Plus 默认的行 hover
 .admin-tag-table {
 	--el-table-row-hover-bg-color: var(--app-table-row-hover-bg-color);
+	height: 100%;
 }
 </style>

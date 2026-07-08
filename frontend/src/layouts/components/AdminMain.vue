@@ -56,6 +56,9 @@ watch(
 }
 
 .admin-main__inner {
+	box-sizing: border-box;
+	height: 100%;
+	min-height: 0;
 	padding-inline: var(--app-admin-main-padding-x);
 	padding-block: var(--app-admin-main-padding-y);
 }

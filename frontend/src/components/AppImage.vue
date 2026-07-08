@@ -3,7 +3,7 @@
 		<!-- 加载中 -->
 		<div
 			v-if="url && !failed && !loaded"
-			class="absolute inset-0 flex h-full w-full items-center justify-center bg-gray-100 text-gray-300"
+			class="absolute inset-0 flex h-full w-full items-center justify-center bg-(--app-default-img-bg-color) text-(--app-default-img-text-color)"
 		>
 			<!-- tailwind css 自带的 animate-spin -->
 			<i-lucide-loader class="animate-spin text-xl" />
@@ -25,7 +25,7 @@
 		<!-- 无封面 -->
 		<div
 			v-else-if="!url"
-			class="absolute inset-0 flex h-full w-full items-center justify-center rounded bg-gray-100 text-gray-400"
+			class="absolute inset-0 flex h-full w-full items-center justify-center rounded bg-(--app-default-img-bg-color) text-(--app-default-img-text-color)"
 		>
 			<i-lucide-image class="text-xl" />
 		</div>
@@ -33,7 +33,7 @@
 		<!-- 加载失败 -->
 		<div
 			v-else
-			class="absolute inset-0 flex h-full w-full items-center justify-center rounded bg-gray-100 text-gray-400"
+			class="absolute inset-0 flex h-full w-full items-center justify-center rounded bg-(--app-default-img-bg-color) text-(--app-default-img-text-color)"
 		>
 			<i-lucide-image-off class="text-xl" />
 		</div>
