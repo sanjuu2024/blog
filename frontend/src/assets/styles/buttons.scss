@@ -28,3 +28,20 @@
 	--el-button-active-text-color: var(--app-button-text);
 	--el-button-disabled-text-color: var(--app-button-text);
 }
+
+[data-theme='dark']
+	.el-button:not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(
+		.el-button--danger
+	):not(.el-button--info):not(.is-text):not(.is-link) {
+	--el-button-bg-color: transparent;
+	--el-button-border-color: var(--app-border);
+	--el-button-text-color: var(--app-text-muted);
+
+	--el-button-hover-bg-color: #3a3a3a;
+	--el-button-hover-border-color: #5a5a5a;
+	--el-button-hover-text-color: var(--app-text);
+
+	--el-button-active-bg-color: #303030;
+	--el-button-active-border-color: #5a5a5a;
+	--el-button-active-text-color: var(--app-text);
+}

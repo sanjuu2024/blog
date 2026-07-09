@@ -80,18 +80,19 @@
 
 				<div class="article-filter-sidebar__footer w-full">
 					<el-button
-						type="warning"
-						dashed
+						type="default"
 						class="mt-4 mb-2 w-full"
 						@click="emit('resetFilterForm')"
-						>重置</el-button
 					>
+						重置
+					</el-button>
 					<el-button
 						type="default"
 						class="my-2 w-full"
 						@click="applyFilter"
-						>应用筛选条件</el-button
 					>
+						应用筛选条件
+					</el-button>
 				</div>
 			</div>
 		</aside>

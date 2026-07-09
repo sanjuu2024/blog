@@ -95,6 +95,7 @@ async function clickUpdateArticleStatus(row: AdminArticleListItem) {
 	flex-direction: column;
 	box-shadow: none;
 	border: none;
+	background-color: var(--app-bg);
 }
 
 .admin-article-list-card :deep(.el-card__body) {

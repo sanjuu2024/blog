@@ -458,6 +458,7 @@ async function clickDeleteCategory(categoryId: number) {
 	flex-direction: column;
 	box-shadow: none;
 	border: none;
+	background-color: var(--app-bg);
 }
 
 .admin-category-list-card :deep(.el-card__body) {

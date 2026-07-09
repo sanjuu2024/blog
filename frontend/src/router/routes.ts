@@ -153,6 +153,16 @@ export const publicRoutes = [
 			requiresAuth: true, // 需要登录
 		},
 	},
+	{
+		path: '/users/me/settings',
+		name: 'UserSettings',
+		component: () => import('@/modules/user/views/UserSettingsPage.vue'),
+		meta: {
+			title: '个人资料设置',
+			// hidden: true, // 在顶部导航栏隐藏该路由（只要判断没有 nav.pos 字段就不显示了）
+			requiresAuth: true, // 需要登录
+		},
+	},
 ];
 
 // 全部路由

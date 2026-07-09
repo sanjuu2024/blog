@@ -5,6 +5,15 @@
 }
 
 .article-markdown.markdown-body {
+	color: var(--app-text);
+}
+
+[data-theme='dark'] .article-markdown.markdown-body {
+	color: var(--app-text);
+	background: transparent;
+}
+
+.article-markdown.markdown-body {
 	max-width: var(--app-article-detail-width);
 	margin-inline: auto;
 	padding: 2rem;

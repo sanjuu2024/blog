@@ -17,16 +17,14 @@ import { computed } from 'vue';
 
 interface Props {
 	avatarUrl?: string | null;
-	nickname?: string | null;
-	username?: string | null;
+	name?: string | null;
 	userId?: number | string | null;
 	size?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
 	avatarUrl: '',
-	nickname: '',
-	username: '',
+	name: '',
 	userId: '',
 	size: 20,
 });
@@ -48,7 +46,7 @@ const AVATAR_COLORS = [
 ];
 
 const displayName = computed(() => {
-	return props.nickname?.trim() || props.username?.trim() || '用户';
+	return props.name?.trim() || '用户';
 });
 
 const fallbackText = computed(() => {
@@ -58,7 +56,7 @@ const fallbackText = computed(() => {
 });
 
 const backgroundColor = computed(() => {
-	const seed = String(props.userId || props.username || props.nickname || 'default');
+	const seed = String(props.userId || props.name || 'default');
 
 	let hash = 0;
 

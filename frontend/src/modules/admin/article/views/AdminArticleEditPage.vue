@@ -1,6 +1,6 @@
 <template>
 	<div class="admin-article-edit">
-		<el-card>
+		<el-card class="admin-article-edit-card">
 			<template #header>
 				<router-link
 					to="/admin/articles"
@@ -89,20 +89,19 @@
 					prop="tagIds"
 					class="flex items-center justify-center"
 				>
-					<el-tag
+					<AppTagCapsule
 						v-for="tagId in upsertRequest.tagIds"
 						:key="tagId"
+						:name="tagList.find((tag) => tag.id === tagId)?.name || '未知标签'"
 						class="admin-article-tag m-2"
-						size="large"
-					>
-						{{ tagList.find((tag) => tag.id === tagId)?.name || '未知标签' }}
-					</el-tag>
+					/>
 					<el-button
 						type="primary"
 						@click="showTagDialog"
 						class="ml-2"
-						>选择标签</el-button
 					>
+						选择标签
+					</el-button>
 				</el-form-item>
 
 				<el-form-item
@@ -164,7 +163,7 @@
 			<el-button
 				type="primary"
 				size="large"
-				class="w-full"
+				class="mx-5 w-full"
 				:disabled="submitting"
 				:loading="submitting"
 				@click="clickUpsertArticle"
@@ -191,11 +190,17 @@
 			</el-check-tag>
 			<div class="mt-4 flex justify-center">
 				<el-button
+					class="admin-article-tag-dialog-cancel"
+					@click="tagDialogCancel"
+				>
+					取消
+				</el-button>
+				<el-button
 					type="primary"
 					@click="tagDialogConfirm"
-					>确认</el-button
 				>
-				<el-button @click="tagDialogCancel">取消</el-button>
+					确认
+				</el-button>
 			</div>
 		</el-dialog>
 	</div>
@@ -213,6 +218,7 @@ import { useTheme } from '@/composables/useTheme';
 import { ARTICLE_STATUS, type CheckTagItem } from '../types/adminArticle';
 import { useRouter } from 'vue-router';
 import { ElMessage, type FormInstance } from 'element-plus';
+import AppTagCapsule from '@/components/AppTagCapsule.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -327,12 +333,52 @@ async function clickUpsertArticle() {
 </script>
 
 <style lang="scss" scoped>
+.admin-article-edit {
+	box-sizing: border-box;
+	height: 100%;
+	overflow-y: auto;
+}
+
+.admin-article-edit-card {
+	background-color: var(--app-bg);
+}
+
 .admin-article-tag {
 	font-size: small;
 	font-weight: 450;
 }
+
 .admin-article-check-tag {
 	transition: none;
 	font-weight: 450;
+	border: 1px solid transparent;
+}
+
+:global([data-theme='dark'] .admin-article-check-tag.el-check-tag) {
+	border-color: #454b43;
+	background-color: #262626;
+	color: #d7ddd4;
+}
+
+:global([data-theme='dark'] .admin-article-check-tag.el-check-tag:hover) {
+	border-color: #5f735f;
+	background-color: #303a30;
+	color: var(--app-text);
+}
+
+:global(
+	[data-theme='dark'] .admin-article-check-tag.el-check-tag.el-check-tag--primary.is-checked
+) {
+	border-color: #789b74;
+	background-color: var(--app-button-bg);
+	color: var(--app-button-text);
+}
+
+:global(
+	[data-theme='dark'] .admin-article-check-tag.el-check-tag.el-check-tag--primary.is-checked:hover
+) {
+	border-color: #8caf87;
+	background-color: var(--app-button-hover);
+	color: var(--app-button-text);
 }
 </style>
