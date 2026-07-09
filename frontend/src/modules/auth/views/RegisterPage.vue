@@ -86,6 +86,14 @@ import { useRouter } from 'vue-router';
 import type { RegisterRequest } from '../types/auth';
 import { register } from '../api/authApi';
 import type { FormItemRule } from 'element-plus';
+import {
+	EMAIL_FORMAT_MESSAGE,
+	EMAIL_FORMAT_PATTERN,
+	PASSWORD_FORMAT_MESSAGE,
+	PASSWORD_FORMAT_PATTERN,
+	USERNAME_FORMAT_MESSAGE,
+	USERNAME_FORMAT_PATTERN,
+} from '@/constants/validation';
 
 defineOptions({
 	name: 'RegisterPage',
@@ -100,15 +108,11 @@ let registerForm = reactive<RegisterRequest>({
 	password: '',
 });
 
-// 表单校验规则
-const usernamePattern = /^[\p{Script=Han}A-Za-z0-9_-]{4,20}$/u;
-const emailPattern =
-	/^[A-Za-z0-9](?:[A-Za-z0-9._%+-]{0,62}[A-Za-z0-9])?@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$/;
-const passwordPattern = /^[\p{Script=Han}A-Za-z0-9_!@#$%^&*()+=[\]{}:;'",.?/~`|\\<>-]{6,20}$/u;
-
 let usernameAvailable = ref<boolean>(false);
 let emailAvailable = ref<boolean>(false);
 let passwordValid = ref<boolean>(false);
+
+// 表单校验规则
 const rules = {
 	username: [
 		{
@@ -116,8 +120,8 @@ const rules = {
 			trigger: 'change',
 			validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void) => {
 				usernameAvailable.value = false;
-				if (!usernamePattern.test(value)) {
-					callback(new Error('4-20 位，只允许中文、英文、数字、下划线和短横线。'));
+				if (!USERNAME_FORMAT_PATTERN.test(value)) {
+					callback(new Error(USERNAME_FORMAT_MESSAGE));
 				} else {
 					usernameAvailable.value = true;
 					callback();
@@ -131,8 +135,8 @@ const rules = {
 			trigger: 'change',
 			validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void) => {
 				emailAvailable.value = false;
-				if (!emailPattern.test(value)) {
-					callback(new Error('请输入有效的邮箱地址。'));
+				if (!EMAIL_FORMAT_PATTERN.test(value)) {
+					callback(new Error(EMAIL_FORMAT_MESSAGE));
 				} else {
 					emailAvailable.value = true;
 					callback();
@@ -146,12 +150,8 @@ const rules = {
 			trigger: 'change',
 			validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void) => {
 				passwordValid.value = false;
-				if (!passwordPattern.test(value)) {
-					callback(
-						new Error(
-							'6-20 位，允许中文、英文、数字、下划线、短横线和常用 ASCII 特殊字符，不允许空格。',
-						),
-					);
+				if (!PASSWORD_FORMAT_PATTERN.test(value)) {
+					callback(new Error(PASSWORD_FORMAT_MESSAGE));
 				} else {
 					passwordValid.value = true;
 					callback();

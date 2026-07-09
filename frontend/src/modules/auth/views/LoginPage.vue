@@ -70,6 +70,12 @@ import { useRouter, useRoute } from 'vue-router';
 import type { LoginData, LoginRequest } from '../types/auth';
 import { login } from '../api/authApi';
 import type { FormItemRule } from 'element-plus';
+import {
+	ACCOUNT_FORMAT_MESSAGE,
+	ACCOUNT_FORMAT_PATTERN,
+	PASSWORD_FORMAT_MESSAGE,
+	PASSWORD_FORMAT_PATTERN,
+} from '@/constants/validation';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserStore } from '@/stores/userStore';
 
@@ -86,15 +92,10 @@ let loginForm = reactive<LoginRequest>({
 	password: '',
 });
 
-// 表单校验规则
-const usernamePattern = /^[\p{Script=Han}A-Za-z0-9_-]{4,20}$/u;
-const emailPattern =
-	/^[A-Za-z0-9](?:[A-Za-z0-9._%+-]{0,62}[A-Za-z0-9])?@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$/;
-const accountPattern = new RegExp(`(${usernamePattern.source})|(${emailPattern.source})`);
-const passwordPattern = /^[\p{Script=Han}A-Za-z0-9_!@#$%^&*()+=[\]{}:;'",.?/~`|\\<>-]{6,20}$/u;
-
 let accountAvailable = ref<boolean>(false);
 let passwordValid = ref<boolean>(false);
+
+// 表单校验规则
 const rules = {
 	account: [
 		{
@@ -102,8 +103,8 @@ const rules = {
 			trigger: 'change',
 			validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void) => {
 				accountAvailable.value = false;
-				if (!accountPattern.test(value)) {
-					callback(new Error('请输入有效的用户名或邮箱地址。'));
+				if (!ACCOUNT_FORMAT_PATTERN.test(value)) {
+					callback(new Error(ACCOUNT_FORMAT_MESSAGE));
 				} else {
 					accountAvailable.value = true;
 					callback();
@@ -117,12 +118,8 @@ const rules = {
 			trigger: 'change',
 			validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void) => {
 				passwordValid.value = false;
-				if (!passwordPattern.test(value)) {
-					callback(
-						new Error(
-							'6-20 位，允许中文、英文、数字、下划线、短横线和常用 ASCII 特殊字符，不允许空格。',
-						),
-					);
+				if (!PASSWORD_FORMAT_PATTERN.test(value)) {
+					callback(new Error(PASSWORD_FORMAT_MESSAGE));
 				} else {
 					passwordValid.value = true;
 					callback();

@@ -337,6 +337,7 @@ async function submitTag() {
 	flex-direction: column;
 	box-shadow: none;
 	border: none;
+	background-color: var(--app-bg);
 }
 
 .admin-tag-list-card :deep(.el-card__body) {

@@ -325,6 +325,7 @@ watch(userList, async () => {
 	flex-direction: column;
 	box-shadow: none;
 	border: none;
+	background-color: var(--app-bg);
 }
 
 .admin-user-list-card :deep(.el-card__body) {
