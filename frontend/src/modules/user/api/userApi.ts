@@ -7,9 +7,9 @@ import type {
 	CurrentUserProfileResponse,
 	PublicUserProfileData,
 	PublicUserProfileResponse,
-	UpdateCurrentUserProfileData,
+	UpdatedCurrentUserProfileData,
 	UpdateCurrentUserProfileRequest,
-	UpdateCurrentUserProfileResponse,
+	UpdatedCurrentUserProfileResponse,
 } from '../types/user';
 
 const USER_API = {
@@ -39,10 +39,10 @@ export const getPublicUserProfile = (userId: number): Promise<PublicUserProfileD
 // 更新个人资料接口
 export const updateCurrentUserProfile = (
 	data: UpdateCurrentUserProfileRequest,
-): Promise<UpdateCurrentUserProfileData> => {
+): Promise<UpdatedCurrentUserProfileData> => {
 	return request.put<
-		UpdateCurrentUserProfileResponse,
-		UpdateCurrentUserProfileData,
+		UpdatedCurrentUserProfileResponse,
+		UpdatedCurrentUserProfileData,
 		UpdateCurrentUserProfileRequest
 	>(USER_API.updateCurrentProfile, data);
 };
