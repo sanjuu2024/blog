@@ -43,7 +43,9 @@ defineOptions({
 	name: 'ArticleCatalogSidebar',
 });
 
-const expanded = defineModel<boolean>('expanded');
+const expanded = defineModel<boolean>('expanded', {
+	required: true,
+});
 
 const props = defineProps<{
 	catalogList: ArticleCatalogItem[];
