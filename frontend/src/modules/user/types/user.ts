@@ -49,7 +49,7 @@ export interface UpdateCurrentUserProfileRequest {
 	bio?: string;
 }
 
-export interface UpdateCurrentUserProfileData {
+export interface UpdatedCurrentUserProfileData {
 	id: number;
 	username: string;
 	nickname: string;
@@ -59,7 +59,7 @@ export interface UpdateCurrentUserProfileData {
 	updatedAt: string;
 }
 
-export type UpdateCurrentUserProfileResponse = ApiResult<UpdateCurrentUserProfileData>;
+export type UpdatedCurrentUserProfileResponse = ApiResult<UpdatedCurrentUserProfileData>;
 
 export interface ChangeCurrentUserPasswordRequest {
 	oldPassword: string;

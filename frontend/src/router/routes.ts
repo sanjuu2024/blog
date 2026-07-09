@@ -143,6 +143,16 @@ export const publicRoutes = [
 			},
 		},
 	},
+	{
+		path: '/users/me',
+		name: 'UserProfile',
+		component: () => import('@/modules/user/views/UserProfilePage.vue'),
+		meta: {
+			title: '个人中心',
+			// hidden: true, // 在顶部导航栏隐藏该路由（只要判断没有 nav.pos 字段就不显示了；个人中心路由独立显示）
+			requiresAuth: true, // 需要登录
+		},
+	},
 ];
 
 // 全部路由
