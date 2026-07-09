@@ -3,7 +3,7 @@ import { onBeforeUnmount, ref } from 'vue';
 
 // 文章目录中的一项，对应 Markdown 正文里的一个标题
 export interface ArticleCatalogItem {
-	// 标题元素的 id点击目录项时，会用这个 id 找到正文里的标题
+	// 标题元素的 id；点击目录项时，会用这个 id 找到正文里的标题
 	id: string;
 	// 标题文本
 	text: string;
