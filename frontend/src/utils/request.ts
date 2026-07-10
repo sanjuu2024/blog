@@ -46,6 +46,11 @@ request.interceptors.response.use(
 		return res.data.data;
 	},
 	async (err) => {
+		// 🍉忽略取消了的请求的错误提示
+		if (axios.isCancel(err) || err.code === 'ERR_CANCELED') {
+			return Promise.reject(err);
+		}
+
 		const showError = err.config?.meta?.showError !== false; // 只要 showError 不是明确的 false，就当作 true
 		let errMsg = err.response?.data?.message || '请求失败，请稍后重试';
 

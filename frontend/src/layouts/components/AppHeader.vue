@@ -44,12 +44,8 @@
 				>
 					<button
 						class="app-header__avatar"
-						:class="{ 'app-header__avatar--pointer-hover': avatarPointerHover }"
 						:aria-label="userStore.userInfo ? '打开用户菜单' : '打开登录菜单'"
 						@pointerenter="handleAvatarPointerEnter"
-						@pointerleave="handleAvatarPointerLeave"
-						@focus="handleAvatarFocus"
-						@keydown="handleAvatarKeyboard"
 					>
 						<AppUserAvatar
 							v-if="userStore.userInfo"
@@ -138,7 +134,6 @@ const authStore = useAuthStore();
 const router = useRouter();
 const logoutDialogVisible = ref(false);
 const logoutSubmitting = ref(false);
-const avatarPointerHover = ref(false);
 
 defineOptions({
 	name: 'AppHeader',
@@ -165,7 +160,6 @@ function openLogoutDialog() {
 }
 
 function handleAvatarPointerEnter(event: PointerEvent) {
-	avatarPointerHover.value = true;
 	const trigger = event.currentTarget;
 
 	// Element Plus Dropdown 会在 hover 打开时主动 focus trigger。
@@ -175,24 +169,6 @@ function handleAvatarPointerEnter(event: PointerEvent) {
 			trigger.blur();
 		}
 	});
-}
-
-function handleAvatarPointerLeave() {
-	avatarPointerHover.value = false;
-}
-
-function handleAvatarFocus(event: FocusEvent) {
-	const trigger = event.currentTarget;
-
-	requestAnimationFrame(() => {
-		if (trigger instanceof HTMLElement && trigger.matches(':focus-visible')) {
-			avatarPointerHover.value = false;
-		}
-	});
-}
-
-function handleAvatarKeyboard() {
-	avatarPointerHover.value = false;
 }
 
 async function handleLogout() {

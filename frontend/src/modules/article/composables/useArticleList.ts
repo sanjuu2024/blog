@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { listArticles } from '../api/articleApi';
 import type {
 	ArticleFilterForm,
@@ -8,7 +9,21 @@ import type {
 
 const ARTICLE_PAGE_SIZE = 10;
 
+type ArticleRequestResult = 'success' | 'failed' | 'canceled' | 'skipped';
+// success 成功，failed 失败，canceled 被取消，skipped 因为已有请求进行中而跳过
+
+interface GetPublishedArticlesOptions {
+	// 控制请求行为的配置：
+	// replace 表示新数据是替换列表，不是追加。
+	// cancelPrevious 表示发新请求前，先取消旧请求。
+	replace?: boolean;
+	cancelPrevious?: boolean;
+}
+
 export function useArticleList() {
+	// 🔺注意 articleAbortController 是 let，可变
+	let articleListAbortController: AbortController | null = null;
+
 	// 文章列表
 	const articles = ref<PublicArticleListItem[]>([]);
 
@@ -52,49 +67,85 @@ export function useArticleList() {
 		return queryParams;
 	}
 
-	// 发送 获取已发表文章分页列表 请求
-	async function getPublishedArticles(pageNum?: number, pageSize?: number) {
-		if (loading.value) {
-			return false;
+	// 🍉发送 获取已发表文章分页列表 请求
+	async function getPublishedArticles(
+		pageNum?: number,
+		pageSize?: number,
+		options: GetPublishedArticlesOptions = {},
+	): Promise<ArticleRequestResult> {
+		// 当前请求正在进行中，且不允许取消前一个请求时，直接跳过本次请求
+		if (loading.value && !options.cancelPrevious) {
+			return 'skipped';
 		}
+
+		// 配置允许取消前一个请求。快速切换分类时，旧分类请求就不会继续干扰新分类数据。
+		if (options.cancelPrevious) {
+			articleListAbortController?.abort(); // 取消前一个请求
+		}
+
+		// 给当前这次请求创建一个新的取消开关，并把它记录到 articleListAbortController 中，这样下次如果要取消可以直接调用
+		const abortController = new AbortController();
+		articleListAbortController = abortController;
 		loading.value = true;
 
-		if (pageNum) {
-			pageParams.pageNum = pageNum;
-		}
-		if (pageSize) {
-			pageParams.pageSize = pageSize;
-		}
+		if (pageNum) pageParams.pageNum = pageNum;
+		if (pageSize) pageParams.pageSize = pageSize;
 
 		try {
 			const queryParams = buildArticleListQueryParams();
-			const data = await listArticles(queryParams);
-			articles.value.push(...data.records);
+			const data = await listArticles(queryParams, {
+				// 把 signal 交给 Axios。这样这个请求之后才真的能被 abort() 取消
+				signal: abortController.signal,
+			});
+
+			if (articleListAbortController !== abortController) {
+				// 如果当前请求已经不是最新请求，就不要把它返回的数据写进页面。（防止旧请求的响应代替新请求的响应数据污染页面）
+				return 'canceled';
+			}
+
+			// 如果配置要求替换，则替换，否则是追加（比如 loadMOre 时就不用 replace，直接追加）
+			articles.value = options.replace ? data.records : [...articles.value, ...data.records];
 			pageParams.hasNext = data.hasNext;
-			return true;
-		} catch {
+
+			return 'success';
+		} catch (error) {
 			// 错误提示已经由 request 响应拦截器统一处理
-			return false;
+			if (axios.isCancel(error) || abortController.signal.aborted) {
+				// 如果错误是“请求被取消”，就返回 canceled，不把它当成真正失败。
+				return 'canceled';
+			}
+
+			return 'failed';
 		} finally {
-			loading.value = false;
+			// 只有“当前最新请求”才能关闭 loading。这样旧请求被取消后，它的 finally 不会误把新请求的 loading 关掉
+			if (articleListAbortController === abortController) {
+				articleListAbortController = null;
+				loading.value = false;
+			}
 		}
 	}
 
-	// 重置分页后重新获取文章列表
+	// 🍉重置分页后重新获取文章列表
 	async function resetPageParamsAndGetPublishedArticles() {
 		Object.assign(pageParams, initPageParams);
 		articles.value = [];
-		await getPublishedArticles();
+
+		await getPublishedArticles(undefined, undefined, {
+			replace: true, // 不是追加而是完全替换
+			cancelPrevious: true, // 允许取消上一个请求
+		});
 	}
 
-	// 滚动页面时调用
+	// 🍉滚动页面时调用。加载更多时不取消就请求，只防重复
 	async function loadMoreArticles() {
 		if (loading.value || !pageParams.hasNext) return;
 
-		pageParams.pageNum++;
-		const success = await getPublishedArticles();
-		if (!success) {
-			pageParams.pageNum--; // “回滚”页码，防止后续请求跳页
+		const nextPageNum = pageParams.pageNum + 1;
+		pageParams.pageNum = nextPageNum;
+
+		const res = await getPublishedArticles();
+		if (res === 'failed' && pageParams.pageNum === nextPageNum) {
+			pageParams.pageNum--; // 回滚页码，防止后续请求跳页
 		}
 	}
 

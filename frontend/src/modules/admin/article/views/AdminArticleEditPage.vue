@@ -39,11 +39,12 @@
 						placeholder="请输入文章封面链接"
 					/>
 					<div class="preview-cover">
-						<img
+						<AppImage
 							v-if="upsertRequest.coverUrl"
-							:src="upsertRequest.coverUrl"
-							alt="文章封面预览"
-							class="mt-4 h-48 w-48 rounded object-cover"
+							:url="upsertRequest.coverUrl"
+							object-fit="contain"
+							alt="文章封面预览图"
+							class="mt-4 h-48 w-48 rounded"
 						/>
 					</div>
 				</el-form-item>
