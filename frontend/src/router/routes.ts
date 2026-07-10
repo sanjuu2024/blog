@@ -120,6 +120,18 @@ export const publicRoutes = [
 				pos: 'left', // 在顶部导航栏左侧
 			},
 		},
+		children: [
+			{
+				path: '',
+				name: 'CategoryAllArticles',
+				component: () => import('@/modules/category/views/CategoryArticlesPage.vue'),
+			},
+			{
+				path: ':categoryId',
+				name: 'CategoryArticlesPage',
+				component: () => import('@/modules/category/views/CategoryArticlesPage.vue'),
+			},
+		],
 	},
 	{
 		path: '/links',

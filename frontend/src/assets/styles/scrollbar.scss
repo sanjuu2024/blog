@@ -1,0 +1,25 @@
+.app-scrollbar {
+	scrollbar-width: thin;
+	scrollbar-color: var(--app-border) transparent;
+
+	&::-webkit-scrollbar {
+		width: 6px;
+	}
+
+	&::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	&::-webkit-scrollbar-thumb {
+		border-radius: 9999px;
+		background: transparent;
+	}
+
+	&::-webkit-scrollbar-thumb:hover {
+		background: var(--app-border);
+	}
+}
+
+.app-scrollbar--stable {
+	scrollbar-gutter: stable;
+}

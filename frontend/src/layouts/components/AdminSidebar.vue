@@ -144,12 +144,12 @@ const isCollapse = computed({
 
 	:deep(.el-menu-item:hover) {
 		color: var(--el-color-primary);
-		background-color: rgb(22 163 74 / 10%);
+		background-color: var(--app-router-hover);
 	}
 
 	:deep(.el-menu-item.is-active) {
 		color: var(--el-color-primary);
-		background-color: rgb(22 163 74 / 14%);
+		background-color: var(--app-router-hover);
 		font-weight: 600;
 	}
 }
