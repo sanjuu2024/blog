@@ -72,8 +72,8 @@ export function useArticleList() {
 			articles.value.push(...data.records);
 			pageParams.hasNext = data.hasNext;
 			return true;
-		} catch (error) {
-			console.error('获取已发表文章分页列表失败:', error);
+		} catch {
+			// 错误提示已经由 request 响应拦截器统一处理
 			return false;
 		} finally {
 			loading.value = false;

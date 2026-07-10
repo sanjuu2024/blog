@@ -44,7 +44,12 @@
 				>
 					<button
 						class="app-header__avatar"
+						:class="{ 'app-header__avatar--pointer-hover': avatarPointerHover }"
 						:aria-label="userStore.userInfo ? '打开用户菜单' : '打开登录菜单'"
+						@pointerenter="handleAvatarPointerEnter"
+						@pointerleave="handleAvatarPointerLeave"
+						@focus="handleAvatarFocus"
+						@keydown="handleAvatarKeyboard"
 					>
 						<AppUserAvatar
 							v-if="userStore.userInfo"
@@ -133,6 +138,7 @@ const authStore = useAuthStore();
 const router = useRouter();
 const logoutDialogVisible = ref(false);
 const logoutSubmitting = ref(false);
+const avatarPointerHover = ref(false);
 
 defineOptions({
 	name: 'AppHeader',
@@ -156,6 +162,37 @@ const rightNavItems = computed(() =>
 
 function openLogoutDialog() {
 	logoutDialogVisible.value = true;
+}
+
+function handleAvatarPointerEnter(event: PointerEvent) {
+	avatarPointerHover.value = true;
+	const trigger = event.currentTarget;
+
+	// Element Plus Dropdown 会在 hover 打开时主动 focus trigger。
+	// 鼠标悬浮不应该留下键盘焦点，所以等框架完成 focus 后再清掉。
+	requestAnimationFrame(() => {
+		if (trigger instanceof HTMLElement && document.activeElement === trigger) {
+			trigger.blur();
+		}
+	});
+}
+
+function handleAvatarPointerLeave() {
+	avatarPointerHover.value = false;
+}
+
+function handleAvatarFocus(event: FocusEvent) {
+	const trigger = event.currentTarget;
+
+	requestAnimationFrame(() => {
+		if (trigger instanceof HTMLElement && trigger.matches(':focus-visible')) {
+			avatarPointerHover.value = false;
+		}
+	});
+}
+
+function handleAvatarKeyboard() {
+	avatarPointerHover.value = false;
 }
 
 async function handleLogout() {
@@ -235,11 +272,12 @@ async function handleLogout() {
 	cursor: pointer;
 }
 
-.app-header :deep(.el-dropdown),
-.app-header :deep(.el-tooltip__trigger) {
-	// 否则会有黑色矩形焦点框
-	outline: none;
-}
+// 但这样键盘交互性不好。最后使用 handleAvatarPointerEnter 等函数解决。
+// .app-header :deep(.el-dropdown),
+// .app-header :deep(.el-tooltip__trigger) {
+// 	// 否则会有黑色矩形焦点框（el-dropdown 导致的）
+// 	outline: none;
+// }
 
 .app-header__guest-icon {
 	box-sizing: border-box;
