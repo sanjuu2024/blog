@@ -22,6 +22,7 @@
 			<AppImage
 				v-if="article.coverUrl"
 				:url="article.coverUrl"
+				object-fit="contain"
 				alt="文章封面图"
 				class="aspect-26/10 w-full shrink-0 rounded-xl"
 			/>
@@ -82,7 +83,7 @@
 				class="article-summary"
 				v-if="article.summary"
 			>
-				<p class="text-sm text-gray-600">{{ article.summary }}</p>
+				<p class="text-sm text-(--app-text-muted)">{{ article.summary }}</p>
 			</div>
 
 			<!-- 文章内容 -->

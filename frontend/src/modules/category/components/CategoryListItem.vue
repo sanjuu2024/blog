@@ -26,6 +26,7 @@
 				v-if="category.children.length > 0"
 				type="button"
 				aria-label="展开子分类"
+				:aria-expanded="expanded"
 				:class="{
 					'rotate-180': expanded,
 				}"

@@ -6,6 +6,7 @@ import type {
 	PublicArticlePageResponse,
 	PublicArticleDetailResponse,
 } from '../types/article';
+import type { AxiosRequestConfig } from 'axios';
 
 const ARTICLE_API = {
 	listArticles: 'articles',
@@ -13,12 +14,15 @@ const ARTICLE_API = {
 } as const;
 
 // 获取已发布文章分页列表接口
-export const listArticles = (params?: PublicArticleListQuery): Promise<PublicArticlePageData> => {
+export const listArticles = (
+	params?: PublicArticleListQuery,
+	config?: Omit<AxiosRequestConfig, 'params'>,
+): Promise<PublicArticlePageData> => {
 	// 🔺注意 params 是 query 参数，所以是作为配置传过去的，request.get() 的第二个参数就是 Axios 请求配置对象，所以把 params 用 {params:params} 传进去。
 	// 🔺request.post<后端原始响应, 拦截器最终返回值, 请求体类型>(url, data)
 	return request.get<PublicArticlePageResponse, PublicArticlePageData, PublicArticleListQuery>(
 		ARTICLE_API.listArticles,
-		{ params },
+		{ params, ...config },
 	);
 };
 

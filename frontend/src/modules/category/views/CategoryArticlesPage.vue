@@ -6,15 +6,16 @@
 	/>
 	<AppLoadMoreTrigger
 		:loading="loading"
-		:hasNext="pageParams.hasNext"
-		:thing-str="'文章'"
-		@loadMore="loadMoreArticles"
+		:has-next="pageParams.hasNext"
+		thing-str="文章"
+		@load-more="loadMoreArticles"
 	/>
 </template>
 
 <script setup lang="ts">
 import { watch } from 'vue';
 import ArticleListItem from '@/modules/article/components/ArticleListItem.vue';
+import AppLoadMoreTrigger from '@/components/AppLoadMoreTrigger.vue';
 import { useArticleList } from '@/modules/article/composables/useArticleList';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';

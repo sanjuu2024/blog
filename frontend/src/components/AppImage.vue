@@ -14,8 +14,15 @@
 			v-if="url && !failed"
 			:src="url"
 			:alt="alt || '图片'"
-			class="absolute inset-0 h-full w-full rounded object-cover"
-			:class="{ 'opacity-0': !loaded }"
+			class="absolute inset-0 h-full w-full rounded"
+			:class="{
+				'opacity-0': !loaded,
+				'object-cover': objectFit === 'cover',
+				'object-contain': objectFit === 'contain',
+				'object-fill': objectFit === 'fill',
+				'object-none': objectFit === 'none',
+				'object-scale-down': objectFit === 'scale-down',
+			}"
 			loading="lazy"
 			decoding="async"
 			@load="handleCoverLoad"
@@ -46,10 +53,16 @@ defineOptions({
 	name: 'AppImage',
 });
 
-const props = defineProps<{
-	url?: string;
-	alt?: string;
-}>();
+const props = withDefaults(
+	defineProps<{
+		url?: string;
+		alt?: string;
+		objectFit?: 'contain' | 'cover' | 'fill' | 'none' | 'scale-down';
+	}>(),
+	{
+		objectFit: 'cover',
+	},
+);
 
 // 控制图片是否显示 加载失败 / 加载中 的图标
 const failed = ref<boolean>(false);
