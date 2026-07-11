@@ -1,7 +1,7 @@
 <template>
 	<Teleport to="body">
 		<button
-			class="article-filter-sidebar-button"
+			class="article-filter-sidebar-button shadow-sm"
 			:class="{ 'article-filter-sidebar-button-expanded': expanded }"
 			@click="expanded = !expanded"
 			aria-label="打开/关闭文章筛选侧栏"
@@ -10,7 +10,7 @@
 		</button>
 
 		<aside
-			class="article-filter-sidebar"
+			class="article-filter-sidebar shadow-sm"
 			:class="{ 'article-filter-sidebar-expanded': expanded }"
 		>
 			<div class="article-filter-sidebar__inner">
@@ -60,7 +60,7 @@
 								/>
 								<span>选择文章标签</span>
 							</div>
-							<div class="article-checkbox-div">
+							<div class="article-checkbox-div app-scrollbar app-scrollbar--stable">
 								<el-checkbox-group
 									class="article-tag-checkbox-group"
 									v-model="filterForm.tagIds"
@@ -164,15 +164,14 @@ useEventListener(
 	position: fixed;
 	top: var(--app-header-height);
 	left: 0;
-	width: 40px;
-	height: 40px;
+	width: 44px;
+	height: 44px;
 	border-radius: 0 0 16px 0;
 	background-color: var(--app-button-bg);
 	color: white;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 	transition:
 		transform 0.2s ease,
 		background-color 0.1s ease;
@@ -203,7 +202,6 @@ useEventListener(
 	left: calc(-1 * var(--app-article-sidebar-width));
 	width: var(--app-article-sidebar-width);
 	background-color: var(--app-surface-muted);
-	box-shadow: 2px 4px 4px rgba(0, 0, 0, 0.1);
 	border-radius: 0 0 1rem 0;
 	transition:
 		transform 0.2s ease,
@@ -251,25 +249,6 @@ useEventListener(
 	width: 100%;
 	max-height: 300px;
 	overflow-y: auto;
-
-	&::-webkit-scrollbar {
-		width: 7px;
-	}
-
-	&::-webkit-scrollbar-track {
-		background: transparent;
-	}
-
-	&::-webkit-scrollbar-thumb {
-		border-radius: 9999px;
-		background-color: rgba(31, 41, 51, 0.28);
-		// background-color: var(--el-color-warning-light-7);
-	}
-
-	&::-webkit-scrollbar-thumb:hover {
-		background-color: rgba(31, 41, 51, 0.45);
-		// background-color: var(--el-color-warning-light-5);
-	}
 }
 
 .article-tag-checkbox-group {
