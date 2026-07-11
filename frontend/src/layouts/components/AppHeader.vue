@@ -175,17 +175,19 @@ async function handleLogout() {
 	if (logoutSubmitting.value) return;
 
 	logoutSubmitting.value = true;
+
 	try {
 		await authStore.logout();
+		ElMessage.success('已退出登录');
+		router.replace('/');
 	} catch {
-		// logout 接口异常时，authStore.logout() 仍会在 finally 中清理本地登录态
-		// 这里继续完成前台跳转
+		ElMessage.warning('退出请求失败，请检查网络后重试');
+		// authStore.logout() 的 finally 已经清除了本地登录态，所以还是跳转首页。
+		router.replace('/');
 	} finally {
 		logoutSubmitting.value = false;
 		logoutDialogVisible.value = false;
 	}
-	ElMessage.success('已退出登录');
-	router.replace('/');
 }
 </script>
 

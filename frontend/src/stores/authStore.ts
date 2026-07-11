@@ -3,10 +3,13 @@ import type { RefreshTokenData } from '@/modules/auth/types/auth';
 import { defineStore } from 'pinia';
 import { useUserStore } from './userStore';
 
+// 维护一个共享初始化 Promise
+let initializeSessionPromise: Promise<void> | null = null;
+
 export const useAuthStore = defineStore('auth', {
 	state: () => ({
 		accessToken: '',
-		triedRefresh: false, // 无 AT 时会尝试 /auth/refreshToken，这是用于避免重复尝试的标志
+		authInitialized: false, // 表示应用是否已经完成登录态初始化（无 AT 时会尝试 /auth/refresh，这是用于避免重复尝试的标志）
 	}),
 
 	getters: {
@@ -48,6 +51,25 @@ export const useAuthStore = defineStore('auth', {
 			} finally {
 				this.clearAuth();
 			}
+		},
+
+		async initializeSession(): Promise<void> {
+			if (this.authInitialized) {
+				return;
+			}
+
+			if (!initializeSessionPromise) {
+				initializeSessionPromise = this.refreshToken()
+					.catch(() => {
+						this.clearAuth();
+					})
+					.finally(() => {
+						this.authInitialized = true;
+						initializeSessionPromise = null;
+					});
+			}
+
+			await initializeSessionPromise;
 		},
 	},
 });

@@ -34,6 +34,15 @@ watch(
 	},
 	{ immediate: true },
 );
+
+watch(
+	() => article.value?.title,
+	(title) => {
+		if (title) {
+			document.title = `${title} - ${import.meta.env.VITE_APP_TITLE}`;
+		}
+	},
+);
 </script>
 
 <style></style>

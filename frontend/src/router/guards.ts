@@ -16,20 +16,22 @@ export default function setupRouterGuards(router: Router) {
 		const requiresAuth = to.matched.some((route) => route.meta.requiresAuth);
 		const requiresAdmin = to.matched.some((route) => route.meta.requiresAdmin);
 
+		const isAuthPage = to.path === '/auth/login' || to.path === '/auth/register';
+
+		// 没有 AT
+		if (!authStore.accessToken && !authStore.authInitialized) {
+			const initialization = authStore.initializeSession();
+			if (requiresAuth || isAuthPage) {
+				// 需要权限 || 是登陆注册页需要判断是否登录是则不能跳转，所以如果没有登录态就需要阻塞路由等待 AT 刷新看是否还在登录状态
+				await initialization;
+			} else {
+				// 如果不需要权限，先初始化 session，但不阻塞路由跳转；其他相关的后续守卫内容会判断。
+				void initialization;
+			}
+		}
+
 		// 需要权限
 		if (requiresAuth) {
-			// 没有 AT
-			if (!authStore.accessToken) {
-				try {
-					if (!authStore.triedRefresh) {
-						authStore.triedRefresh = true;
-						await authStore.refreshToken(); // 尝试刷新 access token
-					}
-				} catch {
-					// 跳过，后续处理
-				}
-			}
-
 			if (!authStore.accessToken) {
 				ElMessage.error('请先登录。正在跳转到登录页...');
 				return {
@@ -69,12 +71,8 @@ export default function setupRouterGuards(router: Router) {
 			// 已登录
 			if (authStore.accessToken) {
 				if (to.path === '/auth/login' || to.path === '/auth/register') {
-					// TODO
-					// ElMessage.warning('请勿重复登录。正在跳转到主页...');
-					// return '/';
-
-					// 由于目前开发中，退出登录 UI 未实现，暂时不处理
-					return true;
+					ElMessage.warning('请勿重复登录。正在跳转到主页...');
+					return '/';
 				} else {
 					return true;
 				}
@@ -106,7 +104,11 @@ export default function setupRouterGuards(router: Router) {
 			});
 		}
 
-		document.title = to.meta.title || import.meta.env.VITE_APP_TITLE || 'Sanjuu Blog';
+		if (to.meta.title) {
+			document.title = `${to.meta.title} - ${import.meta.env.VITE_APP_TITLE || 'Sanjuu Blog'}`;
+		} else {
+			document.title = import.meta.env.VITE_APP_TITLE || 'Sanjuu Blog';
+		}
 	});
 
 	// 3. 全局路由错误日志
