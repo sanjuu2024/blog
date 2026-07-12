@@ -5,6 +5,7 @@
 }
 
 .article-markdown.markdown-body {
+	--fontStack-sansSerif: var(--app-font-family);
 	color: var(--app-text);
 }
 

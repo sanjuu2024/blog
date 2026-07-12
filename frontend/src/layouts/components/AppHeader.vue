@@ -232,8 +232,8 @@ async function handleLogout() {
 
 .app-header__link:hover,
 .app-header__link.router-link-active {
-	color: var(--app-button-bg);
-	box-shadow: 0 2px 0 var(--app-button-bg);
+	color: var(--app-main);
+	box-shadow: 0 2px 0 var(--app-main);
 }
 
 .app-header__logo,
@@ -272,8 +272,8 @@ async function handleLogout() {
 }
 
 .app-header__avatar:hover .app-header__guest-icon {
-	border-color: var(--app-button-bg);
-	color: var(--app-button-bg);
+	border-color: var(--app-main);
+	color: var(--app-main);
 }
 
 :global(.app-header-user-dropdown) {

@@ -71,6 +71,7 @@ export function useArticleList() {
 	async function getPublishedArticles(
 		pageNum?: number,
 		pageSize?: number,
+		queryParams?: PublicArticleListQuery,
 		options: GetPublishedArticlesOptions = {},
 	): Promise<ArticleRequestResult> {
 		// 当前请求正在进行中，且不允许取消前一个请求时，直接跳过本次请求
@@ -92,7 +93,7 @@ export function useArticleList() {
 		if (pageSize) pageParams.pageSize = pageSize;
 
 		try {
-			const queryParams = buildArticleListQueryParams();
+			if (queryParams === undefined) queryParams = buildArticleListQueryParams();
 			const data = await listArticles(queryParams, {
 				// 把 signal 交给 Axios。这样这个请求之后才真的能被 abort() 取消
 				signal: abortController.signal,
@@ -130,7 +131,7 @@ export function useArticleList() {
 		Object.assign(pageParams, initPageParams);
 		articles.value = [];
 
-		await getPublishedArticles(undefined, undefined, {
+		await getPublishedArticles(undefined, undefined, undefined, {
 			replace: true, // 不是追加而是完全替换
 			cancelPrevious: true, // 允许取消上一个请求
 		});
