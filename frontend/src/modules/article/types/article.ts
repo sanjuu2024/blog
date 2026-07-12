@@ -14,12 +14,16 @@ export interface ArticlePageParams {
 	hasNext: boolean;
 }
 
+export type PublicArticleSort = 'DEFAULT' | 'LATEST';
+
 // GET /api/v1/articles 的 Query 参数
 export interface PublicArticleListQuery {
 	pageNum?: number;
 	pageSize?: number;
 	categoryId?: number;
 	tagIds?: number[];
+	isTop?: boolean;
+	sort?: PublicArticleSort;
 }
 
 export interface PublicArticleCategoryParent {

@@ -1,6 +1,7 @@
 package com.ccsanjuu.blog.modules.article.service.impl;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ccsanjuu.blog.common.api.PageResult;
@@ -15,6 +16,7 @@ import com.ccsanjuu.blog.modules.article.model.dto.UpdateArticleStatusRequestDTO
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
 import com.ccsanjuu.blog.modules.article.model.entity.ArticleTag;
 import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
+import com.ccsanjuu.blog.modules.article.model.enums.PublicArticleSort;
 import com.ccsanjuu.blog.modules.article.model.vo.AdminArticleDetailVO;
 import com.ccsanjuu.blog.modules.article.model.vo.AdminArticleListItemVO;
 import com.ccsanjuu.blog.modules.article.model.vo.CreatedArticleVO;
@@ -46,6 +48,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -458,6 +461,10 @@ class ArticleServiceImplTest {
         query.setPageSize(10);
         query.setCategoryId(CATEGORY_ID);
         query.setTagIds(List.of(TAG_ID, TAG_ID, SECOND_TAG_ID));
+        query.setIsTop(true);
+        query.setSort(PublicArticleSort.LATEST);
+
+        AtomicReference<Wrapper<Article>> queryWrapper = new AtomicReference<>();
 
         List<ArticleTag> articleTags = List.of(
                 ArticleTag.builder().articleId(ARTICLE_ID).tagId(TAG_ID).build(),
@@ -470,6 +477,7 @@ class ArticleServiceImplTest {
                 .thenReturn(List.of(ARTICLE_ID));
         when(articleMapper.selectPage(any(Page.class), any())).thenAnswer(invocation -> {
             Page<Article> page = invocation.getArgument(0);
+            queryWrapper.set(invocation.getArgument(1));
             page.setTotal(1);
             page.setRecords(List.of(existingArticle(ArticleStatus.PUBLISHED, PUBLISHED_AT)));
             return page;
@@ -491,6 +499,33 @@ class ArticleServiceImplTest {
         assertEquals(PARENT_CATEGORY_ID, item.getCategory().getParent().getId());
         assertEquals(1, item.getTags().size());
         assertEquals(TAG_ID, item.getTags().getFirst().getId());
+        String sqlSegment = queryWrapper.get().getSqlSegment();
+        assertTrue(sqlSegment.contains("is_top"));
+        assertTrue(sqlSegment.contains("published_at DESC"));
+        assertTrue(sqlSegment.contains("id DESC"));
+        assertFalse(sqlSegment.contains("is_top DESC"));
+    }
+
+    @Test
+    void getPublicArticleListShouldPrioritizeTopArticlesByDefault() {
+        PublicArticleQueryDTO query = new PublicArticleQueryDTO();
+        AtomicReference<Wrapper<Article>> queryWrapper = new AtomicReference<>();
+
+        when(categoryMapper.selectList(any())).thenReturn(List.of(enabledParentCategory(), enabledChildCategory()));
+        when(articleMapper.selectPage(any(Page.class), any())).thenAnswer(invocation -> {
+            Page<Article> page = invocation.getArgument(0);
+            queryWrapper.set(invocation.getArgument(1));
+            page.setTotal(0);
+            page.setRecords(List.of());
+            return page;
+        });
+
+        articleService.getPublicArticleList(query);
+
+        String sqlSegment = queryWrapper.get().getSqlSegment();
+        assertTrue(sqlSegment.contains("is_top DESC"));
+        assertTrue(sqlSegment.contains("published_at DESC"));
+        assertTrue(sqlSegment.contains("id DESC"));
     }
 
     @Test

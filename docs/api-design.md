@@ -461,11 +461,27 @@ Set-Cookie: refresh_token=; Max-Age=0; Path=/api/v1/auth; HttpOnly; SameSite=Lax
 | `pageSize` | `Integer` | 否 | 每页条数，默认 `10`，最大 `20` | `10` |
 | `categoryId` | `Long` | 否 | 分类 ID，用于分类筛选。支持一级分类或二级分类；传一级分类时返回其下所有二级分类文章 | `20001`、`21001` |
 | `tagIds` | `Array<Long>` | 否 | 标签 ID 列表，用于标签筛选；传多个时表示文章必须同时包含这些标签 | `[30001, 30002]` |
+| `isTop` | `Boolean` | 否 | 是否置顶；`true` 只返回置顶文章，`false` 只返回非置顶文章，不传则不限制 | `true` |
+| `sort` | `String` | 否 | 排序模式；`DEFAULT` 为置顶优先，`LATEST` 为仅按首次发布时间倒序，默认 `DEFAULT` | `LATEST` |
+
+### 排序规则
+
+- `sort=DEFAULT` 或不传 `sort`：按 `isTop DESC, publishedAt DESC, id DESC` 排序。
+- `sort=LATEST`：不考虑置顶状态，按 `publishedAt DESC, id DESC` 排序。
+- `isTop` 只负责筛选，可以和任一排序模式组合使用。
+- 首页置顶文章使用 `isTop=true`，首页最新文章使用 `sort=LATEST` 且不传 `isTop`，因此同一篇文章允许同时出现在两个区域。
 
 ### 请求样例
 
 ```http
 GET /api/v1/articles?pageNum=1&pageSize=10&categoryId=20001&tagIds=30001&tagIds=30002
+```
+
+首页置顶文章与最新文章请求样例：
+
+```http
+GET /api/v1/articles?pageNum=1&pageSize=4&isTop=true
+GET /api/v1/articles?pageNum=1&pageSize=4&sort=LATEST
 ```
 
 ### 响应参数

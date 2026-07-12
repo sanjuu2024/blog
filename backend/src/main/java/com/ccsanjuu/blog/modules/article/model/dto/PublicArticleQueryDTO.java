@@ -1,5 +1,6 @@
 package com.ccsanjuu.blog.modules.article.model.dto;
 
+import com.ccsanjuu.blog.modules.article.model.enums.PublicArticleSort;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -26,4 +27,8 @@ public class PublicArticleQueryDTO {
     private Long categoryId;
 
     private List<@Positive(message = "标签 ID 必须大于 0") Long> tagIds;
+
+    private Boolean isTop;
+
+    private PublicArticleSort sort = PublicArticleSort.DEFAULT;
 }

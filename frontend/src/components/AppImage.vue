@@ -14,8 +14,9 @@
 			v-if="url && !failed"
 			:src="url"
 			:alt="alt || '图片'"
-			class="absolute inset-0 h-full w-full rounded"
+			class="absolute inset-0 h-full w-full"
 			:class="{
+				rounded: rounded,
 				'opacity-0': !loaded,
 				'object-cover': objectFit === 'cover',
 				'object-contain': objectFit === 'contain',
@@ -32,7 +33,10 @@
 		<!-- 无封面 -->
 		<div
 			v-else-if="!url"
-			class="absolute inset-0 flex h-full w-full items-center justify-center rounded bg-(--app-default-img-bg-color) text-(--app-default-img-text-color)"
+			class="absolute inset-0 flex h-full w-full items-center justify-center bg-(--app-default-img-bg-color) text-(--app-default-img-text-color)"
+			:class="{
+				rounded: rounded,
+			}"
 		>
 			<i-lucide-image class="text-xl" />
 		</div>
@@ -40,7 +44,10 @@
 		<!-- 加载失败 -->
 		<div
 			v-else
-			class="absolute inset-0 flex h-full w-full items-center justify-center rounded bg-(--app-default-img-bg-color) text-(--app-default-img-text-color)"
+			class="absolute inset-0 flex h-full w-full items-center justify-center bg-(--app-default-img-bg-color) text-(--app-default-img-text-color)"
+			:class="{
+				rounded: rounded,
+			}"
 		>
 			<i-lucide-image-off class="text-xl" />
 		</div>
@@ -58,9 +65,11 @@ const props = withDefaults(
 		url?: string;
 		alt?: string;
 		objectFit?: 'contain' | 'cover' | 'fill' | 'none' | 'scale-down';
+		rounded?: boolean;
 	}>(),
 	{
 		objectFit: 'cover',
+		rounded: true,
 	},
 );
 

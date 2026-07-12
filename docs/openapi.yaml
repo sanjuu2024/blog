@@ -179,7 +179,7 @@ paths:
       tags:
         - Public Articles
       summary: 获取已发布文章分页列表
-      description: 权限级别 `PUBLIC`。仅返回已发布文章。响应中的 `tags` 仅包含当前启用且仍存在的关联标签；通过 `tagIds` 筛选时，传入标签必须存在且启用；通过 `categoryId` 筛选时，传入分类必须存在且启用。文章所属二级分类及其父分类均存在且启用时，文章才对前台可见。
+      description: 权限级别 `PUBLIC`。仅返回已发布文章。响应中的 `tags` 仅包含当前启用且仍存在的关联标签；通过 `tagIds` 筛选时，传入标签必须存在且启用；通过 `categoryId` 筛选时，传入分类必须存在且启用。文章所属二级分类及其父分类均存在且启用时，文章才对前台可见。默认按置顶状态、首次发布时间和文章 ID 倒序；`sort=LATEST` 时忽略置顶状态，仅按首次发布时间和文章 ID 倒序。
       operationId: listPublishedArticles
       parameters:
         - $ref: '#/components/parameters/PageNum'
@@ -206,6 +206,24 @@ paths:
             example:
               - 30001
               - 30002
+        - name: isTop
+          in: query
+          description: 是否置顶；true 只返回置顶文章，false 只返回非置顶文章，不传则不限制
+          required: false
+          schema:
+            type: boolean
+            example: true
+        - name: sort
+          in: query
+          description: 排序模式。DEFAULT 为置顶优先；LATEST 忽略置顶状态，仅按首次发布时间倒序
+          required: false
+          schema:
+            type: string
+            enum:
+              - DEFAULT
+              - LATEST
+            default: DEFAULT
+            example: LATEST
       responses:
         '200':
           description: 获取成功

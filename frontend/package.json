@@ -34,7 +34,8 @@
 		"prism-themes": "^1.9.0",
 		"prismjs": "^1.30.0",
 		"vue": "^3.5.32",
-		"vue-router": "^5.0.6"
+		"vue-router": "^5.0.6",
+		"vuewordcloud": "^19.0.0"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
