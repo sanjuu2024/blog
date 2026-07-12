@@ -6,6 +6,7 @@ import com.ccsanjuu.blog.config.WebMvcConfig;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
 import com.ccsanjuu.blog.modules.article.model.dto.PublicArticleQueryDTO;
+import com.ccsanjuu.blog.modules.article.model.enums.PublicArticleSort;
 import com.ccsanjuu.blog.modules.article.model.vo.PublicArticleDetailVO;
 import com.ccsanjuu.blog.modules.article.model.vo.PublicArticleListItemVO;
 import com.ccsanjuu.blog.modules.article.service.ArticleService;
@@ -84,7 +85,9 @@ class ArticleControllerTest {
                         .param("pageNum", "1")
                         .param("pageSize", "10")
                         .param("categoryId", CATEGORY_ID.toString())
-                        .param("tagIds", TAG_ID.toString(), SECOND_TAG_ID.toString()))
+                        .param("tagIds", TAG_ID.toString(), SECOND_TAG_ID.toString())
+                        .param("isTop", "true")
+                        .param("sort", "LATEST"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.records[0].id").value(ARTICLE_ID));
@@ -96,6 +99,8 @@ class ArticleControllerTest {
         assertEquals(10, queryCaptor.getValue().getPageSize());
         assertEquals(CATEGORY_ID, queryCaptor.getValue().getCategoryId());
         assertEquals(List.of(TAG_ID, SECOND_TAG_ID), queryCaptor.getValue().getTagIds());
+        assertEquals(true, queryCaptor.getValue().getIsTop());
+        assertEquals(PublicArticleSort.LATEST, queryCaptor.getValue().getSort());
     }
 
     @Test
@@ -105,6 +110,14 @@ class ArticleControllerTest {
                         .param("pageSize", "21")
                         .param("categoryId", "0")
                         .param("tagIds", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(199001));
+    }
+
+    @Test
+    void getPublicArticleListShouldRejectInvalidSort() throws Exception {
+        mockMvc.perform(get("/api/v1/articles")
+                        .param("sort", "POPULAR"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(199001));
     }

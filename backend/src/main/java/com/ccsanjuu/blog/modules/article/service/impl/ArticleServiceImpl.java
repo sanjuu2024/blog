@@ -17,6 +17,7 @@ import com.ccsanjuu.blog.modules.article.model.dto.UpdateArticleStatusRequestDTO
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
 import com.ccsanjuu.blog.modules.article.model.entity.ArticleTag;
 import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
+import com.ccsanjuu.blog.modules.article.model.enums.PublicArticleSort;
 import com.ccsanjuu.blog.modules.article.model.vo.*;
 import com.ccsanjuu.blog.modules.article.service.ArticleService;
 import com.ccsanjuu.blog.modules.article.support.ArticleContentRenderer;
@@ -383,8 +384,10 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
                 .in(!CollectionUtil.isEmpty(tagIds), Article::getId, tagArticleIds)
                 .in(!CollectionUtil.isEmpty(categoryIds), Article::getCategoryId, categoryIds)
                 .eq(Article::getStatus, ArticleStatus.PUBLISHED)
-                .orderByDesc(Article::getIsTop)
-                .orderByDesc(Article::getCreatedAt)
+                .eq(queryDTO.getIsTop() != null, Article::getIsTop, queryDTO.getIsTop())
+                .orderByDesc(queryDTO.getSort() != PublicArticleSort.LATEST, Article::getIsTop)
+                .orderByDesc(Article::getPublishedAt)
+                .orderByDesc(Article::getId)
                 .page(page);
 
         // 7. 封装
