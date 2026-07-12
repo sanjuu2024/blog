@@ -62,7 +62,7 @@
 				<div class="right__inner-footer flex w-full text-sm text-gray-400">
 					<!-- 发布时间 -->
 					<div class="article-list-item-published-at flex items-center">
-						<i-lucide-calendar class="mr-2" />
+						<i-solar-calendar-outline class="mr-2" />
 						<p>{{ formatDateTime(article.publishedAt) }}</p>
 					</div>
 
@@ -70,7 +70,7 @@
 
 					<!-- 阅读数 -->
 					<div class="article-list-item-view-count flex items-center">
-						<i-lucide-eye class="mr-2" />
+						<i-solar-eye-outline class="mr-2" />
 						<span>{{ article.viewCount }}</span>
 					</div>
 				</div>
@@ -80,7 +80,7 @@
 		<div class="article-list-item-pin ml-4">
 			<i-solar-pin-bold
 				v-if="article.isTop"
-				style="color: var(--app-button-bg)"
+				style="color: var(--app-main)"
 			/>
 			<!-- <i-solar-pin-outline v-else /> -->
 		</div>

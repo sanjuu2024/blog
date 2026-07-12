@@ -85,10 +85,6 @@ export default function setupRouterGuards(router: Router) {
 	});
 
 	// 2. 全局后置路由守卫
-	// router.afterEach((to) => {
-	// 	NProgress.done();
-	// 	document.title = to.meta.title || import.meta.env.VITE_APP_TITLE || 'Sanjuu Blog';
-	// });
 	router.afterEach((to, from, failure) => {
 		NProgress.done();
 

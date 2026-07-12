@@ -18,7 +18,7 @@
 						<div class="admin-article-is-top">
 							<i-solar-pin-bold
 								v-if="row.isTop"
-								style="color: var(--app-button-bg)"
+								style="color: var(--app-main)"
 							/>
 							<i-solar-pin-outline v-else />
 						</div>
