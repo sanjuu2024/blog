@@ -1,0 +1,221 @@
+package com.ccsanjuu.blog.modules.auth.service.impl;
+
+import com.ccsanjuu.blog.common.api.ResultCode;
+import com.ccsanjuu.blog.common.exception.BizException;
+import com.ccsanjuu.blog.common.util.JwtUtil;
+import com.ccsanjuu.blog.common.util.TokenHashUtil;
+import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
+import com.ccsanjuu.blog.modules.auth.model.dto.LoginRequestDTO;
+import com.ccsanjuu.blog.modules.auth.model.dto.RefreshTokenRequestDTO;
+import com.ccsanjuu.blog.modules.auth.model.dto.RegisterRequestDTO;
+import com.ccsanjuu.blog.modules.auth.model.entity.AuthSession;
+import com.ccsanjuu.blog.modules.auth.model.enums.AuthSessionStatus;
+import com.ccsanjuu.blog.modules.auth.model.enums.AuthSessionTokenType;
+import com.ccsanjuu.blog.modules.auth.model.vo.LoginVO;
+import com.ccsanjuu.blog.modules.auth.model.vo.RefreshTokenVO;
+import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
+import com.ccsanjuu.blog.modules.user.model.entity.User;
+import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
+import com.ccsanjuu.blog.modules.user.model.enums.UserStatus;
+import com.ccsanjuu.blog.properties.JwtProperties;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import javax.crypto.SecretKey;
+import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class AuthServiceImplCoreFlowTest {
+
+    private static final Long USER_ID = 10001L;
+    private static final String PASSWORD = "Password_123";
+    private static final SecretKey SIGNING_KEY =
+            JwtUtil.createHmacShaKey("0123456789abcdef0123456789abcdef");
+
+    @Mock
+    private UserMapper userMapper;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private AuthMapper authMapper;
+
+    private AuthServiceImpl authService;
+
+    @BeforeEach
+    void setUp() {
+        JwtProperties jwtProperties = new JwtProperties(
+                "sanjuu-blog",
+                "unused-in-this-test",
+                Duration.ofMinutes(15),
+                Duration.ofDays(7)
+        );
+        authService = new AuthServiceImpl(userMapper, passwordEncoder, jwtProperties, SIGNING_KEY, authMapper);
+    }
+
+    @Test
+    void registerShouldCreateActiveUserWithEncodedPassword() {
+        when(passwordEncoder.encode(PASSWORD)).thenReturn("encoded-password");
+
+        authService.register(RegisterRequestDTO.builder()
+                .username("Sanjuu")
+                .email("sanjuu@example.com")
+                .password(PASSWORD)
+                .build());
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userMapper).insert(userCaptor.capture());
+        User user = userCaptor.getValue();
+        assertEquals("Sanjuu", user.getUsername());
+        assertEquals("Sanjuu", user.getNickname());
+        assertEquals("sanjuu@example.com", user.getEmail());
+        assertEquals("encoded-password", user.getPasswordHash());
+        assertEquals(UserRole.USER, user.getRole());
+        assertEquals(UserStatus.ACTIVE, user.getStatus());
+    }
+
+    @Test
+    void registerShouldRejectDuplicateUsername() {
+        when(userMapper.selectOne(any())).thenReturn(activeUser());
+
+        BizException exception = assertThrows(BizException.class, () -> authService.register(
+                RegisterRequestDTO.builder()
+                        .username("sanjuu")
+                        .email("another@example.com")
+                        .password(PASSWORD)
+                        .build()
+        ));
+
+        assertEquals(ResultCode.USERNAME_EXISTS, exception.getResultCode());
+        verify(userMapper, never()).insert(any(User.class));
+    }
+
+    @Test
+    void loginShouldIssueTokensPersistSessionAndUpdateLoginTime() {
+        User user = activeUser();
+        when(userMapper.selectOne(any())).thenReturn(user);
+        when(passwordEncoder.matches(PASSWORD, user.getPasswordHash())).thenReturn(true);
+
+        LoginVO result = authService.login(LoginRequestDTO.builder()
+                .account("SANJUU")
+                .password(PASSWORD)
+                .build());
+
+        assertNotNull(result.getAccessToken());
+        assertNotNull(result.getRefreshToken());
+        assertEquals(USER_ID, result.getUser().getId());
+        assertEquals(UserRole.USER, result.getUser().getRole());
+        verify(authMapper).insert(any(AuthSession.class));
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userMapper).updateById(userCaptor.capture());
+        assertEquals(USER_ID, userCaptor.getValue().getId());
+        assertNotNull(userCaptor.getValue().getLastLoginAt());
+    }
+
+    @Test
+    void loginShouldRejectDisabledUserWithoutCreatingSession() {
+        User user = activeUser();
+        user.setStatus(UserStatus.DISABLED);
+        when(userMapper.selectOne(any())).thenReturn(user);
+        when(passwordEncoder.matches(PASSWORD, user.getPasswordHash())).thenReturn(true);
+
+        BizException exception = assertThrows(BizException.class, () -> authService.login(
+                LoginRequestDTO.builder().account("sanjuu").password(PASSWORD).build()
+        ));
+
+        assertEquals(ResultCode.USER_DISABLED, exception.getResultCode());
+        verify(authMapper, never()).insert(any(AuthSession.class));
+    }
+
+    @Test
+    void refreshShouldRevokeOldSessionAndPersistRotatedToken() {
+        String oldJti = "old-refresh-token-jti";
+        String oldRefreshToken = JwtUtil.generateRefreshToken(
+                SIGNING_KEY,
+                "sanjuu-blog",
+                Duration.ofDays(7),
+                USER_ID,
+                oldJti
+        );
+        AuthSession oldSession = AuthSession.builder()
+                .userId(USER_ID)
+                .tokenJti(oldJti)
+                .tokenHash(TokenHashUtil.sha256(oldRefreshToken))
+                .tokenType(AuthSessionTokenType.REFRESH)
+                .status(AuthSessionStatus.ACTIVE)
+                .expiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusDays(7))
+                .build();
+        when(authMapper.selectOne(any())).thenReturn(oldSession);
+        when(userMapper.selectById(USER_ID)).thenReturn(activeUser());
+
+        RefreshTokenVO result = authService.refresh(
+                RefreshTokenRequestDTO.builder().refreshToken(oldRefreshToken).build()
+        );
+
+        assertNotNull(result.getAccessToken());
+        assertNotNull(result.getRefreshToken());
+        assertNotEquals(oldRefreshToken, result.getRefreshToken());
+        verify(authMapper).revokeRefreshToken(oldJti, AuthSessionStatus.REVOKED.getValue());
+        verify(authMapper).insert(any(AuthSession.class));
+    }
+
+    @Test
+    void refreshShouldRejectDisabledUserWithoutRotatingSession() {
+        String refreshToken = JwtUtil.generateRefreshToken(
+                SIGNING_KEY,
+                "sanjuu-blog",
+                Duration.ofDays(7),
+                USER_ID,
+                "disabled-user-session"
+        );
+        when(authMapper.selectOne(any())).thenReturn(AuthSession.builder()
+                .userId(USER_ID)
+                .tokenJti("disabled-user-session")
+                .tokenHash(TokenHashUtil.sha256(refreshToken))
+                .tokenType(AuthSessionTokenType.REFRESH)
+                .status(AuthSessionStatus.ACTIVE)
+                .expiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusDays(7))
+                .build());
+        User disabledUser = activeUser();
+        disabledUser.setStatus(UserStatus.DISABLED);
+        when(userMapper.selectById(USER_ID)).thenReturn(disabledUser);
+
+        BizException exception = assertThrows(BizException.class, () -> authService.refresh(
+                RefreshTokenRequestDTO.builder().refreshToken(refreshToken).build()
+        ));
+
+        assertEquals(ResultCode.USER_DISABLED, exception.getResultCode());
+        verify(authMapper, never()).revokeRefreshToken(any(), any());
+        verify(authMapper, never()).insert(any(AuthSession.class));
+    }
+
+    private User activeUser() {
+        return User.builder()
+                .id(USER_ID)
+                .username("Sanjuu")
+                .nickname("Sanjuu")
+                .email("sanjuu@example.com")
+                .passwordHash("encoded-password")
+                .role(UserRole.USER)
+                .status(UserStatus.ACTIVE)
+                .build();
+    }
+}

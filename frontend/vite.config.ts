@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig, loadEnv } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import tailwindcss from '@tailwindcss/vite';
@@ -77,6 +78,23 @@ export default defineConfig(({ mode }) => {
 					target: env.VITE_SERVER,
 					changeOrigin: true,
 				},
+			},
+		},
+
+		test: {
+			environment: 'jsdom',
+			setupFiles: ['./src/test/setup.ts'],
+			include: ['src/**/*.spec.ts'],
+			server: {
+				deps: {
+					inline: ['element-plus'],
+				},
+			},
+			coverage: {
+				provider: 'v8',
+				reporter: ['text', 'html'],
+				include: ['src/**/*.{ts,vue}'],
+				exclude: ['src/**/*.d.ts', 'src/**/*.spec.ts', 'src/test/**', 'src/main.ts'],
 			},
 		},
 	};
