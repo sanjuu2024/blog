@@ -38,6 +38,7 @@ frontend/.vite/
 coverage/
 frontend/coverage/
 *.tsbuildinfo
+coverage/
 
 # Java / Spring Boot / Maven / Gradle
 target/

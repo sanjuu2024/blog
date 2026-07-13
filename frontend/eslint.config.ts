@@ -6,7 +6,7 @@ import { defineConfig } from 'eslint/config';
 import skipFormatting from 'eslint-config-prettier';
 
 export default defineConfig([
-	{ ignores: ['dist/**', 'node_modules/**', 'public/**'] },
+	{ ignores: ['coverage/**', 'dist/**', 'node_modules/**', 'public/**'] },
 	{
 		files: ['**/*.{js,mjs,cjs,ts,mts,cts,vue}'],
 		plugins: { js },
