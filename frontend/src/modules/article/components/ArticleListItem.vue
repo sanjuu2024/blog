@@ -11,7 +11,7 @@
 					<AppImage
 						:url="article.coverUrl"
 						alt="文章封面图"
-						class="aspect-16/10 w-44 shrink-0 rounded border border-(--app-border)"
+						class="aspect-16/13 w-44 shrink-0 rounded border border-(--app-border)"
 					/>
 				</RouterLink>
 			</div>
@@ -33,11 +33,29 @@
 					<div class="article-list-item-category mb-2 flex items-center text-sm">
 						<component
 							:is="getRouteIcon('category')"
-							class="mr-2"
+							class="mr-2 text-sm"
 						/>
-						<span type="warning">{{
-							article.category.parent.name + ' > ' + article.category.name
-						}}</span>
+						<RouterLink
+							:to="{
+								name: 'CategoryArticlesPage',
+								params: {
+									categoryId: article.category.parent.id,
+								},
+							}"
+						>
+							{{ article.category.parent.name }}
+						</RouterLink>
+						<span class="mx-2">/</span>
+						<RouterLink
+							:to="{
+								name: 'CategoryArticlesPage',
+								params: {
+									categoryId: article.category.id,
+								},
+							}"
+						>
+							{{ article.category.name }}
+						</RouterLink>
 					</div>
 
 					<!-- 标签 -->
@@ -52,10 +70,19 @@
 							:name="tag.name"
 						/>
 					</div>
+					<div
+						v-else
+						class="article-list-item-tags mb-2 flex items-center gap-2 text-sm"
+					>
+						<component :is="getRouteIcon('tag')" />
+						<span>暂无标签</span>
+					</div>
 
 					<!-- 摘要 -->
 					<div>
-						<p class="line-clamp-2 text-sm">{{ article.summary }}</p>
+						<p class="line-clamp-2 text-sm">
+							{{ article.summary ? article.summary : '暂无摘要' }}
+						</p>
 					</div>
 				</div>
 
@@ -118,5 +145,14 @@ const coverHovered = ref(false);
 
 .article-list-item-title:hover {
 	color: var(--app-button-bg);
+}
+
+.article-list-item-category {
+	transition: color 0.1s ease-in-out;
+
+	> a:hover,
+	> a:focus-visible {
+		color: var(--app-main);
+	}
 }
 </style>

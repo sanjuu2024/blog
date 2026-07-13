@@ -79,3 +79,11 @@ Element Plus 的 `success`、`warning`、`danger`、`info` 按钮也遵循同样
 - 标签云使用 `vuewordcloud` 展示已启用标签及其文章数量形成的热度差异。
 - 标签云仅作信息展示，不提供标签详情或按标签筛选文章的跳转入口。
 - 标签颜色按名称稳定映射，避免页面刷新或重新布局时随机变化。
+
+### 5.1 文章列表筛选状态
+
+- 前台文章列表页的 `categoryId` 和 `tagIds` 筛选条件存储在 `/articles` 路由的 query 参数中。
+- 应用筛选条件时先更新 URL，再由页面监听 query 参数并通过 Axios 请求文章列表接口。
+- 多个标签使用重复的 `tagIds` 参数，例如 `/articles?tagIds=30001&tagIds=30002`。
+- 刷新页面、分享链接以及浏览器前进后退时，都应恢复 URL 中的筛选条件。
+- 重置筛选条件时移除 `categoryId` 和 `tagIds` query 参数。
