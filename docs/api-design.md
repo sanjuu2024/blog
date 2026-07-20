@@ -130,6 +130,12 @@ Authorization: Bearer <access_token>
 | `104006` | `400` | `一级分类不能指定父分类` | 创建或更新一级分类时传入了父分类 |
 | `104007` | `400` | `父分类不存在或父分类不是一级分类` | 创建或更新二级分类时父分类不合法 |
 | `104008` | `409` | `不允许更新分类的级别` | 更新分类时尝试修改一级/二级分类层级 |
+| `105001` | `404` | `评论不存在` | 指定评论不存在、已删除或当前用户不可见 |
+| `105002` | `409` | `文章已关闭评论` | 文章 `allow_comment = false`，不允许新增评论或回复 |
+| `105003` | `409` | `回复目标不可用` | 父评论不属于当前文章、未审核通过或已不允许回复 |
+| `105004` | `429` | `评论过于频繁，请稍后再试` | 同一用户对同一文章 10 秒内重复发表评论或回复 |
+| `105005` | `403` | `无权操作该评论` | 普通用户删除不属于自己的评论 |
+| `105006` | `409` | `评论状态流转不合法` | 后台审核动作与评论当前状态不匹配 |
 
 ### 2.7 分页结构
 
@@ -167,6 +173,8 @@ Authorization: Bearer <access_token>
 | `categoryStatus` | `ENABLED`、`DISABLED` | 分类状态 |
 | `categoryLevel` | `1`、`2` | 分类层级，`1` 为一级分类，`2` 为二级分类 |
 | `tagStatus` | `ENABLED`、`DISABLED` | 标签状态 |
+| `commentStatus` | `PENDING`、`APPROVED`、`REJECTED`、`HIDDEN`、`DELETED` | 评论状态 |
+| `commentModerationAction` | `APPROVE`、`REJECT`、`HIDE`、`DELETE` | 后台评论处理动作 |
 
 ## 3. 接口总览
 
@@ -178,6 +186,10 @@ Authorization: Bearer <access_token>
 | 认证 | `POST` | `/api/v1/auth/logout` | `PUBLIC` | 用户退出登录 |
 | 前台文章 | `GET` | `/api/v1/articles` | `PUBLIC` | 获取已发布文章分页列表 |
 | 前台文章 | `GET` | `/api/v1/articles/{articleId}` | `PUBLIC` | 获取文章详情 |
+| 前台评论 | `GET` | `/api/v1/articles/{articleId}/comments` | `PUBLIC` | 获取顶层评论分页列表，可选登录态用于返回本人评论 |
+| 前台评论 | `POST` | `/api/v1/articles/{articleId}/comments` | `LOGIN` | 发表评论或回复 |
+| 前台评论 | `GET` | `/api/v1/comments/{commentId}/replies` | `PUBLIC` | 按需获取顶层评论下的平铺回复 |
+| 前台评论 | `DELETE` | `/api/v1/comments/{commentId}` | `LOGIN` | 删除自己的评论及其后代 |
 | 前台分类 | `GET` | `/api/v1/categories` | `PUBLIC` | 获取启用分类列表 |
 | 前台标签 | `GET` | `/api/v1/tags` | `PUBLIC` | 获取启用标签列表 |
 | 前台用户 | `GET` | `/api/v1/users/{userId}/public-profile` | `PUBLIC` | 获取用户公开资料卡 |
@@ -201,6 +213,8 @@ Authorization: Bearer <access_token>
 | 后台标签 | `POST` | `/api/v1/admin/tags` | `ADMIN` | 创建标签 |
 | 后台标签 | `PUT` | `/api/v1/admin/tags/{tagId}` | `ADMIN` | 更新标签 |
 | 后台标签 | `DELETE` | `/api/v1/admin/tags/{tagId}` | `ADMIN` | 删除标签 |
+| 后台评论 | `GET` | `/api/v1/admin/comments` | `ADMIN` | 获取评论审核分页列表 |
+| 后台评论 | `PATCH` | `/api/v1/admin/comments/{commentId}/moderation` | `ADMIN` | 审核、隐藏或删除评论 |
 
 ## 4. 认证模块
 
@@ -596,7 +610,7 @@ GET /api/v1/articles/40001
 | `contentHtml` | `String` | HTML 正文，由 Markdown 转译得到，供前端渲染 | `<h1>一、背景</h1><p>...</p>` |
 | `coverUrl` | `String` | 封面地址 | `https://cdn.example.com/cover/token.png` |
 | `isTop` | `Boolean` | 是否置顶 | `true` |
-| `allowComment` | `Boolean` | 是否允许评论，当前为预留字段 | `true` |
+| `allowComment` | `Boolean` | 是否允许新增评论和回复；关闭后已有 APPROVED 评论仍可展示 | `true` |
 | `viewCount` | `Integer` | 浏览量 | `128` |
 | `commentCount` | `Integer` | 评论数 | `0` |
 | `likeCount` | `Integer` | 点赞数 | `0` |
@@ -1406,7 +1420,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | `coverUrl` | `String` | 否 | 封面地址 | `https://cdn.example.com/cover/token.png` |
 | `isTop` | `Boolean` | 否 | 是否置顶，默认 `false` | `true` |
 | `status` | `String` | 是 | 创建时状态，仅允许 `DRAFT` 或 `PUBLISHED`，不允许直接创建为 `OFFLINE` | `DRAFT` |
-| `allowComment` | `Boolean` | 否 | 是否允许评论，预留字段 | `true` |
+| `allowComment` | `Boolean` | 否 | 是否允许新增评论和回复；关闭后已有 APPROVED 评论仍可展示 | `true` |
 
 ### 请求样例
 
@@ -2115,9 +2129,116 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 }
 ```
 
-## 11. 业务规则补充
+## 11. 评论接口
 
-### 11.1 用户相关
+## 11.1 获取顶层评论分页列表
+
+- 路由：`GET`
+- 路径：`/api/v1/articles/{articleId}/comments`
+- 权限：`PUBLIC`，可选携带 Access Token
+
+该接口只返回顶层评论和当前请求者可见的回复数量，不直接携带回复记录。游客只看到 `APPROVED` 评论；登录用户还可以看到自己发表的 `PENDING`、`REJECTED` 评论及处理原因。顶层评论按 `created_at DESC, id DESC` 排序。
+
+### 请求参数
+
+| 参数位置 | 字段名称 | 字段类型 | 必填 | 字段解释 |
+| --- | --- | --- | --- | --- |
+| Path | `articleId` | `Long` | 是 | 已发布文章 ID |
+| Query | `pageNum` | `Integer` | 否 | 页码，默认 `1` |
+| Query | `pageSize` | `Integer` | 否 | 每页条数，默认 `10`，最大 `20` |
+
+### 响应参数
+
+`data` 使用通用分页结构。顶层评论返回 `id`、`articleId`、`content`、`status`、`moderationReason`、`author`、`replyCount`、`isMine` 和 `createdAt`。`replyCount` 是当前请求者可见的全部层级回复数；游客只统计 `APPROVED` 回复。
+
+## 11.2 获取顶层评论下的回复
+
+- 路由：`GET`
+- 路径：`/api/v1/comments/{commentId}/replies`
+- 权限：`PUBLIC`，可选携带 Access Token
+
+`commentId` 必须指向顶层评论。接口返回该顶层评论下所有层级的可见回复，并平铺为一个列表；`parentId` 保留直接父评论关系，`replyToUser` 用于显示直接被回复的用户。回复按 `created_at ASC, id ASC` 排序。
+
+首次展开默认请求 `limit=5`；之后把响应中的非空 `nextCursor` 原样传回并使用 `limit=10` 继续加载。`cursor` 是服务端生成的不透明字符串，前端不得解析或自行构造。
+
+### 请求参数
+
+| 参数位置 | 字段名称 | 字段类型 | 必填 | 字段解释 |
+| --- | --- | --- | --- | --- |
+| Path | `commentId` | `Long` | 是 | 顶层评论 ID |
+| Query | `limit` | `Integer` | 否 | 本次获取条数，首次默认 `5`，最大 `20` |
+| Query | `cursor` | `String` | 否 | 上一次响应返回的游标；首次请求不传 |
+
+### 响应参数
+
+响应包含 `records`、`nextCursor` 和 `hasNext`。单条回复包含顶层评论的公共字段，并额外返回 `parentId`、`rootId` 和 `replyToUser`。
+
+## 11.3 发表评论或回复
+
+- 路由：`POST`
+- 路径：`/api/v1/articles/{articleId}/comments`
+- 权限：`LOGIN`
+
+`parentId` 为空时创建顶层评论；传入时创建回复。回复目标必须属于当前文章且状态为 `APPROVED`。新评论和回复统一创建为 `PENDING`，审核前只对作者本人和管理员可见。
+
+### Body 参数
+
+| 字段名称 | 字段类型 | 必填 | 字段解释 |
+| --- | --- | --- | --- |
+| `content` | `String` | 是 | 纯文本内容，去除首尾空白后长度 `1-1000` |
+| `parentId` | `Long` | 否 | 直接父评论 ID；不传表示顶层评论 |
+
+### 响应规则
+
+- 顶层评论的 `parentId`、`rootId` 均为空；回复的 `rootId` 指向所属顶层评论。
+- 返回创建后的 `PENDING` 评论，供作者立即看到审核状态。
+- 同一用户对同一文章 10 秒内只能成功创建一条评论或回复，超限返回 HTTP `429` 和业务码 `105004`。
+- `allowComment=false` 时返回 HTTP `409` 和业务码 `105002`，已有评论仍可读取和删除。
+
+## 11.4 删除自己的评论
+
+- 路由：`DELETE`
+- 路径：`/api/v1/comments/{commentId}`
+- 权限：`LOGIN`
+
+用户只能删除自己的评论。删除采用逻辑删除，并在同一事务中把目标评论及其全部后代标记为 `DELETED`；所有被删除且原为 `APPROVED` 的记录均从文章 `comment_count` 中扣除。成功时 `data` 为 `null`。
+
+## 11.5 获取后台评论分页列表
+
+- 路由：`GET`
+- 路径：`/api/v1/admin/comments`
+- 权限：`ADMIN`
+
+支持 `pageNum`、`pageSize`、`articleId`、`userId`、`status` 和 `type` 查询参数；`type` 可取 `TOP_LEVEL`、`REPLY`。列表按 `created_at DESC, id DESC` 排序，记录返回文章、作者、层级、审核与删除信息。
+
+## 11.6 审核、隐藏或删除评论
+
+- 路由：`PATCH`
+- 路径：`/api/v1/admin/comments/{commentId}/moderation`
+- 权限：`ADMIN`
+
+### Body 参数
+
+| 字段名称 | 字段类型 | 必填 | 字段解释 |
+| --- | --- | --- | --- |
+| `action` | `String` | 是 | `APPROVE`、`REJECT`、`HIDE` 或 `DELETE` |
+| `reason` | `String` | 条件必填 | 最长 255 个字符；拒绝、隐藏、删除时必填，通过时不传 |
+
+### 状态流转
+
+| 当前状态 | 允许动作 | 目标状态 |
+| --- | --- | --- |
+| `PENDING` | `APPROVE`、`REJECT`、`DELETE` | `APPROVED`、`REJECTED`、`DELETED` |
+| `REJECTED` | `APPROVE`、`DELETE` | `APPROVED`、`DELETED` |
+| `APPROVED` | `HIDE`、`DELETE` | `HIDDEN`、`DELETED` |
+| `HIDDEN` | `APPROVE`、`DELETE` | `APPROVED`、`DELETED` |
+| `DELETED` | 无 | 不允许继续处理 |
+
+处理成功后写入 `reviewedBy`、`reviewedAt`；拒绝、隐藏、删除保存 `moderationReason`，通过时清空该字段。管理员删除还需写入 `deletedBy`、`deletedAt`。状态变化、子树逻辑删除、`comment_count` 更新和后台操作审计日志必须保持事务一致性。管理员不能修改评论正文。
+
+## 12. 业务规则补充
+
+### 12.1 用户相关
 
 - 被禁用用户不可登录
 - 被禁用用户已有 Access Token 在 P0 阶段依赖 15 分钟短有效期自然过期
@@ -2133,7 +2254,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - P0 阶段不因普通刷新失败自动撤销该用户全部活跃 Refresh Token；明确安全事件，如修改密码、用户禁用、管理员强制下线，可按对应业务规则撤销全部会话
 - P1 阶段可结合 Redis 短 TTL 宽限期、`token_jti` 状态和 `tokenVersion` 增强幂等重试与重放检测
 
-### 11.2 文章相关
+### 12.2 文章相关
 
 - 前台文章列表和详情仅返回 `PUBLISHED` 状态文章
 - 草稿和下线文章仅后台可见
@@ -2153,7 +2274,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - P0 文章详情以 `articleId` 定位；P2 再考虑将 `slug` 追加到前台 URL 中提升可读性与 SEO 表达
 - 文章从 `PUBLISHED` 修改为 `OFFLINE` 后，前台立即不可见
 
-### 11.3 分类和标签相关
+### 12.3 分类和标签相关
 
 - 删除一级分类前需要校验其自身及其下所有二级分类是否存在关联文章
 - 删除二级分类前需要校验该二级分类是否存在关联文章
@@ -2161,19 +2282,25 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 前台分类接口默认返回一级分类树，二级分类挂载在 `children` 字段
 - 前台主导航不展示标签，标签主要用于筛选和后续搜索
 
-### 11.4 日志与审计
+### 12.4 评论相关
+
+- `comment_count` 统计文章下全部 `APPROVED` 评论，包括顶层评论和回复
+- 关闭 `allowComment` 只阻止新评论和回复，不影响已有评论展示和作者删除
+- 前台只显示两层，数据层仍保留无限层级的 `parentId` 和 `rootId`
+- 顶层评论分页不预载回复；回复由用户点击“共 x 条回复，点击查看”后按需请求
+- 评论内容只按纯文本展示，不解析 HTML 或 Markdown
+
+### 12.5 日志与审计
 
 - P0 阶段保留认证成功、认证失败、改密、禁用用户等关键安全事件的应用日志，避免记录密码、Token 等敏感值
 - P1 阶段补充后台管理操作审计日志，记录操作者用户 ID、目标资源 ID、操作类型、操作结果和操作时间
 
-## 12. 后续版本预留接口
+## 13. 后续版本预留接口
 
 以下接口不在 P0 范围内，仅做路由预留说明：
 
 | 模块 | 路由 | 路径 | 版本规划 |
 | --- | --- | --- | --- |
-| 评论 | `GET` | `/api/v1/articles/{articleId}/comments` | P1 |
-| 评论 | `POST` | `/api/v1/articles/{articleId}/comments` | P1 |
 | 点赞 | `POST` | `/api/v1/articles/{articleId}/like` | P2 |
 | 取消点赞 | `DELETE` | `/api/v1/articles/{articleId}/like` | P2 |
 | 收藏 | `POST` | `/api/v1/articles/{articleId}/favorite` | P2 |

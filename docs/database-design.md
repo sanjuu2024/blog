@@ -32,7 +32,7 @@
 | P0 必建 | `blog_tag` | 标签表 |
 | P0 必建 | `blog_article` | 文章表 |
 | P0 必建 | `blog_article_tag` | 文章标签关联表 |
-| 预留表 | `blog_comment` | 评论表，P1 使用 |
+| P1 使用 | `blog_comment` | 评论表，支持审核、无限层级回复和逻辑删除 |
 | 预留表 | `blog_article_like` | 点赞表，P2 使用 |
 | 预留表 | `blog_article_favorite` | 收藏表，P2 使用 |
 | 预留表 | `blog_message_board` | 留言表，P1 使用 |
@@ -47,8 +47,9 @@
 - `Refresh Token` 使用轮转机制；每次刷新成功后，旧会话记录标记为 `REVOKED`，新 Refresh Token 对应新的 `ACTIVE` 会话记录
 - P0 阶段不因普通刷新失败自动撤销用户全部活跃 Refresh Token；修改密码、用户禁用、管理员强制下线等明确安全事件可按业务规则撤销全部会话
 - 短暂宽限期用于处理网络波动下的幂等重试；P1 接入 Redis 后，可由 Redis 记录旧 `token_jti` 到新令牌结果的短 TTL 映射，数据库继续保留审计状态
-- 评论、点赞、收藏等互动能力虽然不在 P0 落地，但数据库结构先预留
+- 评论、点赞、收藏等互动能力虽然不在 P0 落地，但数据库结构先预留；P1 启用评论表并通过新 migration 扩展审核、根评论和逻辑删除字段
 - 统计字段如 `comment_count`、`like_count` 放在主表冗余，行为明细拆分到独立表
+- `blog_article.comment_count` 统计文章下全部 `APPROVED` 评论，包括顶层评论和回复
 - 分类采用树形结构建模，当前业务约束为两级分类
 - 数据库不创建业务表之间的物理外键，统一使用逻辑外键；关联完整性、删除校验和级联清理由应用层负责
 
@@ -67,6 +68,9 @@
 | `blog_comment` | `article_id` | `blog_article.id` | 评论前必须确认文章存在且允许评论 |
 | `blog_comment` | `user_id` | `blog_user.id` | 评论前必须确认用户存在且未被禁用 |
 | `blog_comment` | `parent_id` | `blog_comment.id` | 回复评论时必须确认父评论存在且属于同一文章 |
+| `blog_comment` | `root_id` | `blog_comment.id` | 顶层评论为空；所有层级回复必须指向所属顶层评论 |
+| `blog_comment` | `reviewed_by` | `blog_user.id` | 审核、拒绝或隐藏评论时记录管理员用户 ID |
+| `blog_comment` | `deleted_by` | `blog_user.id` | 用户或管理员删除评论时记录操作者用户 ID |
 | `blog_article_like` | `article_id` | `blog_article.id` | 点赞前必须确认文章存在且可见 |
 | `blog_article_like` | `user_id` | `blog_user.id` | 点赞前必须确认用户存在且未被禁用 |
 | `blog_article_favorite` | `article_id` | `blog_article.id` | 收藏前必须确认文章存在且可见 |
@@ -430,9 +434,15 @@ CREATE TABLE IF NOT EXISTS blog_comment (
     article_id BIGINT NOT NULL,
     user_id BIGINT NOT NULL,
     parent_id BIGINT,
+    root_id BIGINT,
     content TEXT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
-        CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
+        CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'HIDDEN', 'DELETED')),
+    reviewed_by BIGINT,
+    reviewed_at TIMESTAMPTZ,
+    moderation_reason VARCHAR(255),
+    deleted_by BIGINT,
+    deleted_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -445,6 +455,16 @@ CREATE INDEX IF NOT EXISTS idx_blog_comment_user_id
 
 CREATE INDEX IF NOT EXISTS idx_blog_comment_parent_id
     ON blog_comment (parent_id);
+
+CREATE INDEX IF NOT EXISTS idx_blog_comment_root_status_created_at
+    ON blog_comment (root_id, status, created_at, id);
+
+CREATE INDEX IF NOT EXISTS idx_blog_comment_top_level_paging
+    ON blog_comment (article_id, status, created_at DESC, id DESC)
+    WHERE parent_id IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_blog_comment_user_article_created_at
+    ON blog_comment (user_id, article_id, created_at DESC);
 ```
 
 ### 字段表
@@ -455,10 +475,27 @@ CREATE INDEX IF NOT EXISTS idx_blog_comment_parent_id
 | `article_id` | `BIGINT` | 所属文章 ID | `40001` |
 | `user_id` | `BIGINT` | 评论用户 ID | `10002` |
 | `parent_id` | `BIGINT` | 父评论 ID，一级评论为空，回复评论时有值 | `60000` |
+| `root_id` | `BIGINT` | 所属顶层评论 ID；顶层评论为空，所有后代回复均指向同一顶层评论 | `60001` |
 | `content` | `TEXT` | 评论内容 | `这篇文章对双 Token 的解释很清楚` |
-| `status` | `VARCHAR(20)` | 评论状态，可用于审核流 | `PENDING`、`APPROVED` |
+| `status` | `VARCHAR(20)` | 评论状态 | `PENDING`、`APPROVED`、`REJECTED`、`HIDDEN`、`DELETED` |
+| `reviewed_by` | `BIGINT` | 最近一次审核、拒绝或隐藏操作的管理员用户 ID | `10001` |
+| `reviewed_at` | `TIMESTAMPTZ` | 最近一次审核、拒绝或隐藏时间 | `2026-05-01 10:30:00+08` |
+| `moderation_reason` | `VARCHAR(255)` | 管理员拒绝、隐藏或删除评论时填写的处理原因 | `包含人身攻击内容` |
+| `deleted_by` | `BIGINT` | 删除评论的用户或管理员 ID | `10002` |
+| `deleted_at` | `TIMESTAMPTZ` | 逻辑删除时间 | `2026-05-01 10:40:00+08` |
 | `created_at` | `TIMESTAMPTZ` | 创建时间 | `2026-05-01 10:20:00+08` |
 | `updated_at` | `TIMESTAMPTZ` | 更新时间 | `2026-05-01 10:25:00+08` |
+
+### 状态、层级与计数规则
+
+- 顶层评论的 `parent_id` 和 `root_id` 均为空
+- 回复的 `parent_id` 指向直接父评论，`root_id` 指向所属顶层评论；无限层级回复在前端统一平铺到第二层
+- 新评论默认 `PENDING`，仅 `APPROVED` 可向其他用户和游客公开
+- `REJECTED` 表示审核未通过，`HIDDEN` 表示曾公开后被管理员隐藏，`DELETED` 表示已逻辑删除
+- 用户或管理员删除评论时，在同一事务中将目标评论及全部后代标记为 `DELETED`，并写入 `deleted_by`、`deleted_at`
+- `blog_article.comment_count` 只统计全部 `APPROVED` 评论，包括顶层评论和回复
+- 状态流转、子树删除和 `comment_count` 增减必须在同一事务中完成，避免冗余计数失真
+- 评论审核、拒绝、隐藏或删除的结构化操作历史由 P1 后台操作审计日志记录；评论表字段仅保存当前状态和最近一次处理信息
 
 ## 4.2 表名：`blog_article_like`
 

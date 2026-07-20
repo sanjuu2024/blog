@@ -13,12 +13,16 @@ tags:
     description: 认证模块
   - name: Public Articles
     description: 前台公共文章接口
+  - name: Public Comments
+    description: 前台评论接口
   - name: Public Users
     description: 前台公共用户接口
   - name: Profile
     description: 个人中心接口
   - name: Admin Users
     description: 后台用户管理接口
+  - name: Admin Comments
+    description: 后台评论审核接口
   - name: Admin Articles
     description: 后台文章管理接口
   - name: Admin Categories
@@ -313,6 +317,111 @@ paths:
           $ref: '#/components/responses/PublicArticleDetailNotFoundResponse'
         '409':
           $ref: '#/components/responses/PublicArticleDetailConflictResponse'
+  /api/v1/articles/{articleId}/comments:
+    get:
+      tags:
+        - Public Comments
+      summary: 获取文章顶层评论分页列表
+      description: 权限级别 `PUBLIC`，可选携带 Access Token。只返回顶层评论，不预载回复。游客只看到 APPROVED；登录用户还可看到自己发表的 PENDING 和 REJECTED 评论。默认按创建时间倒序。
+      operationId: listArticleComments
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ArticleId'
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicCommentPageResponse'
+        '404':
+          $ref: '#/components/responses/ArticleNotFoundResponse'
+    post:
+      tags:
+        - Public Comments
+      summary: 发表评论或回复
+      description: 权限级别 `LOGIN`。parentId 不传时创建顶层评论，传入时创建回复。新内容默认进入 PENDING 审核状态；同一用户对同一文章 10 秒内只能成功创建一条评论或回复。
+      operationId: createArticleComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ArticleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommentRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentMutationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/UserDisabledResponse'
+        '404':
+          $ref: '#/components/responses/ArticleNotFoundResponse'
+        '409':
+          $ref: '#/components/responses/CommentConflictResponse'
+        '429':
+          $ref: '#/components/responses/CommentRateLimitResponse'
+  /api/v1/comments/{commentId}/replies:
+    get:
+      tags:
+        - Public Comments
+      summary: 获取顶层评论下的回复
+      description: 权限级别 `PUBLIC`，可选携带 Access Token。commentId 必须是顶层评论 ID。所有层级回复在响应中平铺，按创建时间正序。首次请求默认取 5 条，后续使用 nextCursor 继续加载。
+      operationId: listCommentReplies
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+        - $ref: '#/components/parameters/ReplyLimit'
+        - $ref: '#/components/parameters/ReplyCursor'
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentReplyPageResponse'
+        '404':
+          $ref: '#/components/responses/CommentNotFoundResponse'
+  /api/v1/comments/{commentId}:
+    delete:
+      tags:
+        - Public Comments
+      summary: 删除自己的评论
+      description: 权限级别 `LOGIN`。用户只能删除自己的评论；目标评论及其全部后代会在同一事务中逻辑删除。
+      operationId: deleteOwnComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoDataResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/CommentForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/CommentNotFoundResponse'
   /api/v1/categories:
     get:
       tags:
@@ -511,6 +620,87 @@ paths:
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+  /api/v1/admin/comments:
+    get:
+      tags:
+        - Admin Comments
+      summary: 获取后台评论分页列表
+      description: 权限级别 `ADMIN`。支持按文章、作者、状态和评论层级筛选，默认按创建时间倒序。
+      operationId: listAdminComments
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+        - name: articleId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: userId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, REJECTED, HIDDEN, DELETED]
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [TOP_LEVEL, REPLY]
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCommentPageResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+  /api/v1/admin/comments/{commentId}/moderation:
+    patch:
+      tags:
+        - Admin Comments
+      summary: 审核、隐藏或删除评论
+      description: 权限级别 `ADMIN`。管理员不能修改评论正文。REJECT、HIDE、DELETE 必须填写 reason；APPROVE 时清空历史处理原因。删除为逻辑删除，并级联逻辑删除全部后代。
+      operationId: moderateComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModerateCommentRequest'
+      responses:
+        '200':
+          description: 处理成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentMutationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/CommentNotFoundResponse'
+        '409':
+          $ref: '#/components/responses/CommentConflictResponse'
   /api/v1/admin/users:
     get:
       tags:
@@ -1373,6 +1563,32 @@ components:
         type: integer
         format: int64
         example: 10002
+    CommentId:
+      name: commentId
+      in: path
+      description: 评论 ID；回复接口中必须是顶层评论 ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+        example: 50001
+    ReplyLimit:
+      name: limit
+      in: query
+      description: 本次获取回复条数，首次默认 5，后续请求默认 10
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 20
+        default: 5
+    ReplyCursor:
+      name: cursor
+      in: query
+      description: 上一次响应返回的不透明游标，首次请求不传，前端不得解析或构造
+      required: false
+      schema:
+        type: string
   schemas:
     BaseResponse:
       type: object
@@ -2832,6 +3048,217 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/TagUpdateData'
+    CommentAuthor:
+      type: object
+      required: [id, username, nickname, avatarUrl]
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        nickname:
+          type: string
+        avatarUrl:
+          type: string
+    CommentStatus:
+      type: string
+      enum: [PENDING, APPROVED, REJECTED, HIDDEN, DELETED]
+    PublicCommentItem:
+      type: object
+      required: [id, articleId, content, status, moderationReason, author, replyCount, isMine, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        articleId:
+          type: integer
+          format: int64
+        content:
+          type: string
+        status:
+          $ref: '#/components/schemas/CommentStatus'
+        moderationReason:
+          type: string
+          nullable: true
+          description: 本人评论被拒绝时返回；公开评论为空
+        author:
+          $ref: '#/components/schemas/CommentAuthor'
+        replyCount:
+          type: integer
+          format: int64
+          description: 当前请求者可见的全部层级回复数量；游客只统计 APPROVED 回复
+        isMine:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+    PublicCommentPageData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          required: [records]
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/PublicCommentItem'
+    PublicCommentPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/PublicCommentPageData'
+    CommentReplyItem:
+      allOf:
+        - $ref: '#/components/schemas/PublicCommentItem'
+        - type: object
+          required: [parentId, rootId, replyToUser]
+          properties:
+            parentId:
+              type: integer
+              format: int64
+            rootId:
+              type: integer
+              format: int64
+            replyToUser:
+              $ref: '#/components/schemas/CommentAuthor'
+    CommentReplyPageData:
+      type: object
+      required: [records, nextCursor, hasNext]
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommentReplyItem'
+        nextCursor:
+          type: string
+          nullable: true
+        hasNext:
+          type: boolean
+    CommentReplyPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CommentReplyPageData'
+    CreateCommentRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: 纯文本内容，服务端去除首尾空白后校验长度
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 直接父评论 ID；不传或为空表示顶层评论
+    CommentMutationData:
+      type: object
+      required: [id, articleId, parentId, rootId, content, status, moderationReason, author, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        articleId:
+          type: integer
+          format: int64
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+        rootId:
+          type: integer
+          format: int64
+          nullable: true
+        content:
+          type: string
+        status:
+          $ref: '#/components/schemas/CommentStatus'
+        moderationReason:
+          type: string
+          nullable: true
+        author:
+          $ref: '#/components/schemas/CommentAuthor'
+        reviewedBy:
+          type: integer
+          format: int64
+          nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        deletedBy:
+          type: integer
+          format: int64
+          nullable: true
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    CommentMutationResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CommentMutationData'
+    AdminCommentArticleRef:
+      type: object
+      required: [id, title]
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+    AdminCommentItem:
+      allOf:
+        - $ref: '#/components/schemas/CommentMutationData'
+        - type: object
+          required: [article, type, reviewedBy, reviewedAt, deletedBy, deletedAt]
+          properties:
+            article:
+              $ref: '#/components/schemas/AdminCommentArticleRef'
+            type:
+              type: string
+              enum: [TOP_LEVEL, REPLY]
+    AdminCommentPageData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          required: [records]
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminCommentItem'
+    AdminCommentPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AdminCommentPageData'
+    ModerateCommentRequest:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [APPROVE, REJECT, HIDE, DELETE]
+        reason:
+          type: string
+          maxLength: 255
+          description: REJECT、HIDE、DELETE 时必填；APPROVE 时不传并清空历史处理原因
   responses:
     BadRequestResponse:
       description: 请求参数不合法
@@ -2992,4 +3419,62 @@ components:
           example:
             code: 104002
             message: 该分类下存在子分类，请先删除或迁移子分类
+            data: null
+    CommentNotFoundResponse:
+      description: 评论不存在、已删除或当前用户不可见
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 105001
+            message: 评论不存在
+            data: null
+    CommentConflictResponse:
+      description: 评论业务状态冲突
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            commentDisabled:
+              value:
+                code: 105002
+                message: 文章已关闭评论
+                data: null
+            parentUnavailable:
+              value:
+                code: 105003
+                message: 回复目标不可用
+                data: null
+            statusConflict:
+              value:
+                code: 105006
+                message: 评论状态流转不合法
+                data: null
+    CommentForbiddenResponse:
+      description: 无权操作该评论
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 105005
+            message: 无权操作该评论
+            data: null
+    CommentRateLimitResponse:
+      description: 评论频率超过限制
+      headers:
+        Retry-After:
+          description: 建议客户端等待的秒数
+          schema:
+            type: integer
+            example: 10
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 105004
+            message: 评论过于频繁，请稍后再试
             data: null
