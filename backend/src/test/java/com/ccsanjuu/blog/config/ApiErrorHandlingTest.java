@@ -12,8 +12,11 @@ import com.ccsanjuu.blog.modules.tag.mapper.TagMapper;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import jakarta.validation.constraints.NotNull;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.MediaType;
@@ -46,6 +49,7 @@ import static org.mockito.Mockito.verify;
         GlobalExceptionHandler.class,
         ApiErrorHandlingTest.ValidationTestController.class
 })
+@ExtendWith(OutputCaptureExtension.class)
 class ApiErrorHandlingTest {
 
     @Autowired
@@ -135,12 +139,19 @@ class ApiErrorHandlingTest {
     }
 
     @Test
-    void shouldReturnUnauthorizedJsonWhenAnonymousAccessesProtectedEndpoint() throws Exception {
+    void shouldReturnUnauthorizedJsonWhenAnonymousAccessesProtectedEndpoint(CapturedOutput output) throws Exception {
         mockMvc.perform(get("/api/v1/users/me"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(101001))
                 .andExpect(jsonPath("$.message").value("未登录或 Access Token 无效"))
                 .andExpect(jsonPath("$.data").value(nullValue()));
+
+        org.junit.jupiter.api.Assertions.assertTrue(
+                output.getOut().contains("security_event=AUTHENTICATION_REQUIRED")
+        );
+        org.junit.jupiter.api.Assertions.assertTrue(
+                output.getOut().contains("description=\"需要登录才能访问\"")
+        );
     }
 
     @Test
@@ -158,12 +169,19 @@ class ApiErrorHandlingTest {
 
     @Test
     @WithMockUser(username = "alice", roles = "USER")
-    void shouldReturnForbiddenJsonWhenUserAccessesAdminEndpoint() throws Exception {
+    void shouldReturnForbiddenJsonWhenUserAccessesAdminEndpoint(CapturedOutput output) throws Exception {
         mockMvc.perform(get("/api/v1/admin/users"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(101003))
                 .andExpect(jsonPath("$.message").value("无权限访问"))
                 .andExpect(jsonPath("$.data").value(nullValue()));
+
+        org.junit.jupiter.api.Assertions.assertTrue(
+                output.getOut().contains("security_event=ACCESS_DENIED")
+        );
+        org.junit.jupiter.api.Assertions.assertTrue(
+                output.getOut().contains("description=\"无权限访问\"")
+        );
     }
 
     @RestController

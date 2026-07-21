@@ -2,3 +2,7 @@ blog:
   auth:
     refresh-cookie:
       secure: false
+
+logging:
+  level:
+    org.flywaydb: DEBUG

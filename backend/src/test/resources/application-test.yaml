@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    url: ${BLOG_TEST_DB_URL}
+    username: ${BLOG_TEST_DB_USERNAME}
+    password: ${BLOG_TEST_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+blog:
+  jwt:
+    secret: ${BLOG_TEST_JWT_SECRET}
+  auth:
+    refresh-cookie:
+      secure: false

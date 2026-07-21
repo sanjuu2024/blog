@@ -52,6 +52,14 @@ External services
 建议保留的关键配置项：
 
 ```text
+BLOG_DB_URL
+BLOG_DB_USERNAME
+BLOG_DB_PASSWORD
+BLOG_JWT_SECRET
+BLOG_TEST_DB_URL
+BLOG_TEST_DB_USERNAME
+BLOG_TEST_DB_PASSWORD
+BLOG_TEST_JWT_SECRET
 POSTGRES_DB
 POSTGRES_USER
 POSTGRES_PASSWORD
@@ -62,6 +70,24 @@ OBJECT_STORAGE_BUCKET
 OBJECT_STORAGE_ACCESS_KEY
 OBJECT_STORAGE_SECRET_KEY
 ```
+
+Spring Boot 配置按运行场景区分：
+
+- IDEA 本地启动后端时使用 `dev` profile，通过 IDEA Run Configuration 注入 `BLOG_DB_*` 和 `BLOG_JWT_SECRET`
+- 自动化集成测试使用 `test` profile，通过 JUnit 或 Maven Run Configuration 注入 `BLOG_TEST_DB_*` 和 `BLOG_TEST_JWT_SECRET`
+- 生产容器使用 `prod` profile，通过 Compose 将服务器环境变量或根目录 `.env` 中的生产值注入 backend 容器
+- `application-test.yaml` 只放在 `src/test/resources`，不会打包进生产应用
+- `dev`、`test` 使用本地 HTTP 时 Refresh Token Cookie 的 `Secure` 为 `false`；`prod` 必须为 `true`
+- 测试数据库必须独立于开发数据库，避免测试运行 Flyway 或写入测试数据时修改开发数据
+
+环境文件的职责需要区分：
+
+- `.env.example` 是提交到仓库的变量清单，保留 `BLOG_TEST_*`，方便新环境知道自动化测试需要哪些变量。
+- `.env` 是本机或服务器的真实值，不会被提交。它是否包含 `BLOG_TEST_*` 取决于是否用它来运行集成测试；生产 Compose 不需要这些测试变量。
+- Spring Boot 和 Maven 不会自动读取项目根目录的 `.env`。IDEA Run Configuration、Maven/CI 环境或 Compose 必须显式注入变量。
+- `application-test.yaml` 仍然需要保留。它把测试 profile 的数据库和 JWT 配置切换到 `BLOG_TEST_*`，从配置层面阻止集成测试误连开发库；`@ActiveProfiles("test")` 负责选择这个文件。
+
+仓库根目录只提交 `.env.example` 作为变量清单，不提交真实 `.env`。Compose 仅在部署 backend 容器时需要设置 `SPRING_PROFILES_ACTIVE=prod`；如果本地只用 Compose 启动 PostgreSQL、后端仍由 IDEA 启动，则后端继续使用 `dev` profile。
 
 ## 5. 数据库备份约定
 

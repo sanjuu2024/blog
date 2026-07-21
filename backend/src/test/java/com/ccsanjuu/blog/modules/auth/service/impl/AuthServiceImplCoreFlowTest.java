@@ -24,6 +24,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import javax.crypto.SecretKey;
@@ -35,12 +37,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
 class AuthServiceImplCoreFlowTest {
 
     private static final Long USER_ID = 10001L;
@@ -146,7 +150,7 @@ class AuthServiceImplCoreFlowTest {
     }
 
     @Test
-    void refreshShouldRevokeOldSessionAndPersistRotatedToken() {
+    void refreshShouldRevokeOldSessionAndPersistRotatedToken(CapturedOutput output) {
         String oldJti = "old-refresh-token-jti";
         String oldRefreshToken = JwtUtil.generateRefreshToken(
                 SIGNING_KEY,
@@ -175,10 +179,13 @@ class AuthServiceImplCoreFlowTest {
         assertNotEquals(oldRefreshToken, result.getRefreshToken());
         verify(authMapper).revokeRefreshToken(oldJti, AuthSessionStatus.REVOKED.getValue());
         verify(authMapper).insert(any(AuthSession.class));
+        assertTrue(output.getOut().contains("security_event=TOKEN_REFRESH_SUCCESS"));
+        assertTrue(output.getOut().contains("description=\"登录态刷新成功\""));
+        assertFalse(output.getOut().contains(oldRefreshToken));
     }
 
     @Test
-    void refreshShouldRejectDisabledUserWithoutRotatingSession() {
+    void refreshShouldRejectDisabledUserWithoutRotatingSession(CapturedOutput output) {
         String refreshToken = JwtUtil.generateRefreshToken(
                 SIGNING_KEY,
                 "sanjuu-blog",
@@ -205,6 +212,23 @@ class AuthServiceImplCoreFlowTest {
         assertEquals(ResultCode.USER_DISABLED, exception.getResultCode());
         verify(authMapper, never()).revokeRefreshToken(any(), any());
         verify(authMapper, never()).insert(any(AuthSession.class));
+        assertTrue(output.getOut().contains("security_event=TOKEN_REFRESH_FAILED"));
+        assertTrue(output.getOut().contains("reason=USER_DISABLED"));
+        assertFalse(output.getOut().contains(refreshToken));
+    }
+
+    @Test
+    void refreshShouldLogInvalidTokenWithoutExposingIt(CapturedOutput output) {
+        String invalidRefreshToken = "invalid-refresh-token";
+
+        BizException exception = assertThrows(BizException.class, () -> authService.refresh(
+                RefreshTokenRequestDTO.builder().refreshToken(invalidRefreshToken).build()
+        ));
+
+        assertEquals(ResultCode.REFRESH_TOKEN_INVALID_OR_EXPIRED, exception.getResultCode());
+        assertTrue(output.getOut().contains("security_event=TOKEN_REFRESH_FAILED"));
+        assertTrue(output.getOut().contains("reason=INVALID_OR_EXPIRED"));
+        assertFalse(output.getOut().contains(invalidRefreshToken));
     }
 
     private User activeUser() {
