@@ -10,6 +10,7 @@ import com.ccsanjuu.blog.modules.auth.service.AuthService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.dto.*;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
+import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
 import com.ccsanjuu.blog.modules.user.model.enums.UserStatus;
 import com.ccsanjuu.blog.modules.user.model.vo.*;
 import com.ccsanjuu.blog.modules.user.service.UserService;
@@ -100,6 +101,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public Void changePassword(Long userId, ChangePasswordRequestDTO changePasswordRequestDTO) {
         User user = requireUser(userId);
         if (!passwordEncoder.matches(changePasswordRequestDTO.getOldPassword(), user.getPasswordHash())){
+            log.warn(
+                    "security_event=PASSWORD_CHANGE_FAILED description=\"修改密码失败：原密码错误\" outcome=FAIL reason=OLD_PASSWORD_ERROR userId={}",
+                    userId
+            );
             throw new BizException(ResultCode.OLD_PASSWORD_ERROR);
         }
 
@@ -109,7 +114,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         userMapper.updateById(updateUser);
         authService.revokeUserRefreshTokens(user.getId());   // 用户修改密码，则撤销其现有的活跃 RT
 
-        log.info("用户修改密码成功：userId={}", userId);
+        log.info(
+                "security_event=PASSWORD_CHANGE_SUCCESS description=\"修改密码成功，已撤销现有登录态\" outcome=SUCCESS userId={} refreshTokensRevoked=true",
+                userId
+        );
 
         return null;
     }
@@ -156,9 +164,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public UpdatedUserStatusVO changeUserStatus(Long currentUserId, Long userId, UpdateUserStatusRequestDTO updateUserStatusRequestDTO) {
         User user = requireUser(userId);
         if (currentUserId.equals(user.getId())) {   // 管理员不得修改自己的状态
+            log.warn(
+                    "security_event=USER_STATUS_CHANGE_FAILED description=\"修改用户状态失败：不能修改自己的状态\" outcome=FAIL reason=SELF_CHANGE actorId={} targetUserId={}",
+                    currentUserId,
+                    userId
+            );
             throw new BizException(ResultCode.SELF_STATUS_CHANGE_NOT_ALLOWED);
         }
         if (user.getStatus() != updateUserStatusRequestDTO.getStatus()) {
+            UserStatus oldStatus = user.getStatus();
             User updateUser = new User();
             updateUser.setId(user.getId());
             updateUser.setStatus(updateUserStatusRequestDTO.getStatus());
@@ -166,6 +180,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             if (updateUserStatusRequestDTO.getStatus() == UserStatus.DISABLED) {
                 authService.revokeUserRefreshTokens(user.getId());   // 用户状态从 ACTIVE 变成 DISABLED，则撤销其现有的活跃 RT
             }
+            log.info(
+                    "security_event=USER_STATUS_CHANGED description=\"用户状态修改成功\" outcome=SUCCESS actorId={} targetUserId={} oldStatus={} newStatus={} refreshTokensRevoked={}",
+                    currentUserId,
+                    userId,
+                    oldStatus,
+                    updateUserStatusRequestDTO.getStatus(),
+                    updateUserStatusRequestDTO.getStatus() == UserStatus.DISABLED
+            );
         }
         return UpdatedUserStatusVO.builder()
                 .id(user.getId())
@@ -185,13 +207,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public UpdatedUserRoleVO changeUserRole(Long currentUserId, Long userId, UpdateUserRoleRequestDTO updateUserRoleRequestDTO) {
         User user = requireUser(userId);
         if (currentUserId.equals(user.getId())) {   // 管理员不得修改自己的角色
+            log.warn(
+                    "security_event=USER_ROLE_CHANGE_FAILED description=\"修改用户角色失败：不能修改自己的角色\" outcome=FAIL reason=SELF_CHANGE actorId={} targetUserId={}",
+                    currentUserId,
+                    userId
+            );
             throw new BizException(ResultCode.SELF_ROLE_CHANGE_NOT_ALLOWED);
         }
         if (user.getRole() != updateUserRoleRequestDTO.getRole()) {
+            UserRole oldRole = user.getRole();
             User updateUser = new User();
             updateUser.setId(user.getId());
             updateUser.setRole(updateUserRoleRequestDTO.getRole());
             userMapper.updateById(updateUser);
+            log.info(
+                    "security_event=USER_ROLE_CHANGED description=\"用户角色修改成功\" outcome=SUCCESS actorId={} targetUserId={} oldRole={} newRole={}",
+                    currentUserId,
+                    userId,
+                    oldRole,
+                    updateUserRoleRequestDTO.getRole()
+            );
         }
         return UpdatedUserRoleVO.builder()
                 .id(user.getId())

@@ -82,7 +82,11 @@ public class AuthServiceImpl implements AuthService {
         // 4，插入用户信息
         userMapper.insert(newUser);
 
-        log.info("用户注册成功：userId={}, username={}", newUser.getId(), newUser.getUsername());
+        log.info(
+                "security_event=REGISTER_SUCCESS description=\"用户注册成功\" outcome=SUCCESS userId={} username={}",
+                newUser.getId(),
+                newUser.getUsername()
+        );
     }
 
     /**
@@ -102,17 +106,26 @@ public class AuthServiceImpl implements AuthService {
             user = findUserByUsername(loginRequestDTO.getAccount());
         }
         if (user == null) {
-            log.warn("用户登录失败，account={}, reason=USER_NOT_FOUND", maskAccount(loginRequestDTO.getAccount()));
+            log.warn(
+                    "security_event=LOGIN_FAILED description=\"登录失败：用户不存在\" outcome=FAIL reason=USER_NOT_FOUND account={}",
+                    maskAccount(loginRequestDTO.getAccount())
+            );
             throw new BizException(ResultCode.USER_NOT_FOUND);
         }
 
         // 🍰2. 密码是否正确、用户是否状态正常（被禁用则不能登录）
         if (!passwordEncoder.matches(loginRequestDTO.getPassword(), user.getPasswordHash())) {
-            log.warn("用户登录失败，account={}, reason=PASSWORD_ERROR", maskAccount(loginRequestDTO.getAccount()));
+            log.warn(
+                    "security_event=LOGIN_FAILED description=\"登录失败：密码错误\" outcome=FAIL reason=PASSWORD_ERROR account={}",
+                    maskAccount(loginRequestDTO.getAccount())
+            );
             throw new BizException(ResultCode.PASSWORD_ERROR);
         }
         if (user.getStatus() == UserStatus.DISABLED) {
-            log.warn("用户登录失败，account={}, reason=USER_DISABLED", maskAccount(loginRequestDTO.getAccount()));
+            log.warn(
+                    "security_event=LOGIN_FAILED description=\"登录失败：用户已禁用\" outcome=FAIL reason=USER_DISABLED account={}",
+                    maskAccount(loginRequestDTO.getAccount())
+            );
             throw new BizException(ResultCode.USER_DISABLED);
         }
 
@@ -125,7 +138,11 @@ public class AuthServiceImpl implements AuthService {
         updateUser.setLastLoginAt(OffsetDateTime.now(ZoneOffset.UTC));
         userMapper.updateById(updateUser);
 
-        log.info("用户登录成功：userId={}, username={}", user.getId(), user.getUsername());
+        log.info(
+                "security_event=LOGIN_SUCCESS description=\"用户登录成功\" outcome=SUCCESS userId={} username={}",
+                user.getId(),
+                user.getUsername()
+        );
 
         // 🍰5. 封装返回
         LoginUserVO loginUserVO = BeanUtil.copyProperties(user, LoginUserVO.class);
@@ -149,14 +166,28 @@ public class AuthServiceImpl implements AuthService {
     public RefreshTokenVO refresh(RefreshTokenRequestDTO refreshTokenRequestDTO) {
         // 🍰1. 解析并验证 DTO 中的旧 RT 是否有效（包括判断token_type、是否存在、是否ACTIVE可用、是否没过期、是否和数据库中的token_hash相等）
         String refreshToken = refreshTokenRequestDTO.getRefreshToken();
-        ValidatedRefreshToken validatedRefreshToken = validateRefreshToken(refreshToken);
+        ValidatedRefreshToken validatedRefreshToken;
+        try {
+            validatedRefreshToken = validateRefreshToken(refreshToken);
+        } catch (BizException ex) {
+            log.warn("security_event=TOKEN_REFRESH_FAILED description=\"刷新登录态失败：Refresh Token 无效或已过期\" outcome=FAIL reason=INVALID_OR_EXPIRED");
+            throw ex;
+        }
 
         // 🍰2. 检查当前用户是否存在、是否没被禁用
         User user = userMapper.selectById(validatedRefreshToken.getUserId());
         if (user == null) {
+            log.warn(
+                    "security_event=TOKEN_REFRESH_FAILED description=\"刷新登录态失败：用户不存在\" outcome=FAIL reason=USER_NOT_FOUND userId={}",
+                    validatedRefreshToken.getUserId()
+            );
             throw new BizException(ResultCode.USER_NOT_FOUND);
         }
         if (user.getStatus() == UserStatus.DISABLED){
+            log.warn(
+                    "security_event=TOKEN_REFRESH_FAILED description=\"刷新登录态失败：用户已禁用\" outcome=FAIL reason=USER_DISABLED userId={}",
+                    user.getId()
+            );
             throw new BizException(ResultCode.USER_DISABLED);
         }
 
@@ -165,6 +196,8 @@ public class AuthServiceImpl implements AuthService {
 
         // 🍰4. 颁发新的 RT 和 AT，并且将新 RT 存入数据库
         AuthTokenPair authTokenPair = generateTokenPairAndSaveRT(user);
+
+        log.info("security_event=TOKEN_REFRESH_SUCCESS description=\"登录态刷新成功\" outcome=SUCCESS userId={}", user.getId());
 
         // 🍰5. 封装返回
         return RefreshTokenVO.builder()
@@ -189,13 +222,16 @@ public class AuthServiceImpl implements AuthService {
         try {
             ValidatedRefreshToken validatedRefreshToken = validateRefreshToken(logoutRequestDTO.getRefreshToken());
             revokeRefreshToken(validatedRefreshToken.getTokenJti());   // 该用户退出登录后撤销其 RT
-            log.info("用户退出登录成功：userId={}", validatedRefreshToken.getUserId());
+            log.info(
+                    "security_event=LOGOUT_SUCCESS description=\"用户退出登录成功\" outcome=SUCCESS userId={}",
+                    validatedRefreshToken.getUserId()
+            );
         } catch (BizException ex) {
             if (ex.getResultCode() != ResultCode.REFRESH_TOKEN_INVALID_OR_EXPIRED) {
                 throw ex;
             }
             // 退出登录按幂等语义处理：RT 无效、过期、已撤销或找不到会话，都视为已经退出。
-            log.debug("用户退出登录成功，忽略发生的异常: {}", ex.getMessage());
+            log.debug("security_event=LOGOUT_SUCCESS description=\"退出登录幂等完成：会话已失效\" outcome=SUCCESS reason=SESSION_ALREADY_INVALID");
         }
     }
 

@@ -4,6 +4,7 @@ import com.ccsanjuu.blog.common.api.Result;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.MediaType;
@@ -20,6 +21,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 @Configuration
+@Slf4j
 public class SecurityConfig {
 
     /**
@@ -57,10 +59,22 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(exceptionHandling -> exceptionHandling
-                        .authenticationEntryPoint((request, response, exception) ->
-                                writeErrorResponse(response, objectMapper, ResultCode.ACCESS_TOKEN_INVALID))
-                        .accessDeniedHandler((request, response, exception) ->
-                                writeErrorResponse(response, objectMapper, ResultCode.NO_PERMISSION))
+                        .authenticationEntryPoint((request, response, exception) -> {
+                            log.warn(
+                                    "security_event=AUTHENTICATION_REQUIRED description=\"需要登录才能访问\" outcome=FAIL method={} path={}",
+                                    request.getMethod(),
+                                    request.getRequestURI()
+                            );
+                            writeErrorResponse(response, objectMapper, ResultCode.ACCESS_TOKEN_INVALID);
+                        })
+                        .accessDeniedHandler((request, response, exception) -> {
+                            log.warn(
+                                    "security_event=ACCESS_DENIED description=\"无权限访问\" outcome=FAIL method={} path={}",
+                                    request.getMethod(),
+                                    request.getRequestURI()
+                            );
+                            writeErrorResponse(response, objectMapper, ResultCode.NO_PERMISSION);
+                        })
                 )
                 // 🔺先解析 Bearer Access Token，下面代码再让 authenticated()/hasRole(...) 做鉴权判断。
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

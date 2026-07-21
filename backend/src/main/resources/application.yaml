@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/blog_db?useSSL=false&serverTimezone=UTC
-    username: sanjuu
-    password: sanjuu
+    url: ${BLOG_DB_URL}
+    username: ${BLOG_DB_USERNAME}
+    password: ${BLOG_DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
   flyway:
     enabled: true
@@ -13,10 +13,6 @@ spring:
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
-
-logging:
-  level:
-    org.flywaydb: DEBUG
 
 mybatis-plus:
   type-aliases-package: com.ccsanjuu.blog.**.entity   # 实体类所在的包，默认值
@@ -32,7 +28,7 @@ mybatis-plus:
 blog:
   jwt:
     issuer: sanjuu-blog
-    secret: YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY=   # base64 编码的 JWT 密钥（原文本：abcdefghijklmnopqrstuvwxyz123456）
+    secret: ${BLOG_JWT_SECRET}   # base64 编码的 JWT 密钥
     access-ttl: 15m
     refresh-ttl: 7d
   auth:

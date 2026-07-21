@@ -14,6 +14,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -34,6 +35,7 @@ import java.util.List;
  * 也不会被这里拦截，避免影响游客浏览公开内容。</p>
  */
 @RequiredArgsConstructor
+@Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String API_PREFIX = "/api/v1";
@@ -64,7 +66,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         if (!authorization.startsWith(AuthConstants.BEARER_TOKEN_PREFIX)) {
-            writeErrorResponse(response, ResultCode.ACCESS_TOKEN_INVALID);
+            rejectRequest(request, response, ResultCode.ACCESS_TOKEN_INVALID, "INVALID_AUTHORIZATION_FORMAT");
             return;
         }
 
@@ -73,7 +75,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             Claims claims = JwtUtil.parseClaims(accessToken, jwtSigningKey);
             if (!JwtUtil.TOKEN_TYPE_ACCESS.equals(claims.get(JwtUtil.CLAIM_TOKEN_TYPE, String.class))) {
-                writeErrorResponse(response, ResultCode.ACCESS_TOKEN_INVALID);
+                rejectRequest(request, response, ResultCode.ACCESS_TOKEN_INVALID, "INVALID_TOKEN_TYPE");
                 return;
             }
 
@@ -107,10 +109,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             filterChain.doFilter(request, response);
         } catch (ExpiredJwtException ex) {
-            writeErrorResponse(response, ResultCode.ACCESS_TOKEN_EXPIRED);
+            rejectRequest(request, response, ResultCode.ACCESS_TOKEN_EXPIRED, "EXPIRED");
         } catch (JwtException | IllegalArgumentException ex) {
-            writeErrorResponse(response, ResultCode.ACCESS_TOKEN_INVALID);
+            rejectRequest(request, response, ResultCode.ACCESS_TOKEN_INVALID, "INVALID_TOKEN");
         }
+    }
+
+    private void rejectRequest(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            ResultCode resultCode,
+            String reason
+    ) throws IOException {
+        log.warn(
+                "security_event=ACCESS_TOKEN_REJECTED description=\"Access Token 被拒绝\" outcome=FAIL reason={} method={} path={}",
+                reason,
+                request.getMethod(),
+                request.getRequestURI()
+        );
+        writeErrorResponse(response, resultCode);
     }
 
     private boolean requiresAccessToken(HttpServletRequest request) {
