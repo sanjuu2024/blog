@@ -490,7 +490,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_comment_user_article_created_at
 
 - 顶层评论的 `parent_id` 和 `root_id` 均为空
 - 回复的 `parent_id` 指向直接父评论，`root_id` 指向所属顶层评论；无限层级回复在前端统一平铺到第二层
-- 新评论默认 `PENDING`，仅 `APPROVED` 可向其他用户和游客公开
+- 数据库默认将新评论设为 `PENDING`；应用层创建普通用户评论时保持该状态，创建管理员评论时显式写为 `APPROVED`
+- 仅 `APPROVED` 可向其他用户和游客公开；管理员直接创建的 `APPROVED` 评论不填写 `reviewed_by`、`reviewed_at`
 - `REJECTED` 表示审核未通过，`HIDDEN` 表示曾公开后被管理员隐藏，`DELETED` 表示已逻辑删除
 - 用户或管理员删除评论时，在同一事务中将目标评论及全部后代标记为 `DELETED`，并写入 `deleted_by`、`deleted_at`
 - `blog_article.comment_count` 只统计全部 `APPROVED` 评论，包括顶层评论和回复

@@ -13,10 +13,13 @@ import com.ccsanjuu.blog.modules.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+@Validated
 @RestController
 @RequestMapping("/admin/users")
 @RequiredArgsConstructor
@@ -46,7 +49,7 @@ public class AdminUserController {
     @PatchMapping("/{userId}/status")
     @Operation(description = "修改用户状态")
     public Result<UpdatedUserStatusVO> changeUserStatus(
-            @PathVariable Long userId,
+            @PathVariable @Positive Long userId,
             @Valid @RequestBody UpdateUserStatusRequestDTO updateUserStatusRequestDTO,
             @AuthenticationPrincipal JwtPrincipal jwtPrincipal
     ) {
@@ -63,7 +66,7 @@ public class AdminUserController {
     @PatchMapping("/{userId}/role")
     @Operation(description = "修改用户角色")
     public Result<UpdatedUserRoleVO> changeUserRole(
-            @PathVariable Long userId,
+            @PathVariable @Positive Long userId,
             @Valid @RequestBody UpdateUserRoleRequestDTO updateUserRoleRequestDTO,
             @AuthenticationPrincipal JwtPrincipal jwtPrincipal
             ) {

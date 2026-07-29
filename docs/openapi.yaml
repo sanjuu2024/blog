@@ -59,7 +59,7 @@ paths:
                 message: 成功
                 data: null
         '400':
-          $ref: '#/components/responses/BadRequestResponse'
+          $ref: '#/components/responses/CommentReasonRequiredResponse'
         '409':
           $ref: '#/components/responses/UserConflictResponse'
   /api/v1/auth/login:
@@ -344,7 +344,7 @@ paths:
       tags:
         - Public Comments
       summary: 发表评论或回复
-      description: 权限级别 `LOGIN`。parentId 不传时创建顶层评论，传入时创建回复。新内容默认进入 PENDING 审核状态；同一用户对同一文章 10 秒内只能成功创建一条评论或回复。
+      description: 权限级别 `LOGIN`。parentId 不传时创建顶层评论，传入时创建回复。普通用户新内容进入 PENDING 审核状态，管理员新内容直接为 APPROVED；同一用户对同一文章 10 秒内只能成功创建一条评论或回复。
       operationId: createArticleComment
       security:
         - bearerAuth: []
@@ -3427,8 +3427,18 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            code: 105001
+            code: 106001
             message: 评论不存在
+            data: null
+    CommentReasonRequiredResponse:
+      description: 评论处理原因缺失
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 106007
+            message: 评论处理原因不能为空
             data: null
     CommentConflictResponse:
       description: 评论业务状态冲突
@@ -3439,17 +3449,17 @@ components:
           examples:
             commentDisabled:
               value:
-                code: 105002
+                code: 106002
                 message: 文章已关闭评论
                 data: null
             parentUnavailable:
               value:
-                code: 105003
+                code: 106003
                 message: 回复目标不可用
                 data: null
             statusConflict:
               value:
-                code: 105006
+                code: 106006
                 message: 评论状态流转不合法
                 data: null
     CommentForbiddenResponse:
@@ -3459,7 +3469,7 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            code: 105005
+            code: 106005
             message: 无权操作该评论
             data: null
     CommentRateLimitResponse:
@@ -3475,6 +3485,6 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            code: 105004
+            code: 106004
             message: 评论过于频繁，请稍后再试
             data: null
