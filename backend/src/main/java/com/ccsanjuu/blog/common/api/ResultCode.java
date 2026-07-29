@@ -50,7 +50,16 @@ public enum ResultCode {
     // tag 模块 05xxxx
     TAG_NAME_ALREADY_EXISTS(105001, "标签名称已存在", 409),
     TAG_NOT_FOUND(105002, "该标签不存在", 404),
-    TAG_HAS_ARTICLES(105003, "该标签下存在文章，请先迁移文章或删除文章", 409);
+    TAG_HAS_ARTICLES(105003, "该标签下存在文章，请先迁移文章或删除文章", 409),
+
+    // comment 模块 06xxxx
+    COMMENT_NOT_FOUND(106001, "评论不存在", 404),
+    COMMENT_DISABLED(106002, "文章已关闭评论", 409),
+    COMMENT_PARENT_UNAVAILABLE(106003, "回复目标不可用", 409),
+    COMMENT_RATE_LIMITED(106004, "评论过于频繁，请稍后再试", 429),
+    COMMENT_NO_PERMISSION(106005, "无权操作该评论", 403),
+    COMMENT_STATUS_TRANSITION_INVALID(106006, "评论状态流转不合法", 409),
+    COMMENT_MODERATION_REASON_REQUIRED(106007, "评论处理原因不能为空", 400);
 
     private final int code;
     private final String message;
