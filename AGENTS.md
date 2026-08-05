@@ -250,6 +250,9 @@ backend/src/main/java/.../
 - 谨慎使用 `Hutool`，只在确实有价值时使用
 - 接口实现必须遵守 `docs/api-design.md` 和 `docs/openapi.yaml`
 - 文章保存或更新时，必须由后端根据 `content_md` 生成 `content_html` 和 `content_text`
+- 不要过度封装：只有一行、没有复用价值、没有明显命名解释作用的小逻辑，优先直接写在调用处
+- 不要过度添加边界判断：保留参数校验、权限校验、业务状态校验、数据一致性校验；已经由 DTO 校验、前置查询或明确业务不变量保证的重复兜底，不要层层堆叠
+- 同一个类中，`@Override` 的 public 实现方法优先放在前面，让读者先看到对外能力；private helper 放在 public 方法之后，且 helper 内部若 `A` 调用 `B`，默认把 `B` 写在 `A` 前面
 
 ### 5.4 修改后端后的强制动作
 

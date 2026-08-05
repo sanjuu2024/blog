@@ -27,6 +27,7 @@ import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
  * 从请求头中解析 Access Token，并把认证结果写入 Spring Security 上下文。
@@ -42,13 +43,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String ADMIN_API_PREFIX = API_PREFIX + "/admin/";
     private static final String CURRENT_USER_API = API_PREFIX + "/users/me";
     private static final String CURRENT_USER_API_PREFIX = CURRENT_USER_API + "/";
+    private static final Pattern ARTICLE_COMMENT_API_PATTERN = Pattern.compile("^" + API_PREFIX + "/articles/[^/]+/comments$");
+    private static final Pattern COMMENT_DETAIL_API_PATTERN = Pattern.compile("^" + API_PREFIX + "/comments/[^/]+$");
 
     private final SecretKey jwtSigningKey;
     private final ObjectMapper objectMapper;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !requiresAccessToken(request);
+        return !requiresAccessToken(request) && !hasAuthorizationHeader(request);
     }
 
     @Override
@@ -57,6 +60,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain
     ) throws ServletException, IOException {
+        boolean accessTokenRequired = requiresAccessToken(request);
         String authorization = request.getHeader(AuthConstants.AUTHORIZATION_HEADER);
 
         if (authorization == null || authorization.isBlank()) {
@@ -66,7 +70,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         if (!authorization.startsWith(AuthConstants.BEARER_TOKEN_PREFIX)) {
-            rejectRequest(request, response, ResultCode.ACCESS_TOKEN_INVALID, "INVALID_AUTHORIZATION_FORMAT");
+            rejectRequestOrContinue(accessTokenRequired, request, response, filterChain, ResultCode.ACCESS_TOKEN_INVALID, "INVALID_AUTHORIZATION_FORMAT");
             return;
         }
 
@@ -75,7 +79,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             Claims claims = JwtUtil.parseClaims(accessToken, jwtSigningKey);
             if (!JwtUtil.TOKEN_TYPE_ACCESS.equals(claims.get(JwtUtil.CLAIM_TOKEN_TYPE, String.class))) {
-                rejectRequest(request, response, ResultCode.ACCESS_TOKEN_INVALID, "INVALID_TOKEN_TYPE");
+                rejectRequestOrContinue(accessTokenRequired, request, response, filterChain, ResultCode.ACCESS_TOKEN_INVALID, "INVALID_TOKEN_TYPE");
                 return;
             }
 
@@ -109,10 +113,31 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             filterChain.doFilter(request, response);
         } catch (ExpiredJwtException ex) {
-            rejectRequest(request, response, ResultCode.ACCESS_TOKEN_EXPIRED, "EXPIRED");
+            rejectRequestOrContinue(accessTokenRequired, request, response, filterChain, ResultCode.ACCESS_TOKEN_EXPIRED, "EXPIRED");
         } catch (JwtException | IllegalArgumentException ex) {
-            rejectRequest(request, response, ResultCode.ACCESS_TOKEN_INVALID, "INVALID_TOKEN");
+            rejectRequestOrContinue(accessTokenRequired, request, response, filterChain, ResultCode.ACCESS_TOKEN_INVALID, "INVALID_TOKEN");
         }
+    }
+
+    private void rejectRequestOrContinue(
+            boolean accessTokenRequired,
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain filterChain,
+            ResultCode resultCode,
+            String reason
+    ) throws IOException, ServletException {
+        if (accessTokenRequired) {
+            rejectRequest(request, response, resultCode, reason);
+            return;
+        }
+        log.warn(
+                "security_event=OPTIONAL_ACCESS_TOKEN_IGNORED description=\"公开接口携带的 Access Token 无效，按游客身份继续访问\" outcome=CONTINUE reason={} method={} path={}",
+                reason,
+                request.getMethod(),
+                request.getRequestURI()
+        );
+        filterChain.doFilter(request, response);
     }
 
     private void rejectRequest(
@@ -135,7 +160,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         return path.startsWith(ADMIN_API_PREFIX)
                 || path.equals(CURRENT_USER_API)
-                || path.startsWith(CURRENT_USER_API_PREFIX);
+                || path.startsWith(CURRENT_USER_API_PREFIX)
+                || isProtectedCommentApi(request, path);
+    }
+
+    private boolean hasAuthorizationHeader(HttpServletRequest request) {
+        String authorization = request.getHeader(AuthConstants.AUTHORIZATION_HEADER);
+        return authorization != null && !authorization.isBlank();
+    }
+
+    private boolean isProtectedCommentApi(HttpServletRequest request, String path) {
+        return ("POST".equals(request.getMethod()) && ARTICLE_COMMENT_API_PATTERN.matcher(path).matches())
+                || ("DELETE".equals(request.getMethod()) && COMMENT_DETAIL_API_PATTERN.matcher(path).matches());
     }
 
     private JwtPrincipal buildPrincipal(Claims claims) {

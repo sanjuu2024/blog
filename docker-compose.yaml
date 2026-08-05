@@ -25,9 +25,30 @@ services:
     networks:
       - blog_network
 
+  blog_redis:
+    container_name: blog_redis
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    environment:
+      TZ: UTC
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - blog_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - blog_network
+
 networks:
   blog_network:
     driver: bridge
 
 volumes:
   blog_pg_data:
+  blog_redis_data:

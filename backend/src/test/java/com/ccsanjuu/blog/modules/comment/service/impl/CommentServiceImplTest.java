@@ -9,17 +9,23 @@ import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
+import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
 import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
 import com.ccsanjuu.blog.modules.comment.model.dto.AdminCommentQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.CommentModerationRequestDTO;
+import com.ccsanjuu.blog.modules.comment.model.dto.CreateCommentRequestDTO;
+import com.ccsanjuu.blog.modules.comment.model.dto.PublicCommentQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.entity.Comment;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentModerationAction;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentStatus;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentType;
 import com.ccsanjuu.blog.modules.comment.model.vo.AdminCommentItemVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentMutationVO;
+import com.ccsanjuu.blog.modules.comment.model.vo.PublicCommentItemVO;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
+import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
+import com.ccsanjuu.blog.modules.user.model.enums.UserStatus;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,8 +34,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -39,6 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -62,6 +72,12 @@ class CommentServiceImplTest {
     @Mock
     private UserMapper userMapper;
 
+    @Mock
+    private StringRedisTemplate stringRedisTemplate;
+
+    @Mock
+    private ValueOperations<String, String> valueOperations;
+
     private CommentServiceImpl commentService;
 
     @BeforeAll
@@ -71,10 +87,12 @@ class CommentServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        commentService = new CommentServiceImpl(articleMapper, commentMapper, userMapper);
+        commentService = new CommentServiceImpl(articleMapper, commentMapper, userMapper, stringRedisTemplate);
         ReflectionTestUtils.setField(commentService, "baseMapper", commentMapper);
         ReflectionTestUtils.setField(commentService, "entityClass", Comment.class);
         ReflectionTestUtils.setField(commentService, "mapperClass", CommentMapper.class);
+        lenient().when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        lenient().when(valueOperations.setIfAbsent(any(), any(), any(Duration.class))).thenReturn(true);
     }
 
     private static void initTableInfo(Class<?> entityClass) {
@@ -230,12 +248,8 @@ class CommentServiceImplTest {
                 .createdAt(CREATED_AT)
                 .build();
         when(commentMapper.selectById(COMMENT_ID)).thenReturn(existingComment, updatedComment);
-        when(commentMapper.selectList(any())).thenReturn(
-                List.of(Comment.builder().id(COMMENT_ID + 1).parentId(COMMENT_ID).build()),
-                List.of(Comment.builder().id(COMMENT_ID + 2).parentId(COMMENT_ID + 1).build()),
-                List.of()
-        );
-        when(commentMapper.selectCount(any())).thenReturn(2L);
+        when(commentMapper.selectCommentSubtreeIds(COMMENT_ID)).thenReturn(List.of(COMMENT_ID, COMMENT_ID + 1, COMMENT_ID + 2));
+        when(commentMapper.countApprovedCommentSubtree(COMMENT_ID)).thenReturn(2L);
         when(commentMapper.update(any(Wrapper.class))).thenReturn(1);
 
         CommentModerationRequestDTO request = CommentModerationRequestDTO.builder()
@@ -252,5 +266,158 @@ class CommentServiceImplTest {
         assertTrue(sqlSet.contains("deleted_by"));
         assertTrue(sqlSet.contains("deleted_at"));
         verify(articleMapper).update(any(), any(Wrapper.class));
+    }
+
+    @Test
+    void getPublicCommentListShouldReturnMinePendingComment() {
+        PublicCommentQueryDTO query = new PublicCommentQueryDTO();
+        query.setPageNum(1);
+        query.setPageSize(10);
+
+        Comment comment = Comment.builder()
+                .id(COMMENT_ID)
+                .articleId(ARTICLE_ID)
+                .userId(USER_ID)
+                .content("等待审核的评论")
+                .status(CommentStatus.PENDING)
+                .createdAt(CREATED_AT)
+                .build();
+        when(articleMapper.selectById(ARTICLE_ID)).thenReturn(Article.builder()
+                .id(ARTICLE_ID)
+                .status(ArticleStatus.PUBLISHED)
+                .build());
+        when(commentMapper.selectPage(any(Page.class), any())).thenAnswer(invocation -> {
+            Page<Comment> page = invocation.getArgument(0);
+            page.setTotal(1);
+            page.setRecords(List.of(comment));
+            return page;
+        });
+        when(userMapper.selectByIds(List.of(USER_ID))).thenReturn(List.of(User.builder()
+                .id(USER_ID)
+                .username("alice")
+                .nickname("Alice")
+                .build()));
+        when(commentMapper.selectCount(any())).thenReturn(0L);
+
+        PageResult<PublicCommentItemVO> result = commentService.getPublicCommentList(ARTICLE_ID, USER_ID, query);
+
+        assertEquals(1, result.getTotal());
+        assertEquals(CommentStatus.PENDING, result.getRecords().getFirst().getStatus());
+        assertTrue(result.getRecords().getFirst().getIsMine());
+    }
+
+    @Test
+    void createCommentShouldCreatePendingCommentForNormalUser() {
+        when(articleMapper.selectById(ARTICLE_ID)).thenReturn(Article.builder()
+                .id(ARTICLE_ID)
+                .status(ArticleStatus.PUBLISHED)
+                .allowComment(true)
+                .build());
+        when(userMapper.selectById(USER_ID)).thenReturn(User.builder()
+                .id(USER_ID)
+                .username("alice")
+                .nickname("Alice")
+                .role(UserRole.USER)
+                .status(UserStatus.ACTIVE)
+                .build());
+        when(commentMapper.insert(any(Comment.class))).thenAnswer(invocation -> {
+            Comment comment = invocation.getArgument(0);
+            comment.setId(COMMENT_ID);
+            return 1;
+        });
+        when(commentMapper.selectById(COMMENT_ID)).thenReturn(Comment.builder()
+                .id(COMMENT_ID)
+                .articleId(ARTICLE_ID)
+                .userId(USER_ID)
+                .content("这篇文章不错")
+                .status(CommentStatus.PENDING)
+                .createdAt(CREATED_AT)
+                .build());
+
+        CommentMutationVO result = commentService.createComment(ARTICLE_ID, USER_ID, CreateCommentRequestDTO.builder()
+                .content("  这篇文章不错  ")
+                .build());
+
+        assertEquals(CommentStatus.PENDING, result.getStatus());
+        ArgumentCaptor<Comment> captor = ArgumentCaptor.forClass(Comment.class);
+        verify(commentMapper).insert(captor.capture());
+        assertEquals("这篇文章不错", captor.getValue().getContent());
+        assertEquals(CommentStatus.PENDING, captor.getValue().getStatus());
+        verify(articleMapper, never()).update(any(), any(Wrapper.class));
+    }
+
+    @Test
+    void createCommentShouldCreateApprovedCommentForAdminAndIncreaseCount() {
+        when(articleMapper.selectById(ARTICLE_ID)).thenReturn(Article.builder()
+                .id(ARTICLE_ID)
+                .status(ArticleStatus.PUBLISHED)
+                .allowComment(true)
+                .build());
+        when(userMapper.selectById(ADMIN_ID)).thenReturn(User.builder()
+                .id(ADMIN_ID)
+                .username("admin")
+                .nickname("Admin")
+                .role(UserRole.ADMIN)
+                .status(UserStatus.ACTIVE)
+                .build());
+        when(commentMapper.insert(any(Comment.class))).thenAnswer(invocation -> {
+            Comment comment = invocation.getArgument(0);
+            comment.setId(COMMENT_ID);
+            return 1;
+        });
+        when(commentMapper.selectById(COMMENT_ID)).thenReturn(Comment.builder()
+                .id(COMMENT_ID)
+                .articleId(ARTICLE_ID)
+                .userId(ADMIN_ID)
+                .content("管理员评论")
+                .status(CommentStatus.APPROVED)
+                .createdAt(CREATED_AT)
+                .build());
+
+        CommentMutationVO result = commentService.createComment(ARTICLE_ID, ADMIN_ID, CreateCommentRequestDTO.builder()
+                .content("管理员评论")
+                .build());
+
+        assertEquals(CommentStatus.APPROVED, result.getStatus());
+        verify(articleMapper).update(any(), any(Wrapper.class));
+    }
+
+    @Test
+    void createCommentShouldRejectWhenRateLimited() {
+        when(articleMapper.selectById(ARTICLE_ID)).thenReturn(Article.builder()
+                .id(ARTICLE_ID)
+                .status(ArticleStatus.PUBLISHED)
+                .allowComment(true)
+                .build());
+        when(userMapper.selectById(USER_ID)).thenReturn(User.builder()
+                .id(USER_ID)
+                .role(UserRole.USER)
+                .status(UserStatus.ACTIVE)
+                .build());
+        when(valueOperations.setIfAbsent(any(), any(), any(Duration.class))).thenReturn(false);
+
+        BizException exception = assertThrows(BizException.class,
+                () -> commentService.createComment(ARTICLE_ID, USER_ID, CreateCommentRequestDTO.builder()
+                        .content("这篇文章不错")
+                        .build()));
+
+        assertEquals(ResultCode.COMMENT_RATE_LIMITED, exception.getResultCode());
+        verify(commentMapper, never()).insert(any(Comment.class));
+    }
+
+    @Test
+    void deleteOwnCommentShouldRejectOtherUserComment() {
+        when(commentMapper.selectById(COMMENT_ID)).thenReturn(Comment.builder()
+                .id(COMMENT_ID)
+                .articleId(ARTICLE_ID)
+                .userId(USER_ID)
+                .status(CommentStatus.APPROVED)
+                .build());
+
+        BizException exception = assertThrows(BizException.class,
+                () -> commentService.deleteOwnComment(COMMENT_ID, ADMIN_ID));
+
+        assertEquals(ResultCode.COMMENT_NO_PERMISSION, exception.getResultCode());
+        verify(commentMapper, never()).update(any());
     }
 }
