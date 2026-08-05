@@ -2,6 +2,8 @@ blog:
   auth:
     refresh-cookie:
       secure: false
+  jwt:
+    access-ttl: 1d
 
 logging:
   level:
