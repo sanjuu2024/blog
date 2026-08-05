@@ -75,6 +75,15 @@ export const adminRoutes = [
 			title: '标签管理',
 		},
 	},
+	{
+		path: '/admin/comments',
+		name: 'AdminCommentList',
+		component: () => import('@/modules/admin/comment/views/AdminCommentListPage.vue'),
+		meta: {
+			icon: 'comment',
+			title: '评论管理',
+		},
+	},
 ];
 
 // 前台路由

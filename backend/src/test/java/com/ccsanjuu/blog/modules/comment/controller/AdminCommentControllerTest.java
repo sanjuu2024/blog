@@ -34,6 +34,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import javax.crypto.SecretKey;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -59,6 +60,8 @@ class AdminCommentControllerTest {
     private static final Long USER_ID = 10002L;
     private static final Long ARTICLE_ID = 40001L;
     private static final Long COMMENT_ID = 50001L;
+    private static final OffsetDateTime CREATED_AT_FROM = OffsetDateTime.parse("2026-05-01T00:00:00+08:00");
+    private static final OffsetDateTime CREATED_AT_TO = OffsetDateTime.parse("2026-05-31T23:59:59+08:00");
 
     @Autowired
     private MockMvc mockMvc;
@@ -114,7 +117,9 @@ class AdminCommentControllerTest {
                         .queryParam("articleId", ARTICLE_ID.toString())
                         .queryParam("userId", USER_ID.toString())
                         .queryParam("status", "PENDING")
-                        .queryParam("type", "TOP_LEVEL"))
+                        .queryParam("type", "TOP_LEVEL")
+                        .queryParam("createdAtFrom", CREATED_AT_FROM.toString())
+                        .queryParam("createdAtTo", CREATED_AT_TO.toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.records[0].id").value(COMMENT_ID));
 
@@ -124,6 +129,8 @@ class AdminCommentControllerTest {
         assertEquals(USER_ID, captor.getValue().getUserId());
         assertEquals(CommentStatus.PENDING, captor.getValue().getStatus());
         assertEquals(CommentType.TOP_LEVEL, captor.getValue().getType());
+        assertEquals(CREATED_AT_FROM, captor.getValue().getCreatedAtFrom());
+        assertEquals(CREATED_AT_TO, captor.getValue().getCreatedAtTo());
     }
 
     @Test

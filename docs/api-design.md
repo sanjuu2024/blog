@@ -2210,7 +2210,20 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 路径：`/api/v1/admin/comments`
 - 权限：`ADMIN`
 
-支持 `pageNum`、`pageSize`、`articleId`、`userId`、`status` 和 `type` 查询参数；`type` 可取 `TOP_LEVEL`、`REPLY`。列表按 `created_at DESC, id DESC` 排序，记录返回文章、作者、层级、审核与删除信息。
+支持 `pageNum`、`pageSize`、`articleId`、`userId`、`status`、`type`、`createdAtFrom` 和 `createdAtTo` 查询参数；`type` 可取 `TOP_LEVEL`、`REPLY`。列表按 `created_at DESC, id DESC` 排序，记录返回文章、作者、层级、审核与删除信息。
+
+### 请求参数
+
+| 参数位置 | 字段名称 | 字段类型 | 必填 | 字段解释 |
+| --- | --- | --- | --- | --- |
+| Query | `pageNum` | `Integer` | 否 | 页码，默认 `1` |
+| Query | `pageSize` | `Integer` | 否 | 每页条数，默认 `10` |
+| Query | `articleId` | `Long` | 否 | 文章 ID |
+| Query | `userId` | `Long` | 否 | 评论用户 ID |
+| Query | `status` | `String` | 否 | 评论状态 |
+| Query | `type` | `String` | 否 | 评论层级类型：`TOP_LEVEL`、`REPLY` |
+| Query | `createdAtFrom` | `String` | 否 | 创建时间范围开始，ISO 8601 时间 |
+| Query | `createdAtTo` | `String` | 否 | 创建时间范围结束，ISO 8601 时间 |
 
 ## 11.6 审核、隐藏或删除评论
 

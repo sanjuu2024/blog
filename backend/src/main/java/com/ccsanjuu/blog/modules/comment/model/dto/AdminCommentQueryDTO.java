@@ -8,6 +8,8 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
+import java.time.OffsetDateTime;
+
 @Data
 @NoArgsConstructor
 @EqualsAndHashCode(callSuper = true)
@@ -22,4 +24,8 @@ public class AdminCommentQueryDTO extends PageQuery {
     private CommentStatus status;
 
     private CommentType type;
+
+    private OffsetDateTime createdAtFrom;
+
+    private OffsetDateTime createdAtTo;
 }

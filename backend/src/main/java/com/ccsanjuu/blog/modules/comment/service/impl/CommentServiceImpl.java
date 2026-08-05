@@ -88,6 +88,8 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
                 .eq(queryDTO.getStatus() != null, Comment::getStatus , queryDTO.getStatus())
                 .isNull(queryDTO.getType() != null && queryDTO.getType().equals(CommentType.TOP_LEVEL), Comment::getParentId)
                 .isNotNull(queryDTO.getType() != null && queryDTO.getType().equals(CommentType.REPLY), Comment::getParentId)
+                .ge(queryDTO.getCreatedAtFrom() != null, Comment::getCreatedAt, queryDTO.getCreatedAtFrom())
+                .le(queryDTO.getCreatedAtTo() != null, Comment::getCreatedAt, queryDTO.getCreatedAtTo())
                 .orderByDesc(Comment::getCreatedAt)
                 .orderByDesc(Comment::getId)
                 .page(page);

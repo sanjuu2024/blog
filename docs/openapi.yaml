@@ -656,6 +656,20 @@ paths:
           schema:
             type: string
             enum: [TOP_LEVEL, REPLY]
+        - name: createdAtFrom
+          in: query
+          description: 创建时间范围开始，ISO 8601 时间
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: createdAtTo
+          in: query
+          description: 创建时间范围结束，ISO 8601 时间
+          required: false
+          schema:
+            type: string
+            format: date-time
       responses:
         '200':
           description: 获取成功
