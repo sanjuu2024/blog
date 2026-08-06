@@ -26,6 +26,7 @@ describe('P0 route contract', () => {
 				'AdminArticle',
 				'AdminCategoryList',
 				'AdminTagList',
+				'AdminCommentList',
 			]),
 		);
 		expect(rootNames).toContain('NotFound');

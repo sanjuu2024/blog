@@ -21,6 +21,7 @@ import {
 	updateCategory,
 } from '@/modules/admin/category/api/adminCategoryApi';
 import { createTag, deleteTag, listTags, updateTag } from '@/modules/admin/tag/api/adminTagApi';
+import { listComments, moderateComment } from '@/modules/admin/comment/api/adminCommentApi';
 import type { ArticleUpsertRequest } from '@/modules/admin/article/types/adminArticle';
 import type { CategoryUpsertRequest } from '@/modules/admin/category/types/adminCategory';
 import type { TagUpsertRequest } from '@/modules/admin/tag/types/adminTag';
@@ -29,6 +30,12 @@ import {
 	listArticles as listPublicArticles,
 } from '@/modules/article/api/articleApi';
 import { getEnabledCategories } from '@/modules/category/api/categoryApi';
+import {
+	createComment,
+	deleteComment,
+	listComments as listPublicComments,
+	listReplies,
+} from '@/modules/comment/api/commentApi';
 
 vi.mock('@/utils/request', () => ({
 	default: {
@@ -195,5 +202,57 @@ describe('P0 frontend API contracts', () => {
 		expect(request.post).toHaveBeenCalledWith('admin/tags', tag);
 		expect(request.put).toHaveBeenCalledWith('admin/tags/30001', tag);
 		expect(request.delete).toHaveBeenCalledWith('admin/tags/30001');
+	});
+
+	it('supports admin comment listing and moderation endpoints', () => {
+		const query = {
+			pageNum: 1,
+			pageSize: 10,
+			articleId: 40001,
+			status: 'PENDING' as const,
+			createdAtFrom: '2026-05-01T00:00:00+08:00',
+			createdAtTo: '2026-05-31T23:59:59+08:00',
+		};
+		const payload = {
+			action: 'REJECT' as const,
+			reason: '内容与文章无关',
+		};
+
+		listComments(query);
+		moderateComment(50001, payload);
+
+		expect(request.get).toHaveBeenCalledWith('admin/comments', {
+			params: query,
+		});
+		expect(request.patch).toHaveBeenCalledWith('admin/comments/50001/moderation', payload);
+	});
+
+	it('supports public article comments and replies endpoints', () => {
+		const listQuery = {
+			pageNum: 1,
+			pageSize: 10,
+		};
+		const replyQuery = {
+			limit: 5,
+			cursor: 'next-cursor',
+		};
+		const payload = {
+			content: '这篇文章不错',
+			parentId: 50001,
+		};
+
+		listPublicComments(40001, listQuery);
+		listReplies(50001, replyQuery);
+		createComment(40001, payload);
+		deleteComment(50002);
+
+		expect(request.get).toHaveBeenNthCalledWith(1, 'articles/40001/comments', {
+			params: listQuery,
+		});
+		expect(request.get).toHaveBeenNthCalledWith(2, 'comments/50001/replies', {
+			params: replyQuery,
+		});
+		expect(request.post).toHaveBeenCalledWith('articles/40001/comments', payload);
+		expect(request.delete).toHaveBeenCalledWith('comments/50002');
 	});
 });

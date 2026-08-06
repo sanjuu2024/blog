@@ -9,6 +9,7 @@ import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
 import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
+import com.ccsanjuu.blog.modules.comment.model.vo.CommentDeleteVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentReplyPageVO;
 import com.ccsanjuu.blog.modules.comment.service.CommentService;
 import com.ccsanjuu.blog.modules.tag.mapper.TagMapper;
@@ -105,10 +106,16 @@ class CommentControllerTest {
 
     @Test
     void deleteOwnCommentShouldPassCurrentUser() throws Exception {
+        when(commentService.deleteOwnComment(COMMENT_ID, USER_ID))
+                .thenReturn(CommentDeleteVO.builder()
+                        .deletedApprovedCount(3L)
+                        .build());
+
         mockMvc.perform(delete("/api/v1/comments/{commentId}", COMMENT_ID)
                         .header("Authorization", "Bearer " + accessToken(USER_ID, UserRole.USER)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(0));
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.deletedApprovedCount").value(3));
 
         verify(commentService).deleteOwnComment(COMMENT_ID, USER_ID);
     }

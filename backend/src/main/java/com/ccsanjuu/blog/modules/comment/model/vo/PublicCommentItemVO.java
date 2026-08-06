@@ -28,6 +28,8 @@ public class PublicCommentItemVO {
 
     private Long replyCount;
 
+    private Boolean hasVisibleReplies;
+
     private Boolean isMine;
 
     private OffsetDateTime createdAt;

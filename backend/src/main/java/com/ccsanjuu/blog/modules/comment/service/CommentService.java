@@ -7,6 +7,7 @@ import com.ccsanjuu.blog.modules.comment.model.dto.CommentReplyQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.CreateCommentRequestDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.PublicCommentQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.vo.AdminCommentItemVO;
+import com.ccsanjuu.blog.modules.comment.model.vo.CommentDeleteVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentMutationVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentReplyPageVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.PublicCommentItemVO;
@@ -62,5 +63,5 @@ public interface CommentService {
      * @param commentId
      * @param userId
      */
-    void deleteOwnComment(@Positive Long commentId, Long userId);
+    CommentDeleteVO deleteOwnComment(@Positive Long commentId, Long userId);
 }

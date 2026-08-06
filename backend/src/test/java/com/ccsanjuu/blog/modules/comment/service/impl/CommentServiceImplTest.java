@@ -11,8 +11,10 @@ import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
 import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
 import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
+import com.ccsanjuu.blog.modules.comment.model.bo.CommentReplyCountBO;
 import com.ccsanjuu.blog.modules.comment.model.dto.AdminCommentQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.CommentModerationRequestDTO;
+import com.ccsanjuu.blog.modules.comment.model.dto.CommentReplyQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.CreateCommentRequestDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.PublicCommentQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.entity.Comment;
@@ -20,6 +22,7 @@ import com.ccsanjuu.blog.modules.comment.model.enums.CommentModerationAction;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentStatus;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentType;
 import com.ccsanjuu.blog.modules.comment.model.vo.AdminCommentItemVO;
+import com.ccsanjuu.blog.modules.comment.model.vo.CommentDeleteVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentMutationVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.PublicCommentItemVO;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
@@ -36,7 +39,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -47,6 +53,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
@@ -162,7 +170,13 @@ class CommentServiceImplTest {
                 .createdAt(CREATED_AT)
                 .build();
         when(commentMapper.selectById(COMMENT_ID)).thenReturn(existingComment, updatedComment);
+        when(commentMapper.selectByIdForUpdate(COMMENT_ID)).thenReturn(existingComment);
         when(commentMapper.update(any(Wrapper.class))).thenReturn(1);
+        when(userMapper.selectById(USER_ID)).thenReturn(User.builder()
+                .id(USER_ID)
+                .username("alice")
+                .nickname("Alice")
+                .build());
 
         CommentModerationRequestDTO request = CommentModerationRequestDTO.builder()
                 .action(CommentModerationAction.APPROVE)
@@ -171,6 +185,8 @@ class CommentServiceImplTest {
         CommentMutationVO result = commentService.moderateComment(COMMENT_ID, ADMIN_ID, request);
 
         assertEquals(CommentStatus.APPROVED, result.getStatus());
+        assertEquals("alice", result.getAuthor().getUsername());
+        verify(commentMapper).selectByIdForUpdate(COMMENT_ID);
         ArgumentCaptor<Wrapper<Comment>> captor = ArgumentCaptor.forClass(Wrapper.class);
         verify(commentMapper).update(captor.capture());
         String sqlSet = ((LambdaUpdateWrapper<Comment>) captor.getValue()).getSqlSet();
@@ -183,14 +199,16 @@ class CommentServiceImplTest {
 
     @Test
     void moderateCommentShouldRejectBlankReasonForDelete() {
-        when(commentMapper.selectById(COMMENT_ID)).thenReturn(Comment.builder()
+        Comment comment = Comment.builder()
                 .id(COMMENT_ID)
                 .articleId(ARTICLE_ID)
                 .userId(USER_ID)
                 .status(CommentStatus.APPROVED)
                 .content("这篇文章不错")
                 .createdAt(CREATED_AT)
-                .build());
+                .build();
+        when(commentMapper.selectById(COMMENT_ID)).thenReturn(comment);
+        when(commentMapper.selectByIdForUpdate(COMMENT_ID)).thenReturn(comment);
 
         CommentModerationRequestDTO request = CommentModerationRequestDTO.builder()
                 .action(CommentModerationAction.DELETE)
@@ -206,14 +224,16 @@ class CommentServiceImplTest {
 
     @Test
     void moderateCommentShouldRejectApproveWhenAlreadyApproved() {
-        when(commentMapper.selectById(COMMENT_ID)).thenReturn(Comment.builder()
+        Comment comment = Comment.builder()
                 .id(COMMENT_ID)
                 .articleId(ARTICLE_ID)
                 .userId(USER_ID)
                 .status(CommentStatus.APPROVED)
                 .content("这篇文章不错")
                 .createdAt(CREATED_AT)
-                .build());
+                .build();
+        when(commentMapper.selectById(COMMENT_ID)).thenReturn(comment);
+        when(commentMapper.selectByIdForUpdate(COMMENT_ID)).thenReturn(comment);
 
         CommentModerationRequestDTO request = CommentModerationRequestDTO.builder()
                 .action(CommentModerationAction.APPROVE)
@@ -248,9 +268,15 @@ class CommentServiceImplTest {
                 .createdAt(CREATED_AT)
                 .build();
         when(commentMapper.selectById(COMMENT_ID)).thenReturn(existingComment, updatedComment);
+        when(commentMapper.selectByIdForUpdate(COMMENT_ID)).thenReturn(existingComment);
         when(commentMapper.selectCommentSubtreeIds(COMMENT_ID)).thenReturn(List.of(COMMENT_ID, COMMENT_ID + 1, COMMENT_ID + 2));
         when(commentMapper.countApprovedCommentSubtree(COMMENT_ID)).thenReturn(2L);
         when(commentMapper.update(any(Wrapper.class))).thenReturn(1);
+        when(userMapper.selectById(USER_ID)).thenReturn(User.builder()
+                .id(USER_ID)
+                .username("alice")
+                .nickname("Alice")
+                .build());
 
         CommentModerationRequestDTO request = CommentModerationRequestDTO.builder()
                 .action(CommentModerationAction.DELETE)
@@ -260,6 +286,8 @@ class CommentServiceImplTest {
         CommentMutationVO result = commentService.moderateComment(COMMENT_ID, ADMIN_ID, request);
 
         assertEquals(CommentStatus.DELETED, result.getStatus());
+        assertEquals("alice", result.getAuthor().getUsername());
+        verify(commentMapper).selectByIdForUpdate(COMMENT_ID);
         ArgumentCaptor<Wrapper<Comment>> captor = ArgumentCaptor.forClass(Wrapper.class);
         verify(commentMapper, times(2)).update(captor.capture());
         String sqlSet = ((LambdaUpdateWrapper<Comment>) captor.getAllValues().getFirst()).getSqlSet();
@@ -297,13 +325,38 @@ class CommentServiceImplTest {
                 .username("alice")
                 .nickname("Alice")
                 .build()));
-        when(commentMapper.selectCount(any())).thenReturn(0L);
+        when(commentMapper.selectReplyCounts(anyList(), eq(USER_ID))).thenReturn(List.of(
+                new CommentReplyCountBO(COMMENT_ID, 3L, 4L)
+        ));
 
         PageResult<PublicCommentItemVO> result = commentService.getPublicCommentList(ARTICLE_ID, USER_ID, query);
 
         assertEquals(1, result.getTotal());
         assertEquals(CommentStatus.PENDING, result.getRecords().getFirst().getStatus());
         assertTrue(result.getRecords().getFirst().getIsMine());
+        assertEquals(3L, result.getRecords().getFirst().getReplyCount());
+        assertTrue(result.getRecords().getFirst().getHasVisibleReplies());
+        verify(commentMapper).selectReplyCounts(List.of(COMMENT_ID), USER_ID);
+    }
+
+    @Test
+    void getRepliesShouldRejectWhenArticleIsNotPublished() {
+        when(commentMapper.selectById(COMMENT_ID)).thenReturn(Comment.builder()
+                .id(COMMENT_ID)
+                .articleId(ARTICLE_ID)
+                .userId(USER_ID)
+                .status(CommentStatus.APPROVED)
+                .build());
+        when(articleMapper.selectById(ARTICLE_ID)).thenReturn(Article.builder()
+                .id(ARTICLE_ID)
+                .status(ArticleStatus.OFFLINE)
+                .build());
+
+        BizException exception = assertThrows(BizException.class,
+                () -> commentService.getRepliesByRootId(COMMENT_ID, null, new CommentReplyQueryDTO()));
+
+        assertEquals(ResultCode.COMMENT_NOT_FOUND, exception.getResultCode());
+        verify(commentMapper, never()).selectPage(any(Page.class), any());
     }
 
     @Test
@@ -383,6 +436,108 @@ class CommentServiceImplTest {
     }
 
     @Test
+    void createReplyShouldLockRootCommentAndRecheckParent() {
+        Long rootId = COMMENT_ID;
+        Long parentId = COMMENT_ID + 1;
+        Long newCommentId = COMMENT_ID + 2;
+        Comment parent = Comment.builder()
+                .id(parentId)
+                .articleId(ARTICLE_ID)
+                .userId(ADMIN_ID)
+                .parentId(rootId)
+                .rootId(rootId)
+                .status(CommentStatus.APPROVED)
+                .build();
+        when(articleMapper.selectById(ARTICLE_ID)).thenReturn(Article.builder()
+                .id(ARTICLE_ID)
+                .status(ArticleStatus.PUBLISHED)
+                .allowComment(true)
+                .build());
+        when(userMapper.selectById(USER_ID)).thenReturn(User.builder()
+                .id(USER_ID)
+                .username("alice")
+                .role(UserRole.USER)
+                .status(UserStatus.ACTIVE)
+                .build());
+        when(commentMapper.selectById(parentId)).thenReturn(parent, parent);
+        when(commentMapper.selectByIdForUpdate(rootId)).thenReturn(Comment.builder()
+                .id(rootId)
+                .articleId(ARTICLE_ID)
+                .userId(ADMIN_ID)
+                .status(CommentStatus.APPROVED)
+                .build());
+        when(commentMapper.insert(any(Comment.class))).thenAnswer(invocation -> {
+            Comment comment = invocation.getArgument(0);
+            comment.setId(newCommentId);
+            return 1;
+        });
+        when(commentMapper.selectById(newCommentId)).thenReturn(Comment.builder()
+                .id(newCommentId)
+                .articleId(ARTICLE_ID)
+                .userId(USER_ID)
+                .parentId(parentId)
+                .rootId(rootId)
+                .content("回复内容")
+                .status(CommentStatus.PENDING)
+                .createdAt(CREATED_AT)
+                .build());
+
+        CommentMutationVO result = commentService.createComment(ARTICLE_ID, USER_ID, CreateCommentRequestDTO.builder()
+                .parentId(parentId)
+                .content("回复内容")
+                .build());
+
+        assertEquals(rootId, result.getRootId());
+        verify(commentMapper).selectByIdForUpdate(rootId);
+        verify(commentMapper, times(2)).selectById(parentId);
+    }
+
+    @Test
+    void createReplyShouldRejectParentHiddenWhileWaitingForTreeLock() {
+        Long parentId = COMMENT_ID + 1;
+        Comment initialParent = Comment.builder()
+                .id(parentId)
+                .articleId(ARTICLE_ID)
+                .userId(ADMIN_ID)
+                .parentId(COMMENT_ID)
+                .rootId(COMMENT_ID)
+                .status(CommentStatus.APPROVED)
+                .build();
+        Comment hiddenParent = Comment.builder()
+                .id(parentId)
+                .articleId(ARTICLE_ID)
+                .userId(ADMIN_ID)
+                .parentId(COMMENT_ID)
+                .rootId(COMMENT_ID)
+                .status(CommentStatus.HIDDEN)
+                .build();
+        when(articleMapper.selectById(ARTICLE_ID)).thenReturn(Article.builder()
+                .id(ARTICLE_ID)
+                .status(ArticleStatus.PUBLISHED)
+                .allowComment(true)
+                .build());
+        when(userMapper.selectById(USER_ID)).thenReturn(User.builder()
+                .id(USER_ID)
+                .role(UserRole.USER)
+                .status(UserStatus.ACTIVE)
+                .build());
+        when(commentMapper.selectById(parentId)).thenReturn(initialParent, hiddenParent);
+        when(commentMapper.selectByIdForUpdate(COMMENT_ID)).thenReturn(Comment.builder()
+                .id(COMMENT_ID)
+                .status(CommentStatus.APPROVED)
+                .build());
+
+        BizException exception = assertThrows(BizException.class,
+                () -> commentService.createComment(ARTICLE_ID, USER_ID, CreateCommentRequestDTO.builder()
+                        .parentId(parentId)
+                        .content("回复内容")
+                        .build()));
+
+        assertEquals(ResultCode.COMMENT_PARENT_UNAVAILABLE, exception.getResultCode());
+        verify(commentMapper, never()).insert(any(Comment.class));
+    }
+
+    @Test
     void createCommentShouldRejectWhenRateLimited() {
         when(articleMapper.selectById(ARTICLE_ID)).thenReturn(Article.builder()
                 .id(ARTICLE_ID)
@@ -406,6 +561,57 @@ class CommentServiceImplTest {
     }
 
     @Test
+    void createCommentShouldReleaseRateLimitWhenTransactionRollsBack() {
+        String key = "blog:comment:rate:user:" + USER_ID + ":article:" + ARTICLE_ID;
+        when(articleMapper.selectById(ARTICLE_ID)).thenReturn(Article.builder()
+                .id(ARTICLE_ID)
+                .status(ArticleStatus.PUBLISHED)
+                .allowComment(true)
+                .build());
+        when(userMapper.selectById(USER_ID)).thenReturn(User.builder()
+                .id(USER_ID)
+                .username("alice")
+                .role(UserRole.USER)
+                .status(UserStatus.ACTIVE)
+                .build());
+        when(commentMapper.insert(any(Comment.class))).thenAnswer(invocation -> {
+            Comment comment = invocation.getArgument(0);
+            comment.setId(COMMENT_ID);
+            return 1;
+        });
+        when(commentMapper.selectById(COMMENT_ID)).thenReturn(Comment.builder()
+                .id(COMMENT_ID)
+                .articleId(ARTICLE_ID)
+                .userId(USER_ID)
+                .status(CommentStatus.PENDING)
+                .content("这篇文章不错")
+                .createdAt(CREATED_AT)
+                .build());
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            commentService.createComment(ARTICLE_ID, USER_ID, CreateCommentRequestDTO.builder()
+                    .content("这篇文章不错")
+                    .build());
+
+            ArgumentCaptor<String> tokenCaptor = ArgumentCaptor.forClass(String.class);
+            verify(valueOperations).setIfAbsent(eq(key), tokenCaptor.capture(), any(Duration.class));
+
+            List<TransactionSynchronization> synchronizations = TransactionSynchronizationManager.getSynchronizations();
+            assertEquals(1, synchronizations.size());
+            synchronizations.getFirst().afterCompletion(TransactionSynchronization.STATUS_ROLLED_BACK);
+
+            verify(stringRedisTemplate).execute(
+                    any(RedisScript.class),
+                    eq(List.of(key)),
+                    eq(tokenCaptor.getValue())
+            );
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
     void deleteOwnCommentShouldRejectOtherUserComment() {
         when(commentMapper.selectById(COMMENT_ID)).thenReturn(Comment.builder()
                 .id(COMMENT_ID)
@@ -419,5 +625,30 @@ class CommentServiceImplTest {
 
         assertEquals(ResultCode.COMMENT_NO_PERMISSION, exception.getResultCode());
         verify(commentMapper, never()).update(any());
+    }
+
+    @Test
+    void deleteOwnCommentShouldReturnDeletedApprovedCount() {
+        when(commentMapper.selectById(COMMENT_ID)).thenReturn(Comment.builder()
+                .id(COMMENT_ID)
+                .articleId(ARTICLE_ID)
+                .userId(USER_ID)
+                .status(CommentStatus.APPROVED)
+                .build());
+        when(commentMapper.selectByIdForUpdate(COMMENT_ID)).thenReturn(Comment.builder()
+                .id(COMMENT_ID)
+                .articleId(ARTICLE_ID)
+                .userId(USER_ID)
+                .status(CommentStatus.APPROVED)
+                .build());
+        when(commentMapper.selectCommentSubtreeIds(COMMENT_ID)).thenReturn(List.of(COMMENT_ID, COMMENT_ID + 1));
+        when(commentMapper.countApprovedCommentSubtree(COMMENT_ID)).thenReturn(2L);
+        when(commentMapper.update(any(Wrapper.class))).thenReturn(1);
+
+        CommentDeleteVO result = commentService.deleteOwnComment(COMMENT_ID, USER_ID);
+
+        assertEquals(2L, result.getDeletedApprovedCount());
+        verify(commentMapper).selectByIdForUpdate(COMMENT_ID);
+        verify(articleMapper).update(any(), any(Wrapper.class));
     }
 }
