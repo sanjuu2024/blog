@@ -6,6 +6,12 @@
 			:error-message="errorMessage"
 		/>
 
+		<PublicCommentSection
+			v-if="article"
+			:article="article"
+			@comment-count-change="changeCommentCount"
+		/>
+
 		<AppBacktop />
 	</div>
 </template>
@@ -13,6 +19,7 @@
 <script setup lang="ts">
 import { watch } from 'vue';
 import ArticleContent from '../components/ArticleContent.vue';
+import PublicCommentSection from '@/modules/comment/components/PublicCommentSection.vue';
 import { useArticleDetail } from '../composables/useArticleDetail';
 import { useRoute } from 'vue-router';
 
@@ -43,6 +50,13 @@ watch(
 		}
 	},
 );
+
+// 评论创建或删除后，直接更新本地统计，避免重新拉取文章详情导致页面滚动回顶部
+function changeCommentCount(delta: number) {
+	if (!article.value) return;
+
+	article.value.commentCount = Math.max(0, article.value.commentCount + delta);
+}
 </script>
 
 <style></style>

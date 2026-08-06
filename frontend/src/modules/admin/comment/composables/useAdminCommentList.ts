@@ -13,6 +13,9 @@ import {
 } from '../types/adminComment';
 
 export function useAdminCommentList() {
+	// 评论列表请求序号，用于避免旧请求响应覆盖新请求结果
+	let commentRequestId = 0;
+
 	// 评论列表数据
 	const commentList = ref<AdminCommentItem[]>([]);
 
@@ -62,9 +65,12 @@ export function useAdminCommentList() {
 
 	// 获取评论列表
 	async function getCommentList(page: number = pageParams.pageNum) {
+		const currentRequestId = ++commentRequestId;
 		pageParams.pageNum = page;
 		try {
 			const data: AdminCommentPageData = await listComments(buildCommentListQuery());
+			if (currentRequestId !== commentRequestId) return;
+
 			commentList.value = data.records;
 			pageParams.pageNum = data.pageNum;
 			pageParams.pageSize = data.pageSize;

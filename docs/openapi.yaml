@@ -415,7 +415,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/NoDataResponse'
+                $ref: '#/components/schemas/CommentDeleteResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
         '403':
@@ -3080,7 +3080,7 @@ components:
       enum: [PENDING, APPROVED, REJECTED, HIDDEN, DELETED]
     PublicCommentItem:
       type: object
-      required: [id, articleId, content, status, moderationReason, author, replyCount, isMine, createdAt]
+      required: [id, articleId, content, status, moderationReason, author, replyCount, hasVisibleReplies, isMine, createdAt]
       properties:
         id:
           type: integer
@@ -3101,7 +3101,10 @@ components:
         replyCount:
           type: integer
           format: int64
-          description: 当前请求者可见的全部层级回复数量；游客只统计 APPROVED 回复
+          description: 该顶层评论下状态为 APPROVED 的全部层级回复数量；当前用户自己的 PENDING、REJECTED 回复不计入
+        hasVisibleReplies:
+          type: boolean
+          description: 当前请求者是否至少可以看到一条回复，用于保留仅本人可见回复的展开入口
         isMine:
           type: boolean
         createdAt:
@@ -3225,6 +3228,22 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/CommentMutationData'
+    CommentDeleteData:
+      type: object
+      required: [deletedApprovedCount]
+      properties:
+        deletedApprovedCount:
+          type: integer
+          format: int64
+          description: 本次删除实际扣减的已通过评论数量
+          example: 4
+    CommentDeleteResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CommentDeleteData'
     AdminCommentArticleRef:
       type: object
       required: [id, title]

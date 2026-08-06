@@ -30,6 +30,12 @@ import {
 	listArticles as listPublicArticles,
 } from '@/modules/article/api/articleApi';
 import { getEnabledCategories } from '@/modules/category/api/categoryApi';
+import {
+	createComment,
+	deleteComment,
+	listComments as listPublicComments,
+	listReplies,
+} from '@/modules/comment/api/commentApi';
 
 vi.mock('@/utils/request', () => ({
 	default: {
@@ -219,5 +225,34 @@ describe('P0 frontend API contracts', () => {
 			params: query,
 		});
 		expect(request.patch).toHaveBeenCalledWith('admin/comments/50001/moderation', payload);
+	});
+
+	it('supports public article comments and replies endpoints', () => {
+		const listQuery = {
+			pageNum: 1,
+			pageSize: 10,
+		};
+		const replyQuery = {
+			limit: 5,
+			cursor: 'next-cursor',
+		};
+		const payload = {
+			content: '这篇文章不错',
+			parentId: 50001,
+		};
+
+		listPublicComments(40001, listQuery);
+		listReplies(50001, replyQuery);
+		createComment(40001, payload);
+		deleteComment(50002);
+
+		expect(request.get).toHaveBeenNthCalledWith(1, 'articles/40001/comments', {
+			params: listQuery,
+		});
+		expect(request.get).toHaveBeenNthCalledWith(2, 'comments/50001/replies', {
+			params: replyQuery,
+		});
+		expect(request.post).toHaveBeenCalledWith('articles/40001/comments', payload);
+		expect(request.delete).toHaveBeenCalledWith('comments/50002');
 	});
 });

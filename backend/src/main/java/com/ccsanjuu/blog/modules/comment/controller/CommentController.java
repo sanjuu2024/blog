@@ -3,6 +3,7 @@ package com.ccsanjuu.blog.modules.comment.controller;
 import com.ccsanjuu.blog.common.api.Result;
 import com.ccsanjuu.blog.modules.auth.model.security.JwtPrincipal;
 import com.ccsanjuu.blog.modules.comment.model.dto.CommentReplyQueryDTO;
+import com.ccsanjuu.blog.modules.comment.model.vo.CommentDeleteVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentReplyPageVO;
 import com.ccsanjuu.blog.modules.comment.service.CommentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -51,11 +52,10 @@ public class CommentController {
      */
     @DeleteMapping("/{commentId}")
     @Operation(description = "删除自己的评论")
-    public Result<Void> deleteOwnComment(
+    public Result<CommentDeleteVO> deleteOwnComment(
             @PathVariable @Positive Long commentId,
             @AuthenticationPrincipal JwtPrincipal jwtPrincipal
     ){
-        commentService.deleteOwnComment(commentId, jwtPrincipal.userId());
-        return Result.success(null);
+        return Result.success(commentService.deleteOwnComment(commentId, jwtPrincipal.userId()));
     }
 }

@@ -2138,7 +2138,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 路径：`/api/v1/articles/{articleId}/comments`
 - 权限：`PUBLIC`，可选携带 Access Token
 
-该接口只返回顶层评论和当前请求者可见的回复数量，不直接携带回复记录。游客只看到 `APPROVED` 评论；登录用户还可以看到自己发表的 `PENDING`、`REJECTED` 评论及处理原因。顶层评论按 `created_at DESC, id DESC` 排序。
+该接口只返回顶层评论、`APPROVED` 回复数量和当前请求者是否存在可见回复，不直接携带回复记录。游客只看到 `APPROVED` 评论；登录用户还可以看到自己发表的 `PENDING`、`REJECTED` 评论及处理原因。顶层评论按 `created_at DESC, id DESC` 排序。
 
 ### 请求参数
 
@@ -2150,7 +2150,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ### 响应参数
 
-`data` 使用通用分页结构。顶层评论返回 `id`、`articleId`、`content`、`status`、`moderationReason`、`author`、`replyCount`、`isMine` 和 `createdAt`。`replyCount` 是当前请求者可见的全部层级回复数；游客只统计 `APPROVED` 回复。
+`data` 使用通用分页结构。顶层评论返回 `id`、`articleId`、`content`、`status`、`moderationReason`、`author`、`replyCount`、`hasVisibleReplies`、`isMine` 和 `createdAt`。`replyCount` 只统计该顶层评论下状态为 `APPROVED` 的全部层级回复；登录用户仍可以看到自己处于 `PENDING`、`REJECTED` 状态的回复，但这些回复不计入数量。`hasVisibleReplies` 表示当前请求者是否至少可以看到一条回复，用于在仅有本人未通过回复时保留展开入口。
 
 ## 11.2 获取顶层评论下的回复
 
@@ -2202,7 +2202,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 路径：`/api/v1/comments/{commentId}`
 - 权限：`LOGIN`
 
-用户只能删除自己的评论。删除采用逻辑删除，并在同一事务中把目标评论及其全部后代标记为 `DELETED`；所有被删除且原为 `APPROVED` 的记录均从文章 `comment_count` 中扣除。成功时 `data` 为 `null`。
+用户只能删除自己的评论。删除采用逻辑删除，并在同一事务中把目标评论及其全部后代标记为 `DELETED`；所有被删除且原为 `APPROVED` 的记录均从文章 `comment_count` 中扣除。成功时返回 `deletedApprovedCount`，表示本次实际扣减的已通过评论数量。
 
 ## 11.5 获取后台评论分页列表
 

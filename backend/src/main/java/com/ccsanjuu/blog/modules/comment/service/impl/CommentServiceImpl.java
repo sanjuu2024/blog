@@ -12,12 +12,13 @@ import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
 import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
 import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
+import com.ccsanjuu.blog.modules.comment.model.bo.CommentReplyCountBO;
+import com.ccsanjuu.blog.modules.comment.model.bo.CommentReplyCursorBO;
 import com.ccsanjuu.blog.modules.comment.model.dto.AdminCommentQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.CommentModerationRequestDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.CommentReplyQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.CreateCommentRequestDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.PublicCommentQueryDTO;
-import com.ccsanjuu.blog.modules.comment.model.bo.CommentReplyCursorBO;
 import com.ccsanjuu.blog.modules.comment.model.entity.Comment;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentModerationAction;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentStatus;
@@ -29,9 +30,13 @@ import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
 import com.ccsanjuu.blog.modules.user.model.enums.UserStatus;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.nio.charset.StandardCharsets;
@@ -43,10 +48,17 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> implements CommentService {
 
     private static final Duration COMMENT_RATE_LIMIT_DURATION = Duration.ofSeconds(10);
     private static final String COMMENT_RATE_LIMIT_KEY_PREFIX = "blog:comment:rate";
+    private static final DefaultRedisScript<Long> RELEASE_COMMENT_RATE_LIMIT_SCRIPT = new DefaultRedisScript<>(
+            "if redis.call('get', KEYS[1]) == ARGV[1] then "
+                    + "return redis.call('del', KEYS[1]) "
+                    + "else return 0 end",
+            Long.class
+    );
 
     private final ArticleMapper articleMapper;
     private final CommentMapper commentMapper;
@@ -137,8 +149,12 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
     @Override
     @Transactional
     public CommentMutationVO moderateComment(Long commentId, Long userId, CommentModerationRequestDTO commentModerationRequestDTO) {
-        // 1. 评论是否存在
+        // 1. 初步查询评论，再锁定所属评论树并读取最新状态
         Comment comment = commentMapper.selectById(commentId);
+        if (comment == null){
+            throw new BizException(ResultCode.COMMENT_NOT_FOUND);
+        }
+        comment = lockCommentTree(comment);
         if (comment == null){
             throw new BizException(ResultCode.COMMENT_NOT_FOUND);
         }
@@ -197,7 +213,11 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
         }
 
         // 4. 查询返回
-        return BeanUtil.copyProperties(commentMapper.selectById(commentId), CommentMutationVO.class);
+        Comment updatedComment = commentMapper.selectById(commentId);
+        CommentMutationVO vo = BeanUtil.copyProperties(updatedComment, CommentMutationVO.class);
+        User author = userMapper.selectById(updatedComment.getUserId());
+        vo.setAuthor(BeanUtil.copyProperties(author, CommentAuthorVO.class));
+        return vo;
     }
 
 
@@ -214,6 +234,10 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
         // 1. 校验顶层评论是否存在、是否可见
         Comment rootComment = commentMapper.selectById(commentId);
         if (rootComment == null || rootComment.getParentId() != null || !isVisibleComment(rootComment, currentUserId)){
+            throw new BizException(ResultCode.COMMENT_NOT_FOUND);
+        }
+        Article article = articleMapper.selectById(rootComment.getArticleId());
+        if (article == null || article.getStatus() != ArticleStatus.PUBLISHED){
             throw new BizException(ResultCode.COMMENT_NOT_FOUND);
         }
 
@@ -311,11 +335,14 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
             throw new BizException(ResultCode.USER_DISABLED);
         }
 
-        // 3. 校验父评论，计算 rootId
+        // 3. 校验父评论，锁定所属评论树并计算 rootId
         Comment parentComment = null;
         Long rootId = null;
         if (createCommentRequestDTO.getParentId() != null){
             parentComment = commentMapper.selectById(createCommentRequestDTO.getParentId());
+            if (parentComment != null){
+                parentComment = lockCommentTree(parentComment);
+            }
             if (parentComment == null
                     || !parentComment.getArticleId().equals(articleId)
                     || parentComment.getStatus() != CommentStatus.APPROVED){
@@ -357,23 +384,51 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
      *
      * @param commentId
      * @param userId
+     * @return 删除的已通过评论数量
      */
     @Override
     @Transactional
-    public void deleteOwnComment(Long commentId, Long userId) {
-        // 1. 校验评论是否存在
+    public CommentDeleteVO deleteOwnComment(Long commentId, Long userId) {
+        // 1. 初步查询评论并校验操作权限
         Comment comment = commentMapper.selectById(commentId);
         if (comment == null || comment.getStatus() == CommentStatus.DELETED){
             throw new BizException(ResultCode.COMMENT_NOT_FOUND);
         }
-
-        // 2. 校验操作权限
         if (!comment.getUserId().equals(userId)){
             throw new BizException(ResultCode.COMMENT_NO_PERMISSION);
         }
 
+        // 2. 锁定所属评论树并读取最新状态
+        comment = lockCommentTree(comment);
+        if (comment == null || comment.getStatus() == CommentStatus.DELETED){
+            throw new BizException(ResultCode.COMMENT_NOT_FOUND);
+        }
+
         // 3. 逻辑删除评论子树
-        deleteCommentSubtree(comment, userId, null, OffsetDateTime.now(ZoneOffset.UTC));
+        long deletedApprovedCount = deleteCommentSubtree(
+                comment,
+                userId,
+                null,
+                OffsetDateTime.now(ZoneOffset.UTC)
+        );
+        return CommentDeleteVO.builder()
+                .deletedApprovedCount(deletedApprovedCount)
+                .build();
+    }
+
+    /**
+     * 锁定评论所属的顶层评论，并返回加锁后重新读取的目标评论。
+     *
+     * @param comment 初步查询到的评论
+     * @return 最新的目标评论；所属顶层评论不存在时返回 null
+     */
+    private Comment lockCommentTree(Comment comment) {
+        Long rootId = comment.getParentId() == null ? comment.getId() : comment.getRootId();
+        Comment rootComment = commentMapper.selectByIdForUpdate(rootId);
+        if (rootComment == null){
+            return null;
+        }
+        return comment.getId().equals(rootId) ? rootComment : commentMapper.selectById(comment.getId());
     }
 
     /**
@@ -504,17 +559,16 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
     }
 
     /**
-     * 查询顶层评论下当前请求者可见的回复数量。
+     * 批量查询各顶层评论的已通过回复数和当前请求者可见回复数。
      *
-     * @param rootId 顶层评论 ID
+     * @param comments 顶层评论列表
      * @param currentUserId 当前登录用户 ID；游客为空
-     * @return 可见回复数量
+     * @return 顶层评论 ID 与回复数量的映射
      */
-    private long countVisibleReplies(Long rootId, Long currentUserId) {
-        LambdaQueryWrapper<Comment> wrapper = new LambdaQueryWrapper<Comment>()
-                .eq(Comment::getRootId, rootId);
-        addVisibleCommentCondition(wrapper, currentUserId);
-        return commentMapper.selectCount(wrapper);
+    private Map<Long, CommentReplyCountBO> getReplyCountMap(List<Comment> comments, Long currentUserId) {
+        List<Long> rootIds = comments.stream().map(Comment::getId).toList();
+        return commentMapper.selectReplyCounts(rootIds, currentUserId).stream()
+                .collect(Collectors.toMap(CommentReplyCountBO::getRootId, item -> item));
     }
 
     /**
@@ -527,6 +581,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
     private List<PublicCommentItemVO> buildPublicCommentItemVOList(List<Comment> comments, Long currentUserId) {
         List<Long> userIds = comments.stream().map(Comment::getUserId).toList();
         Map<Long, User> userMap = getUserMap(userIds);
+        Map<Long, CommentReplyCountBO> replyCountMap = getReplyCountMap(comments, currentUserId);
 
         List<PublicCommentItemVO> res = new ArrayList<>();
         comments.forEach(c -> {
@@ -534,8 +589,10 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
             boolean isMine = currentUserId != null && c.getUserId().equals(currentUserId);
 
             PublicCommentItemVO vo = BeanUtil.copyProperties(c, PublicCommentItemVO.class);
+            CommentReplyCountBO replyCount = replyCountMap.get(c.getId());
             vo.setAuthor(author == null ? null : BeanUtil.copyProperties(author, CommentAuthorVO.class));
-            vo.setReplyCount(countVisibleReplies(c.getId(), currentUserId));
+            vo.setReplyCount(replyCount == null ? 0L : replyCount.getReplyCount());
+            vo.setHasVisibleReplies(replyCount != null && replyCount.getVisibleReplyCount() > 0);
             vo.setIsMine(isMine);
             vo.setModerationReason(isMine && c.getStatus() == CommentStatus.REJECTED ? c.getModerationReason() : null);
             res.add(vo);
@@ -574,6 +631,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
             vo.setAuthor(author == null ? null : BeanUtil.copyProperties(author, CommentAuthorVO.class));
             vo.setReplyToUser(replyToUser == null ? null : BeanUtil.copyProperties(replyToUser, CommentAuthorVO.class));
             vo.setReplyCount(0L);
+            vo.setHasVisibleReplies(false);
             vo.setIsMine(isMine);
             vo.setModerationReason(isMine && c.getStatus() == CommentStatus.REJECTED ? c.getModerationReason() : null);
             res.add(vo);
@@ -589,9 +647,32 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
      */
     private void checkCommentRateLimit(Long userId, Long articleId) {
         String key = COMMENT_RATE_LIMIT_KEY_PREFIX + ":user:" + userId + ":article:" + articleId;
-        Boolean success = stringRedisTemplate.opsForValue().setIfAbsent(key, "1", COMMENT_RATE_LIMIT_DURATION);
+        String token = UUID.randomUUID().toString();
+        Boolean success = stringRedisTemplate.opsForValue().setIfAbsent(key, token, COMMENT_RATE_LIMIT_DURATION);
         if (!Boolean.TRUE.equals(success)){
             throw new BizException(ResultCode.COMMENT_RATE_LIMITED);
+        }
+
+        // 数据库事务回滚时，释放本次预占的限流 key；提交时保留 key 直到 TTL 到期。
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    if (status != STATUS_ROLLED_BACK) {
+                        return;
+                    }
+                    try {
+                        stringRedisTemplate.execute(
+                                RELEASE_COMMENT_RATE_LIMIT_SCRIPT,
+                                List.of(key),
+                                token
+                        );
+                    } catch (RuntimeException exception) {
+                        // 清理失败不应覆盖原始事务异常，限流 key 会在 TTL 到期后自动释放。
+                        log.warn("评论事务回滚时清理 Redis 限流 key 失败: {}", key, exception);
+                    }
+                }
+            });
         }
     }
 
@@ -678,7 +759,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
      * @param reason 删除原因
      * @param now 删除时间
      */
-    private void deleteCommentSubtree(Comment comment, Long userId, String reason, OffsetDateTime now) {
+    private long deleteCommentSubtree(Comment comment, Long userId, String reason, OffsetDateTime now) {
         // 递归 CTE 一次查出目标评论及其全部后代，避免按层反复查询数据库。
         List<Long> commentIds = commentMapper.selectCommentSubtreeIds(comment.getId());
         long approvedCount = commentMapper.countApprovedCommentSubtree(comment.getId());
@@ -711,5 +792,6 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
             );
         }
         updateArticleCommentCount(comment.getArticleId(), -approvedCount);
+        return approvedCount;
     }
 }

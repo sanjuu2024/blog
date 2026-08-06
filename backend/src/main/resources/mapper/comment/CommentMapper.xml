@@ -5,6 +5,14 @@
 
 <mapper namespace="com.ccsanjuu.blog.modules.comment.mapper.CommentMapper">
 
+    <select id="selectByIdForUpdate"
+            resultType="com.ccsanjuu.blog.modules.comment.model.entity.Comment">
+        SELECT *
+        FROM blog_comment
+        WHERE id = #{commentId}
+        FOR UPDATE
+    </select>
+
     <select id="selectCommentSubtreeIds" resultType="java.lang.Long">
         WITH RECURSIVE comment_tree AS (
             SELECT id
@@ -37,6 +45,28 @@
         FROM blog_comment c
         INNER JOIN comment_tree ct ON c.id = ct.id
         WHERE c.status = 'APPROVED'
+    </select>
+
+    <select id="selectReplyCounts"
+            resultType="com.ccsanjuu.blog.modules.comment.model.bo.CommentReplyCountBO">
+        SELECT root_id,
+               COUNT(*) FILTER (WHERE status = 'APPROVED') AS reply_count,
+               COUNT(*) AS visible_reply_count
+        FROM blog_comment
+        WHERE root_id IN
+        <foreach collection="rootIds" item="rootId" open="(" separator="," close=")">
+            #{rootId}
+        </foreach>
+        AND (
+            status = 'APPROVED'
+            <if test="currentUserId != null">
+                OR (
+                    user_id = #{currentUserId}
+                    AND status IN ('PENDING', 'REJECTED')
+                )
+            </if>
+        )
+        GROUP BY root_id
     </select>
 
 </mapper>

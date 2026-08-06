@@ -422,9 +422,9 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_tag_tag_id
 | `tag_id` | `BIGINT` | 关联标签 ID | `30001` |
 | `created_at` | `TIMESTAMPTZ` | 关联关系创建时间 | `2026-04-22 22:00:00+08` |
 
-## 4. 预留表
+## 4. P1 已启用与后续预留表
 
-## 4.1 表名：`blog_comment`
+## 4.1 P1 已启用表：`blog_comment`
 
 ### SQL（PostgreSQL）
 
@@ -496,6 +496,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_comment_user_article_created_at
 - 用户或管理员删除评论时，在同一事务中将目标评论及全部后代标记为 `DELETED`，并写入 `deleted_by`、`deleted_at`
 - `blog_article.comment_count` 只统计全部 `APPROVED` 评论，包括顶层评论和回复
 - 状态流转、子树删除和 `comment_count` 增减必须在同一事务中完成，避免冗余计数失真
+- 创建回复、审核和删除属于同一评论树的并发写操作，必须在事务中锁定所属顶层评论，并在取得锁后重新校验目标评论状态
+- 统一的评论树锁用于避免删除期间新增回复或审核状态变化造成孤立数据和 `comment_count` 失真
 - 评论审核、拒绝、隐藏或删除的结构化操作历史由 P1 后台操作审计日志记录；评论表字段仅保存当前状态和最近一次处理信息
 
 ## 4.2 表名：`blog_article_like`

@@ -112,6 +112,7 @@
 						ref="commentTableRef"
 						:data="commentList"
 						row-key="id"
+						:row-class-name="getCommentRowClassName"
 						class="admin-comment-table"
 						height="100%"
 					>
@@ -151,7 +152,7 @@
 								</RouterLink>
 								<p
 									v-if="row.article"
-									class="text-xs text-gray-400"
+									class="admin-comment-secondary text-xs"
 								>
 									ID: {{ row.article.id }}
 								</p>
@@ -167,7 +168,9 @@
 							<template #default="{ row }: { row: AdminCommentItem }">
 								<div v-if="row.author">
 									<p>{{ row.author.nickname || row.author.username }}</p>
-									<p class="text-xs text-gray-400">ID: {{ row.author.id }}</p>
+									<p class="admin-comment-secondary text-xs">
+										ID: {{ row.author.id }}
+									</p>
 								</div>
 								<span v-else>-</span>
 							</template>
@@ -189,7 +192,13 @@
 							width="100"
 						>
 							<template #default="{ row }: { row: AdminCommentItem }">
-								<el-tag :type="getCommentStatusTagType(row.status)">
+								<el-tag
+									:type="getCommentStatusTagType(row.status)"
+									:class="{
+										'comment-status-rejected':
+											row.status === COMMENT_STATUS.REJECTED,
+									}"
+								>
 									{{ getCommentStatusLabel(row.status) }}
 								</el-tag>
 							</template>
@@ -221,14 +230,20 @@
 							width="180"
 						>
 							<template #default="{ row }: { row: AdminCommentItem }">
-								{{ formatDateTime(row.reviewedAt || row.deletedAt) }}
+								{{
+									formatDateTime(
+										row.status === COMMENT_STATUS.DELETED
+											? row.deletedAt
+											: row.reviewedAt,
+									)
+								}}
 							</template>
 						</el-table-column>
 
 						<el-table-column
 							label="评论操作"
 							align="center"
-							width="240"
+							width="300"
 							fixed="right"
 						>
 							<template #default="{ row }: { row: AdminCommentItem }">
@@ -399,6 +414,15 @@ function getCommentStatusTagType(status: CommentStatus) {
 function getCommentTypeLabel(type: CommentType) {
 	return type === COMMENT_TYPE.TOP_LEVEL ? '顶层评论' : '回复';
 }
+
+// 获取已处理评论的灰度行样式。
+function getCommentRowClassName({ row }: { row: AdminCommentItem }) {
+	return row.status === COMMENT_STATUS.DELETED ||
+		row.status === COMMENT_STATUS.REJECTED ||
+		row.status === COMMENT_STATUS.HIDDEN
+		? 'comment-row-muted'
+		: '';
+}
 </script>
 
 <style scoped lang="scss">
@@ -432,6 +456,32 @@ function getCommentTypeLabel(type: CommentType) {
 .admin-comment-table {
 	--el-table-row-hover-bg-color: var(--app-table-row-hover-bg-color);
 	height: 100%;
+}
+
+.admin-comment-table :deep(.comment-row-muted) {
+	--el-table-text-color: var(--app-text-muted);
+	color: var(--app-text-muted);
+}
+
+.admin-comment-table :deep(.comment-row-muted td),
+.admin-comment-table :deep(.comment-row-muted .cell),
+.admin-comment-table :deep(.comment-row-muted a),
+.admin-comment-table :deep(.comment-row-muted p) {
+	color: var(--app-text-muted);
+}
+
+.admin-comment-table :deep(.comment-row-muted .el-tag) {
+	filter: grayscale(1);
+	opacity: 0.75;
+}
+
+.admin-comment-table :deep(.comment-row-muted .comment-status-rejected) {
+	filter: none;
+	opacity: 1;
+}
+
+.admin-comment-secondary {
+	color: var(--app-text-muted);
 }
 
 .admin-comment-content {
