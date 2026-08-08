@@ -4,10 +4,12 @@ import com.ccsanjuu.blog.common.exception.GlobalExceptionHandler;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
 import com.ccsanjuu.blog.modules.auth.controller.AuthController;
 import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
+import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
 import com.ccsanjuu.blog.modules.auth.support.RefreshTokenCookieManager;
 import com.ccsanjuu.blog.modules.auth.service.AuthService;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
+import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
 import com.ccsanjuu.blog.modules.tag.mapper.TagMapper;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import jakarta.validation.constraints.NotNull;
@@ -59,6 +61,9 @@ class ApiErrorHandlingTest {
     private AuthService authService;
 
     @MockitoBean
+    private TokenVersionService tokenVersionService;
+
+    @MockitoBean
     private RefreshTokenCookieManager refreshTokenCookieManager;
 
     @MockitoBean
@@ -69,6 +74,9 @@ class ApiErrorHandlingTest {
 
     @MockitoBean
     private CategoryMapper categoryMapper;
+
+    @MockitoBean
+    private CommentMapper commentMapper;
 
     @MockitoBean
     private TagMapper tagMapper;

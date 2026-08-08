@@ -592,7 +592,7 @@ paths:
       tags:
         - Profile
       summary: 修改密码
-      description: 权限级别 `LOGIN`。修改当前登录用户密码。
+      description: 权限级别 `LOGIN`。修改当前登录用户密码；成功后撤销该用户全部活跃 Refresh Token，并递增 tokenVersion 使旧 Access Token 立即失效。
       operationId: changeCurrentUserPassword
       security:
         - bearerAuth: []
@@ -789,7 +789,7 @@ paths:
       tags:
         - Admin Users
       summary: 修改用户状态
-      description: 权限级别 `ADMIN`。支持启用或禁用用户；管理员不能修改当前登录用户自身状态。状态修改为 DISABLED 时会撤销该用户全部活跃 Refresh Token；修改为 ACTIVE 时不撤销 Refresh Token。P0 阶段已签发 Access Token 依赖 15 分钟短有效期自然过期，P1 阶段通过 tokenVersion 支持立即失效。
+      description: 权限级别 `ADMIN`。支持启用或禁用用户；管理员不能修改当前登录用户自身状态。状态修改为 DISABLED 时会撤销该用户全部活跃 Refresh Token，并递增 tokenVersion 使旧 Access Token 立即失效；修改为 ACTIVE 时不撤销 Refresh Token，也不再次递增 tokenVersion。
       operationId: updateAdminUserStatus
       security:
         - bearerAuth: []
@@ -844,7 +844,7 @@ paths:
       tags:
         - Admin Users
       summary: 修改用户角色
-      description: 权限级别 `ADMIN`。支持将用户修改为管理员或普通用户；管理员不能修改当前登录用户自身角色。角色发生变化后不直接撤销 Refresh Token，新的角色在刷新登录态或重新登录后生效。P0 阶段已签发 Access Token 依赖 15 分钟短有效期自然过期，P1 阶段通过 tokenVersion 支持立即失效。
+      description: 权限级别 `ADMIN`。支持将用户修改为管理员或普通用户；管理员不能修改当前登录用户自身角色。角色发生变化后不直接撤销 Refresh Token，但会递增 tokenVersion 使旧 Access Token 立即失效；新的角色在刷新登录态或重新登录后生效。
       operationId: updateAdminUserRole
       security:
         - bearerAuth: []

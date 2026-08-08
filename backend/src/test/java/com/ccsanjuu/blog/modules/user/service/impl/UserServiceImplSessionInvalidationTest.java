@@ -3,6 +3,7 @@ package com.ccsanjuu.blog.modules.user.service.impl;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.auth.service.AuthService;
+import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.dto.ChangePasswordRequestDTO;
 import com.ccsanjuu.blog.modules.user.model.dto.UpdateUserRoleRequestDTO;
@@ -46,17 +47,20 @@ class UserServiceImplSessionInvalidationTest {
     @Mock
     private AuthService authService;
 
+    @Mock
+    private TokenVersionService tokenVersionService;
+
     private UserServiceImpl userService;
 
     @BeforeEach
     void setUp() {
-        userService = new UserServiceImpl(passwordEncoder, userMapper, authService);
+        userService = new UserServiceImpl(passwordEncoder, userMapper, authService, tokenVersionService);
     }
 
     @Test
     void changePasswordShouldLogSuccessWithoutExposingPassword(CapturedOutput output) {
         String newPassword = "NewPassword_123";
-        when(userMapper.selectById(USER_ID)).thenReturn(User.builder()
+        when(userMapper.selectByIdForUpdate(USER_ID)).thenReturn(User.builder()
                 .id(USER_ID)
                 .passwordHash("old-password-hash")
                 .build());
@@ -69,6 +73,7 @@ class UserServiceImplSessionInvalidationTest {
         userService.changePassword(USER_ID, request);
 
         verify(userMapper).updateById(any(User.class));
+        verify(tokenVersionService).incrementVersion(USER_ID);
         verify(authService).revokeUserRefreshTokens(USER_ID);
         assertTrue(output.getOut().contains("security_event=PASSWORD_CHANGE_SUCCESS"));
         assertTrue(output.getOut().contains("description=\"修改密码成功，已撤销现有登录态\""));
@@ -79,7 +84,7 @@ class UserServiceImplSessionInvalidationTest {
     @Test
     void changePasswordShouldLogOldPasswordFailureWithoutExposingPassword(CapturedOutput output) {
         String oldPassword = "WrongPassword_123";
-        when(userMapper.selectById(USER_ID)).thenReturn(User.builder()
+        when(userMapper.selectByIdForUpdate(USER_ID)).thenReturn(User.builder()
                 .id(USER_ID)
                 .passwordHash("old-password-hash")
                 .build());
@@ -102,7 +107,7 @@ class UserServiceImplSessionInvalidationTest {
 
     @Test
     void changeUserStatusShouldRevokeRefreshTokensWhenStatusChanged(CapturedOutput output) {
-        when(userMapper.selectById(USER_ID)).thenReturn(User.builder()
+        when(userMapper.selectByIdForUpdate(USER_ID)).thenReturn(User.builder()
                 .id(USER_ID)
                 .role(UserRole.USER)
                 .status(UserStatus.ACTIVE)
@@ -115,6 +120,7 @@ class UserServiceImplSessionInvalidationTest {
         assertEquals(USER_ID, result.getId());
         assertEquals(UserStatus.DISABLED, result.getStatus());
         verify(userMapper).updateById(any(User.class));
+        verify(tokenVersionService).incrementVersion(USER_ID);
         verify(authService).revokeUserRefreshTokens(USER_ID);
         assertTrue(output.getOut().contains("security_event=USER_STATUS_CHANGED"));
         assertTrue(output.getOut().contains("actorId=" + CURRENT_USER_ID));
@@ -124,7 +130,7 @@ class UserServiceImplSessionInvalidationTest {
 
     @Test
     void changeUserStatusShouldSkipUpdateAndRevokeWhenStatusUnchanged() {
-        when(userMapper.selectById(USER_ID)).thenReturn(User.builder()
+        when(userMapper.selectByIdForUpdate(USER_ID)).thenReturn(User.builder()
                 .id(USER_ID)
                 .role(UserRole.USER)
                 .status(UserStatus.DISABLED)
@@ -137,12 +143,13 @@ class UserServiceImplSessionInvalidationTest {
         assertEquals(USER_ID, result.getId());
         assertEquals(UserStatus.DISABLED, result.getStatus());
         verify(userMapper, never()).updateById(any(User.class));
+        verifyNoInteractions(tokenVersionService);
         verifyNoInteractions(authService);
     }
 
     @Test
     void changeUserStatusShouldSkipRevokeWhenEnabled() {
-        when(userMapper.selectById(USER_ID)).thenReturn(User.builder()
+        when(userMapper.selectByIdForUpdate(USER_ID)).thenReturn(User.builder()
                 .id(USER_ID)
                 .role(UserRole.USER)
                 .status(UserStatus.DISABLED)
@@ -155,12 +162,13 @@ class UserServiceImplSessionInvalidationTest {
         assertEquals(USER_ID, result.getId());
         assertEquals(UserStatus.ACTIVE, result.getStatus());
         verify(userMapper).updateById(any(User.class));
+        verifyNoInteractions(tokenVersionService);
         verifyNoInteractions(authService);
     }
 
     @Test
     void changeUserStatusShouldRejectSelfChange(CapturedOutput output) {
-        when(userMapper.selectById(CURRENT_USER_ID)).thenReturn(User.builder()
+        when(userMapper.selectByIdForUpdate(CURRENT_USER_ID)).thenReturn(User.builder()
                 .id(CURRENT_USER_ID)
                 .role(UserRole.ADMIN)
                 .status(UserStatus.ACTIVE)
@@ -173,6 +181,7 @@ class UserServiceImplSessionInvalidationTest {
 
         assertEquals(ResultCode.SELF_STATUS_CHANGE_NOT_ALLOWED, exception.getResultCode());
         verify(userMapper, never()).updateById(any(User.class));
+        verifyNoInteractions(tokenVersionService);
         verifyNoInteractions(authService);
         assertTrue(output.getOut().contains("security_event=USER_STATUS_CHANGE_FAILED"));
         assertTrue(output.getOut().contains("reason=SELF_CHANGE"));
@@ -180,7 +189,7 @@ class UserServiceImplSessionInvalidationTest {
 
     @Test
     void changeUserRoleShouldUpdateRoleWithoutRevokingRefreshTokens(CapturedOutput output) {
-        when(userMapper.selectById(USER_ID)).thenReturn(User.builder()
+        when(userMapper.selectByIdForUpdate(USER_ID)).thenReturn(User.builder()
                 .id(USER_ID)
                 .role(UserRole.USER)
                 .status(UserStatus.ACTIVE)
@@ -193,6 +202,7 @@ class UserServiceImplSessionInvalidationTest {
         assertEquals(USER_ID, result.getId());
         assertEquals(UserRole.ADMIN, result.getRole());
         verify(userMapper).updateById(any(User.class));
+        verify(tokenVersionService).incrementVersion(USER_ID);
         verifyNoInteractions(authService);
         assertTrue(output.getOut().contains("security_event=USER_ROLE_CHANGED"));
         assertTrue(output.getOut().contains("oldRole=USER newRole=ADMIN"));
@@ -200,7 +210,7 @@ class UserServiceImplSessionInvalidationTest {
 
     @Test
     void changeUserRoleShouldRejectSelfChange(CapturedOutput output) {
-        when(userMapper.selectById(CURRENT_USER_ID)).thenReturn(User.builder()
+        when(userMapper.selectByIdForUpdate(CURRENT_USER_ID)).thenReturn(User.builder()
                 .id(CURRENT_USER_ID)
                 .role(UserRole.ADMIN)
                 .status(UserStatus.ACTIVE)
@@ -213,6 +223,7 @@ class UserServiceImplSessionInvalidationTest {
 
         assertEquals(ResultCode.SELF_ROLE_CHANGE_NOT_ALLOWED, exception.getResultCode());
         verify(userMapper, never()).updateById(any(User.class));
+        verifyNoInteractions(tokenVersionService);
         verifyNoInteractions(authService);
         assertTrue(output.getOut().contains("security_event=USER_ROLE_CHANGE_FAILED"));
         assertTrue(output.getOut().contains("reason=SELF_CHANGE"));

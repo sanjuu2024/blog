@@ -42,7 +42,8 @@
 ### 2.3 设计原则
 
 - P0 阶段 `Refresh Token` 以数据库会话表为准，刷新、退出、修改密码、禁用用户等安全事件通过会话表做失效控制；修改用户角色不直接撤销 Refresh Token
-- P1 阶段引入 Redis 保存运行态会话与 `tokenVersion`，用于降低鉴权查询成本，并支持修改密码、禁用用户、修改角色后的旧 Access Token 立即失效
+- P1 已使用 Redis 缓存用户 `tokenVersion`，用于降低 Access Token 鉴权时的数据库查询成本；缓存未命中或 Redis 不可用时回源数据库，缓存有效期与 Access Token 有效期一致
+- Refresh Token 会话仍以 `blog_auth_session` 为权威来源，Redis 运行态会话与刷新宽限期不在本次 `tokenVersion` 实现范围内
 - P1 阶段后台管理操作审计日志建议使用独立审计表，记录操作者、目标资源、操作类型、操作结果和操作时间
 - `Refresh Token` 使用轮转机制；每次刷新成功后，旧会话记录标记为 `REVOKED`，新 Refresh Token 对应新的 `ACTIVE` 会话记录
 - P0 阶段不因普通刷新失败自动撤销用户全部活跃 Refresh Token；修改密码、用户禁用、管理员强制下线等明确安全事件可按业务规则撤销全部会话
@@ -97,6 +98,8 @@ CREATE TABLE IF NOT EXISTS blog_user (
         CHECK (role IN ('ADMIN', 'USER')),
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
         CHECK (status IN ('ACTIVE', 'DISABLED')),
+    token_version BIGINT NOT NULL DEFAULT 0
+        CHECK (token_version >= 0),
     avatar_url VARCHAR(500) NOT NULL DEFAULT '',
     bio VARCHAR(500) NOT NULL DEFAULT '',
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
@@ -138,6 +141,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_user_role_status
 | `password_hash` | `VARCHAR(255)` | 密码哈希值，禁止明文存储 | `$2a$10$abc...` |
 | `role` | `VARCHAR(20)` | 用户角色，区分管理员和普通用户 | `ADMIN`、`USER` |
 | `status` | `VARCHAR(20)` | 用户状态，控制是否允许登录 | `ACTIVE`、`DISABLED` |
+| `token_version` | `BIGINT` | Access Token 版本号；修改密码、禁用用户或修改角色时原子递增，使旧 Access Token 立即失效 | `0`、`1` |
 | `avatar_url` | `VARCHAR(500)` | 用户头像地址，P0 可为空，前端显示默认头像 | `https://cdn.example.com/avatar/1.png` |
 | `bio` | `VARCHAR(500)` | 用户个人简介 | `专注后端和前端工程化` |
 | `email_verified` | `BOOLEAN` | 邮箱是否完成验证，P0 默认未启用，但字段先预留 | `false` |
@@ -208,8 +212,10 @@ CREATE INDEX IF NOT EXISTS idx_blog_auth_session_expires_at
 - 宽限期重试：P1 接入 Redis 后，若旧 Refresh Token 已 `REVOKED` 且仍处于 Redis 宽限期内，后端可返回第一次刷新时生成的新令牌结果，不再创建新的会话记录。
 - 重放检测：P1 可结合 Redis 短 TTL 宽限期、`token_jti` 状态和 `tokenVersion` 识别高风险重放；确认高风险后再撤销该用户全部 `ACTIVE` 会话记录。
 - 主动退出登录：将当前 Refresh Token 对应会话记录更新为 `REVOKED`。
-- 修改密码或禁用用户：将该用户全部 `ACTIVE` Refresh Token 会话更新为 `REVOKED`；P0 阶段已签发 Access Token 依赖短有效期自然过期。
-- 修改用户角色：P0 阶段不直接撤销 Refresh Token，新的角色在刷新登录态或重新登录后生效；P1 阶段通过 Redis `tokenVersion` 让旧 Access Token 立即失效。
+- 修改密码或禁用用户：将该用户全部 `ACTIVE` Refresh Token 会话更新为 `REVOKED`，同时原子递增 `blog_user.token_version`，使已签发 Access Token 立即失效。
+- 修改用户角色：不直接撤销 Refresh Token，但原子递增 `blog_user.token_version`，使旧 Access Token 立即失效；使用现有 Refresh Token 刷新或重新登录后取得携带新角色的新 Access Token。
+- Access Token 携带签发时的 `tokenVersion`；鉴权时优先与 Redis 缓存比较，缓存未命中或 Redis 不可用时回源 `blog_user.token_version`。数据库是持久化权威来源，Redis 只保存可重建缓存。
+- 登录、刷新登录态、修改密码、禁用用户和修改角色时锁定同一条 `blog_user` 记录；登录取得锁后使用最新密码和账号状态继续校验，刷新请求取得锁后必须重新校验旧 Refresh Token，避免并发账号安全操作重新产生有效会话。
 - 定期维护：可将 `expires_at` 早于当前时间且仍为 `ACTIVE` 的记录更新为 `EXPIRED`。
 
 ## 3.3 表名：`blog_category`

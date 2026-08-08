@@ -2,6 +2,7 @@ package com.ccsanjuu.blog.config;
 
 import com.ccsanjuu.blog.common.api.Result;
 import com.ccsanjuu.blog.common.api.ResultCode;
+import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -49,9 +50,10 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             ObjectMapper objectMapper,
-            SecretKey jwtSigningKey
+            SecretKey jwtSigningKey,
+            TokenVersionService tokenVersionService
     ) throws Exception {
-        JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtSigningKey, objectMapper);
+        JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtSigningKey, objectMapper, tokenVersionService);
 
         http
                 // 前后端分离 + JWT 场景下不依赖浏览器 Cookie Session，所以关闭 CSRF。

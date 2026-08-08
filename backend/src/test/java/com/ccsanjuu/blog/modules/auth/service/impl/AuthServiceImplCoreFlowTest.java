@@ -93,6 +93,7 @@ class AuthServiceImplCoreFlowTest {
         assertEquals("encoded-password", user.getPasswordHash());
         assertEquals(UserRole.USER, user.getRole());
         assertEquals(UserStatus.ACTIVE, user.getStatus());
+        assertEquals(0L, user.getTokenVersion());
     }
 
     @Test
@@ -115,6 +116,7 @@ class AuthServiceImplCoreFlowTest {
     void loginShouldIssueTokensPersistSessionAndUpdateLoginTime() {
         User user = activeUser();
         when(userMapper.selectOne(any())).thenReturn(user);
+        when(userMapper.selectByIdForUpdate(USER_ID)).thenReturn(user);
         when(passwordEncoder.matches(PASSWORD, user.getPasswordHash())).thenReturn(true);
 
         LoginVO result = authService.login(LoginRequestDTO.builder()
@@ -126,6 +128,8 @@ class AuthServiceImplCoreFlowTest {
         assertNotNull(result.getRefreshToken());
         assertEquals(USER_ID, result.getUser().getId());
         assertEquals(UserRole.USER, result.getUser().getRole());
+        assertEquals(3L, JwtUtil.getTokenVersion(JwtUtil.parseClaims(result.getAccessToken(), SIGNING_KEY)));
+        verify(userMapper).selectByIdForUpdate(USER_ID);
         verify(authMapper).insert(any(AuthSession.class));
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
@@ -139,6 +143,7 @@ class AuthServiceImplCoreFlowTest {
         User user = activeUser();
         user.setStatus(UserStatus.DISABLED);
         when(userMapper.selectOne(any())).thenReturn(user);
+        when(userMapper.selectByIdForUpdate(USER_ID)).thenReturn(user);
         when(passwordEncoder.matches(PASSWORD, user.getPasswordHash())).thenReturn(true);
 
         BizException exception = assertThrows(BizException.class, () -> authService.login(
@@ -146,6 +151,24 @@ class AuthServiceImplCoreFlowTest {
         ));
 
         assertEquals(ResultCode.USER_DISABLED, exception.getResultCode());
+        verify(authMapper, never()).insert(any(AuthSession.class));
+    }
+
+    @Test
+    void loginShouldValidatePasswordUsingLockedUserState() {
+        User queriedUser = activeUser();
+        User lockedUser = activeUser();
+        lockedUser.setPasswordHash("changed-password-hash");
+        when(userMapper.selectOne(any())).thenReturn(queriedUser);
+        when(userMapper.selectByIdForUpdate(USER_ID)).thenReturn(lockedUser);
+        when(passwordEncoder.matches(PASSWORD, lockedUser.getPasswordHash())).thenReturn(false);
+
+        BizException exception = assertThrows(BizException.class, () -> authService.login(
+                LoginRequestDTO.builder().account("sanjuu").password(PASSWORD).build()
+        ));
+
+        assertEquals(ResultCode.PASSWORD_ERROR, exception.getResultCode());
+        verify(userMapper).selectByIdForUpdate(USER_ID);
         verify(authMapper, never()).insert(any(AuthSession.class));
     }
 
@@ -168,7 +191,7 @@ class AuthServiceImplCoreFlowTest {
                 .expiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusDays(7))
                 .build();
         when(authMapper.selectOne(any())).thenReturn(oldSession);
-        when(userMapper.selectById(USER_ID)).thenReturn(activeUser());
+        when(userMapper.selectByIdForUpdate(USER_ID)).thenReturn(activeUser());
 
         RefreshTokenVO result = authService.refresh(
                 RefreshTokenRequestDTO.builder().refreshToken(oldRefreshToken).build()
@@ -177,6 +200,7 @@ class AuthServiceImplCoreFlowTest {
         assertNotNull(result.getAccessToken());
         assertNotNull(result.getRefreshToken());
         assertNotEquals(oldRefreshToken, result.getRefreshToken());
+        verify(authMapper, org.mockito.Mockito.times(2)).selectOne(any());
         verify(authMapper).revokeRefreshToken(oldJti, AuthSessionStatus.REVOKED.getValue());
         verify(authMapper).insert(any(AuthSession.class));
         assertTrue(output.getOut().contains("security_event=TOKEN_REFRESH_SUCCESS"));
@@ -203,7 +227,7 @@ class AuthServiceImplCoreFlowTest {
                 .build());
         User disabledUser = activeUser();
         disabledUser.setStatus(UserStatus.DISABLED);
-        when(userMapper.selectById(USER_ID)).thenReturn(disabledUser);
+        when(userMapper.selectByIdForUpdate(USER_ID)).thenReturn(disabledUser);
 
         BizException exception = assertThrows(BizException.class, () -> authService.refresh(
                 RefreshTokenRequestDTO.builder().refreshToken(refreshToken).build()
@@ -214,6 +238,39 @@ class AuthServiceImplCoreFlowTest {
         verify(authMapper, never()).insert(any(AuthSession.class));
         assertTrue(output.getOut().contains("security_event=TOKEN_REFRESH_FAILED"));
         assertTrue(output.getOut().contains("reason=USER_DISABLED"));
+        assertFalse(output.getOut().contains(refreshToken));
+    }
+
+    @Test
+    void refreshShouldRejectTokenRevokedWhileWaitingForUserLock(CapturedOutput output) {
+        String refreshToken = JwtUtil.generateRefreshToken(
+                SIGNING_KEY,
+                "sanjuu-blog",
+                Duration.ofDays(7),
+                USER_ID,
+                "concurrent-refresh-session"
+        );
+        AuthSession activeSession = AuthSession.builder()
+                .userId(USER_ID)
+                .tokenJti("concurrent-refresh-session")
+                .tokenHash(TokenHashUtil.sha256(refreshToken))
+                .tokenType(AuthSessionTokenType.REFRESH)
+                .status(AuthSessionStatus.ACTIVE)
+                .expiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusDays(7))
+                .build();
+        when(authMapper.selectOne(any()))
+                .thenReturn(activeSession)
+                .thenReturn((AuthSession) null);
+        when(userMapper.selectByIdForUpdate(USER_ID)).thenReturn(activeUser());
+
+        BizException exception = assertThrows(BizException.class, () -> authService.refresh(
+                RefreshTokenRequestDTO.builder().refreshToken(refreshToken).build()
+        ));
+
+        assertEquals(ResultCode.REFRESH_TOKEN_INVALID_OR_EXPIRED, exception.getResultCode());
+        verify(authMapper, never()).revokeRefreshToken(any(), any());
+        verify(authMapper, never()).insert(any(AuthSession.class));
+        assertTrue(output.getOut().contains("reason=REVOKED_WHILE_WAITING"));
         assertFalse(output.getOut().contains(refreshToken));
     }
 
@@ -240,6 +297,7 @@ class AuthServiceImplCoreFlowTest {
                 .passwordHash("encoded-password")
                 .role(UserRole.USER)
                 .status(UserStatus.ACTIVE)
+                .tokenVersion(3L)
                 .build();
     }
 }

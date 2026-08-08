@@ -8,6 +8,7 @@ import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.category.model.vo.PublicCategoryItemVO;
 import com.ccsanjuu.blog.modules.category.service.CategoryService;
+import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
 import com.ccsanjuu.blog.modules.tag.mapper.TagMapper;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
@@ -51,6 +52,9 @@ class CategoryControllerTest {
 
     @MockitoBean
     private CategoryMapper categoryMapper;
+
+    @MockitoBean
+    private CommentMapper commentMapper;
 
     @MockitoBean
     private TagMapper tagMapper;

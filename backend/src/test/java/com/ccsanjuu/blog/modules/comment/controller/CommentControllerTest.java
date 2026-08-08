@@ -7,6 +7,7 @@ import com.ccsanjuu.blog.config.WebMvcConfig;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
 import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
+import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentDeleteVO;
@@ -16,6 +17,7 @@ import com.ccsanjuu.blog.modules.tag.mapper.TagMapper;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
 import com.ccsanjuu.blog.modules.user.model.enums.UserStatus;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -30,6 +32,7 @@ import java.time.Duration;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -60,6 +63,9 @@ class CommentControllerTest {
     private CommentService commentService;
 
     @MockitoBean
+    private TokenVersionService tokenVersionService;
+
+    @MockitoBean
     private ArticleMapper articleMapper;
 
     @MockitoBean
@@ -79,6 +85,11 @@ class CommentControllerTest {
 
     @MockitoBean
     private UserMapper userMapper;
+
+    @BeforeEach
+    void setUpTokenVersion() {
+        when(tokenVersionService.getCurrentVersion(anyLong())).thenReturn(0L);
+    }
 
     @Test
     void replyListShouldBindCursorQuery() throws Exception {

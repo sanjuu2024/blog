@@ -11,6 +11,7 @@ import com.ccsanjuu.blog.modules.article.service.ArticleService;
 import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.auth.model.security.JwtPrincipal;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
+import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
 import com.ccsanjuu.blog.modules.tag.mapper.TagMapper;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import org.junit.jupiter.api.Test;
@@ -69,6 +70,9 @@ class AdminArticleControllerTest {
 
     @MockitoBean
     private CategoryMapper categoryMapper;
+
+    @MockitoBean
+    private CommentMapper commentMapper;
 
     @MockitoBean
     private TagMapper tagMapper;

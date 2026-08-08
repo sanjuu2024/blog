@@ -39,9 +39,10 @@ Authorization: Bearer <access_token>
 - Access Token 有效期较短，P0 默认 15 分钟。
 - Refresh Token 不返回给前端 JavaScript 读取，登录和刷新成功后由后端通过 `Set-Cookie` 写入 `HttpOnly` Cookie，前端刷新登录态和退出登录时由浏览器自动携带该 Cookie。
 - Refresh Token Cookie 名称为 `refresh_token`，路径为 `/api/v1/auth`，只随 `/api/v1/auth/**` 请求发送；Cookie 使用 `HttpOnly`、`SameSite=Lax`，生产 HTTPS 环境应启用 `Secure`。
-- Access Token 携带签发时的用户角色、状态快照；P0 阶段不会在每次请求实时查询数据库或 Redis 校验权限版本。
-- 管理员禁用用户或用户修改密码后，后端会撤销该用户全部活跃 Refresh Token，阻止旧登录态继续刷新；修改用户角色不直接撤销 Refresh Token，新的角色在刷新登录态或重新登录后生效；已签发 Access Token 依赖短有效期自然过期。
-- P1 阶段引入 Redis + tokenVersion 校验，支持修改密码、禁用用户、修改角色后的旧 Access Token 立即失效。
+- Access Token 携带签发时的用户角色、状态快照和内部 `tokenVersion` claim；`tokenVersion` 不作为接口响应字段单独暴露。
+- 每次解析 Access Token 后，后端优先读取 Redis 中的当前版本，缓存未命中或 Redis 不可用时回源数据库；JWT 版本与当前版本不一致时返回 `101001`。缓存有效期与 Access Token 有效期一致。
+- 用户修改密码或被禁用时，后端撤销其全部活跃 Refresh Token 并递增 `tokenVersion`；修改用户角色时不撤销 Refresh Token，但仍递增 `tokenVersion`，使旧 Access Token 立即失效。
+- Redis 中的 `tokenVersion` 是可重建缓存，数据库 `blog_user.token_version` 是持久化权威来源；Redis 重启或缓存丢失不会重置版本。
 
 ### 2.4 权限级别
 
@@ -360,6 +361,8 @@ Set-Cookie: refresh_token=<refresh_token>; Max-Age=604800; Path=/api/v1/auth; Ht
 刷新登录态采用 Refresh Token 轮转机制。Refresh Token 由浏览器通过 `refresh_token` HttpOnly Cookie 自动携带，不放在请求体中。每次刷新成功后，后端都会返回新的 Access Token，通过 `Set-Cookie` 写入新的 Refresh Token Cookie，并撤销本次请求携带的旧 Refresh Token。正常刷新只轮转当前会话，不影响同一用户在其他设备上的活跃 Refresh Token。
 
 P0 阶段，Refresh Token 缺失、格式错误、签名无效、已过期、已撤销或找不到对应会话时，统一返回 `101004`。前端收到后清理本地登录态并引导重新登录；后端不因普通刷新失败自动撤销该用户全部活跃 Refresh Token。
+
+登录、刷新登录态、修改密码、禁用用户和修改角色通过同一条用户记录的行锁串行执行。登录取得锁后使用最新密码和账号状态继续校验；刷新请求取得锁后会重新校验旧 Refresh Token，避免这些请求在等待锁期间账号或会话已经发生变化，却仍然签发新会话。
 
 P1 阶段可结合 Redis 短 TTL 宽限期、`token_jti` 状态和 `tokenVersion` 做更精细的幂等重试与重放检测；只有在明确识别为高风险重放或管理员强制下线等安全事件时，才撤销该用户全部活跃 Refresh Token。
 
@@ -1165,7 +1168,7 @@ Content-Type: application/json
 }
 ```
 
-说明：管理员不能修改当前登录用户自身状态。状态修改为 `DISABLED` 时，后端会撤销该用户全部活跃 Refresh Token；修改为 `ACTIVE` 时不撤销 Refresh Token。P0 阶段该用户已签发的 Access Token 依赖 15 分钟短有效期自然过期，P1 阶段通过 tokenVersion 支持立即失效。
+说明：管理员不能修改当前登录用户自身状态。状态修改为 `DISABLED` 时，后端会撤销该用户全部活跃 Refresh Token，并递增 tokenVersion 使旧 Access Token 立即失效；修改为 `ACTIVE` 时不撤销 Refresh Token，也不再次递增 tokenVersion，因为禁用时签发的旧 Token 已经失效。
 
 ### 响应参数
 
@@ -1221,7 +1224,7 @@ Content-Type: application/json
 }
 ```
 
-说明：管理员不能修改当前登录用户自身角色。角色发生变化后不直接撤销 Refresh Token；新的角色在刷新登录态或重新登录后生效。P0 阶段该用户已签发的 Access Token 依赖 15 分钟短有效期自然过期，P1 阶段通过 tokenVersion 支持立即失效。
+说明：管理员不能修改当前登录用户自身角色。角色发生变化后不直接撤销 Refresh Token，但会递增 tokenVersion 使旧 Access Token 立即失效；新的角色在使用现有 Refresh Token 刷新登录态或重新登录后生效。
 
 ### 响应参数
 
@@ -2255,12 +2258,12 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 ### 12.1 用户相关
 
 - 被禁用用户不可登录
-- 被禁用用户已有 Access Token 在 P0 阶段依赖 15 分钟短有效期自然过期
+- 被禁用用户已有 Access Token 通过 tokenVersion 校验立即失效
 - 被禁用用户在刷新 Token 时必须失败，返回 `102005`
 - 管理员不能修改当前登录用户自身的状态和角色
 - 用户修改密码或被禁用后，后端撤销该用户全部活跃 Refresh Token
-- 用户角色变更后不直接撤销 Refresh Token，新的角色在刷新登录态或重新登录后生效
-- P1 阶段引入 Redis + tokenVersion 校验后，修改密码、禁用用户、修改角色后的旧 Access Token 应立即失效
+- 用户角色变更后不直接撤销 Refresh Token，但会递增 tokenVersion；新的角色在刷新登录态或重新登录后生效
+- 修改密码、禁用用户、修改角色后，旧 Access Token 通过 Redis + tokenVersion 校验立即失效
 - 用户名注册后不支持在个人中心修改
 - 用户名不允许包含 `@`，登录接口可用 `account` 是否包含 `@` 区分邮箱登录和用户名登录
 - Refresh Token 每次刷新成功后都必须轮转，本次请求携带的旧 Refresh Token 标记为 `REVOKED`

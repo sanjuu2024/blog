@@ -1,6 +1,7 @@
 package com.ccsanjuu.blog.config;
 
 import com.ccsanjuu.blog.common.util.JwtUtil;
+import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Jwts;
 import org.junit.jupiter.api.Test;
@@ -18,7 +19,11 @@ import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(OutputCaptureExtension.class)
 class JwtAuthenticationFilterTest {
@@ -26,8 +31,9 @@ class JwtAuthenticationFilterTest {
     private static final SecretKey SIGNING_KEY =
             JwtUtil.createHmacShaKey("0123456789abcdef0123456789abcdef");
 
+    private final TokenVersionService tokenVersionService = mock(TokenVersionService.class);
     private final JwtAuthenticationFilter filter =
-            new JwtAuthenticationFilter(SIGNING_KEY, new ObjectMapper());
+            new JwtAuthenticationFilter(SIGNING_KEY, new ObjectMapper(), tokenVersionService);
 
     @Test
     void shouldLogExpiredAccessTokenWithoutExposingToken(CapturedOutput output) throws Exception {
@@ -75,6 +81,73 @@ class JwtAuthenticationFilterTest {
         assertEquals(401, response.getStatus());
         assertTrue(output.getOut().contains("reason=INVALID_TOKEN_TYPE"));
         assertFalse(output.getOut().contains(refreshToken));
+    }
+
+    @Test
+    void shouldAcceptAccessTokenWhenTokenVersionMatches() throws Exception {
+        when(tokenVersionService.getCurrentVersion(anyLong())).thenReturn(0L);
+        String accessToken = JwtUtil.generateAccessToken(
+                SIGNING_KEY,
+                "sanjuu-blog",
+                Duration.ofMinutes(15),
+                10001L,
+                "sanjuu",
+                "USER",
+                "ACTIVE",
+                0L
+        );
+
+        MockHttpServletResponse response = performProtectedRequest(accessToken);
+
+        assertEquals(200, response.getStatus());
+    }
+
+    @Test
+    void shouldRejectAccessTokenWhenTokenVersionDoesNotMatch(CapturedOutput output) throws Exception {
+        when(tokenVersionService.getCurrentVersion(anyLong())).thenReturn(1L);
+        String accessToken = JwtUtil.generateAccessToken(
+                SIGNING_KEY,
+                "sanjuu-blog",
+                Duration.ofMinutes(15),
+                10001L,
+                "sanjuu",
+                "USER",
+                "ACTIVE",
+                0L
+        );
+
+        MockHttpServletResponse response = performProtectedRequest(accessToken);
+
+        assertEquals(401, response.getStatus());
+        assertTrue(output.getOut().contains("reason=TOKEN_VERSION_MISMATCH"));
+    }
+
+    @Test
+    void shouldNotTreatDownstreamBusinessExceptionAsInvalidToken() {
+        when(tokenVersionService.getCurrentVersion(anyLong())).thenReturn(0L);
+        String accessToken = JwtUtil.generateAccessToken(
+                SIGNING_KEY,
+                "sanjuu-blog",
+                Duration.ofMinutes(15),
+                10001L,
+                "sanjuu",
+                "USER",
+                "ACTIVE",
+                0L
+        );
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/users/me");
+        request.addHeader("Authorization", "Bearer " + accessToken);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> filter.doFilter(request, response, (servletRequest, servletResponse) -> {
+                    throw new IllegalArgumentException("business validation failed");
+                })
+        );
+
+        assertEquals("business validation failed", exception.getMessage());
+        assertEquals(200, response.getStatus());
     }
 
     private MockHttpServletResponse performProtectedRequest(String token) throws Exception {

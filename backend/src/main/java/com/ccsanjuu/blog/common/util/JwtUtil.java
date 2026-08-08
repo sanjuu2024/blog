@@ -31,6 +31,7 @@ public final class JwtUtil {
     public static final String CLAIM_USERNAME = "username";
     public static final String CLAIM_ROLE = "role";
     public static final String CLAIM_STATUS = "status";
+    public static final String CLAIM_TOKEN_VERSION = "tokenVersion";
     public static final String CLAIM_TOKEN_TYPE = "tokenType";
 
     public static final String TOKEN_TYPE_ACCESS = "ACCESS";
@@ -93,11 +94,38 @@ public final class JwtUtil {
             String role,
             String status
     ) {
+        return generateAccessToken(signingKey, issuer, ttl, userId, username, role, status, 0L);
+    }
+
+    /**
+     * 生成携带当前用户 tokenVersion 的 Access Token。
+     *
+     * @param signingKey 用于签名和后续验签的 HMAC Key
+     * @param issuer Token 签发方，通常是应用名；为空时不写入 {@code iss}
+     * @param ttl Token 从当前时间开始计算的有效期
+     * @param userId 用户主键 ID，同时也会写入 {@code sub} 作为稳定身份标识
+     * @param username 当前用户名快照，写入 claims 供后续读取
+     * @param role 当前用户角色，例如 {@code ADMIN} 或 {@code USER}
+     * @param status 当前用户状态，例如 {@code ACTIVE} 或 {@code DISABLED}
+     * @param tokenVersion 签发时的用户令牌版本
+     * @return 已签名的紧凑 JWT 字符串
+     */
+    public static String generateAccessToken(
+            SecretKey signingKey,
+            String issuer,
+            Duration ttl,
+            Long userId,
+            String username,
+            String role,
+            String status,
+            Long tokenVersion
+    ) {
         Map<String, Object> claims = Map.of(
                 CLAIM_USER_ID, userId,
                 CLAIM_USERNAME, username,
                 CLAIM_ROLE, role,
                 CLAIM_STATUS, status,
+                CLAIM_TOKEN_VERSION, tokenVersion == null ? 0L : tokenVersion,
                 CLAIM_TOKEN_TYPE, TOKEN_TYPE_ACCESS
         );
         // 使用稳定的 userId 作为 subject，避免用户名变更影响身份识别。
@@ -231,6 +259,24 @@ public final class JwtUtil {
 
     public static String getStatus(String token, SecretKey signingKey) {
         return parseClaims(token, signingKey).get(CLAIM_STATUS, String.class);
+    }
+
+    /**
+     * 获取 Access Token 签发时的 tokenVersion；旧 Token 缺失该 claim 时按 0 兼容。
+     *
+     * @param claims JWT claims
+     * @return 签发时的 tokenVersion
+     */
+    public static Long getTokenVersion(Claims claims) {
+        Objects.requireNonNull(claims, "claims must not be null");
+        Object tokenVersion = claims.get(CLAIM_TOKEN_VERSION);
+        if (tokenVersion instanceof Number number) {
+            return number.longValue();
+        }
+        if (tokenVersion instanceof String text && hasText(text)) {
+            return Long.parseLong(text);
+        }
+        return 0L;
     }
 
     public static String getTokenType(String token, SecretKey signingKey) {

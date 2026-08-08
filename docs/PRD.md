@@ -121,8 +121,8 @@
 - 登录用户在 P0 仅比游客多出个人中心与资料修改能力
 - 评论、点赞、收藏不在 P0 实现，但需在数据层预留
 - 被禁用用户不可登录
-- 已登录用户若被禁用，P0 阶段已有 Access Token 最长保留到短有效期自然过期，但 Refresh Token 刷新必须失败
-- 修改密码或用户被禁用后，P0 阶段撤销该用户全部活跃 Refresh Token；修改角色不撤销 Refresh Token，新的角色在刷新登录态或重新登录后生效；P1 阶段通过 tokenVersion 让旧 Access Token 立即失效
+- 已登录用户若被禁用，已有 Access Token 在下一次请求时通过 tokenVersion 校验立即失效，Refresh Token 刷新必须失败
+- 修改密码或用户被禁用后，后端撤销该用户全部活跃 Refresh Token 并递增 tokenVersion；修改角色不撤销 Refresh Token，但同样递增 tokenVersion，新的角色在刷新登录态或重新登录后生效
 - 公开用户资料、文章作者信息可以返回用户 ID；公开资料卡以 `userId` 作为路径标识，`username` 作为展示和登录标识
 
 ### 6.2 上传能力说明
@@ -158,7 +158,7 @@
 - 管理员不能修改当前登录用户自身的状态和角色
 - 禁用用户后，后端需撤销该用户全部活跃 Refresh Token；启用用户不需要撤销 Refresh Token
 - 修改用户角色后不撤销 Refresh Token；新的角色在刷新登录态或重新登录后生效
-- 已登录用户若被禁用或角色被变更，P0 阶段已有 Access Token 最长保留到短有效期自然过期，P1 阶段通过 tokenVersion 让旧 Access Token 立即失效
+- 已登录用户若被禁用或角色被变更，已有 Access Token 在下一次请求时通过 tokenVersion 校验立即失效
 - 管理员可将普通用户设置为管理员，但首版默认仅一个管理员使用场景
 
 ### 7.2 文章管理
@@ -314,8 +314,8 @@
 - Refresh Token 用于续期登录态和退出登录，由后端通过 `Set-Cookie` 写入 `refresh_token` HttpOnly Cookie，前端 JavaScript 不读取或持久化 Refresh Token
 - `refresh_token` Cookie 路径为 `/api/v1/auth`，只随 `/api/v1/auth/**` 请求发送；开发和生产均按同域请求设计，不依赖 CORS
 - P0 阶段 Refresh Token 以数据库会话表做存储与失效控制
-- P1 阶段引入 Redis 存储运行态会话与 tokenVersion，用于降低鉴权查询成本，并支持权限变化后的旧 Access Token 立即失效
-- Access Token 携带登录或刷新时的用户角色、状态快照；P0 阶段角色或状态变化后通过撤销 Refresh Token 阻止继续续期，旧 Access Token 依赖短有效期自然过期
+- P1 已使用 Redis 缓存 tokenVersion，用于降低鉴权查询成本，并支持权限变化后的旧 Access Token 立即失效；Refresh Token 会话仍以数据库为权威来源
+- Access Token 携带登录或刷新时的用户角色、状态快照和 tokenVersion；每次鉴权时与 Redis 或数据库中的当前版本比较
 - Refresh Token 使用轮转机制，每次刷新成功后旧 Refresh Token 立即失效，并签发新的 Refresh Token
 - P0 阶段 Refresh Token 缺失、格式错误、签名无效、已过期、已撤销或找不到对应会话时，统一视为刷新失败，前端清理本地登录态并引导重新登录
 - P0 阶段不因普通刷新失败自动撤销该用户全部活跃 Refresh Token；修改密码、用户禁用、管理员强制下线等明确安全事件可撤销全部会话
@@ -465,7 +465,7 @@
 ### 11.2 登录流程
 
 1. 用户输入用户名或邮箱，以及密码
-2. 后端校验账号状态与密码正确性
+2. 后端锁定用户记录，并基于最新账号状态和密码完成校验
 3. 登录成功后签发 Access Token 和 Refresh Token
 4. P0 阶段 Refresh Token 写入数据库会话表，并通过 `Set-Cookie` 写入 `refresh_token` HttpOnly Cookie；P1 阶段可同步写入 Redis 运行态会话
 5. 前端保存 Access Token，使用 Access Token 访问受保护接口
@@ -501,8 +501,8 @@
 1. 管理员在后台禁用指定用户
 2. 被禁用用户无法再次登录
 3. 后端撤销该用户全部活跃 Refresh Token
-4. P0 阶段该用户已有 Access Token 最长保留到 15 分钟短有效期自然过期
-5. P1 阶段通过 Redis tokenVersion 校验，使禁用、改密、角色变更后的旧 Access Token 立即失效
+4. 后端原子递增该用户的 tokenVersion
+5. 该用户已有 Access Token 在下一次请求时因版本不一致立即失效
 
 ## 12. 非功能性要求
 
