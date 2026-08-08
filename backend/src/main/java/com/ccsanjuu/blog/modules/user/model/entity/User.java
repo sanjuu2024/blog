@@ -33,6 +33,8 @@ public class User {
 
     private UserStatus status;
 
+    private Long tokenVersion;
+
     private String avatarUrl;
 
     private String bio;

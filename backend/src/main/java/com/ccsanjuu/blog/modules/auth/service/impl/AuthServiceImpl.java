@@ -76,6 +76,7 @@ public class AuthServiceImpl implements AuthService {
                 .passwordHash(passwordEncoder.encode(registerRequestDTO.getPassword()))
                 .role(UserRole.USER)
                 .status(UserStatus.ACTIVE)
+                .tokenVersion(0L)
                 .avatarUrl("")
                 .build();
 
@@ -104,6 +105,10 @@ public class AuthServiceImpl implements AuthService {
         }
         else{
             user = findUserByUsername(loginRequestDTO.getAccount());
+        }
+        // 与改密、禁用、角色修改串行，拿到锁后使用最新的账号状态和密码继续校验。
+        if (user != null) {
+            user = userMapper.selectByIdForUpdate(user.getId());
         }
         if (user == null) {
             log.warn(
@@ -174,8 +179,8 @@ public class AuthServiceImpl implements AuthService {
             throw ex;
         }
 
-        // 🍰2. 检查当前用户是否存在、是否没被禁用
-        User user = userMapper.selectById(validatedRefreshToken.getUserId());
+        // 🍰2. 锁定用户记录，使刷新、改密、禁用和角色修改按顺序执行
+        User user = userMapper.selectByIdForUpdate(validatedRefreshToken.getUserId());
         if (user == null) {
             log.warn(
                     "security_event=TOKEN_REFRESH_FAILED description=\"刷新登录态失败：用户不存在\" outcome=FAIL reason=USER_NOT_FOUND userId={}",
@@ -189,6 +194,14 @@ public class AuthServiceImpl implements AuthService {
                     user.getId()
             );
             throw new BizException(ResultCode.USER_DISABLED);
+        }
+
+        // 等待用户行锁期间旧 RT 可能已被改密或另一次刷新撤销，需要在锁内重新校验。
+        try {
+            validatedRefreshToken = validateRefreshToken(refreshToken);
+        } catch (BizException ex) {
+            log.warn("security_event=TOKEN_REFRESH_FAILED description=\"刷新登录态失败：Refresh Token 已被撤销\" outcome=FAIL reason=REVOKED_WHILE_WAITING");
+            throw ex;
         }
 
         // 🍰3. 撤销旧 RT
@@ -325,7 +338,8 @@ public class AuthServiceImpl implements AuthService {
                 user.getUsername(),
                 // role/status 在这里写进 Access Token，后续 JwtAuthenticationFilter 会从 Token 中读出。
                 user.getRole().getValue(),
-                user.getStatus().getValue()
+                user.getStatus().getValue(),
+                user.getTokenVersion() == null ? 0L : user.getTokenVersion()
         );
 
         String refreshToken = JwtUtil.generateRefreshToken(

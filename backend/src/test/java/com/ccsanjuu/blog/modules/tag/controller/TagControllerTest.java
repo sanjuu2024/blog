@@ -6,6 +6,7 @@ import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
 import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
+import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
 import com.ccsanjuu.blog.modules.tag.mapper.TagMapper;
 import com.ccsanjuu.blog.modules.tag.model.vo.PublicTagItemVO;
 import com.ccsanjuu.blog.modules.tag.service.TagService;
@@ -50,6 +51,9 @@ class TagControllerTest {
 
     @MockitoBean
     private CategoryMapper categoryMapper;
+
+    @MockitoBean
+    private CommentMapper commentMapper;
 
     @MockitoBean
     private TagMapper tagMapper;

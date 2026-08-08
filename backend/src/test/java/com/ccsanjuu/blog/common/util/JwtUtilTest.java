@@ -41,8 +41,27 @@ class JwtUtilTest {
         assertEquals("sanjuu", JwtUtil.getUsername(token, SIGNING_KEY));
         assertEquals("ADMIN", JwtUtil.getRole(token, SIGNING_KEY));
         assertEquals("ACTIVE", JwtUtil.getStatus(token, SIGNING_KEY));
+        assertEquals(0L, JwtUtil.getTokenVersion(claims));
         assertTrue(JwtUtil.isAccessToken(token, SIGNING_KEY));
         assertTrue(JwtUtil.isTokenValid(token, SIGNING_KEY, JwtUtil.TOKEN_TYPE_ACCESS, 10001L));
+    }
+
+    @Test
+    void shouldStoreTokenVersionInAccessToken() {
+        String token = JwtUtil.generateAccessToken(
+                SIGNING_KEY,
+                ISSUER,
+                Duration.ofMinutes(15),
+                10001L,
+                "sanjuu",
+                "ADMIN",
+                "ACTIVE",
+                3L
+        );
+
+        Claims claims = JwtUtil.parseClaims(token, SIGNING_KEY);
+
+        assertEquals(3L, JwtUtil.getTokenVersion(claims));
     }
 
     @Test

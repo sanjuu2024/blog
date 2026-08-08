@@ -5,6 +5,7 @@ import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.util.JwtUtil;
 import com.ccsanjuu.blog.modules.auth.constants.AuthConstants;
 import com.ccsanjuu.blog.modules.auth.model.security.JwtPrincipal;
+import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -48,6 +49,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final SecretKey jwtSigningKey;
     private final ObjectMapper objectMapper;
+    private final TokenVersionService tokenVersionService;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -75,48 +77,70 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         String accessToken = authorization.substring(AuthConstants.BEARER_TOKEN_PREFIX.length());
+        Claims claims;
+        String tokenType;
 
         try {
-            Claims claims = JwtUtil.parseClaims(accessToken, jwtSigningKey);
-            if (!JwtUtil.TOKEN_TYPE_ACCESS.equals(claims.get(JwtUtil.CLAIM_TOKEN_TYPE, String.class))) {
-                rejectRequestOrContinue(accessTokenRequired, request, response, filterChain, ResultCode.ACCESS_TOKEN_INVALID, "INVALID_TOKEN_TYPE");
-                return;
-            }
-
-            // Access Token 里保存的是登录成功那一刻写入的用户快照。
-            // 这里先把 JWT claims 转成项目自己的“当前用户对象”，后面业务代码可以从 principal 中拿 userId。
-            JwtPrincipal principal = buildPrincipal(claims);
-
-            // Spring Security 的角色判断看的是 authorities，不会直接读取 JwtPrincipal.role()。
-            // hasRole("ADMIN") 实际会检查这里是否存在 "ROLE_ADMIN"；所以项目角色 ADMIN 需要转换成 ROLE_ADMIN。
-            List<GrantedAuthority> authorities = List.of(
-                    new SimpleGrantedAuthority("ROLE_" + principal.role())
-            );
-
-            /*
-             * UsernamePasswordAuthenticationToken 是 Spring Security 的一种 Authentication 实现。
-             * 这里不是重新做“用户名 + 密码”登录，而是在 JWT 已经验签通过后，
-             * 创建一个 authenticated=true 的 Authentication，告诉 Spring Security：
-             * “当前请求已经有合法身份，用户信息是 principal，权限列表是 authorities。”
-             *
-             * 三个参数分别是：
-             * - principal：当前登录用户信息，本项目里是 JwtPrincipal(userId, username, role, status)
-             * - credentials：登录凭证；JWT 已经验证完了，不需要再保存密码或 Token，所以传 null
-             * - authorities：当前用户权限；后续 hasRole("ADMIN") 会检查这里是否存在 ROLE_ADMIN
-             */
-            UsernamePasswordAuthenticationToken authentication =
-                    UsernamePasswordAuthenticationToken.authenticated(principal, null, authorities);
-            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-            // 把认证结果放入当前请求线程的 SecurityContext。
-            // 之后 Controller 可以通过 @AuthenticationPrincipal JwtPrincipal principal 直接拿到当前用户。
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-
-            filterChain.doFilter(request, response);
+            claims = JwtUtil.parseClaims(accessToken, jwtSigningKey);
+            tokenType = claims.get(JwtUtil.CLAIM_TOKEN_TYPE, String.class);
         } catch (ExpiredJwtException ex) {
             rejectRequestOrContinue(accessTokenRequired, request, response, filterChain, ResultCode.ACCESS_TOKEN_EXPIRED, "EXPIRED");
+            return;
         } catch (JwtException | IllegalArgumentException ex) {
             rejectRequestOrContinue(accessTokenRequired, request, response, filterChain, ResultCode.ACCESS_TOKEN_INVALID, "INVALID_TOKEN");
+            return;
         }
+
+        if (!JwtUtil.TOKEN_TYPE_ACCESS.equals(tokenType)) {
+            rejectRequestOrContinue(accessTokenRequired, request, response, filterChain, ResultCode.ACCESS_TOKEN_INVALID, "INVALID_TOKEN_TYPE");
+            return;
+        }
+
+        Long userId;
+        Long tokenVersion;
+        JwtPrincipal principal;
+        try {
+            userId = JwtUtil.getUserId(claims);
+            tokenVersion = JwtUtil.getTokenVersion(claims);
+            principal = buildPrincipal(claims);
+        } catch (JwtException | IllegalArgumentException ex) {
+            rejectRequestOrContinue(accessTokenRequired, request, response, filterChain, ResultCode.ACCESS_TOKEN_INVALID, "INVALID_TOKEN");
+            return;
+        }
+
+        // 每次请求比较 Redis/数据库中的当前版本，令密码、状态或角色变化后的旧 Token 立即失效。
+        Long currentVersion = tokenVersionService.getCurrentVersion(userId);
+        if (currentVersion == null || !currentVersion.equals(tokenVersion)) {
+            rejectRequestOrContinue(accessTokenRequired, request, response, filterChain, ResultCode.ACCESS_TOKEN_INVALID, "TOKEN_VERSION_MISMATCH");
+            return;
+        }
+
+        // Spring Security 的角色判断看的是 authorities，不会直接读取 JwtPrincipal.role()。
+        // hasRole("ADMIN") 实际会检查这里是否存在 "ROLE_ADMIN"；所以项目角色 ADMIN 需要转换成 ROLE_ADMIN。
+        List<GrantedAuthority> authorities = List.of(
+                new SimpleGrantedAuthority("ROLE_" + principal.role())
+        );
+
+        /*
+         * UsernamePasswordAuthenticationToken 是 Spring Security 的一种 Authentication 实现。
+         * 这里不是重新做“用户名 + 密码”登录，而是在 JWT 已经验签通过后，
+         * 创建一个 authenticated=true 的 Authentication，告诉 Spring Security：
+         * “当前请求已经有合法身份，用户信息是 principal，权限列表是 authorities。”
+         *
+         * 三个参数分别是：
+         * - principal：当前登录用户信息，本项目里是 JwtPrincipal(userId, username, role, status)
+         * - credentials：登录凭证；JWT 已经验证完了，不需要再保存密码或 Token，所以传 null
+         * - authorities：当前用户权限；后续 hasRole("ADMIN") 会检查这里是否存在 ROLE_ADMIN
+         */
+        UsernamePasswordAuthenticationToken authentication =
+                UsernamePasswordAuthenticationToken.authenticated(principal, null, authorities);
+        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        // 把认证结果放入当前请求线程的 SecurityContext。
+        // 之后 Controller 可以通过 @AuthenticationPrincipal JwtPrincipal principal 直接拿到当前用户。
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        // JWT 异常处理已经结束，下游业务异常应继续交给项目统一异常处理器。
+        filterChain.doFilter(request, response);
     }
 
     private void rejectRequestOrContinue(

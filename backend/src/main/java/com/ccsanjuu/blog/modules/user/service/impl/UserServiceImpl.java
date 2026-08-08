@@ -7,6 +7,7 @@ import com.ccsanjuu.blog.common.api.PageResult;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.auth.service.AuthService;
+import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.dto.*;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
@@ -31,6 +32,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
     private final AuthService authService;
+    private final TokenVersionService tokenVersionService;
 
     /**
      * 获取用户公开资料卡
@@ -98,8 +100,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      * @return
      */
     @Override
+    @Transactional
     public Void changePassword(Long userId, ChangePasswordRequestDTO changePasswordRequestDTO) {
-        User user = requireUser(userId);
+        User user = requireUserForUpdate(userId);
         if (!passwordEncoder.matches(changePasswordRequestDTO.getOldPassword(), user.getPasswordHash())){
             log.warn(
                     "security_event=PASSWORD_CHANGE_FAILED description=\"修改密码失败：原密码错误\" outcome=FAIL reason=OLD_PASSWORD_ERROR userId={}",
@@ -112,6 +115,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         updateUser.setId(user.getId());
         updateUser.setPasswordHash(passwordEncoder.encode(changePasswordRequestDTO.getNewPassword()));
         userMapper.updateById(updateUser);
+        tokenVersionService.incrementVersion(user.getId());
         authService.revokeUserRefreshTokens(user.getId());   // 用户修改密码，则撤销其现有的活跃 RT
 
         log.info(
@@ -162,7 +166,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     @Transactional
     public UpdatedUserStatusVO changeUserStatus(Long currentUserId, Long userId, UpdateUserStatusRequestDTO updateUserStatusRequestDTO) {
-        User user = requireUser(userId);
+        User user = requireUserForUpdate(userId);
         if (currentUserId.equals(user.getId())) {   // 管理员不得修改自己的状态
             log.warn(
                     "security_event=USER_STATUS_CHANGE_FAILED description=\"修改用户状态失败：不能修改自己的状态\" outcome=FAIL reason=SELF_CHANGE actorId={} targetUserId={}",
@@ -178,6 +182,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             updateUser.setStatus(updateUserStatusRequestDTO.getStatus());
             userMapper.updateById(updateUser);
             if (updateUserStatusRequestDTO.getStatus() == UserStatus.DISABLED) {
+                tokenVersionService.incrementVersion(user.getId());
                 authService.revokeUserRefreshTokens(user.getId());   // 用户状态从 ACTIVE 变成 DISABLED，则撤销其现有的活跃 RT
             }
             log.info(
@@ -205,7 +210,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     @Transactional
     public UpdatedUserRoleVO changeUserRole(Long currentUserId, Long userId, UpdateUserRoleRequestDTO updateUserRoleRequestDTO) {
-        User user = requireUser(userId);
+        User user = requireUserForUpdate(userId);
         if (currentUserId.equals(user.getId())) {   // 管理员不得修改自己的角色
             log.warn(
                     "security_event=USER_ROLE_CHANGE_FAILED description=\"修改用户角色失败：不能修改自己的角色\" outcome=FAIL reason=SELF_CHANGE actorId={} targetUserId={}",
@@ -220,6 +225,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             updateUser.setId(user.getId());
             updateUser.setRole(updateUserRoleRequestDTO.getRole());
             userMapper.updateById(updateUser);
+            tokenVersionService.incrementVersion(user.getId());
             log.info(
                     "security_event=USER_ROLE_CHANGED description=\"用户角色修改成功\" outcome=SUCCESS actorId={} targetUserId={} oldRole={} newRole={}",
                     currentUserId,
@@ -232,6 +238,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .id(user.getId())
                 .role(updateUserRoleRequestDTO.getRole())
                 .build();
+    }
+
+    /**
+     * 根据 userId 查询并锁定用户数据，用户不存在则抛出业务异常
+     * @param userId
+     * @return
+     */
+    private User requireUserForUpdate(Long userId) {
+        User user = userMapper.selectByIdForUpdate(userId);
+        if (user == null) {
+            throw new BizException(ResultCode.USER_NOT_FOUND);
+        }
+        return user;
     }
 
     /**

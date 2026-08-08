@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ccsanjuu.blog.modules.user.mapper.UserMapper">
+
+    <select id="selectByIdForUpdate"
+            resultType="com.ccsanjuu.blog.modules.user.model.entity.User">
+        SELECT *
+        FROM blog_user
+        WHERE id = #{userId}
+        FOR UPDATE
+    </select>
+
+    <!-- PostgreSQL RETURNING 会返回更新后的版本号，MyBatis 需按返回结果的 DML 声明为 select。 -->
+    <select id="incrementTokenVersion"
+            resultType="java.lang.Long"
+            affectData="true">
+        UPDATE blog_user
+        SET token_version = token_version + 1,
+            updated_at = NOW()
+        WHERE id = #{userId}
+        RETURNING token_version
+    </select>
+
+</mapper>
