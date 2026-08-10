@@ -138,6 +138,11 @@ Authorization: Bearer <access_token>
 | `106005` | `403` | `无权操作该评论` | 普通用户删除不属于自己的评论 |
 | `106006` | `409` | `评论状态流转不合法` | 后台审核动作与评论当前状态不匹配 |
 | `106007` | `400` | `评论处理原因不能为空` | 后台拒绝、隐藏或删除评论时未填写处理原因 |
+| `107001` | `400` | `请选择需要上传的图片` | Multipart 图片为空或未携带文件 |
+| `107002` | `415` | `仅支持 JPG、JPEG、PNG、WebP 和 GIF 图片` | 图片真实文件类型不在允许范围内 |
+| `107003` | `413` | `图片大小超过限制` | 头像超过 2 MB，或其他图片超过 10 MB |
+| `107004` | `502` | `图片上传失败，请稍后重试` | 后端调用对象存储上传失败 |
+| `107005` | `429` | `头像上传过于频繁，请稍后再试` | 同一用户每分钟超过 1 次，或每 24 小时超过 10 次头像上传 |
 
 ### 2.7 分页结构
 
@@ -177,6 +182,7 @@ Authorization: Bearer <access_token>
 | `tagStatus` | `ENABLED`、`DISABLED` | 标签状态 |
 | `commentStatus` | `PENDING`、`APPROVED`、`REJECTED`、`HIDDEN`、`DELETED` | 评论状态 |
 | `commentModerationAction` | `APPROVE`、`REJECT`、`HIDE`、`DELETE` | 后台评论处理动作 |
+| `imageUploadScene` | `ARTICLE_COVER`、`ARTICLE_CONTENT`、`PROJECT_COVER` | 后台图片使用场景 |
 
 ## 3. 接口总览
 
@@ -198,6 +204,7 @@ Authorization: Bearer <access_token>
 | 个人中心 | `GET` | `/api/v1/users/me` | `LOGIN` | 获取当前登录用户信息 |
 | 个人中心 | `PUT` | `/api/v1/users/me/profile` | `LOGIN` | 更新个人资料 |
 | 个人中心 | `PUT` | `/api/v1/users/me/password` | `LOGIN` | 修改密码 |
+| 个人中心 | `PUT` | `/api/v1/users/me/avatar` | `LOGIN` | 上传并更新当前用户头像 |
 | 后台用户 | `GET` | `/api/v1/admin/users` | `ADMIN` | 获取用户分页列表 |
 | 后台用户 | `PATCH` | `/api/v1/admin/users/{userId}/status` | `ADMIN` | 修改用户状态 |
 | 后台用户 | `PATCH` | `/api/v1/admin/users/{userId}/role` | `ADMIN` | 修改用户角色 |
@@ -217,6 +224,7 @@ Authorization: Bearer <access_token>
 | 后台标签 | `DELETE` | `/api/v1/admin/tags/{tagId}` | `ADMIN` | 删除标签 |
 | 后台评论 | `GET` | `/api/v1/admin/comments` | `ADMIN` | 获取评论审核分页列表 |
 | 后台评论 | `PATCH` | `/api/v1/admin/comments/{commentId}/moderation` | `ADMIN` | 审核、隐藏或删除评论 |
+| 后台文件 | `POST` | `/api/v1/admin/files/images` | `ADMIN` | 上传文章封面、正文图片或项目封面 |
 
 ## 4. 认证模块
 
@@ -2253,9 +2261,77 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 通过、拒绝、隐藏成功后写入 `reviewedBy`、`reviewedAt`；拒绝、隐藏、删除保存 `moderationReason`，通过时清空该字段。管理员删除写入 `deletedBy`、`deletedAt`，不清空历史 `reviewedBy`、`reviewedAt`。状态变化、子树逻辑删除、`comment_count` 更新和后台操作审计日志必须保持事务一致性。管理员不能修改评论正文。
 
-## 12. 业务规则补充
+## 12. 图片上传接口
 
-### 12.1 用户相关
+图片上传使用 `multipart/form-data`，由后端校验并中转上传到阿里云 OSS 公共读 Bucket。前端不得接触对象存储 AccessKey。支持 JPEG（`.jpg`、`.jpeg`）、PNG、WebP 和 GIF，不支持 SVG；后端以文件真实内容识别结果为准，不信任客户端文件扩展名或 Content-Type。
+
+上传对象使用不可变 UUID key，并通过配置的自定义公开域名返回完整 URL。P1 不压缩、不转换格式、不生成缩略图，也不自动删除被替换或失去引用的 OSS 对象。
+
+### 12.1 上传并更新当前用户头像
+
+- 路由：`PUT`
+- 路径：`/api/v1/users/me/avatar`
+- 权限：`LOGIN`
+- Content-Type：`multipart/form-data`
+
+请求字段：
+
+| 位置 | 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- | --- |
+| Form Data | `file` | `binary` | 是 | 头像图片，最大 2 MB |
+
+上传成功后，后端更新 `blog_user.avatar_url` 并返回当前头像信息：
+
+```json
+{
+  "code": 0,
+  "message": "成功",
+  "data": {
+    "id": 10002,
+    "avatarUrl": "https://img.example.com/avatars/10002/2026/08/uuid.jpg",
+    "updatedAt": "2026-08-09T10:00:00+08:00"
+  }
+}
+```
+
+同一用户每分钟最多成功上传 1 次头像，并且每 24 小时最多成功上传 10 次。限流使用 Redis 原子执行；上传或数据库事务失败时释放本次预占额度。
+
+### 12.2 上传后台图片
+
+- 路由：`POST`
+- 路径：`/api/v1/admin/files/images`
+- 权限：`ADMIN`
+- Content-Type：`multipart/form-data`
+
+请求字段：
+
+| 位置 | 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- | --- |
+| Form Data | `file` | `binary` | 是 | 图片文件，最大 10 MB |
+| Form Data | `scene` | `String` | 是 | `ARTICLE_COVER`、`ARTICLE_CONTENT` 或 `PROJECT_COVER` |
+
+缺少图片时返回 `107001`；`scene` 缺失或枚举值不合法时返回 `199001`。
+
+响应：
+
+```json
+{
+  "code": 0,
+  "message": "成功",
+  "data": {
+    "url": "https://img.example.com/articles/content/2026/08/uuid.png",
+    "originalName": "architecture.png",
+    "contentType": "image/png",
+    "size": 245760
+  }
+}
+```
+
+文章封面上传后由前端把 URL 回填至原有封面输入框；文章正文图片上传后由 `md-editor-v3` 插入 Markdown 图片语法。该接口仅创建 OSS 对象，不直接修改文章或项目数据。
+
+## 13. 业务规则补充
+
+### 13.1 用户相关
 
 - 被禁用用户不可登录
 - 被禁用用户已有 Access Token 通过 tokenVersion 校验立即失效
@@ -2271,7 +2347,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - P0 阶段不因普通刷新失败自动撤销该用户全部活跃 Refresh Token；明确安全事件，如修改密码、用户禁用、管理员强制下线，可按对应业务规则撤销全部会话
 - P1 阶段可结合 Redis 短 TTL 宽限期、`token_jti` 状态和 `tokenVersion` 增强幂等重试与重放检测
 
-### 12.2 文章相关
+### 13.2 文章相关
 
 - 前台文章列表和详情仅返回 `PUBLISHED` 状态文章
 - 草稿和下线文章仅后台可见
@@ -2291,7 +2367,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - P0 文章详情以 `articleId` 定位；P2 再考虑将 `slug` 追加到前台 URL 中提升可读性与 SEO 表达
 - 文章从 `PUBLISHED` 修改为 `OFFLINE` 后，前台立即不可见
 
-### 12.3 分类和标签相关
+### 13.3 分类和标签相关
 
 - 删除一级分类前需要校验其自身及其下所有二级分类是否存在关联文章
 - 删除二级分类前需要校验该二级分类是否存在关联文章
@@ -2299,7 +2375,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 前台分类接口默认返回一级分类树，二级分类挂载在 `children` 字段
 - 前台主导航不展示标签，标签主要用于筛选和后续搜索
 
-### 12.4 评论相关
+### 13.4 评论相关
 
 - `comment_count` 统计文章下全部 `APPROVED` 评论，包括顶层评论和回复
 - 关闭 `allowComment` 只阻止新评论和回复，不影响已有评论展示和作者删除
@@ -2307,12 +2383,20 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 顶层评论分页不预载回复；回复由用户点击“共 x 条回复，点击查看”后按需请求
 - 评论内容只按纯文本展示，不解析 HTML 或 Markdown
 
-### 12.5 日志与审计
+### 13.5 图片上传相关
+
+- 图片二进制只保存在 OSS，数据库和 Markdown 只保存完整公开 URL
+- P1 不新增文件资源表，不维护图片引用关系，不提供删除 OSS 对象的业务接口
+- 用户头像通过登录接口上传；文章封面、正文图片和项目封面仅管理员可上传
+- 后台文章封面仍允许手工输入外部 URL，上传 OSS 后自动回填同一字段
+- OSS Bucket 为公共读，但写入权限仅授予后端使用的 RAM 子账号；AccessKey、Secret 和 Bucket 配置不得返回前端或写入日志
+
+### 13.6 日志与审计
 
 - P0 阶段保留认证成功、认证失败、改密、禁用用户等关键安全事件的应用日志，避免记录密码、Token 等敏感值
 - P1 阶段补充后台管理操作审计日志，记录操作者用户 ID、目标资源 ID、操作类型、操作结果和操作时间
 
-## 13. 后续版本预留接口
+## 14. 后续版本预留接口
 
 以下接口不在 P0 范围内，仅做路由预留说明：
 
@@ -2326,4 +2410,3 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | 留言 | `POST` | `/api/v1/messages` | P1 |
 | 项目 | `GET` | `/api/v1/projects` | P1 |
 | 项目详情 | `GET` | `/api/v1/projects/{projectId}` | P1 |
-| 后台图片上传 | `POST` | `/api/v1/admin/files/images` | P1，用于文章封面和 Markdown 正文图片上传，返回图片 URL |

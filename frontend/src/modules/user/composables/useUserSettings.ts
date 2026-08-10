@@ -4,9 +4,11 @@ import { useRouter } from 'vue-router';
 import { PASSWORD_FORMAT_MESSAGE, PASSWORD_FORMAT_PATTERN } from '@/constants/validation';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserStore } from '@/stores/userStore';
+import { AVATAR_MAX_SIZE, validateImageFile } from '@/modules/file/utils/image';
 import {
 	changeCurrentUserPassword,
 	getCurrentUserProfile,
+	updateCurrentUserAvatar,
 	updateCurrentUserProfile,
 } from '../api/userApi';
 import {
@@ -56,6 +58,7 @@ export function useUserSettings() {
 	const profileLoading = ref(false);
 	const profileLoaded = ref(false);
 	const profileLoadFailed = ref(false);
+	const avatarUploading = ref(false);
 	const profileSubmitting = ref(false);
 	const passwordSubmitting = ref(false);
 	const profileChanged = computed(() => {
@@ -289,6 +292,30 @@ export function useUserSettings() {
 		}
 	}
 
+	async function updateUserSettingsAvatar(file: File) {
+		if (avatarUploading.value) return false;
+
+		const validationMessage = validateImageFile(file, AVATAR_MAX_SIZE);
+		if (validationMessage) {
+			ElMessage.warning(validationMessage);
+			return false;
+		}
+
+		avatarUploading.value = true;
+		try {
+			const data = await updateCurrentUserAvatar(file);
+			userProfile.avatarUrl = data.avatarUrl;
+			userStore.setUserInfo({ ...userProfile });
+			ElMessage.success('头像更新成功');
+			return true;
+		} catch {
+			// 请求错误由 request 响应拦截器统一处理
+			return false;
+		} finally {
+			avatarUploading.value = false;
+		}
+	}
+
 	async function changeUserSettingsPassword() {
 		if (passwordSubmitting.value) return;
 		if (!passwordFormRef.value) {
@@ -325,11 +352,13 @@ export function useUserSettings() {
 		profileLoading,
 		profileLoaded,
 		profileLoadFailed,
+		avatarUploading,
 		profileSubmitting,
 		passwordSubmitting,
 		setProfileFormRef,
 		setPasswordFormRef,
 		getUserSettingsProfile,
+		updateUserSettingsAvatar,
 		updateUserSettingsProfile,
 		changeUserSettingsPassword,
 		resetPasswordForm,

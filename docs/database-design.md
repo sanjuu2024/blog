@@ -142,7 +142,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_user_role_status
 | `role` | `VARCHAR(20)` | 用户角色，区分管理员和普通用户 | `ADMIN`、`USER` |
 | `status` | `VARCHAR(20)` | 用户状态，控制是否允许登录 | `ACTIVE`、`DISABLED` |
 | `token_version` | `BIGINT` | Access Token 版本号；修改密码、禁用用户或修改角色时原子递增，使旧 Access Token 立即失效 | `0`、`1` |
-| `avatar_url` | `VARCHAR(500)` | 用户头像地址，P0 可为空，前端显示默认头像 | `https://cdn.example.com/avatar/1.png` |
+| `avatar_url` | `VARCHAR(500)` | 用户头像地址，P0 可为空；P1 保存 OSS 自定义域名的公开 URL | `https://img.example.com/avatars/10002/avatar.jpg` |
 | `bio` | `VARCHAR(500)` | 用户个人简介 | `专注后端和前端工程化` |
 | `email_verified` | `BOOLEAN` | 邮箱是否完成验证，P0 默认未启用，但字段先预留 | `false` |
 | `email_verified_at` | `TIMESTAMPTZ` | 邮箱验证完成时间 | `2026-05-01 10:00:00+08` |
@@ -382,7 +382,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_top_publish
 | `content_md` | `TEXT` | Markdown 正文内容，作为后台编辑源 | `# 一、背景\n...` |
 | `content_html` | `TEXT` | 由 Markdown 转译得到的 HTML 正文，供前台渲染使用 | `<h1>一、背景</h1><p>...</p>` |
 | `content_text` | `TEXT` | 从 Markdown 提取的纯文本正文，供全文搜索使用 | `一、背景 ...` |
-| `cover_url` | `VARCHAR(500)` | 文章封面地址，P0 可先手工录入 URL 或留空 | `https://cdn.example.com/cover/token.png` |
+| `cover_url` | `VARCHAR(500)` | 文章封面地址，可手工录入外部 URL，或保存 P1 图片上传接口返回的 OSS URL | `https://img.example.com/articles/covers/2026/08/cover.png` |
 | `status` | `VARCHAR(20)` | 文章状态 | `DRAFT`、`PUBLISHED`、`OFFLINE` |
 | `category_id` | `BIGINT` | 文章所属二级分类 ID，应用层需校验不能绑定一级分类 | `21001` |
 | `author_id` | `BIGINT` | 文章作者 ID，当前通常是管理员 | `10001` |
@@ -711,3 +711,5 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 - 如果你想避免后续频繁改表，建议本次把预留表一起建好
 - `blog_auth_session` 可以作为 Redis 的补充审计表，不要求所有鉴权逻辑都依赖数据库
 - 文章封面与头像上传虽然在 P1 实现，但建议 P0 先把 URL 字段建好
+- P1 图片二进制保存在阿里云 OSS，业务表和 Markdown 仅保存公开 URL；当前不新增通用文件资源表
+- P1 不维护图片引用关系，也不自动删除被替换或失去引用的 OSS 对象；后续确有统一资源管理需求时再设计 `blog_asset` 表

@@ -48,6 +48,35 @@
 						</p>
 					</div>
 				</div>
+				<div class="avatar-setting">
+					<AppUserAvatar
+						:avatar-url="userProfile.avatarUrl"
+						:name="userProfile.nickname || userProfile.username"
+						:user-id="userProfile.id"
+						:size="88"
+					/>
+					<div>
+						<p class="avatar-setting__label">头像</p>
+						<!-- 点击内部按钮时由 el-upload 唤起文件选择器；选中文件后交给 on-change 自行上传 -->
+						<el-upload
+							:accept="IMAGE_ACCEPT"
+							:auto-upload="false"
+							:disabled="avatarUploading"
+							:show-file-list="false"
+							:on-change="handleAvatarFileChange"
+						>
+							<el-button
+								:loading="avatarUploading"
+								:disabled="avatarUploading"
+							>
+								更换头像
+								<template #icon>
+									<i-lucide-upload />
+								</template>
+							</el-button>
+						</el-upload>
+					</div>
+				</div>
 				<el-form
 					:ref="setProfileFormRef"
 					:model="profileForm"
@@ -169,8 +198,11 @@
 </template>
 
 <script setup lang="ts">
+import type { UploadProps } from 'element-plus';
 import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import AppUserAvatar from '@/components/AppUserAvatar.vue';
+import { IMAGE_ACCEPT } from '@/modules/file/utils/image';
 import { useUserSettings } from '../composables/useUserSettings';
 
 defineOptions({
@@ -191,15 +223,25 @@ const {
 	profileLoading,
 	profileLoaded,
 	profileLoadFailed,
+	avatarUploading,
 	profileSubmitting,
 	passwordSubmitting,
 	setProfileFormRef,
 	setPasswordFormRef,
 	getUserSettingsProfile,
+	updateUserSettingsAvatar,
 	updateUserSettingsProfile,
 	changeUserSettingsPassword,
 	resetPasswordForm,
 } = useUserSettings();
+
+// el-upload 唤起文件选择器后，会把用户选中的文件包装成 UploadFile 并传入该函数
+// 头像上传接口需要接收浏览器原始的 File，因此从 uploadFile.raw 中取出后再交给 composable
+const handleAvatarFileChange: UploadProps['onChange'] = (uploadFile) => {
+	if (uploadFile.raw) {
+		void updateUserSettingsAvatar(uploadFile.raw);
+	}
+};
 
 onMounted(() => {
 	getUserSettingsProfile();
@@ -262,6 +304,18 @@ onMounted(() => {
 		margin-top: 0.25rem;
 		color: var(--app-text-muted);
 		font-size: 0.9rem;
+	}
+}
+
+.avatar-setting {
+	display: flex;
+	align-items: center;
+	gap: 1rem;
+	margin-bottom: 1.25rem;
+
+	.avatar-setting__label {
+		margin-bottom: 0.5rem;
+		font-weight: 600;
 	}
 }
 

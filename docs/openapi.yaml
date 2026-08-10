@@ -19,6 +19,8 @@ tags:
     description: 前台公共用户接口
   - name: Profile
     description: 个人中心接口
+  - name: Admin Files
+    description: 后台图片上传接口
   - name: Admin Users
     description: 后台用户管理接口
   - name: Admin Comments
@@ -620,6 +622,87 @@ paths:
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+  /api/v1/users/me/avatar:
+    put:
+      tags:
+        - Profile
+      summary: 上传并更新当前用户头像
+      description: 权限级别 `LOGIN`。后端校验图片后中转上传至阿里云 OSS，并立即更新当前用户 avatarUrl。支持 JPG、JPEG、PNG、WebP、GIF，最大 2 MB；不压缩、不裁剪，旧 OSS 对象不自动删除。同一用户每分钟最多 1 次、每 24 小时最多 10 次。
+      operationId: updateCurrentUserAvatar
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: 头像更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdatedAvatarResponse'
+        '400':
+          $ref: '#/components/responses/ImageRequiredResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '413':
+          $ref: '#/components/responses/ImageTooLargeResponse'
+        '415':
+          $ref: '#/components/responses/UnsupportedImageTypeResponse'
+        '429':
+          $ref: '#/components/responses/AvatarUploadRateLimitResponse'
+        '502':
+          $ref: '#/components/responses/ImageUploadFailedResponse'
+  /api/v1/admin/files/images:
+    post:
+      tags:
+        - Admin Files
+      summary: 上传后台图片
+      description: 权限级别 `ADMIN`。用于文章封面、Markdown 正文图片和项目封面；后端中转上传至阿里云 OSS，只返回公开 URL 和图片元数据，不直接修改文章或项目。支持 JPG、JPEG、PNG、WebP、GIF，最大 10 MB。
+      operationId: uploadAdminImage
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, scene]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                scene:
+                  type: string
+                  enum: [ARTICLE_COVER, ARTICLE_CONTENT, PROJECT_COVER]
+      responses:
+        '200':
+          description: 上传成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadedImageResponse'
+        '400':
+          $ref: '#/components/responses/AdminImageUploadBadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '413':
+          $ref: '#/components/responses/ImageTooLargeResponse'
+        '415':
+          $ref: '#/components/responses/UnsupportedImageTypeResponse'
+        '502':
+          $ref: '#/components/responses/ImageUploadFailedResponse'
   /api/v1/admin/comments:
     get:
       tags:
@@ -3292,6 +3375,56 @@ components:
           type: string
           maxLength: 255
           description: REJECT、HIDE、DELETE 时必填；APPROVE 时不传并清空历史处理原因
+    UpdatedAvatarData:
+      type: object
+      required: [id, avatarUrl, updatedAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10002
+        avatarUrl:
+          type: string
+          format: uri
+          example: https://img.example.com/avatars/10002/2026/08/uuid.jpg
+        updatedAt:
+          type: string
+          format: date-time
+    UpdatedAvatarResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/UpdatedAvatarData'
+    UploadedImageData:
+      type: object
+      required: [url, originalName, contentType, size]
+      properties:
+        url:
+          type: string
+          format: uri
+          example: https://img.example.com/articles/content/2026/08/uuid.png
+        originalName:
+          type: string
+          example: architecture.png
+        contentType:
+          type: string
+          enum: [image/jpeg, image/png, image/webp, image/gif]
+          example: image/png
+        size:
+          type: integer
+          format: int64
+          example: 245760
+    UploadedImageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/UploadedImageData'
   responses:
     BadRequestResponse:
       description: 请求参数不合法
@@ -3520,4 +3653,76 @@ components:
           example:
             code: 106004
             message: 评论过于频繁，请稍后再试
+            data: null
+    ImageRequiredResponse:
+      description: 未携带需要上传的图片
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 107001
+            message: 请选择需要上传的图片
+            data: null
+    AdminImageUploadBadRequestResponse:
+      description: 未携带图片，或图片场景参数缺失、格式错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            imageRequired:
+              summary: 未携带图片
+              value:
+                code: 107001
+                message: 请选择需要上传的图片
+                data: null
+            sceneInvalid:
+              summary: 图片场景参数不合法
+              value:
+                code: 199001
+                message: 请求参数不合法
+                data:
+                  - field: scene
+                    message: 请求参数类型不匹配
+                    rejectedValue: UNKNOWN
+    UnsupportedImageTypeResponse:
+      description: 图片真实类型不受支持
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 107002
+            message: 仅支持 JPG、JPEG、PNG、WebP 和 GIF 图片
+            data: null
+    ImageTooLargeResponse:
+      description: 图片大小超过当前上传场景限制
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 107003
+            message: 图片大小超过限制
+            data: null
+    ImageUploadFailedResponse:
+      description: 对象存储上传失败
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 107004
+            message: 图片上传失败，请稍后重试
+            data: null
+    AvatarUploadRateLimitResponse:
+      description: 当前用户头像上传频率超过限制
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 107005
+            message: 头像上传过于频繁，请稍后再试
             data: null

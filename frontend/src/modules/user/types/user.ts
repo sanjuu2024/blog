@@ -61,6 +61,14 @@ export interface UpdatedCurrentUserProfileData {
 
 export type UpdatedCurrentUserProfileResponse = ApiResult<UpdatedCurrentUserProfileData>;
 
+export interface UpdatedCurrentUserAvatarData {
+	id: number;
+	avatarUrl: string;
+	updatedAt: string;
+}
+
+export type UpdatedCurrentUserAvatarResponse = ApiResult<UpdatedCurrentUserAvatarData>;
+
 export interface ChangeCurrentUserPasswordRequest {
 	oldPassword: string;
 	newPassword: string;

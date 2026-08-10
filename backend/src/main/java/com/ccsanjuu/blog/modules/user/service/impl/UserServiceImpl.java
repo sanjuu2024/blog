@@ -8,6 +8,8 @@ import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.auth.service.AuthService;
 import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
+import com.ccsanjuu.blog.modules.file.model.vo.UploadedImageVO;
+import com.ccsanjuu.blog.modules.file.service.ImageUploadService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.dto.*;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
@@ -21,6 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -33,6 +36,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final UserMapper userMapper;
     private final AuthService authService;
     private final TokenVersionService tokenVersionService;
+    private final ImageUploadService imageUploadService;
 
     /**
      * 获取用户公开资料卡
@@ -91,6 +95,31 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             updatedUserProfileVO.setUpdatedAt(updateUser.getUpdatedAt());
         }
         return updatedUserProfileVO;
+    }
+
+    /**
+     * 上传并更新当前用户头像。
+     *
+     * @param userId 用户 ID
+     * @param file 头像图片
+     * @return 更新后的头像信息
+     */
+    @Override
+    @Transactional
+    public UpdatedUserAvatarVO updateAvatar(Long userId, MultipartFile file) {
+        User user = requireUser(userId);
+        UploadedImageVO uploadedImage = imageUploadService.uploadAvatar(userId, file);
+
+        User updateUser = new User();
+        updateUser.setId(user.getId());
+        updateUser.setAvatarUrl(uploadedImage.getUrl());
+        userMapper.updateById(updateUser);
+
+        return UpdatedUserAvatarVO.builder()
+                .id(user.getId())
+                .avatarUrl(uploadedImage.getUrl())
+                .updatedAt(updateUser.getUpdatedAt())
+                .build();
     }
 
     /**
