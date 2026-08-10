@@ -14,3 +14,10 @@ blog:
   auth:
     refresh-cookie:
       secure: false
+  object-storage:
+    provider: aliyun
+    endpoint: https://oss-cn-hangzhou.aliyuncs.com
+    bucket: blog-test-bucket
+    access-key-id: test-access-key-id
+    access-key-secret: test-access-key-secret
+    public-base-url: https://img.test.example.com

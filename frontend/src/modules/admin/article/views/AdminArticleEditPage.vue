@@ -34,10 +34,30 @@
 					label="文章封面"
 					prop="coverUrl"
 				>
-					<el-input
-						v-model="upsertRequest.coverUrl"
-						placeholder="请输入文章封面链接"
-					/>
+					<div class="article-cover-control">
+						<el-input
+							v-model="upsertRequest.coverUrl"
+							placeholder="请输入文章封面链接"
+						/>
+						<!-- 点击内部按钮时由 el-upload 唤起文件选择器；选中文件后交给 on-change 自行上传 -->
+						<el-upload
+							:accept="IMAGE_ACCEPT"
+							:auto-upload="false"
+							:disabled="imageUploading"
+							:show-file-list="false"
+							:on-change="handleCoverImageChange"
+						>
+							<el-button
+								:loading="imageUploading"
+								:disabled="imageUploading"
+							>
+								上传图片
+								<template #icon>
+									<i-lucide-upload />
+								</template>
+							</el-button>
+						</el-upload>
+					</div>
 					<div class="preview-cover">
 						<AppImage
 							v-if="upsertRequest.coverUrl"
@@ -154,6 +174,7 @@
 				v-model="upsertRequest.contentMd"
 				class="rounded-2xl"
 				:theme="resolvedTheme"
+				@onUploadImg="handleContentImageUpload"
 			/>
 		</el-card>
 
@@ -209,17 +230,19 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { MdEditor } from 'md-editor-v3';
-import { useRoute } from 'vue-router';
+import { MdEditor, type UploadImgEvent } from 'md-editor-v3';
+import { useRoute, useRouter } from 'vue-router';
 import { useAdminCategoryList } from '../../category/composables/useAdminCategoryList';
 import { useAdminTagList } from '../../tag/composables/useAdminTagList';
 import { useAdminArticleDetail } from '../composables/useAdminArticleDetail';
 import { useAdminArticleForm } from '../composables/useAdminArticleForm';
 import { useTheme } from '@/composables/useTheme';
 import { ARTICLE_STATUS, type CheckTagItem } from '../types/adminArticle';
-import { useRouter } from 'vue-router';
-import { ElMessage, type FormInstance } from 'element-plus';
+import { ElMessage, type FormInstance, type UploadProps } from 'element-plus';
 import AppTagCapsule from '@/components/AppTagCapsule.vue';
+import { useAdminImageUpload } from '@/modules/admin/file/composables/useAdminImageUpload';
+import { ADMIN_IMAGE_UPLOAD_SCENE } from '@/modules/admin/file/types/adminFile';
+import { IMAGE_ACCEPT } from '@/modules/file/utils/image';
 
 const route = useRoute();
 const router = useRouter();
@@ -234,6 +257,8 @@ const { submitting, upsertRequest, rules, handleCreateArticle, handleUpdateArtic
 	useAdminArticleForm();
 
 const { resolvedTheme } = useTheme();
+
+const { imageUploading, handleUploadAdminImage } = useAdminImageUpload();
 
 // 表单引用
 let theFormRef = ref<FormInstance>();
@@ -309,6 +334,34 @@ function tagDialogCancel() {
 	tagWindowVisible.value = false;
 }
 
+// el-upload 唤起文件选择器后，会把用户选中的文件包装成 UploadFile 并传入该函数
+// 上传时需要取出其中的原始 File，上传成功后再把 OSS 公开地址回填到封面输入框
+const handleCoverImageChange: UploadProps['onChange'] = async (uploadFile) => {
+	if (!uploadFile.raw) return;
+
+	const image = await handleUploadAdminImage(
+		ADMIN_IMAGE_UPLOAD_SCENE.ARTICLE_COVER,
+		uploadFile.raw,
+	);
+	if (image) {
+		upsertRequest.coverUrl = image.url;
+	}
+};
+
+// MdEditor 选择图片后会传入文件列表和回调函数，这里同时上传用户选中的所有图片
+// 上传完成后将成功结果交给 callback，由编辑器自动在正文中插入对应的 Markdown 图片语法
+const handleContentImageUpload: UploadImgEvent = async (files, callback) => {
+	const images = await Promise.all(
+		files.map((file) => handleUploadAdminImage(ADMIN_IMAGE_UPLOAD_SCENE.ARTICLE_CONTENT, file)),
+	);
+
+	callback(
+		images.flatMap((image) =>
+			image ? [{ url: image.url, alt: image.originalName, title: image.originalName }] : [],
+		),
+	);
+};
+
 async function clickUpsertArticle() {
 	try {
 		if (!upsertRequest.contentMd?.trim()) {
@@ -342,6 +395,13 @@ async function clickUpsertArticle() {
 
 .admin-article-edit-card {
 	background-color: var(--app-bg);
+}
+
+.article-cover-control {
+	display: grid;
+	width: 100%;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 0.5rem;
 }
 
 .admin-article-tag {
@@ -381,5 +441,15 @@ async function clickUpsertArticle() {
 	border-color: #8caf87;
 	background-color: var(--app-button-hover);
 	color: var(--app-button-text);
+}
+
+@media (max-width: 640px) {
+	.article-cover-control {
+		grid-template-columns: minmax(0, 1fr);
+
+		:deep(.el-button) {
+			width: 100%;
+		}
+	}
 }
 </style>

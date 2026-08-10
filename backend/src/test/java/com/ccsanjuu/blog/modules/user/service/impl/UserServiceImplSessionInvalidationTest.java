@@ -4,6 +4,7 @@ import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.auth.service.AuthService;
 import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
+import com.ccsanjuu.blog.modules.file.service.ImageUploadService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.dto.ChangePasswordRequestDTO;
 import com.ccsanjuu.blog.modules.user.model.dto.UpdateUserRoleRequestDTO;
@@ -50,11 +51,20 @@ class UserServiceImplSessionInvalidationTest {
     @Mock
     private TokenVersionService tokenVersionService;
 
+    @Mock
+    private ImageUploadService imageUploadService;
+
     private UserServiceImpl userService;
 
     @BeforeEach
     void setUp() {
-        userService = new UserServiceImpl(passwordEncoder, userMapper, authService, tokenVersionService);
+        userService = new UserServiceImpl(
+                passwordEncoder,
+                userMapper,
+                authService,
+                tokenVersionService,
+                imageUploadService
+        );
     }
 
     @Test

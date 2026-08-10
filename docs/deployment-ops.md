@@ -65,10 +65,12 @@ POSTGRES_USER
 POSTGRES_PASSWORD
 REDIS_PASSWORD
 JWT_SECRET
-OBJECT_STORAGE_ENDPOINT
-OBJECT_STORAGE_BUCKET
-OBJECT_STORAGE_ACCESS_KEY
-OBJECT_STORAGE_SECRET_KEY
+BLOG_OBJECT_STORAGE_PROVIDER
+BLOG_OBJECT_STORAGE_ENDPOINT
+BLOG_OBJECT_STORAGE_BUCKET
+BLOG_OBJECT_STORAGE_ACCESS_KEY_ID
+BLOG_OBJECT_STORAGE_ACCESS_KEY_SECRET
+BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL
 ```
 
 Spring Boot 配置按运行场景区分：
@@ -134,6 +136,27 @@ P0 不提供本地图片上传服务，但生产设计默认面向对象存储�
 - 前端不直接保存对象存储密钥。
 - 公共可读资源可使用 CDN 加速。
 - 私有资源通过签名 URL 或后端代理访问。
+
+P1 图片上传使用阿里云 OSS，约定如下：
+
+- 使用公共读 Bucket 和独立的 HTTPS 图片域名，匿名用户只能读取对象，不能写入或列举 Bucket。
+- 使用 RAM 子账号并限制到指定 Bucket，禁止使用阿里云主账号 AccessKey。
+- 浏览器把图片上传给后端，后端完成权限、类型、大小校验后中转到 OSS；前端不持有 OSS 凭证。
+- 对象 key 由后端按业务场景、年月和 UUID 生成，不使用原始文件名，也不覆盖已有对象。
+- P1 不自动删除被替换或失去引用的对象；后续确有统一资源管理需求时再增加资源表和异步清理任务。
+
+本地和生产环境需要注入：
+
+```text
+BLOG_OBJECT_STORAGE_PROVIDER=aliyun
+BLOG_OBJECT_STORAGE_ENDPOINT=https://oss-<region>.aliyuncs.com
+BLOG_OBJECT_STORAGE_BUCKET=<bucket-name>
+BLOG_OBJECT_STORAGE_ACCESS_KEY_ID=<ram-access-key-id>
+BLOG_OBJECT_STORAGE_ACCESS_KEY_SECRET=<ram-access-key-secret>
+BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL=https://img.example.com
+```
+
+`BLOG_OBJECT_STORAGE_ENDPOINT` 必须包含 `https://` 协议；公开域名生产环境必须使用 HTTPS，避免前端页面因混合内容阻止图片加载。
 
 ## 7. 域名与 HTTPS
 

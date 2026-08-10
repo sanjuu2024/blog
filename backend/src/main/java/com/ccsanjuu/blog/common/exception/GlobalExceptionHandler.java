@@ -21,6 +21,8 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -129,6 +131,21 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Result<Void>> handleDuplicateKeyException(DuplicateKeyException ex) {
         ResultCode resultCode = resolveDuplicateKeyResultCode(ex);
         log.warn("唯一索引冲突 code={}, message={}", resultCode.getCode(), resolveThrowableMessages(ex));
+        return buildResponse(resultCode, null, null);
+    }
+
+    /**
+     * 处理 multipart 图片缺失或超过服务器上传上限。
+     *
+     * @param ex multipart 请求异常
+     * @return 图片模块统一错误响应
+     */
+    @ExceptionHandler({MissingServletRequestPartException.class, MaxUploadSizeExceededException.class})
+    public ResponseEntity<Result<Void>> handleImageUploadRequestException(Exception ex) {
+        ResultCode resultCode = ex instanceof MaxUploadSizeExceededException
+                ? ResultCode.IMAGE_TOO_LARGE
+                : ResultCode.IMAGE_REQUIRED;
+        log.warn("图片上传请求失败 code={}, errorType={}", resultCode.getCode(), ex.getClass().getSimpleName());
         return buildResponse(resultCode, null, null);
     }
 

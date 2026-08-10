@@ -19,6 +19,10 @@ spring:
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
 
 mybatis-plus:
   type-aliases-package: com.ccsanjuu.blog.**.entity   # 实体类所在的包，默认值
@@ -40,3 +44,10 @@ blog:
   auth:
     refresh-cookie:
       secure: true   # 默认为 true 作为安全兜底
+  object-storage:
+    provider: ${BLOG_OBJECT_STORAGE_PROVIDER:aliyun}
+    endpoint: ${BLOG_OBJECT_STORAGE_ENDPOINT}
+    bucket: ${BLOG_OBJECT_STORAGE_BUCKET}
+    access-key-id: ${BLOG_OBJECT_STORAGE_ACCESS_KEY_ID}
+    access-key-secret: ${BLOG_OBJECT_STORAGE_ACCESS_KEY_SECRET}
+    public-base-url: ${BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL}

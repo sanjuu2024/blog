@@ -9,6 +9,8 @@ import type {
 	PublicUserProfileResponse,
 	UpdatedCurrentUserProfileData,
 	UpdateCurrentUserProfileRequest,
+	UpdatedCurrentUserAvatarData,
+	UpdatedCurrentUserAvatarResponse,
 	UpdatedCurrentUserProfileResponse,
 } from '../types/user';
 
@@ -16,6 +18,7 @@ const USER_API = {
 	publicProfile: (userId: number) => `users/${userId}/public-profile`,
 	currentProfile: 'users/me',
 	updateCurrentProfile: 'users/me/profile',
+	updateCurrentAvatar: 'users/me/avatar',
 	changeCurrentPassword: 'users/me/password',
 } as const;
 
@@ -45,6 +48,18 @@ export const updateCurrentUserProfile = (
 		UpdatedCurrentUserProfileData,
 		UpdateCurrentUserProfileRequest
 	>(USER_API.updateCurrentProfile, data);
+};
+
+// 上传并更新当前用户头像
+export const updateCurrentUserAvatar = (file: File): Promise<UpdatedCurrentUserAvatarData> => {
+	const formData = new FormData();
+	formData.append('file', file);
+
+	return request.put<UpdatedCurrentUserAvatarResponse, UpdatedCurrentUserAvatarData, FormData>(
+		USER_API.updateCurrentAvatar,
+		formData,
+		{ timeout: 30000 },
+	);
 };
 
 // 修改密码接口

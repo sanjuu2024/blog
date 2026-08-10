@@ -7,6 +7,14 @@
 .article-markdown.markdown-body {
 	--fontStack-sansSerif: var(--app-font-family);
 	color: var(--app-text);
+
+	// 居中显示独占一行的 Markdown 图片
+	p > img:only-child {
+		display: block;
+		max-width: 100%;
+		height: auto;
+		margin-inline: auto;
+	}
 }
 
 [data-theme='dark'] .article-markdown.markdown-body {

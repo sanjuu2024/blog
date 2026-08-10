@@ -1,8 +1,6 @@
-import type { ApiCode } from '@/constants/apiCode';
-
 // 后端响应体
 export interface ApiResult<T = unknown> {
-	code: ApiCode;
+	code: number;
 	message: string;
 	data: T;
 }
