@@ -15,7 +15,7 @@ services:
       PGTZ: UTC
     volumes:
       - blog_pg_data:/var/lib/postgresql/data
-      - ./deploy/postgres/init/00_init.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
+      - ./backend/scripts/db/bootstrap/init.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sanjuu -d blog_db"]
       interval: 10s

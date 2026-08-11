@@ -10,6 +10,7 @@ import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
+import com.ccsanjuu.blog.modules.article.model.bo.PublicArticleSearchBO;
 import com.ccsanjuu.blog.modules.article.model.dto.AdminArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.PublicArticleQueryDTO;
@@ -33,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.util.HtmlUtils;
 
 import java.time.OffsetDateTime;
 import java.util.*;
@@ -41,6 +43,10 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> implements ArticleService {
+
+    private static final String SEARCH_HIGHLIGHT_START = "__BLOG_SEARCH_HIGHLIGHT_START__";
+    private static final String SEARCH_HIGHLIGHT_END = "__BLOG_SEARCH_HIGHLIGHT_END__";
+    private static final String SEARCH_HIGHLIGHT_MARK = "<mark class=\"article-search-highlight\">";
 
     private final ArticleTagMapper articleTagMapper;
     private final ArticleContentRenderer articleContentRenderer;
@@ -379,18 +385,42 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
             }
         }
 
-        // 6. 查询
-        lambdaQuery()
-                .in(!CollectionUtil.isEmpty(tagIds), Article::getId, tagArticleIds)
-                .in(!CollectionUtil.isEmpty(categoryIds), Article::getCategoryId, categoryIds)
-                .eq(Article::getStatus, ArticleStatus.PUBLISHED)
-                .eq(queryDTO.getIsTop() != null, Article::getIsTop, queryDTO.getIsTop())
-                .orderByDesc(queryDTO.getSort() != PublicArticleSort.LATEST, Article::getIsTop)
-                .orderByDesc(Article::getPublishedAt)
-                .orderByDesc(Article::getId)
-                .page(page);
+        // 6. 清洗搜索关键词。空白关键词视为未搜索，不进入全文检索分支
+        boolean hasKeyword = StringUtils.hasText(queryDTO.getKeyword());
+        String keyword = hasKeyword ? queryDTO.getKeyword().trim() : "";
 
-        // 7. 封装
+        // 7. 有关键词时交给 zhparser 全文检索并生成高亮片段；普通列表继续复用 MyBatis Plus
+        Map<Long, PublicArticleSearchBO> searchResultMap;
+        if (hasKeyword) {
+            Page<PublicArticleSearchBO> searchPage = Page.of(page.getCurrent(), page.getSize());
+            articleMapper.selectPublicArticleSearchPage(
+                    searchPage,
+                    keyword,
+                    categoryIds,
+                    tagArticleIds,
+                    queryDTO.getIsTop(),
+                    queryDTO.getSort() != PublicArticleSort.LATEST
+            );
+
+            page.setTotal(searchPage.getTotal());
+            page.setRecords(new ArrayList<>(searchPage.getRecords()));
+            searchResultMap = searchPage.getRecords().stream()
+                    .collect(Collectors.toMap(Article::getId, record -> record));
+        }
+        else {
+            lambdaQuery()
+                    .in(!CollectionUtil.isEmpty(tagIds), Article::getId, tagArticleIds)
+                    .in(Article::getCategoryId, categoryIds)
+                    .eq(Article::getStatus, ArticleStatus.PUBLISHED)
+                    .eq(queryDTO.getIsTop() != null, Article::getIsTop, queryDTO.getIsTop())
+                    .orderByDesc(queryDTO.getSort() != PublicArticleSort.LATEST, Article::getIsTop)
+                    .orderByDesc(Article::getPublishedAt)
+                    .orderByDesc(Article::getId)
+                    .page(page);
+            searchResultMap = Map.of();
+        }
+
+        // 8. 封装
         List<Article> records = page.getRecords();
         if (CollectionUtil.isEmpty(records)){
             return PageResult.of(page.getTotal(), page.getCurrent(), page.getSize(), List.of());
@@ -426,6 +456,12 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         records.forEach(article -> {
             PublicArticleListItemVO vo = BeanUtil.copyProperties(article, PublicArticleListItemVO.class);
 
+            PublicArticleSearchBO searchResult = searchResultMap.get(article.getId());
+            if (searchResult != null) {
+                vo.setHighlightedTitle(toSafeSearchHighlight(searchResult.getHighlightedTitle()));
+                vo.setSearchSnippet(toSafeSearchHighlight(searchResult.getSearchSnippet()));
+            }
+
             vo.setCategory(categoryVoMap.get(article.getCategoryId()));
 
             List<ArticleTagVO> articleTagVOList = new ArrayList<>();
@@ -442,7 +478,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
             res.add(vo);
         });
 
-        // 8. 返回
+        // 9. 返回
         return PageResult.of(page.getTotal(), page.getCurrent(), page.getSize(), res);
     }
 
@@ -522,6 +558,26 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
 
         // 4. 返回
         return vo;
+    }
+
+
+    /**
+     * 将 PostgreSQL ts_headline 生成的内部标记转换成可安全渲染的高亮 HTML。
+     * 原始标题、摘要和正文会先整体转义，只有服务端约定的标记会转换成 mark 标签。
+     *
+     * @param headline 带内部命中标记的文本
+     * @return 安全高亮 HTML；没有完整命中标记时返回 null
+     */
+    private String toSafeSearchHighlight(String headline) {
+        if (!StringUtils.hasText(headline)
+                || !headline.contains(SEARCH_HIGHLIGHT_START)
+                || !headline.contains(SEARCH_HIGHLIGHT_END)) {
+            return null;
+        }
+
+        return HtmlUtils.htmlEscape(headline)
+                .replace(SEARCH_HIGHLIGHT_START, SEARCH_HIGHLIGHT_MARK)
+                .replace(SEARCH_HIGHLIGHT_END, "</mark>");
     }
 
 

@@ -26,6 +26,10 @@ export function useArticleList() {
 
 	// 文章列表
 	const articles = ref<PublicArticleListItem[]>([]);
+	// 当前查询条件命中的文章总数
+	const total = ref(0);
+	// 是否已经成功取得当前查询条件的第一页，避免加载期间误显示空结果
+	const hasLoaded = ref(false);
 
 	// 分页参数初始值
 	const initPageParams: ArticlePageParams = {
@@ -46,6 +50,7 @@ export function useArticleList() {
 	// 查询参数初始值
 	function createInitialFilterForm(): ArticleFilterForm {
 		return {
+			keyword: '',
 			categoryId: undefined,
 			tagIds: [],
 		};
@@ -61,6 +66,7 @@ export function useArticleList() {
 		const queryParams: PublicArticleListQuery = {
 			pageNum: pageParams.pageNum,
 			pageSize: pageParams.pageSize,
+			keyword: filterForm.keyword || undefined,
 			categoryId: filterForm.categoryId,
 			tagIds: filterForm.tagIds,
 		};
@@ -106,6 +112,8 @@ export function useArticleList() {
 
 			// 如果配置要求替换，则替换，否则是追加（比如 loadMOre 时就不用 replace，直接追加）
 			articles.value = options.replace ? data.records : [...articles.value, ...data.records];
+			total.value = data.total;
+			hasLoaded.value = true;
 			pageParams.hasNext = data.hasNext;
 
 			return 'success';
@@ -130,6 +138,8 @@ export function useArticleList() {
 	async function resetPageParamsAndGetPublishedArticles() {
 		Object.assign(pageParams, initPageParams);
 		articles.value = [];
+		total.value = 0;
+		hasLoaded.value = false;
 
 		await getPublishedArticles(undefined, undefined, undefined, {
 			replace: true, // 不是追加而是完全替换
@@ -152,6 +162,8 @@ export function useArticleList() {
 
 	return {
 		articles,
+		total,
+		hasLoaded,
 		pageParams,
 		filterForm,
 		loading,

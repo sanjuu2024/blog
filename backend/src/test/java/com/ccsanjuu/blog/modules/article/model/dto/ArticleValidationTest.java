@@ -66,12 +66,14 @@ class ArticleValidationTest {
         PublicArticleQueryDTO validRequest = new PublicArticleQueryDTO();
         validRequest.setPageNum(1);
         validRequest.setPageSize(20);
+        validRequest.setKeyword("Spring Boot");
         validRequest.setCategoryId(20001L);
         validRequest.setTagIds(List.of(30001L, 30002L));
 
         PublicArticleQueryDTO invalidRequest = new PublicArticleQueryDTO();
         invalidRequest.setPageNum(0);
         invalidRequest.setPageSize(21);
+        invalidRequest.setKeyword("a".repeat(101));
         invalidRequest.setCategoryId(0L);
         invalidRequest.setTagIds(List.of(30001L, 0L));
 

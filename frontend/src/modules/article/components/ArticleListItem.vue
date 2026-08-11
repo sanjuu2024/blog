@@ -21,7 +21,15 @@
 					<!-- 文章标题 & 分类 & 摘要 & 标签 -->
 					<!-- 标题 -->
 					<RouterLink :to="`/articles/${article.id}`">
+						<!-- 搜索高亮 HTML 已由后端转义，只保留受控的 mark 标签 -->
 						<h3
+							v-if="article.highlightedTitle"
+							class="article-list-item-title mb-4 text-2xl font-bold transition-colors"
+							:class="{ 'text-(--app-button-bg)': coverHovered }"
+							v-html="article.highlightedTitle"
+						></h3>
+						<h3
+							v-else
 							class="article-list-item-title mb-4 text-2xl font-bold transition-colors"
 							:class="{ 'text-(--app-button-bg)': coverHovered }"
 						>
@@ -80,8 +88,17 @@
 
 					<!-- 摘要 -->
 					<div>
-						<p class="line-clamp-2 text-sm">
-							{{ article.summary ? article.summary : '暂无摘要' }}
+						<!-- 摘要或正文片段与标题使用相同的后端安全高亮格式 -->
+						<p
+							v-if="article.searchSnippet"
+							class="line-clamp-2 text-sm"
+							v-html="article.searchSnippet"
+						></p>
+						<p
+							v-else
+							class="line-clamp-2 text-sm"
+						>
+							{{ article.summary || '暂无摘要' }}
 						</p>
 					</div>
 				</div>
@@ -154,5 +171,13 @@ const coverHovered = ref(false);
 	> a:focus-visible {
 		color: var(--app-main);
 	}
+}
+
+:deep(.article-search-highlight) {
+	padding-inline: 0.2em;
+	border-radius: 2px;
+	background-color: yellow;
+	color: inherit;
+	font-weight: 700;
 }
 </style>

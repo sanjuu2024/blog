@@ -185,11 +185,19 @@ paths:
       tags:
         - Public Articles
       summary: 获取已发布文章分页列表
-      description: 权限级别 `PUBLIC`。仅返回已发布文章。响应中的 `tags` 仅包含当前启用且仍存在的关联标签；通过 `tagIds` 筛选时，传入标签必须存在且启用；通过 `categoryId` 筛选时，传入分类必须存在且启用。文章所属二级分类及其父分类均存在且启用时，文章才对前台可见。默认按置顶状态、首次发布时间和文章 ID 倒序；`sort=LATEST` 时忽略置顶状态，仅按首次发布时间和文章 ID 倒序。
+      description: 权限级别 `PUBLIC`。仅返回已发布文章。`keyword` 使用 PostgreSQL `zhparser` 对标题、摘要和纯文本正文执行全文检索，多个解析后的检索词之间为 AND 关系，并可与分类、标签等条件组合使用；搜索响应可返回安全的标题高亮及摘要/正文高亮片段。响应中的 `tags` 仅包含当前启用且仍存在的关联标签；通过 `tagIds` 筛选时，传入标签必须存在且启用；通过 `categoryId` 筛选时，传入分类必须存在且启用。文章所属二级分类及其父分类均存在且启用时，文章才对前台可见。默认按置顶状态、首次发布时间和文章 ID 倒序；`sort=LATEST` 时忽略置顶状态，仅按首次发布时间和文章 ID 倒序。
       operationId: listPublishedArticles
       parameters:
         - $ref: '#/components/parameters/PageNum'
         - $ref: '#/components/parameters/PageSize'
+        - name: keyword
+          in: query
+          description: 搜索关键词，使用 zhparser 同时检索文章标题、摘要和纯文本正文；多个解析后的检索词之间为 AND 关系；去除首尾空白后为空时不添加搜索条件
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+            example: Spring Boot
         - name: categoryId
           in: query
           description: 分类 ID。支持一级分类或二级分类；传一级分类时返回其下所有二级分类文章
@@ -245,6 +253,8 @@ paths:
                     - id: 40001
                       title: Spring Boot 双 Token 登录实践
                       summary: 本文记录双 Token 的实现思路与接口设计
+                      highlightedTitle: <mark class="article-search-highlight">Spring Boot</mark> 双 Token 登录实践
+                      searchSnippet: 本文记录 <mark class="article-search-highlight">双 Token</mark> 的实现思路与接口设计
                       coverUrl: https://cdn.example.com/cover/token.png
                       isTop: true
                       publishedAt: '2026-04-22T23:00:00+08:00'
@@ -666,7 +676,7 @@ paths:
       tags:
         - Admin Files
       summary: 上传后台图片
-      description: 权限级别 `ADMIN`。用于文章封面、Markdown 正文图片和项目封面；后端中转上传至阿里云 OSS，只返回公开 URL 和图片元数据，不直接修改文章或项目。支持 JPG、JPEG、PNG、WebP、GIF，最大 10 MB。
+      description: 权限级别 `ADMIN`。用于文章封面和 Markdown 正文图片；项目封面场景为未来项目模块预留。后端中转上传至阿里云 OSS，只返回公开 URL 和图片元数据，不直接修改文章或项目。支持 JPG、JPEG、PNG、WebP、GIF，最大 10 MB。
       operationId: uploadAdminImage
       security:
         - bearerAuth: []
@@ -2005,6 +2015,14 @@ components:
         summary:
           type: string
           example: 本文记录双 Token 的实现思路与接口设计
+        highlightedTitle:
+          type: string
+          description: 搜索且标题命中时返回的安全高亮 HTML；原始文本已转义，仅包含后端生成的 mark 标签；未命中或未搜索时不返回
+          example: <mark class="article-search-highlight">Spring Boot</mark> 双 Token 登录实践
+        searchSnippet:
+          type: string
+          description: 摘要命中时返回高亮摘要；仅正文命中时返回命中位置附近的高亮正文片段；仅标题命中或未搜索时不返回
+          example: 本文记录 <mark class="article-search-highlight">双 Token</mark> 的实现思路与接口设计
         coverUrl:
           type: string
           example: https://cdn.example.com/cover/token.png

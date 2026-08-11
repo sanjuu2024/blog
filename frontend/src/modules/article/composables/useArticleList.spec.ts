@@ -27,6 +27,7 @@ describe('useArticleList', () => {
 	it('requests public articles with pagination and selected filters', async () => {
 		vi.mocked(listArticles).mockResolvedValue(articlePage());
 		const { filterForm, getPublishedArticles } = useArticleList();
+		filterForm.keyword = 'Spring Boot';
 		filterForm.categoryId = 21001;
 		filterForm.tagIds = [30001, 30002];
 
@@ -37,6 +38,7 @@ describe('useArticleList', () => {
 			{
 				pageNum: 1,
 				pageSize: 10,
+				keyword: 'Spring Boot',
 				categoryId: 21001,
 				tagIds: [30001, 30002],
 			},
@@ -79,6 +81,17 @@ describe('useArticleList', () => {
 		expect(articles.value).toEqual([]);
 	});
 
+	it('stores the total after the current query loads successfully', async () => {
+		vi.mocked(listArticles).mockResolvedValue(articlePage({ total: 12 }));
+		const { total, hasLoaded, getPublishedArticles } = useArticleList();
+
+		expect(hasLoaded.value).toBe(false);
+		await getPublishedArticles();
+
+		expect(total.value).toBe(12);
+		expect(hasLoaded.value).toBe(true);
+	});
+
 	it('loads the next page and appends records', async () => {
 		vi.mocked(listArticles).mockResolvedValue(articlePage({ pageNum: 2, hasNext: false }));
 		const { pageParams, loadMoreArticles } = useArticleList();
@@ -105,11 +118,12 @@ describe('useArticleList', () => {
 
 	it('resets filter values to their initial state', () => {
 		const { filterForm, resetFilterForm } = useArticleList();
+		filterForm.keyword = 'Redis';
 		filterForm.categoryId = 21001;
 		filterForm.tagIds = [30001];
 
 		resetFilterForm();
 
-		expect(filterForm).toEqual({ categoryId: undefined, tagIds: [] });
+		expect(filterForm).toEqual({ keyword: '', categoryId: undefined, tagIds: [] });
 	});
 });
