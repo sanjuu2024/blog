@@ -45,6 +45,8 @@ External services
 - Compose 文件应明确容器名称、端口、网络、持久化卷、环境变量和重启策略。
 - `Nginx` 可以作为 Compose 服务之一，也可以由宿主机直接安装；本项目优先推荐纳入 Compose 统一管理。
 - PostgreSQL 数据目录必须挂载到 volume。
+- PostgreSQL 使用根目录 `Dockerfile` 构建包含 `zhparser` 的镜像，并将 `backend/scripts/db/bootstrap/init.sql` 挂载到 `/docker-entrypoint-initdb.d/00_init.sql`。
+- `/docker-entrypoint-initdb.d` 脚本只会在数据卷首次初始化时执行；业务库和测试库仍由 Flyway migration 分别创建 `zhparser` 扩展、文本搜索配置及全文索引。
 - Redis 如果用于 Refresh Token 或缓存，也必须配置持久化或明确可丢失策略。
 - 生产环境数据库密码、JWT 密钥、Redis 密码、对象存储密钥不能直接写在 `docker-compose.yaml` 中。
 - 建议使用 `.env` 或服务器侧环境变量注入配置。

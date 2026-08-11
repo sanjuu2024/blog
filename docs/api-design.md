@@ -485,10 +485,20 @@ Set-Cookie: refresh_token=; Max-Age=0; Path=/api/v1/auth; HttpOnly; SameSite=Lax
 | --- | --- | --- | --- | --- |
 | `pageNum` | `Integer` | 否 | 页码，默认 `1` | `1` |
 | `pageSize` | `Integer` | 否 | 每页条数，默认 `10`，最大 `20` | `10` |
+| `keyword` | `String` | 否 | 搜索关键词，最长 100 个字符；同时匹配标题、摘要和纯文本正文 | `Spring Boot` |
 | `categoryId` | `Long` | 否 | 分类 ID，用于分类筛选。支持一级分类或二级分类；传一级分类时返回其下所有二级分类文章 | `20001`、`21001` |
 | `tagIds` | `Array<Long>` | 否 | 标签 ID 列表，用于标签筛选；传多个时表示文章必须同时包含这些标签 | `[30001, 30002]` |
 | `isTop` | `Boolean` | 否 | 是否置顶；`true` 只返回置顶文章，`false` 只返回非置顶文章，不传则不限制 | `true` |
 | `sort` | `String` | 否 | 排序模式；`DEFAULT` 为置顶优先，`LATEST` 为仅按首次发布时间倒序，默认 `DEFAULT` | `LATEST` |
+
+### 搜索规则
+
+- `keyword` 去除首尾空白后为空时不添加搜索条件。
+- 非空关键词通过 PostgreSQL `zhparser` 解析，并使用 `plainto_tsquery` 查询 `title`、`summary` 和 `content_text` 生成的全文检索向量；多个解析后的检索词之间为 AND 关系。
+- 搜索条件可以和 `categoryId`、`tagIds`、`isTop`、`sort` 组合使用，分页结构和排序规则保持不变。
+- 仅返回 `PUBLISHED` 文章，草稿和已下线文章即使匹配关键词也不会出现在结果中。
+- 搜索时使用 `ts_headline` 返回可选的标题高亮和摘要/正文高亮片段；不新增独立搜索接口。
+- `highlightedTitle` 和 `searchSnippet` 中只有后端生成的 `<mark class="article-search-highlight">` 标签，原始文章文本在返回前会进行 HTML 转义。
 
 ### 排序规则
 
@@ -500,7 +510,7 @@ Set-Cookie: refresh_token=; Max-Age=0; Path=/api/v1/auth; HttpOnly; SameSite=Lax
 ### 请求样例
 
 ```http
-GET /api/v1/articles?pageNum=1&pageSize=10&categoryId=20001&tagIds=30001&tagIds=30002
+GET /api/v1/articles?pageNum=1&pageSize=10&keyword=Spring%20Boot&categoryId=20001&tagIds=30001&tagIds=30002
 ```
 
 首页置顶文章与最新文章请求样例：
@@ -529,6 +539,8 @@ GET /api/v1/articles?pageNum=1&pageSize=4&sort=LATEST
 | `id` | `Long` | 文章 ID | `40001` |
 | `title` | `String` | 文章标题 | `Spring Boot 双 Token 登录实践` |
 | `summary` | `String` | 文章摘要 | `本文记录双 Token 的实现思路与接口设计` |
+| `highlightedTitle` | `String` | 可选。搜索且标题命中时返回的安全高亮 HTML；其他场景不返回该字段 | `<mark class="article-search-highlight">Spring Boot</mark> 双 Token 登录实践` |
+| `searchSnippet` | `String` | 可选。摘要命中时返回高亮摘要；仅正文命中时返回命中位置附近的高亮正文片段；仅标题命中或未搜索时不返回 | `本文记录 <mark class="article-search-highlight">双 Token</mark> 的实现思路` |
 | `coverUrl` | `String` | 封面地址 | `https://cdn.example.com/cover/token.png` |
 | `isTop` | `Boolean` | 是否置顶 | `true` |
 | `publishedAt` | `String` | 发布时间 | `2026-04-22T23:00:00+08:00` |
@@ -552,6 +564,8 @@ GET /api/v1/articles?pageNum=1&pageSize=4&sort=LATEST
         "id": 40001,
         "title": "Spring Boot 双 Token 登录实践",
         "summary": "本文记录双 Token 的实现思路与接口设计",
+        "highlightedTitle": "<mark class=\"article-search-highlight\">Spring Boot</mark> 双 Token 登录实践",
+        "searchSnippet": "本文记录 <mark class=\"article-search-highlight\">双 Token</mark> 的实现思路与接口设计",
         "coverUrl": "https://cdn.example.com/cover/token.png",
         "isTop": true,
         "publishedAt": "2026-04-22T23:00:00+08:00",
@@ -2308,7 +2322,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | 位置 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- | --- |
 | Form Data | `file` | `binary` | 是 | 图片文件，最大 10 MB |
-| Form Data | `scene` | `String` | 是 | `ARTICLE_COVER`、`ARTICLE_CONTENT` 或 `PROJECT_COVER` |
+| Form Data | `scene` | `String` | 是 | `ARTICLE_COVER` 或 `ARTICLE_CONTENT`；`PROJECT_COVER` 为未来项目模块预留 |
 
 缺少图片时返回 `107001`；`scene` 缺失或枚举值不合法时返回 `199001`。
 
@@ -2361,6 +2375,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 文章保存或更新时，后端应以 `contentMd` 为源自动提取并持久化 `contentText`
 - 前台文章详情接口优先返回 `contentHtml` 用于页面渲染
 - 前台文章列表和详情响应中的 `tags` 仅展示当前启用且仍存在的关联标签；历史关联的禁用标签或已删除标签不返回
+- 前台文章搜索复用文章列表接口，通过 PostgreSQL `zhparser` 对标题、摘要和纯文本正文执行全文检索，并返回可选的安全高亮片段
 - 前台文章列表通过 `tagIds` 筛选时，传入标签必须存在且启用；不存在返回 `ARTICLE_TAG_NOT_FOUND`，禁用返回 `ARTICLE_TAG_DISABLED`
 - 前台文章列表通过 `categoryId` 筛选时，传入分类必须存在且启用；不存在返回 `ARTICLE_CATEGORY_NOT_FOUND`，禁用返回 `ARTICLE_CATEGORY_DISABLED`
 - 前台文章列表和详情要求文章所属二级分类及其父分类均存在且启用；分类不存在或禁用时，文章对前台不可见
@@ -2387,7 +2402,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 - 图片二进制只保存在 OSS，数据库和 Markdown 只保存完整公开 URL
 - P1 不新增文件资源表，不维护图片引用关系，不提供删除 OSS 对象的业务接口
-- 用户头像通过登录接口上传；文章封面、正文图片和项目封面仅管理员可上传
+- 用户头像通过个人中心接口上传；文章封面和正文图片仅管理员可上传，项目封面场景暂为未来模块预留
 - 后台文章封面仍允许手工输入外部 URL，上传 OSS 后自动回填同一字段
 - OSS Bucket 为公共读，但写入权限仅授予后端使用的 RAM 子账号；AccessKey、Secret 和 Bucket 配置不得返回前端或写入日志
 
@@ -2408,5 +2423,5 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | 取消收藏 | `DELETE` | `/api/v1/articles/{articleId}/favorite` | P2 |
 | 留言 | `GET` | `/api/v1/messages` | P1 |
 | 留言 | `POST` | `/api/v1/messages` | P1 |
-| 项目 | `GET` | `/api/v1/projects` | P1 |
-| 项目详情 | `GET` | `/api/v1/projects/{projectId}` | P1 |
+| 项目 | `GET` | `/api/v1/projects` | 待有实际项目作品后评估 |
+| 项目详情 | `GET` | `/api/v1/projects/{projectId}` | 待有实际项目作品后评估 |

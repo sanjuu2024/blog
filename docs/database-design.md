@@ -36,7 +36,7 @@
 | 预留表 | `blog_article_like` | 点赞表，P2 使用 |
 | 预留表 | `blog_article_favorite` | 收藏表，P2 使用 |
 | 预留表 | `blog_message_board` | 留言表，P1 使用 |
-| 预留表 | `blog_project` | 项目作品表，P1 使用 |
+| 预留表 | `blog_project` | 项目作品表，待有实际作品后再评估使用 |
 | 预留表 | `blog_friend_link` | 友链表，P2 使用 |
 
 ### 2.3 设计原则
@@ -338,6 +338,11 @@ CREATE TABLE IF NOT EXISTS blog_article (
     content_md TEXT NOT NULL,
     content_html TEXT NOT NULL,
     content_text TEXT NOT NULL,
+    search_vector TSVECTOR GENERATED ALWAYS AS (
+        SETWEIGHT(TO_TSVECTOR('public.zhparser_cfg'::regconfig, title), 'A') ||
+        SETWEIGHT(TO_TSVECTOR('public.zhparser_cfg'::regconfig, summary), 'B') ||
+        SETWEIGHT(TO_TSVECTOR('public.zhparser_cfg'::regconfig, content_text), 'C')
+    ) STORED,
     cover_url VARCHAR(500) NOT NULL DEFAULT '',
     status VARCHAR(20) NOT NULL DEFAULT 'DRAFT'
         CHECK (status IN ('DRAFT', 'PUBLISHED', 'OFFLINE')),
@@ -369,6 +374,10 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_author_id
 
 CREATE INDEX IF NOT EXISTS idx_blog_article_top_publish
     ON blog_article (is_top, published_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_blog_article_search_vector
+    ON blog_article
+    USING GIN (search_vector);
 ```
 
 ### 字段表
@@ -382,6 +391,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_top_publish
 | `content_md` | `TEXT` | Markdown 正文内容，作为后台编辑源 | `# 一、背景\n...` |
 | `content_html` | `TEXT` | 由 Markdown 转译得到的 HTML 正文，供前台渲染使用 | `<h1>一、背景</h1><p>...</p>` |
 | `content_text` | `TEXT` | 从 Markdown 提取的纯文本正文，供全文搜索使用 | `一、背景 ...` |
+| `search_vector` | `TSVECTOR` | 由标题、摘要和纯文本正文生成的全文检索向量，标题、摘要、正文权重依次为 A、B、C | `'spring':2A '安全':18C` |
 | `cover_url` | `VARCHAR(500)` | 文章封面地址，可手工录入外部 URL，或保存 P1 图片上传接口返回的 OSS URL | `https://img.example.com/articles/covers/2026/08/cover.png` |
 | `status` | `VARCHAR(20)` | 文章状态 | `DRAFT`、`PUBLISHED`、`OFFLINE` |
 | `category_id` | `BIGINT` | 文章所属二级分类 ID，应用层需校验不能绑定一级分类 | `21001` |
@@ -401,6 +411,9 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_top_publish
 - 例如一级分类 `技术` 下可挂二级分类 `Java`、`算法`、`前端三剑客`
 - 文章的 `category_id` 应指向 `Java`、`算法` 这类二级分类，而不是 `技术` 这类一级分类
 - 保存或更新文章时，应用层应以 `content_md` 为源生成 `content_html` 与 `content_text`
+- P1 文章搜索使用 PostgreSQL `zhparser` 解析 `title`、`summary` 和 `content_text`，并通过生成列 `search_vector` 与 GIN 索引完成全文检索
+- 搜索查询使用 `plainto_tsquery('public.zhparser_cfg', keyword)`，多个解析后的检索词之间为 AND 关系
+- `zhparser` 扩展和 `public.zhparser_cfg` 均属于数据库级对象；每个由 Flyway 管理的数据库都必须执行对应 migration，不能只依赖容器首次初始化脚本
 - P0 阶段文章详情 URL 以 `id` 作为稳定定位标识；`slug` 不作为必填字段，也不要求管理员手动维护
 - P2 阶段可在前台 URL 中追加 `slug` 提升可读性，例如 `/articles/40001-spring-boot-dual-token-login`，实际定位仍优先以 `id` 为准
 

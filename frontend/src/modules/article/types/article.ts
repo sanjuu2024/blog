@@ -3,6 +3,7 @@ import type { ApiResult, PageResult } from '@/types/api';
 
 // 查询的条件参数
 export interface ArticleFilterForm {
+	keyword: string;
 	categoryId?: number;
 	tagIds?: number[];
 }
@@ -20,6 +21,7 @@ export type PublicArticleSort = 'DEFAULT' | 'LATEST';
 export interface PublicArticleListQuery {
 	pageNum?: number;
 	pageSize?: number;
+	keyword?: string;
 	categoryId?: number;
 	tagIds?: number[];
 	isTop?: boolean;
@@ -55,6 +57,8 @@ export interface PublicArticleListItem {
 	id: number;
 	title: string;
 	summary: string;
+	highlightedTitle?: string;
+	searchSnippet?: string;
 	coverUrl: string;
 	isTop: boolean;
 	publishedAt: string;

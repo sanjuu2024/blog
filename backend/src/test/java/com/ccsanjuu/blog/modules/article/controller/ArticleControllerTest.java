@@ -88,19 +88,23 @@ class ArticleControllerTest {
         mockMvc.perform(get("/api/v1/articles")
                         .param("pageNum", "1")
                         .param("pageSize", "10")
+                        .param("keyword", "Spring Boot")
                         .param("categoryId", CATEGORY_ID.toString())
                         .param("tagIds", TAG_ID.toString(), SECOND_TAG_ID.toString())
                         .param("isTop", "true")
                         .param("sort", "LATEST"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data.records[0].id").value(ARTICLE_ID));
+                .andExpect(jsonPath("$.data.records[0].id").value(ARTICLE_ID))
+                .andExpect(jsonPath("$.data.records[0].highlightedTitle").doesNotExist())
+                .andExpect(jsonPath("$.data.records[0].searchSnippet").doesNotExist());
 
         ArgumentCaptor<PublicArticleQueryDTO> queryCaptor =
                 ArgumentCaptor.forClass(PublicArticleQueryDTO.class);
         verify(articleService).getPublicArticleList(queryCaptor.capture());
         assertEquals(1, queryCaptor.getValue().getPageNum());
         assertEquals(10, queryCaptor.getValue().getPageSize());
+        assertEquals("Spring Boot", queryCaptor.getValue().getKeyword());
         assertEquals(CATEGORY_ID, queryCaptor.getValue().getCategoryId());
         assertEquals(List.of(TAG_ID, SECOND_TAG_ID), queryCaptor.getValue().getTagIds());
         assertEquals(true, queryCaptor.getValue().getIsTop());
@@ -112,6 +116,7 @@ class ArticleControllerTest {
         mockMvc.perform(get("/api/v1/articles")
                         .param("pageNum", "0")
                         .param("pageSize", "21")
+                        .param("keyword", "a".repeat(101))
                         .param("categoryId", "0")
                         .param("tagIds", "0"))
                 .andExpect(status().isBadRequest())

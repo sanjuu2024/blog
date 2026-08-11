@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -22,6 +23,9 @@ public class PublicArticleQueryDTO {
     @Min(value = 1, message = "每页条数必须大于等于 1")
     @Max(value = 20, message = "每页条数不能超过 20")
     private Integer pageSize = 10;
+
+    @Size(max = 100, message = "搜索关键词长度不能超过 100 个字符")
+    private String keyword;
 
     @Positive(message = "分类 ID 必须大于 0")
     private Long categoryId;

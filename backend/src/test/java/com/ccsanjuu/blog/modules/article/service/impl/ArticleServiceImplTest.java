@@ -1,6 +1,7 @@
 package com.ccsanjuu.blog.modules.article.service.impl;
 
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -9,6 +10,7 @@ import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
+import com.ccsanjuu.blog.modules.article.model.bo.PublicArticleSearchBO;
 import com.ccsanjuu.blog.modules.article.model.dto.AdminArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.PublicArticleQueryDTO;
@@ -526,6 +528,77 @@ class ArticleServiceImplTest {
         assertTrue(sqlSegment.contains("is_top DESC"));
         assertTrue(sqlSegment.contains("published_at DESC"));
         assertTrue(sqlSegment.contains("id DESC"));
+    }
+
+    @Test
+    void getPublicArticleListShouldUseFullTextSearchMapper() {
+        PublicArticleQueryDTO query = new PublicArticleQueryDTO();
+        query.setKeyword("  ReDiS  ");
+
+        when(categoryMapper.selectList(any())).thenReturn(List.of(enabledParentCategory(), enabledChildCategory()));
+        when(articleMapper.selectPublicArticleSearchPage(any(Page.class), any(), any(), any(), any(), eq(true)))
+                .thenAnswer(invocation -> {
+            Page<PublicArticleSearchBO> page = invocation.getArgument(0);
+            page.setTotal(0);
+            page.setRecords(List.of());
+            return page;
+        });
+
+        articleService.getPublicArticleList(query);
+
+        verify(articleMapper).selectPublicArticleSearchPage(
+                any(Page.class),
+                eq("ReDiS"),
+                eq(List.of(CATEGORY_ID)),
+                eq(List.of()),
+                isNull(),
+                eq(true)
+        );
+        verify(articleMapper, never()).selectPage(any(Page.class), any());
+    }
+
+    @Test
+    void getPublicArticleListShouldEscapeSearchHighlights() {
+        PublicArticleQueryDTO query = new PublicArticleQueryDTO();
+        query.setKeyword("Boot");
+
+        PublicArticleSearchBO searchArticle = new PublicArticleSearchBO();
+        searchArticle.setId(ARTICLE_ID);
+        searchArticle.setTitle("Spring Boot notes");
+        searchArticle.setSummary("A short summary");
+        searchArticle.setCategoryId(CATEGORY_ID);
+        searchArticle.setHighlightedTitle(
+                "Spring __BLOG_SEARCH_HIGHLIGHT_START__Boot__BLOG_SEARCH_HIGHLIGHT_END__ notes"
+        );
+        searchArticle.setSearchSnippet(
+                "<script>alert(1)</script> __BLOG_SEARCH_HIGHLIGHT_START__Boot__BLOG_SEARCH_HIGHLIGHT_END__"
+        );
+
+        when(categoryMapper.selectList(any())).thenReturn(
+                List.of(enabledParentCategory(), enabledChildCategory()),
+                List.of(enabledChildCategory()),
+                List.of(enabledParentCategory())
+        );
+        when(articleMapper.selectPublicArticleSearchPage(any(Page.class), any(), any(), any(), any(), eq(true)))
+                .thenAnswer(invocation -> {
+            Page<PublicArticleSearchBO> page = invocation.getArgument(0);
+            page.setTotal(1);
+            page.setRecords(List.of(searchArticle));
+            return page;
+        });
+        when(articleTagMapper.selectList(any())).thenReturn(List.of());
+
+        PublicArticleListItemVO result = articleService.getPublicArticleList(query).getRecords().getFirst();
+
+        assertEquals(
+                "Spring <mark class=\"article-search-highlight\">Boot</mark> notes",
+                result.getHighlightedTitle()
+        );
+        assertTrue(result.getSearchSnippet().contains("&lt;script&gt;alert(1)&lt;/script&gt;"));
+        assertTrue(result.getSearchSnippet().contains(
+                "<mark class=\"article-search-highlight\">Boot</mark>"
+        ));
+        assertFalse(result.getSearchSnippet().contains("<script>"));
     }
 
     @Test

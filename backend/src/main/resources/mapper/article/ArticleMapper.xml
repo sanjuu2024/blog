@@ -14,4 +14,68 @@
         </if>
         group by category_id
     </select>
+
+    <select id="selectPublicArticleSearchPage"
+            resultType="com.ccsanjuu.blog.modules.article.model.bo.PublicArticleSearchBO">
+        with search_query as (
+            select plainto_tsquery('public.zhparser_cfg', #{keyword}) as value
+        )
+        select
+            a.id,
+            a.title,
+            a.summary,
+            a.cover_url,
+            a.is_top,
+            a.published_at,
+            a.view_count,
+            a.category_id,
+            case
+                when to_tsvector('public.zhparser_cfg', a.title) @@ search_query.value then
+                    ts_headline(
+                        'public.zhparser_cfg',
+                        a.title,
+                        search_query.value,
+                        'StartSel=__BLOG_SEARCH_HIGHLIGHT_START__, StopSel=__BLOG_SEARCH_HIGHLIGHT_END__, HighlightAll=true'
+                    )
+            end as highlighted_title,
+            case
+                when to_tsvector('public.zhparser_cfg', a.summary) @@ search_query.value then
+                    ts_headline(
+                        'public.zhparser_cfg',
+                        a.summary,
+                        search_query.value,
+                        'StartSel=__BLOG_SEARCH_HIGHLIGHT_START__, StopSel=__BLOG_SEARCH_HIGHLIGHT_END__, HighlightAll=true'
+                    )
+                when to_tsvector('public.zhparser_cfg', a.content_text) @@ search_query.value then
+                    ts_headline(
+                        'public.zhparser_cfg',
+                        a.content_text,
+                        search_query.value,
+                        'StartSel=__BLOG_SEARCH_HIGHLIGHT_START__, StopSel=__BLOG_SEARCH_HIGHLIGHT_END__, MinWords=10, MaxWords=35, ShortWord=1, MaxFragments=1'
+                    )
+            end as search_snippet
+        from blog_article a
+        cross join search_query
+        where a.status = 'PUBLISHED'
+          and a.category_id in
+            <foreach collection="categoryIds" item="categoryId" separator="," open="(" close=")">
+                #{categoryId}
+            </foreach>
+          and a.search_vector @@ search_query.value
+        <if test="articleIds != null and articleIds.size() > 0">
+          and a.id in
+            <foreach collection="articleIds" item="articleId" separator="," open="(" close=")">
+                #{articleId}
+            </foreach>
+        </if>
+        <if test="isTop != null">
+          and a.is_top = #{isTop}
+        </if>
+        order by
+        <if test="prioritizeTop">
+            a.is_top desc,
+        </if>
+            a.published_at desc,
+            a.id desc
+    </select>
 </mapper>
