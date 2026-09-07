@@ -21,3 +21,5 @@ blog:
     access-key-id: test-access-key-id
     access-key-secret: test-access-key-secret
     public-base-url: https://img.test.example.com
+  mail:
+    enabled: false

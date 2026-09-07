@@ -35,7 +35,7 @@
 | P1 使用 | `blog_comment` | 评论表，支持审核、无限层级回复和逻辑删除 |
 | 预留表 | `blog_article_like` | 点赞表，P2 使用 |
 | 预留表 | `blog_article_favorite` | 收藏表，P2 使用 |
-| 预留表 | `blog_message_board` | 留言表，P1 使用 |
+| P1 使用 | `blog_message_board` | 留言表，支持游客留言、审核、管理员回复和通知退订 |
 | 预留表 | `blog_project` | 项目作品表，待有实际作品后再评估使用 |
 | 预留表 | `blog_friend_link` | 友链表，P2 使用 |
 
@@ -76,8 +76,8 @@
 | `blog_article_like` | `user_id` | `blog_user.id` | 点赞前必须确认用户存在且未被禁用 |
 | `blog_article_favorite` | `article_id` | `blog_article.id` | 收藏前必须确认文章存在且可见 |
 | `blog_article_favorite` | `user_id` | `blog_user.id` | 收藏前必须确认用户存在且未被禁用 |
-| `blog_message_board` | `user_id` | `blog_user.id` | 登录用户留言时记录用户 ID；游客留言时允许为空 |
-| `blog_message_board` | `parent_id` | `blog_message_board.id` | 回复留言时必须确认父留言存在 |
+| `blog_message_board` | `user_id` | `blog_user.id` | 登录用户留言时记录用户 ID；游客留言时允许为空，历史游客留言不自动关联后注册用户 |
+| `blog_message_board` | `parent_id` | `blog_message_board.id` | 管理员回复时必须确认父留言是已通过的顶层留言 |
 
 删除或下线数据时，不能依赖数据库级联删除。当前建议默认避免物理删除核心数据；确需删除时，由 service 在同一事务中按业务规则清理子表或拒绝删除，例如删除分类前校验关联文章、删除文章时清理文章标签关联。
 
@@ -519,6 +519,13 @@ CREATE INDEX IF NOT EXISTS idx_blog_comment_user_article_created_at
 - 统一的评论树锁用于避免删除期间新增回复或审核状态变化造成孤立数据和 `comment_count` 失真
 - 评论审核、拒绝、隐藏或删除的结构化操作历史由 P1 后台操作审计日志记录；评论表字段仅保存当前状态和最近一次处理信息
 
+### P2 评论直接回复通知预留
+
+- P2 为单条评论增加自愿订阅直接回复邮件的能力，订阅者固定为该评论作者，收件地址使用用户账号邮箱
+- 计划通过新的 Flyway migration 增加 `notify_on_reply` 和随机不透明 `unsubscribe_token`，不修改已经执行的 P1 migration
+- `unsubscribe_token` 仅能关闭对应评论未来的直接回复通知，并建立非空值唯一索引
+- 具体字段与索引只在 P2 接口模型确定后落地；当前 P1 数据库结构和 OpenAPI 不提前变更
+
 ## 4.2 表名：`blog_article_like`
 
 ### SQL（PostgreSQL）
@@ -584,7 +591,14 @@ CREATE TABLE IF NOT EXISTS blog_message_board (
     email VARCHAR(255) NOT NULL DEFAULT '',
     content TEXT NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
-        CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
+        CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'HIDDEN', 'DELETED')),
+    notify_on_reply BOOLEAN NOT NULL DEFAULT FALSE,
+    unsubscribe_token VARCHAR(128),
+    moderation_reason VARCHAR(255),
+    reviewed_by BIGINT,
+    reviewed_at TIMESTAMPTZ,
+    deleted_by BIGINT,
+    deleted_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -594,6 +608,13 @@ CREATE INDEX IF NOT EXISTS idx_blog_message_board_status
 
 CREATE INDEX IF NOT EXISTS idx_blog_message_board_user_id
     ON blog_message_board (user_id);
+
+CREATE INDEX IF NOT EXISTS idx_blog_message_board_parent_status_created
+    ON blog_message_board (parent_id, status, created_at, id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_blog_message_board_unsubscribe_token
+    ON blog_message_board (unsubscribe_token)
+    WHERE unsubscribe_token IS NOT NULL;
 ```
 
 ### 字段表
@@ -603,12 +624,21 @@ CREATE INDEX IF NOT EXISTS idx_blog_message_board_user_id
 | `id` | `BIGSERIAL` | 留言主键 ID | `90001` |
 | `user_id` | `BIGINT` | 登录用户留言时关联的用户 ID，游客留言可为空 | `10002` |
 | `parent_id` | `BIGINT` | 回复留言时指向父留言 ID | `90000` |
-| `nickname` | `VARCHAR(50)` | 留言昵称，游客场景使用 | `路人甲` |
-| `email` | `VARCHAR(255)` | 留言邮箱，游客场景使用 | `guest@example.com` |
+| `nickname` | `VARCHAR(50)` | 留言昵称；登录用户保存当前昵称快照，游客必填 | `路人甲` |
+| `email` | `VARCHAR(255)` | 私有联系邮箱，游客可选；管理员可查看，前台不返回 | `guest@example.com` |
 | `content` | `TEXT` | 留言内容 | `博客很清爽，期待评论功能上线` |
-| `status` | `VARCHAR(20)` | 留言状态，可支持审核 | `PENDING`、`APPROVED` |
+| `status` | `VARCHAR(20)` | 留言状态 | `PENDING`、`APPROVED`、`REJECTED`、`HIDDEN`、`DELETED` |
+| `notify_on_reply` | `BOOLEAN` | 是否接收该顶层留言的后续回复通知 | `TRUE` |
+| `unsubscribe_token` | `VARCHAR(128)` | 随机退订令牌，仅用于该顶层留言通知退订 | `随机不透明字符串` |
+| `moderation_reason` | `VARCHAR(255)` | 拒绝、隐藏或删除原因 | `内容不适合公开` |
+| `reviewed_by` | `BIGINT` | 最近一次审核操作的管理员 ID | `10001` |
+| `reviewed_at` | `TIMESTAMPTZ` | 最近一次审核时间 | `2026-05-10 14:05:00+08` |
+| `deleted_by` | `BIGINT` | 逻辑删除操作者 ID | `10001` |
+| `deleted_at` | `TIMESTAMPTZ` | 逻辑删除时间 | `2026-05-10 14:06:00+08` |
 | `created_at` | `TIMESTAMPTZ` | 创建时间 | `2026-05-10 14:00:00+08` |
 | `updated_at` | `TIMESTAMPTZ` | 更新时间 | `2026-05-10 14:10:00+08` |
+
+P1 留言邮件使用纯文本；P2 升级为 `multipart/alternative` 只改变邮件内容格式，不需要修改现有留言订阅字段。
 
 ## 4.5 表名：`blog_project`
 
@@ -726,3 +756,5 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 - 文章封面与头像上传虽然在 P1 实现，但建议 P0 先把 URL 字段建好
 - P1 图片二进制保存在阿里云 OSS，业务表和 Markdown 仅保存公开 URL；当前不新增通用文件资源表
 - P1 不维护图片引用关系，也不自动删除被替换或失去引用的 OSS 对象；后续确有统一资源管理需求时再设计 `blog_asset` 表
+- 留言表的状态扩展、通知字段和索引通过 `V1.1.4` migration 落地，不修改已执行的初始 migration
+- 留言通知令牌使用随机不透明值；数据库泄露时不会暴露用户密码或登录 Token，令牌仅能关闭对应顶层留言的后续通知

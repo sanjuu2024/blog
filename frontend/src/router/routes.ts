@@ -84,6 +84,15 @@ export const adminRoutes = [
 			title: '评论管理',
 		},
 	},
+	{
+		path: '/admin/messages',
+		name: 'AdminMessageList',
+		component: () => import('@/modules/admin/message/views/AdminMessageListPage.vue'),
+		meta: {
+			icon: 'message',
+			title: '留言管理',
+		},
+	},
 ];
 
 // 前台路由
@@ -151,6 +160,25 @@ export const publicRoutes = [
 			nav: {
 				pos: 'right', // 在顶部导航栏右侧
 			},
+		},
+	},
+	{
+		path: '/messages',
+		name: 'MessageBoard',
+		component: () => import('@/modules/message/views/MessageBoardPage.vue'),
+		meta: {
+			title: '留言',
+			nav: {
+				pos: 'right',
+			},
+		},
+	},
+	{
+		path: '/messages/unsubscribe',
+		name: 'MessageUnsubscribe',
+		component: () => import('@/modules/message/views/MessageUnsubscribePage.vue'),
+		meta: {
+			title: '退订留言通知',
 		},
 	},
 	{

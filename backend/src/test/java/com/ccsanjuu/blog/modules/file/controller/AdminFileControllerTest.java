@@ -10,6 +10,7 @@ import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
+import com.ccsanjuu.blog.modules.message.mapper.MessageMapper;
 import com.ccsanjuu.blog.modules.file.model.enums.AdminImageUploadScene;
 import com.ccsanjuu.blog.modules.file.model.vo.UploadedImageVO;
 import com.ccsanjuu.blog.modules.file.service.ImageUploadService;
@@ -77,6 +78,9 @@ class AdminFileControllerTest {
 
     @MockitoBean
     private CommentMapper commentMapper;
+
+    @MockitoBean
+    private MessageMapper messageMapper;
 
     @MockitoBean
     private TagMapper tagMapper;

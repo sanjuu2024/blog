@@ -62,6 +62,11 @@ BLOG_TEST_DB_URL
 BLOG_TEST_DB_USERNAME
 BLOG_TEST_DB_PASSWORD
 BLOG_TEST_JWT_SECRET
+BLOG_REDIS_HOST
+BLOG_REDIS_PORT
+BLOG_REDIS_PASSWORD
+BLOG_REDIS_DATABASE
+BLOG_TEST_REDIS_DATABASE
 POSTGRES_DB
 POSTGRES_USER
 POSTGRES_PASSWORD
@@ -160,7 +165,37 @@ BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL=https://img.example.com
 
 `BLOG_OBJECT_STORAGE_ENDPOINT` 必须包含 `https://` 协议；公开域名生产环境必须使用 HTTPS，避免前端页面因混合内容阻止图片加载。
 
-## 7. 域名与 HTTPS
+## 7. 回复通知邮件配置
+
+P1 留言回复通知和 P2 评论直接回复通知复用同一套 SMTP 配置。生产环境启用邮件通知时需要注入：
+
+```text
+BLOG_MAIL_ENABLED=true
+BLOG_MAIL_FROM=<发件邮箱>
+BLOG_MAIL_FRONTEND_BASE_URL=https://blog.example.com
+BLOG_SMTP_HOST=<SMTP 服务地址>
+BLOG_SMTP_PORT=587
+BLOG_SMTP_USERNAME=<SMTP 用户名>
+BLOG_SMTP_PASSWORD=<SMTP 授权码或密码>
+BLOG_SMTP_AUTH=true
+BLOG_SMTP_STARTTLS=true
+BLOG_SMTP_CONNECTION_TIMEOUT=5000
+BLOG_SMTP_READ_TIMEOUT=10000
+BLOG_SMTP_WRITE_TIMEOUT=10000
+```
+
+- `BLOG_MAIL_FROM` 应使用 SMTP 服务允许的发件地址，通常与 SMTP 账号一致。
+- 生产环境的 `BLOG_MAIL_FRONTEND_BASE_URL` 必须使用站点 HTTPS 地址，用于生成留言页和退订链接。
+- 密码或授权码只通过生产环境变量或密钥管理服务提供，不写入 Git、镜像或日志。
+- 生产环境默认启用邮件通知；配置不完整时后端拒绝启动，避免回复已创建但通知长期静默失败。
+- `BLOG_SMTP_CONNECTION_TIMEOUT`、`BLOG_SMTP_READ_TIMEOUT`、`BLOG_SMTP_WRITE_TIMEOUT` 的单位均为毫秒，默认分别为 5000、10000、10000，避免网络异常时邮件线程长期阻塞而无法进入重试。
+- 开发环境默认关闭邮件；本地需要实际发信时，通过环境变量显式设置 `BLOG_MAIL_ENABLED=true` 并提供完整 SMTP 配置。
+- 生产环境启用邮件时，`BLOG_MAIL_FRONTEND_BASE_URL` 必须显式配置为完整 HTTPS 地址；缺失、使用 HTTP 或地址格式不合法时后端拒绝启动。
+- P1 留言通知以纯文本发送；P2 将留言与评论通知统一为 `multipart/alternative`，同时携带 `text/plain` 与 `text/html`。
+- HTML 邮件使用内联样式和兼容邮件客户端的简单布局，并为不支持 HTML 的客户端保留语义一致的纯文本版本。
+- 模板必须对昵称、文章标题、留言、评论和回复内容执行 HTML 转义；不得包含 JavaScript、表单或依赖外部 CSS。
+
+## 8. 域名与 HTTPS
 
 - 生产环境必须启用 HTTPS。
 - `Nginx` 负责证书终止和反向代理。
@@ -168,6 +203,8 @@ BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL=https://img.example.com
 - Refresh Token 由后端通过 `Set-Cookie` 写入 `refresh_token` HttpOnly Cookie，`Nginx` 不应丢弃或改写该响应头。
 - `refresh_token` Cookie 路径固定为 `/api/v1/auth`，只随认证相关接口发送；生产 HTTPS 环境必须带 `Secure`，并保持 `HttpOnly`、`SameSite=Lax`。
 - 若后端需要根据请求协议决定是否添加 `Secure`，反向代理应正确传递 `X-Forwarded-Proto` 等代理头。
+- `Nginx` 应对 `POST /api/v1/messages` 等公开写接口配置独立的 `limit_req` 限流规则，在请求进入后端前拦截明显的高频访问；应用层仍需使用 Redis 完成业务身份维度的第二层限流。
+- `Nginx` 必须覆盖并重新生成 `X-Real-IP`、`X-Forwarded-For` 等客户端地址请求头，后端只信任由受控反向代理写入的代理头，不能直接信任公网请求自行携带的同名头。
 - 当前设计不依赖跨域 CORS；若未来改成前后端跨站点部署，需要重新评估 `SameSite=None; Secure`、携带凭证的 CORS 配置和 CSRF 防护策略。
 - 域名解析 TTL 不要设得太长，推荐先使用 `300s` 到 `600s`，迁移稳定后可按需调高。
 - 迁移服务器、切换负载均衡或更换 CDN 前，提前降低 TTL。
@@ -184,7 +221,7 @@ blog:
 - 开发环境如果使用本地 HTTP，可配置为 `false`，避免浏览器因 `Secure` 拒绝发送 Cookie。
 - 生产环境启用 HTTPS 后必须配置为 `true`，确保 `refresh_token` 只随 HTTPS 请求发送。
 
-## 8. 日志与监控
+## 9. 日志与监控
 
 P0 阶段至少需要关注：
 
@@ -203,13 +240,15 @@ P0 阶段至少需要关注：
 - 数据库备份任务失败
 - 后端容器反复重启
 
-## 9. 发布前检查清单
+## 10. 发布前检查清单
 
 - 已完成数据库备份。
 - Flyway migration 可正常执行。
 - Docker Compose 配置未写死生产敏感信息。
 - 对象存储 bucket、权限和访问域名已配置。
+- 若启用回复通知，SMTP 凭证、超时、发件地址和前端 HTTPS 地址已配置；P1 验证留言纯文本邮件，P2 升级后再分别验证 `text/plain` 与 `text/html`。
 - Nginx HTTPS 证书有效。
+- 公开写接口已配置 Nginx 请求限流，并确认后端取得的客户端地址来自受控反向代理。
 - 域名解析 TTL 适合本次发布或迁移。
 - 后端健康检查、前端静态资源、公开文章页面和登录接口可访问。
 - 发布后检查应用日志、Nginx 日志和容器状态。

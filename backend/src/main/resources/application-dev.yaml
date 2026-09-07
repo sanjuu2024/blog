@@ -4,6 +4,8 @@ blog:
       secure: false
   jwt:
     access-ttl: 1d
+  mail:
+    enabled: false
 
 logging:
   level:

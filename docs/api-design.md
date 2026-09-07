@@ -143,6 +143,18 @@ Authorization: Bearer <access_token>
 | `107003` | `413` | `图片大小超过限制` | 头像超过 2 MB，或其他图片超过 10 MB |
 | `107004` | `502` | `图片上传失败，请稍后重试` | 后端调用对象存储上传失败 |
 | `107005` | `429` | `头像上传过于频繁，请稍后再试` | 同一用户每分钟超过 1 次，或每 24 小时超过 10 次头像上传 |
+| `108001` | `404` | `留言不存在` | 指定留言不存在、已删除或当前用户不可见 |
+| `108003` | `409` | `留言回复目标不可用` | 回复目标不是已通过的顶层留言 |
+| `108004` | `429` | `留言过于频繁，请稍后再试` | 同一游客 IP 或登录用户超过留言频率限制 |
+| `108005` | `403` | `无权操作该留言` | 登录用户删除不属于自己的顶层留言 |
+| `108006` | `409` | `留言状态流转不合法` | 后台处理动作与留言当前状态不匹配 |
+| `108007` | `400` | `留言处理原因不能为空` | 拒绝、隐藏或删除留言时未填写原因 |
+| `108008` | `400` | `留言昵称不合法` | 游客昵称为空、过长或包含控制字符 |
+| `108009` | `400` | `勾选回复通知时必须填写邮箱` | 游客勾选通知但未提供邮箱 |
+| `108010` | `400` | `留言退订链接无效或已失效` | 退订令牌不存在或不对应顶层留言 |
+| `108011` | `409` | `批量通过的留言必须是待审核顶层留言` | 批量 ID 中包含不存在、非顶层或非待审核留言 |
+| `108012` | `400` | `一次最多通过 100 条留言` | 批量通过列表超过 100 条 |
+| `108013` | `500` | `留言通知邮件配置不完整` | 启用邮件通知时 SMTP 或发件配置不完整 |
 
 ### 2.7 分页结构
 
@@ -182,6 +194,9 @@ Authorization: Bearer <access_token>
 | `tagStatus` | `ENABLED`、`DISABLED` | 标签状态 |
 | `commentStatus` | `PENDING`、`APPROVED`、`REJECTED`、`HIDDEN`、`DELETED` | 评论状态 |
 | `commentModerationAction` | `APPROVE`、`REJECT`、`HIDE`、`DELETE` | 后台评论处理动作 |
+| `messageStatus` | `PENDING`、`APPROVED`、`REJECTED`、`HIDDEN`、`DELETED` | 留言状态 |
+| `messageType` | `TOP_LEVEL`、`REPLY` | 留言层级 |
+| `messageModerationAction` | `APPROVE`、`REJECT`、`HIDE`、`DELETE` | 后台留言处理动作 |
 | `imageUploadScene` | `ARTICLE_COVER`、`ARTICLE_CONTENT`、`PROJECT_COVER` | 后台图片使用场景 |
 
 ## 3. 接口总览
@@ -224,6 +239,14 @@ Authorization: Bearer <access_token>
 | 后台标签 | `DELETE` | `/api/v1/admin/tags/{tagId}` | `ADMIN` | 删除标签 |
 | 后台评论 | `GET` | `/api/v1/admin/comments` | `ADMIN` | 获取评论审核分页列表 |
 | 后台评论 | `PATCH` | `/api/v1/admin/comments/{commentId}/moderation` | `ADMIN` | 审核、隐藏或删除评论 |
+| 前台留言 | `GET` | `/api/v1/messages` | `PUBLIC` | 获取留言及管理员回复分页列表，可选登录态 |
+| 前台留言 | `POST` | `/api/v1/messages` | `PUBLIC` | 游客或登录用户发表顶层留言 |
+| 前台留言 | `DELETE` | `/api/v1/messages/{messageId}` | `LOGIN` | 登录用户删除自己的顶层留言 |
+| 前台留言 | `POST` | `/api/v1/messages/notifications/unsubscribe` | `PUBLIC` | 幂等关闭单条留言后续回复通知 |
+| 后台留言 | `GET` | `/api/v1/admin/messages` | `ADMIN` | 获取留言审核分页列表 |
+| 后台留言 | `PATCH` | `/api/v1/admin/messages/{messageId}/moderation` | `ADMIN` | 审核、隐藏或删除留言 |
+| 后台留言 | `POST` | `/api/v1/admin/messages/{messageId}/replies` | `ADMIN` | 对已通过顶层留言回复 |
+| 后台留言 | `PATCH` | `/api/v1/admin/messages/batch-approval` | `ADMIN` | 批量通过待审核顶层留言，最多 100 条 |
 | 后台文件 | `POST` | `/api/v1/admin/files/images` | `ADMIN` | 上传文章封面、正文图片或项目封面 |
 
 ## 4. 认证模块
@@ -1085,31 +1108,19 @@ Content-Type: application/json
 | --- | --- | --- | --- | --- |
 | `pageNum` | `Integer` | 否 | 页码，默认 `1` | `1` |
 | `pageSize` | `Integer` | 否 | 每页条数，默认 `10` | `10` |
-| `keyword` | `String` | 否 | 用户名或邮箱模糊搜索，最长 255 个字符 | `alice` |
+| `username` | `String` | 否 | 用户名模糊搜索，最长 20 个字符 | `alice` |
+| `email` | `String` | 否 | 邮箱模糊搜索，最长 255 个字符 | `example.com` |
 | `role` | `String` | 否 | 角色筛选 | `USER` |
 | `status` | `String` | 否 | 状态筛选 | `ACTIVE` |
 
-说明：P0 阶段 `keyword` 同时匹配用户名和邮箱。P1 阶段后台用户列表必须废弃
-`keyword` 混合搜索，改为 `username` 与 `email` 两个独立 Query 参数：
-
-| 字段名称 | 字段类型 | 必填 | 字段解释 | 业务例子 |
-| --- | --- | --- | --- | --- |
-| `username` | `String` | 否 | 用户名模糊搜索，最长 20 个字符 | `alice` |
-| `email` | `String` | 否 | 邮箱模糊搜索，最长 255 个字符 | `alice@example.com` |
-
-P1 请求示例：
-
-```http
-GET /api/v1/admin/users?pageNum=1&pageSize=10&username=alice&email=example.com&status=ACTIVE
-Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
-```
+`username`、`email`、`role` 和 `status` 可以组合使用，同时传入多个条件时按 AND 关系筛选。
 
 排序规则：默认按 `createdAt` 倒序、`id` 倒序返回，不提供自定义排序参数。
 
 ### 请求样例
 
 ```http
-GET /api/v1/admin/users?pageNum=1&pageSize=10&keyword=alice&status=ACTIVE
+GET /api/v1/admin/users?pageNum=1&pageSize=10&username=alice&email=example.com&status=ACTIVE
 Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 ```
 
@@ -2275,13 +2286,79 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 通过、拒绝、隐藏成功后写入 `reviewedBy`、`reviewedAt`；拒绝、隐藏、删除保存 `moderationReason`，通过时清空该字段。管理员删除写入 `deletedBy`、`deletedAt`，不清空历史 `reviewedBy`、`reviewedAt`。状态变化、子树逻辑删除、`comment_count` 更新和后台操作审计日志必须保持事务一致性。管理员不能修改评论正文。
 
-## 12. 图片上传接口
+## 11.7 P2 评论直接回复邮件通知预留
+
+- P1 评论接口和 OpenAPI 保持不变；P2 实现时再为创建评论请求增加可选的 `notifyOnReply` 字段，并补充退订接口
+- `notifyOnReply=true` 表示当前登录用户订阅这条新评论未来的直接回复，收件地址使用账号邮箱
+- 只有其他用户创建的直接回复变为 `APPROVED` 后才触发通知；普通用户回复处于 `PENDING` 时不发送，自己回复自己不发送
+- 退订操作以单条评论为范围且保持幂等，不影响其他评论订阅
+- P2 评论通知和留言通知均发送 `multipart/alternative`：`text/plain` 与 `text/html` 内容语义一致，客户端自行选择可渲染版本
+- HTML 正文中的昵称、文章标题、评论及回复必须转义；链接使用绝对 HTTPS 地址，不依赖 JavaScript、外部 CSS 或表单
+
+## 12. 留言接口
+
+### 12.1 获取留言分页列表
+
+- 路由：`GET /api/v1/messages`
+- 权限：`PUBLIC`，可选携带 Access Token
+- 只分页返回顶层留言；每条顶层留言携带其管理员回复。游客只能看到 `APPROVED`，登录用户还可看到自己 `PENDING`、`REJECTED` 的顶层留言。
+- 顶层留言按 `created_at DESC, id DESC` 排序，回复按 `created_at ASC, id ASC` 排序；不返回邮箱。
+- 不携带 Access Token 时按游客身份处理；请求一旦携带 Token，Token 无效或过期必须返回 HTTP `401`，不能静默降级为游客，否则会隐藏当前用户自己的非公开留言。
+
+### 12.2 发表留言
+
+- 路由：`POST /api/v1/messages`
+- 权限：`PUBLIC`，可选携带 Access Token
+- 游客必须填写 1-20 个字符昵称；邮箱可选，勾选 `notifyOnReply` 时必填且格式合法。登录用户忽略昵称和邮箱输入，使用当前账号资料快照；勾选 `notifyOnReply` 时使用账号邮箱接收通知。
+- 内容为 1-1000 个字符的纯文本；普通用户和游客为 `PENDING`，管理员为 `APPROVED`。
+- 游客按 IP 每 30 秒 1 条、每小时最多 10 条，登录用户按用户 ID执行相同 Redis 原子限流。
+- 不携带 Access Token 时按游客请求校验；请求一旦携带 Token，Token 无效或过期必须返回 HTTP `401`，由前端刷新登录态后重试，不能降级为游客后再校验游客昵称。
+
+### 12.3 删除自己的留言
+
+- 路由：`DELETE /api/v1/messages/{messageId}`
+- 权限：`LOGIN`
+- 只能删除自己的顶层留言，采用逻辑删除；管理员回复一并标记为 `DELETED`。操作幂等性不对外承诺，目标不存在或已删除返回资源不存在。
+
+### 12.4 退订留言回复通知
+
+- 路由：`POST /api/v1/messages/notifications/unsubscribe`
+- 权限：`PUBLIC`
+- Body：`{ "token": "..." }`。令牌为随机不透明值，仅对应一条顶层留言。令牌无效返回 `MESSAGE_UNSUBSCRIBE_TOKEN_INVALID`；重复提交已退订令牌仍返回成功。
+- 前端退订页面的 GET 只展示确认信息，POST 后才修改通知状态；只影响未来回复。
+
+### 12.5 获取后台留言分页列表
+
+- 路由：`GET /api/v1/admin/messages`
+- 权限：`ADMIN`
+- 支持 `pageNum`、`pageSize`、`messageId`、`userId`、`guestNickname`、`guestEmail`、`content`、`status`、`type`、`createdAtFrom`、`createdAtTo`。后台响应可返回私有邮箱、通知开关、审核与删除信息。
+
+### 12.6 审核、隐藏或删除留言
+
+- 路由：`PATCH /api/v1/admin/messages/{messageId}/moderation`
+- 权限：`ADMIN`
+- Body 与评论审核相同，动作是 `APPROVE`、`REJECT`、`HIDE`、`DELETE`；拒绝、隐藏、删除必须提供原因。删除顶层留言时其管理员回复一起逻辑删除，删除单条回复不影响顶层留言。
+- 状态流转与评论一致：`PENDING` 可通过、拒绝或删除，`APPROVED` 可隐藏或删除，`REJECTED`、`HIDDEN` 可重新通过或删除，`DELETED` 为终态。
+
+### 12.7 管理员回复留言
+
+- 路由：`POST /api/v1/admin/messages/{messageId}/replies`
+- 权限：`ADMIN`
+- `messageId` 必须是已通过的顶层留言。管理员回复直接为 `APPROVED`，管理员可对同一留言发表多条回复。事务提交后按该留言的通知开关异步发送邮件；P1 使用纯文本，P2 升级为同时携带 `text/plain` 与 `text/html` 的 `multipart/alternative`。
+
+### 12.8 批量通过留言
+
+- 路由：`PATCH /api/v1/admin/messages/batch-approval`
+- 权限：`ADMIN`
+- Body：`{ "messageIds": [90001, 90002] }`，不能为空且最多 100 个。所有 ID 必须是 `PENDING` 顶层留言，否则整批失败；成功后统一写入审核管理员和审核时间。
+
+## 13. 图片上传接口
 
 图片上传使用 `multipart/form-data`，由后端校验并中转上传到阿里云 OSS 公共读 Bucket。前端不得接触对象存储 AccessKey。支持 JPEG（`.jpg`、`.jpeg`）、PNG、WebP 和 GIF，不支持 SVG；后端以文件真实内容识别结果为准，不信任客户端文件扩展名或 Content-Type。
 
 上传对象使用不可变 UUID key，并通过配置的自定义公开域名返回完整 URL。P1 不压缩、不转换格式、不生成缩略图，也不自动删除被替换或失去引用的 OSS 对象。
 
-### 12.1 上传并更新当前用户头像
+### 13.1 上传并更新当前用户头像
 
 - 路由：`PUT`
 - 路径：`/api/v1/users/me/avatar`
@@ -2310,7 +2387,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 同一用户每分钟最多成功上传 1 次头像，并且每 24 小时最多成功上传 10 次。限流使用 Redis 原子执行；上传或数据库事务失败时释放本次预占额度。
 
-### 12.2 上传后台图片
+### 13.2 上传后台图片
 
 - 路由：`POST`
 - 路径：`/api/v1/admin/files/images`
@@ -2343,9 +2420,9 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 文章封面上传后由前端把 URL 回填至原有封面输入框；文章正文图片上传后由 `md-editor-v3` 插入 Markdown 图片语法。该接口仅创建 OSS 对象，不直接修改文章或项目数据。
 
-## 13. 业务规则补充
+## 14. 业务规则补充
 
-### 13.1 用户相关
+### 14.1 用户相关
 
 - 被禁用用户不可登录
 - 被禁用用户已有 Access Token 通过 tokenVersion 校验立即失效
@@ -2361,7 +2438,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - P0 阶段不因普通刷新失败自动撤销该用户全部活跃 Refresh Token；明确安全事件，如修改密码、用户禁用、管理员强制下线，可按对应业务规则撤销全部会话
 - P1 阶段可结合 Redis 短 TTL 宽限期、`token_jti` 状态和 `tokenVersion` 增强幂等重试与重放检测
 
-### 13.2 文章相关
+### 14.2 文章相关
 
 - 前台文章列表和详情仅返回 `PUBLISHED` 状态文章
 - 草稿和下线文章仅后台可见
@@ -2382,7 +2459,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - P0 文章详情以 `articleId` 定位；P2 再考虑将 `slug` 追加到前台 URL 中提升可读性与 SEO 表达
 - 文章从 `PUBLISHED` 修改为 `OFFLINE` 后，前台立即不可见
 
-### 13.3 分类和标签相关
+### 14.3 分类和标签相关
 
 - 删除一级分类前需要校验其自身及其下所有二级分类是否存在关联文章
 - 删除二级分类前需要校验该二级分类是否存在关联文章
@@ -2390,7 +2467,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 前台分类接口默认返回一级分类树，二级分类挂载在 `children` 字段
 - 前台主导航不展示标签，标签主要用于筛选和后续搜索
 
-### 13.4 评论相关
+### 14.4 评论相关
 
 - `comment_count` 统计文章下全部 `APPROVED` 评论，包括顶层评论和回复
 - 关闭 `allowComment` 只阻止新评论和回复，不影响已有评论展示和作者删除
@@ -2398,7 +2475,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 顶层评论分页不预载回复；回复由用户点击“共 x 条回复，点击查看”后按需请求
 - 评论内容只按纯文本展示，不解析 HTML 或 Markdown
 
-### 13.5 图片上传相关
+### 14.5 图片上传相关
 
 - 图片二进制只保存在 OSS，数据库和 Markdown 只保存完整公开 URL
 - P1 不新增文件资源表，不维护图片引用关系，不提供删除 OSS 对象的业务接口
@@ -2406,12 +2483,12 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 后台文章封面仍允许手工输入外部 URL，上传 OSS 后自动回填同一字段
 - OSS Bucket 为公共读，但写入权限仅授予后端使用的 RAM 子账号；AccessKey、Secret 和 Bucket 配置不得返回前端或写入日志
 
-### 13.6 日志与审计
+### 14.6 日志与审计
 
 - P0 阶段保留认证成功、认证失败、改密、禁用用户等关键安全事件的应用日志，避免记录密码、Token 等敏感值
 - P1 阶段补充后台管理操作审计日志，记录操作者用户 ID、目标资源 ID、操作类型、操作结果和操作时间
 
-## 14. 后续版本预留接口
+## 15. 后续版本预留接口
 
 以下接口不在 P0 范围内，仅做路由预留说明：
 

@@ -33,8 +33,9 @@ import java.util.regex.Pattern;
 /**
  * 从请求头中解析 Access Token，并把认证结果写入 Spring Security 上下文。
  *
- * <p>这个过滤器只处理当前项目里明确需要登录态的接口。公开接口即使带了一个过期 Token，
- * 也不会被这里拦截，避免影响游客浏览公开内容。</p>
+ * <p>公开内容接口即使带了一个过期 Token，也可以按游客身份继续访问。
+ * 但留言列表和发表留言会根据登录身份改变数据可见性或请求字段，携带 Token 时必须校验成功，
+ * 避免已登录用户因 Token 失效被静默降级成游客。</p>
  */
 @RequiredArgsConstructor
 @Slf4j
@@ -44,8 +45,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String ADMIN_API_PREFIX = API_PREFIX + "/admin/";
     private static final String CURRENT_USER_API = API_PREFIX + "/users/me";
     private static final String CURRENT_USER_API_PREFIX = CURRENT_USER_API + "/";
+    private static final String MESSAGE_API = API_PREFIX + "/messages";
     private static final Pattern ARTICLE_COMMENT_API_PATTERN = Pattern.compile("^" + API_PREFIX + "/articles/[^/]+/comments$");
     private static final Pattern COMMENT_DETAIL_API_PATTERN = Pattern.compile("^" + API_PREFIX + "/comments/[^/]+$");
+    private static final Pattern MESSAGE_DETAIL_API_PATTERN = Pattern.compile("^" + MESSAGE_API + "/[^/]+$");
 
     private final SecretKey jwtSigningKey;
     private final ObjectMapper objectMapper;
@@ -53,7 +56,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !requiresAccessToken(request) && !hasAuthorizationHeader(request);
+        return !mustRejectInvalidAccessToken(request) && !hasAuthorizationHeader(request);
     }
 
     @Override
@@ -62,17 +65,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain
     ) throws ServletException, IOException {
-        boolean accessTokenRequired = requiresAccessToken(request);
+        boolean invalidAccessTokenMustBeRejected = mustRejectInvalidAccessToken(request);
         String authorization = request.getHeader(AuthConstants.AUTHORIZATION_HEADER);
 
         if (authorization == null || authorization.isBlank()) {
-            // 没有携带 Token 时交给后续的 .authenticated() / hasRole(...) 判断。
+            // 没有携带 Token 时交给后续权限规则或允许匿名访问的 Controller 处理。
             filterChain.doFilter(request, response);
             return;
         }
 
         if (!authorization.startsWith(AuthConstants.BEARER_TOKEN_PREFIX)) {
-            rejectRequestOrContinue(accessTokenRequired, request, response, filterChain, ResultCode.ACCESS_TOKEN_INVALID, "INVALID_AUTHORIZATION_FORMAT");
+            rejectRequestOrContinue(
+                    invalidAccessTokenMustBeRejected,
+                    request,
+                    response,
+                    filterChain,
+                    ResultCode.ACCESS_TOKEN_INVALID,
+                    "INVALID_AUTHORIZATION_FORMAT"
+            );
             return;
         }
 
@@ -84,15 +94,36 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             claims = JwtUtil.parseClaims(accessToken, jwtSigningKey);
             tokenType = claims.get(JwtUtil.CLAIM_TOKEN_TYPE, String.class);
         } catch (ExpiredJwtException ex) {
-            rejectRequestOrContinue(accessTokenRequired, request, response, filterChain, ResultCode.ACCESS_TOKEN_EXPIRED, "EXPIRED");
+            rejectRequestOrContinue(
+                    invalidAccessTokenMustBeRejected,
+                    request,
+                    response,
+                    filterChain,
+                    ResultCode.ACCESS_TOKEN_EXPIRED,
+                    "EXPIRED"
+            );
             return;
         } catch (JwtException | IllegalArgumentException ex) {
-            rejectRequestOrContinue(accessTokenRequired, request, response, filterChain, ResultCode.ACCESS_TOKEN_INVALID, "INVALID_TOKEN");
+            rejectRequestOrContinue(
+                    invalidAccessTokenMustBeRejected,
+                    request,
+                    response,
+                    filterChain,
+                    ResultCode.ACCESS_TOKEN_INVALID,
+                    "INVALID_TOKEN"
+            );
             return;
         }
 
         if (!JwtUtil.TOKEN_TYPE_ACCESS.equals(tokenType)) {
-            rejectRequestOrContinue(accessTokenRequired, request, response, filterChain, ResultCode.ACCESS_TOKEN_INVALID, "INVALID_TOKEN_TYPE");
+            rejectRequestOrContinue(
+                    invalidAccessTokenMustBeRejected,
+                    request,
+                    response,
+                    filterChain,
+                    ResultCode.ACCESS_TOKEN_INVALID,
+                    "INVALID_TOKEN_TYPE"
+            );
             return;
         }
 
@@ -104,14 +135,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             tokenVersion = JwtUtil.getTokenVersion(claims);
             principal = buildPrincipal(claims);
         } catch (JwtException | IllegalArgumentException ex) {
-            rejectRequestOrContinue(accessTokenRequired, request, response, filterChain, ResultCode.ACCESS_TOKEN_INVALID, "INVALID_TOKEN");
+            rejectRequestOrContinue(
+                    invalidAccessTokenMustBeRejected,
+                    request,
+                    response,
+                    filterChain,
+                    ResultCode.ACCESS_TOKEN_INVALID,
+                    "INVALID_TOKEN"
+            );
             return;
         }
 
         // 每次请求比较 Redis/数据库中的当前版本，令密码、状态或角色变化后的旧 Token 立即失效。
         Long currentVersion = tokenVersionService.getCurrentVersion(userId);
         if (currentVersion == null || !currentVersion.equals(tokenVersion)) {
-            rejectRequestOrContinue(accessTokenRequired, request, response, filterChain, ResultCode.ACCESS_TOKEN_INVALID, "TOKEN_VERSION_MISMATCH");
+            rejectRequestOrContinue(
+                    invalidAccessTokenMustBeRejected,
+                    request,
+                    response,
+                    filterChain,
+                    ResultCode.ACCESS_TOKEN_INVALID,
+                    "TOKEN_VERSION_MISMATCH"
+            );
             return;
         }
 
@@ -144,14 +189,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private void rejectRequestOrContinue(
-            boolean accessTokenRequired,
+            boolean invalidAccessTokenMustBeRejected,
             HttpServletRequest request,
             HttpServletResponse response,
             FilterChain filterChain,
             ResultCode resultCode,
             String reason
     ) throws IOException, ServletException {
-        if (accessTokenRequired) {
+        if (invalidAccessTokenMustBeRejected) {
             rejectRequest(request, response, resultCode, reason);
             return;
         }
@@ -179,13 +224,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         writeErrorResponse(response, resultCode);
     }
 
-    private boolean requiresAccessToken(HttpServletRequest request) {
+    private boolean mustRejectInvalidAccessToken(HttpServletRequest request) {
         String path = request.getRequestURI();
 
         return path.startsWith(ADMIN_API_PREFIX)
                 || path.equals(CURRENT_USER_API)
                 || path.startsWith(CURRENT_USER_API_PREFIX)
-                || isProtectedCommentApi(request, path);
+                || isProtectedCommentApi(request, path)
+                || isIdentitySensitiveMessageApi(request, path);
     }
 
     private boolean hasAuthorizationHeader(HttpServletRequest request) {
@@ -196,6 +242,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private boolean isProtectedCommentApi(HttpServletRequest request, String path) {
         return ("POST".equals(request.getMethod()) && ARTICLE_COMMENT_API_PATTERN.matcher(path).matches())
                 || ("DELETE".equals(request.getMethod()) && COMMENT_DETAIL_API_PATTERN.matcher(path).matches());
+    }
+
+    /**
+     * 留言列表和发表接口允许不携带 Token 的游客访问，但携带 Token 时必须保证身份有效。
+     * 删除接口本身要求登录，这里同时保证过期 Token 返回准确的鉴权错误。
+     *
+     * @param request HTTP 请求
+     * @param path 请求路径
+     * @return 是否需要拒绝无效的已携带 Token
+     */
+    private boolean isIdentitySensitiveMessageApi(HttpServletRequest request, String path) {
+        String method = request.getMethod();
+        return (MESSAGE_API.equals(path) && ("GET".equals(method) || "POST".equals(method)))
+                || ("DELETE".equals(method) && MESSAGE_DETAIL_API_PATTERN.matcher(path).matches());
     }
 
     private JwtPrincipal buildPrincipal(Claims claims) {

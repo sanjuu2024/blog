@@ -150,9 +150,37 @@ class JwtAuthenticationFilterTest {
         assertEquals(200, response.getStatus());
     }
 
+    @Test
+    void anonymousMessageRequestShouldContinueWithoutAccessToken() throws Exception {
+        MockHttpServletResponse getResponse = performRequest("GET", "/api/v1/messages", null);
+        MockHttpServletResponse postResponse = performRequest("POST", "/api/v1/messages", null);
+
+        assertEquals(200, getResponse.getStatus());
+        assertEquals(200, postResponse.getStatus());
+    }
+
+    @Test
+    void identitySensitiveMessageRequestShouldRejectInvalidAccessToken() throws Exception {
+        String invalidToken = "not-a-valid-jwt";
+
+        MockHttpServletResponse getResponse = performRequest("GET", "/api/v1/messages", invalidToken);
+        MockHttpServletResponse postResponse = performRequest("POST", "/api/v1/messages", invalidToken);
+        MockHttpServletResponse deleteResponse = performRequest("DELETE", "/api/v1/messages/90001", invalidToken);
+
+        assertEquals(401, getResponse.getStatus());
+        assertEquals(401, postResponse.getStatus());
+        assertEquals(401, deleteResponse.getStatus());
+    }
+
     private MockHttpServletResponse performProtectedRequest(String token) throws Exception {
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/users/me");
-        request.addHeader("Authorization", "Bearer " + token);
+        return performRequest("GET", "/api/v1/users/me", token);
+    }
+
+    private MockHttpServletResponse performRequest(String method, String path, String token) throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest(method, path);
+        if (token != null) {
+            request.addHeader("Authorization", "Bearer " + token);
+        }
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         filter.doFilter(request, response, new MockFilterChain());

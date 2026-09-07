@@ -11,8 +11,11 @@ import lombok.*;
 @EqualsAndHashCode(callSuper = true)
 public class UserManagementPageQueryDTO extends PageQuery {
 
-    @Size(max = 255, message = "关键字长度不能超过 255 个字符")
-    private String keyword;
+    @Size(max = 20, message = "用户名长度不能超过 20 个字符")
+    private String username;
+
+    @Size(max = 255, message = "邮箱长度不能超过 255 个字符")
+    private String email;
 
     private UserRole role;
 

@@ -25,6 +25,10 @@ tags:
     description: 后台用户管理接口
   - name: Admin Comments
     description: 后台评论审核接口
+  - name: Messages
+    description: 前台留言接口
+  - name: Admin Messages
+    description: 后台留言管理接口
   - name: Admin Articles
     description: 后台文章管理接口
   - name: Admin Categories
@@ -813,21 +817,29 @@ paths:
       tags:
         - Admin Users
       summary: 获取用户分页列表
-      description: 权限级别 `ADMIN`。P0 阶段通过 keyword 同时匹配用户名和邮箱，并支持按状态、角色筛选。P1 阶段必须废弃 keyword，改为 username 与 email 两个独立 Query 参数。默认按创建时间倒序、用户 ID 倒序返回，不提供自定义排序参数。
+      description: 权限级别 `ADMIN`。支持按用户名、邮箱、状态和角色组合筛选，同时传入多个条件时按 AND 关系查询。默认按创建时间倒序、用户 ID 倒序返回，不提供自定义排序参数。
       operationId: listAdminUsers
       security:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/PageNum'
         - $ref: '#/components/parameters/PageSize'
-        - name: keyword
+        - name: username
           in: query
-          description: 用户名或邮箱模糊搜索关键字。P1 阶段将废弃该参数，改用 username 和 email 独立筛选。
+          description: 用户名模糊搜索
+          required: false
+          schema:
+            type: string
+            maxLength: 20
+            example: alice
+        - name: email
+          in: query
+          description: 邮箱模糊搜索
           required: false
           schema:
             type: string
             maxLength: 255
-            example: alice
+            example: example.com
         - name: role
           in: query
           description: 角色筛选
@@ -1533,6 +1545,251 @@ paths:
                   name: JWT
                   status: ENABLED
                   createdAt: '2026-04-23T00:12:00+08:00'
+  /api/v1/messages:
+    get:
+      tags:
+        - Messages
+      summary: 获取公开留言分页列表
+      description: 可选携带 Access Token；游客仅看到已通过留言，登录用户还可看到自己的待审核和已拒绝留言。未携带 Token 时按游客处理，已携带的 Token 无效或过期时返回 401，不降级为游客。
+      operationId: listMessages
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessagePageResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+    post:
+      tags:
+        - Messages
+      summary: 发表留言
+      description: 游客和登录用户均可发表顶层留言；普通留言需要审核，管理员留言直接通过。登录用户的昵称和邮箱由服务端从当前账号读取。未携带 Token 时按游客校验，已携带的 Token 无效或过期时返回 401，不降级为游客。
+      operationId: createMessage
+      security:
+        - {}
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMessageRequest'
+      responses:
+        '200':
+          description: 留言提交成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageMutationResponse'
+        '400':
+          $ref: '#/components/responses/MessageBadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '429':
+          $ref: '#/components/responses/MessageRateLimitedResponse'
+  /api/v1/messages/{messageId}:
+    delete:
+      tags:
+        - Messages
+      summary: 删除自己的留言
+      operationId: deleteOwnMessage
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MessageId'
+      responses:
+        '200':
+          $ref: '#/components/responses/NoDataResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/MessageForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/MessageNotFoundResponse'
+  /api/v1/messages/notifications/unsubscribe:
+    post:
+      tags:
+        - Messages
+      summary: 退订留言的回复通知
+      operationId: unsubscribeMessageNotifications
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageUnsubscribeRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/NoDataResponse'
+        '400':
+          $ref: '#/components/responses/MessageUnsubscribeTokenResponse'
+  /api/v1/admin/messages:
+    get:
+      tags:
+        - Admin Messages
+      summary: 获取后台留言分页列表
+      operationId: listAdminMessages
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+        - name: messageId
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: userId
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: guestNickname
+          in: query
+          schema:
+            type: string
+            maxLength: 20
+        - name: guestEmail
+          in: query
+          schema:
+            type: string
+            maxLength: 255
+        - name: content
+          in: query
+          schema:
+            type: string
+            maxLength: 1000
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/MessageStatus'
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/MessageType'
+        - name: createdAtFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: createdAtTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMessagePageResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+  /api/v1/admin/messages/{messageId}/moderation:
+    patch:
+      tags:
+        - Admin Messages
+      summary: 审核、隐藏或删除留言
+      operationId: moderateMessage
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MessageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageModerationRequest'
+      responses:
+        '200':
+          description: 处理成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageMutationResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '400':
+          $ref: '#/components/responses/MessageBadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '404':
+          $ref: '#/components/responses/MessageNotFoundResponse'
+        '409':
+          $ref: '#/components/responses/MessageConflictResponse'
+  /api/v1/admin/messages/{messageId}/replies:
+    post:
+      tags:
+        - Admin Messages
+      summary: 管理员回复留言
+      operationId: replyMessage
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MessageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMessageReplyRequest'
+      responses:
+        '200':
+          description: 回复成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageMutationResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '400':
+          $ref: '#/components/responses/MessageBadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '404':
+          $ref: '#/components/responses/MessageNotFoundResponse'
+        '409':
+          $ref: '#/components/responses/MessageConflictResponse'
+  /api/v1/admin/messages/batch-approval:
+    patch:
+      tags:
+        - Admin Messages
+      summary: 批量通过待审核顶层留言
+      operationId: approveMessages
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageBatchApprovalRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/NoDataResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '400':
+          $ref: '#/components/responses/MessageBadRequestResponse'
+        '409':
+          $ref: '#/components/responses/MessageConflictResponse'
   /api/v1/admin/tags/{tagId}:
     put:
       tags:
@@ -1679,6 +1936,15 @@ components:
         type: integer
         format: int64
         example: 50001
+    MessageId:
+      name: messageId
+      in: path
+      description: 留言 ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+        example: 90001
     ReplyLimit:
       name: limit
       in: query
@@ -3443,6 +3709,260 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/UploadedImageData'
+    MessageStatus:
+      type: string
+      enum: [PENDING, APPROVED, REJECTED, HIDDEN, DELETED]
+    MessageType:
+      type: string
+      enum: [TOP_LEVEL, REPLY]
+    MessageAuthor:
+      type: object
+      required: [id, username, nickname, avatarUrl]
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        nickname:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+    MessageReply:
+      type: object
+      required: [id, parentId, content, status, author, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        parentId:
+          type: integer
+          format: int64
+        content:
+          type: string
+        status:
+          $ref: '#/components/schemas/MessageStatus'
+        author:
+          allOf:
+            - $ref: '#/components/schemas/MessageAuthor'
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    MessageItem:
+      type: object
+      required: [id, nickname, content, status, moderationReason, author, isMine, replies, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        nickname:
+          type: string
+        content:
+          type: string
+        status:
+          $ref: '#/components/schemas/MessageStatus'
+        moderationReason:
+          type: string
+          nullable: true
+        author:
+          allOf:
+            - $ref: '#/components/schemas/MessageAuthor'
+          nullable: true
+        isMine:
+          type: boolean
+        replies:
+          type: array
+          items:
+            $ref: '#/components/schemas/MessageReply'
+        createdAt:
+          type: string
+          format: date-time
+    MessagePageData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          required: [records]
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/MessageItem'
+    MessagePageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/MessagePageData'
+    CreateMessageRequest:
+      type: object
+      required: [content]
+      properties:
+        nickname:
+          type: string
+          minLength: 1
+          maxLength: 20
+          nullable: true
+          description: 游客昵称，登录用户忽略
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          nullable: true
+          description: 游客联系邮箱；勾选通知时必填，登录用户忽略
+        content:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        notifyOnReply:
+          type: boolean
+          default: false
+          description: 是否接收该条留言后续管理员回复的邮件通知
+    MessageMutationResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/MessageMutationData'
+    MessageMutationData:
+      allOf:
+        - $ref: '#/components/schemas/MessageItem'
+        - type: object
+          required: [parentId]
+          properties:
+            parentId:
+              type: integer
+              format: int64
+              nullable: true
+    MessageUnsubscribeRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 20
+          maxLength: 128
+    MessageModerationRequest:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [APPROVE, REJECT, HIDE, DELETE]
+        reason:
+          type: string
+          maxLength: 255
+    CreateMessageReplyRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 1000
+    MessageBatchApprovalRequest:
+      type: object
+      required: [messageIds]
+      properties:
+        messageIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: integer
+            format: int64
+            minimum: 1
+    AdminMessageItem:
+      type: object
+      required:
+        - id
+        - userId
+        - parentId
+        - nickname
+        - email
+        - content
+        - status
+        - type
+        - notifyOnReply
+        - moderationReason
+        - reviewedBy
+        - reviewedAt
+        - deletedBy
+        - deletedAt
+        - author
+        - createdAt
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+          nullable: true
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+        nickname:
+          type: string
+        email:
+          type: string
+          description: 仅后台返回的私有联系邮箱
+        content:
+          type: string
+        status:
+          $ref: '#/components/schemas/MessageStatus'
+        type:
+          $ref: '#/components/schemas/MessageType'
+        notifyOnReply:
+          type: boolean
+        moderationReason:
+          type: string
+          nullable: true
+        reviewedBy:
+          type: integer
+          format: int64
+          nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        deletedBy:
+          type: integer
+          format: int64
+          nullable: true
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+        author:
+          allOf:
+            - $ref: '#/components/schemas/MessageAuthor'
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    AdminMessagePageData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          required: [records]
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminMessageItem'
+    AdminMessagePageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AdminMessagePageData'
   responses:
     BadRequestResponse:
       description: 请求参数不合法
@@ -3671,6 +4191,100 @@ components:
           example:
             code: 106004
             message: 评论过于频繁，请稍后再试
+            data: null
+    MessageNotFoundResponse:
+      description: 留言不存在、已删除或当前用户不可见
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 108001
+            message: 留言不存在
+            data: null
+    MessageBadRequestResponse:
+      description: 留言请求参数或业务参数不合法
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            invalidParameter:
+              value:
+                code: 199001
+                message: 请求参数不合法
+                data: null
+            invalidNickname:
+              value:
+                code: 108008
+                message: 留言昵称不合法
+                data: null
+            emailRequired:
+              value:
+                code: 108009
+                message: 勾选回复通知时必须填写邮箱
+                data: null
+            invalidUnsubscribeToken:
+              value:
+                code: 108010
+                message: 留言退订链接无效或已失效
+                data: null
+            batchTooLarge:
+              value:
+                code: 108012
+                message: 一次最多通过 100 条留言
+                data: null
+    MessageConflictResponse:
+      description: 留言状态或回复目标冲突
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            parentUnavailable:
+              value:
+                code: 108003
+                message: 留言回复目标不可用
+                data: null
+            statusInvalid:
+              value:
+                code: 108006
+                message: 留言状态流转不合法
+                data: null
+            batchInvalid:
+              value:
+                code: 108011
+                message: 批量通过的留言必须是待审核顶层留言
+                data: null
+    MessageForbiddenResponse:
+      description: 无权操作该留言
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 108005
+            message: 无权操作该留言
+            data: null
+    MessageRateLimitedResponse:
+      description: 留言频率超过限制
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 108004
+            message: 留言过于频繁，请稍后再试
+            data: null
+    MessageUnsubscribeTokenResponse:
+      description: 留言退订令牌无效
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 108010
+            message: 留言退订链接无效或已失效
             data: null
     ImageRequiredResponse:
       description: 未携带需要上传的图片

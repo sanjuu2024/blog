@@ -165,18 +165,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public PageResult<AdminUserItemVO> userPageQuery(UserManagementPageQueryDTO userManagementPageQueryDTO) {
         // 1. 构建分页查询条件，并执行分页查询
         Page<User> page = Page.of(userManagementPageQueryDTO.getPageNum(), userManagementPageQueryDTO.getPageSize());
-        String keyword = StringUtils.hasText(userManagementPageQueryDTO.getKeyword())
-                ? userManagementPageQueryDTO.getKeyword().trim()
+        String username = StringUtils.hasText(userManagementPageQueryDTO.getUsername())
+                ? userManagementPageQueryDTO.getUsername().trim()
+                : null;
+        String email = StringUtils.hasText(userManagementPageQueryDTO.getEmail())
+                ? userManagementPageQueryDTO.getEmail().trim()
                 : null;
 
         lambdaQuery()
                 .select(User::getId,User::getUsername,User::getNickname,User::getEmail,User::getRole,User::getStatus,User::getLastLoginAt,User::getCreatedAt)
                 .eq(userManagementPageQueryDTO.getRole() != null, User::getRole, userManagementPageQueryDTO.getRole())
                 .eq(userManagementPageQueryDTO.getStatus() != null, User::getStatus, userManagementPageQueryDTO.getStatus())
-                .and(StringUtils.hasText(keyword), wrapper -> wrapper
-                        .like(User::getUsername, keyword)
-                        .or()
-                        .like(User::getEmail, keyword))
+                .like(StringUtils.hasText(username), User::getUsername, username)
+                .like(StringUtils.hasText(email), User::getEmail, email)
                 .orderByDesc(User::getCreatedAt)
                 .orderByDesc(User::getId)
                 .page(page);
