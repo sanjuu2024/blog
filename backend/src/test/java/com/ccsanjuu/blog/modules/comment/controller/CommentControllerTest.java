@@ -36,6 +36,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -110,6 +111,33 @@ class CommentControllerTest {
                 .andExpect(jsonPath("$.data.hasNext").value(false));
 
         verify(commentService).getRepliesByRootId(eq(COMMENT_ID), eq(null), any());
+    }
+
+    @Test
+    void replyListShouldPassCurrentUserWhenTokenExists() throws Exception {
+        when(commentService.getRepliesByRootId(eq(COMMENT_ID), eq(USER_ID), any()))
+                .thenReturn(CommentReplyPageVO.builder()
+                        .records(List.of())
+                        .nextCursor(null)
+                        .hasNext(false)
+                        .build());
+
+        mockMvc.perform(get("/api/v1/comments/{commentId}/replies", COMMENT_ID)
+                        .header("Authorization", "Bearer " + accessToken(USER_ID, UserRole.USER)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.hasNext").value(false));
+
+        verify(commentService).getRepliesByRootId(eq(COMMENT_ID), eq(USER_ID), any());
+    }
+
+    @Test
+    void replyListShouldRejectInvalidTokenInsteadOfFallingBackToGuest() throws Exception {
+        mockMvc.perform(get("/api/v1/comments/{commentId}/replies", COMMENT_ID)
+                        .header("Authorization", "Bearer not-a-valid-jwt"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(101001));
+
+        verifyNoInteractions(commentService);
     }
 
     @Test

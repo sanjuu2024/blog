@@ -66,7 +66,7 @@
 							class="text-center"
 						>
 							<div class="flex items-center justify-center">
-								<i-lets-icons-edit class="text-xl text-yellow-600" />
+								<i-lets-icons-edit class="text-xl text-(--app-icon-red-color)" />
 							</div>
 							<p>草稿</p>
 						</div>
@@ -75,7 +75,9 @@
 							class="text-center"
 						>
 							<div class="flex items-center justify-center">
-								<i-lets-icons-file-dock class="text-xl text-green-600" />
+								<i-lets-icons-file-dock
+									class="text-xl text-(--app-icon-green-color)"
+								/>
 							</div>
 							<p>已发布</p>
 						</div>
@@ -84,7 +86,7 @@
 							class="text-center"
 						>
 							<div class="flex items-center justify-center">
-								<i-lets-icons-lock class="text-xl text-gray-400" />
+								<i-lets-icons-lock class="text-xl text-(--app-icon-gray-color)" />
 							</div>
 							<p>下线</p>
 						</div>

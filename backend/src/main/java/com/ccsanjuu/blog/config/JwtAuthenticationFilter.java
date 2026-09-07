@@ -33,9 +33,9 @@ import java.util.regex.Pattern;
 /**
  * 从请求头中解析 Access Token，并把认证结果写入 Spring Security 上下文。
  *
- * <p>公开内容接口即使带了一个过期 Token，也可以按游客身份继续访问。
- * 但留言列表和发表留言会根据登录身份改变数据可见性或请求字段，携带 Token 时必须校验成功，
- * 避免已登录用户因 Token 失效被静默降级成游客。</p>
+ * <p>普通公开内容接口即使带了一个过期 Token，也可以按游客身份继续访问。
+ * 但评论和留言列表会根据登录身份改变数据可见性，留言发表还会使用不同的请求字段；
+ * 这些接口一旦携带 Token 就必须校验成功，避免已登录用户被静默降级成游客。</p>
  */
 @RequiredArgsConstructor
 @Slf4j
@@ -48,6 +48,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String MESSAGE_API = API_PREFIX + "/messages";
     private static final Pattern ARTICLE_COMMENT_API_PATTERN = Pattern.compile("^" + API_PREFIX + "/articles/[^/]+/comments$");
     private static final Pattern COMMENT_DETAIL_API_PATTERN = Pattern.compile("^" + API_PREFIX + "/comments/[^/]+$");
+    private static final Pattern COMMENT_REPLIES_API_PATTERN = Pattern.compile("^" + API_PREFIX + "/comments/[^/]+/replies$");
     private static final Pattern MESSAGE_DETAIL_API_PATTERN = Pattern.compile("^" + MESSAGE_API + "/[^/]+$");
 
     private final SecretKey jwtSigningKey;
@@ -230,7 +231,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return path.startsWith(ADMIN_API_PREFIX)
                 || path.equals(CURRENT_USER_API)
                 || path.startsWith(CURRENT_USER_API_PREFIX)
-                || isProtectedCommentApi(request, path)
+                || isIdentitySensitiveCommentApi(request, path)
                 || isIdentitySensitiveMessageApi(request, path);
     }
 
@@ -239,9 +240,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return authorization != null && !authorization.isBlank();
     }
 
-    private boolean isProtectedCommentApi(HttpServletRequest request, String path) {
-        return ("POST".equals(request.getMethod()) && ARTICLE_COMMENT_API_PATTERN.matcher(path).matches())
-                || ("DELETE".equals(request.getMethod()) && COMMENT_DETAIL_API_PATTERN.matcher(path).matches());
+    /**
+     * 评论读取接口允许游客访问，但携带 Token 时必须保证身份有效，才能正确返回本人非公开评论。
+     * 评论写入和删除接口本身要求登录，这里同时保证过期 Token 返回准确的鉴权错误。
+     *
+     * @param request HTTP 请求
+     * @param path 请求路径
+     * @return 是否需要拒绝无效的已携带 Token
+     */
+    private boolean isIdentitySensitiveCommentApi(HttpServletRequest request, String path) {
+        String method = request.getMethod();
+        return (ARTICLE_COMMENT_API_PATTERN.matcher(path).matches()
+                && ("GET".equals(method) || "POST".equals(method)))
+                || ("GET".equals(method) && COMMENT_REPLIES_API_PATTERN.matcher(path).matches())
+                || ("DELETE".equals(method) && COMMENT_DETAIL_API_PATTERN.matcher(path).matches());
     }
 
     /**

@@ -134,11 +134,11 @@
 					<template #default="{ row }">
 						<div class="flex items-center justify-center">
 							<i-lets-icons-check-fill
-								class="text-xl text-green-600"
+								class="text-xl text-(--app-icon-green-color)"
 								v-if="row.status == USER_STATUS.ACTIVE"
 							/>
 							<i-lets-icons-cancel
-								class="text-xl text-red-600"
+								class="text-xl text-(--app-icon-red-color)"
 								v-else
 							/>
 						</div>

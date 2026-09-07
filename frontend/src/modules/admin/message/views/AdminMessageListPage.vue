@@ -159,7 +159,16 @@
 						width="90"
 					>
 						<template #default="{ row }: { row: AdminMessageItem }">
-							{{ row.notifyOnReply ? '已开启' : '未开启' }}
+							<div class="admin-message__notify-icon">
+								<i-lucide-bell-check
+									class="text-(--app-icon-green-color)"
+									v-if="row.notifyOnReply"
+								/>
+								<i-lucide-bell-off
+									class="text-(--app-icon-gray-color)"
+									v-else
+								/>
+							</div>
 						</template>
 					</el-table-column>
 					<el-table-column
@@ -445,6 +454,7 @@ function getRowClassName({ row }: { row: AdminMessageItem }) {
 	overflow: hidden;
 	-webkit-box-orient: vertical;
 	-webkit-line-clamp: 2;
+	line-clamp: 2;
 	white-space: pre-wrap;
 }
 
@@ -452,6 +462,13 @@ function getRowClassName({ row }: { row: AdminMessageItem }) {
 	margin: 0.15rem 0 0;
 	color: var(--app-text-muted);
 	font-size: 0.75rem;
+}
+
+.admin-message__notify-icon {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	font-size: 1.25rem;
 }
 
 :deep(.message-row-muted),
