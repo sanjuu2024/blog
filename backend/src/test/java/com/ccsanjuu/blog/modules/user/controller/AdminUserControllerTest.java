@@ -11,6 +11,7 @@ import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
+import com.ccsanjuu.blog.modules.message.mapper.MessageMapper;
 import com.ccsanjuu.blog.modules.tag.mapper.TagMapper;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.dto.UserManagementPageQueryDTO;
@@ -37,6 +38,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -85,6 +87,9 @@ class AdminUserControllerTest {
     private CommentMapper commentMapper;
 
     @MockitoBean
+    private MessageMapper messageMapper;
+
+    @MockitoBean
     private TagMapper tagMapper;
 
     @MockitoBean
@@ -124,14 +129,22 @@ class AdminUserControllerTest {
                         .header("Authorization", "Bearer " + accessToken(ADMIN_ID, UserRole.ADMIN))
                         .queryParam("pageNum", "2")
                         .queryParam("pageSize", "10")
-                        .queryParam("keyword", "reader")
+                        .queryParam("username", "reader")
+                        .queryParam("email", "example.com")
                         .queryParam("role", "USER")
                         .queryParam("status", "ACTIVE"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.records[0].id").value(USER_ID));
 
-        verify(userService).userPageQuery(any(UserManagementPageQueryDTO.class));
+        verify(userService).userPageQuery(argThat(query ->
+                Integer.valueOf(2).equals(query.getPageNum())
+                        && Integer.valueOf(10).equals(query.getPageSize())
+                        && "reader".equals(query.getUsername())
+                        && "example.com".equals(query.getEmail())
+                        && query.getRole() == UserRole.USER
+                        && query.getStatus() == UserStatus.ACTIVE
+        ));
     }
 
     @Test

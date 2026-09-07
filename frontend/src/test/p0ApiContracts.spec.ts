@@ -114,6 +114,8 @@ describe('P0 frontend API contracts', () => {
 		const query = {
 			pageNum: 2,
 			pageSize: 10,
+			username: 'reader',
+			email: 'example.com',
 			role: 'USER' as const,
 			status: 'ACTIVE' as const,
 		};

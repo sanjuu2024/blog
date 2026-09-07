@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ccsanjuu.blog.modules.message.mapper.MessageMapper">
+
+    <select id="selectByIdForUpdate"
+            resultType="com.ccsanjuu.blog.modules.message.model.entity.Message">
+        SELECT *
+        FROM blog_message_board
+        WHERE id = #{messageId}
+        FOR UPDATE
+    </select>
+
+    <select id="selectSubtreeIds" resultType="java.lang.Long">
+        WITH RECURSIVE message_tree AS (
+            SELECT id
+            FROM blog_message_board
+            WHERE id = #{messageId}
+            UNION ALL
+            SELECT child.id
+            FROM blog_message_board child
+            INNER JOIN message_tree parent ON child.parent_id = parent.id
+        )
+        SELECT id
+        FROM message_tree
+    </select>
+
+    <select id="selectPendingRootsForUpdate"
+            resultType="com.ccsanjuu.blog.modules.message.model.entity.Message">
+        SELECT *
+        FROM blog_message_board
+        WHERE id IN
+        <foreach collection="messageIds" item="messageId" open="(" separator="," close=")">
+            #{messageId}
+        </foreach>
+        AND parent_id IS NULL
+        AND status = 'PENDING'
+        ORDER BY id
+        FOR UPDATE
+    </select>
+</mapper>

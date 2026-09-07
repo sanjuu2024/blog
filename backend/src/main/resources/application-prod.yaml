@@ -5,3 +5,6 @@ blog:
   auth:
     refresh-cookie:
       secure: true
+  mail:
+    enabled: ${BLOG_MAIL_ENABLED:true}
+    frontend-base-url: ${BLOG_MAIL_FRONTEND_BASE_URL:}

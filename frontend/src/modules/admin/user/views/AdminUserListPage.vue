@@ -7,15 +7,23 @@
 		</template>
 
 		<!-- 筛选条件 -->
-		<div class="mb-4 flex">
+		<div class="mb-4 flex gap-2">
 			<el-input
-				v-model.trim="listQuery.keyword"
-				placeholder="请输入用户名 / 邮箱进行搜索"
+				v-model.trim="listQuery.username"
+				maxlength="20"
+				clearable
+				placeholder="请输入用户名"
+				@keyup.enter="getUserList(1)"
+			/>
+			<el-input
+				v-model.trim="listQuery.email"
+				maxlength="255"
+				clearable
+				placeholder="请输入邮箱"
 				@keyup.enter="getUserList(1)"
 			/>
 			<el-button
 				type="primary"
-				class="ml-2"
 				aria-label="搜索"
 				@click="getUserList(1)"
 			>
@@ -256,7 +264,8 @@ let pagerCount = ref<number>(5); // 当前分页器显示多少个页码按钮
 
 // 条件查询参数
 const listQuery = reactive({
-	keyword: '',
+	username: '',
+	email: '',
 	role: '' as UserRoleFilter,
 	status: '' as UserStatusFilter,
 });
@@ -269,7 +278,8 @@ async function getUserList(page: number = pageNum.value) {
 		const data: AdminUserPageData = await listUsers({
 			pageNum: page,
 			pageSize: pageSize.value,
-			keyword: listQuery.keyword,
+			username: listQuery.username,
+			email: listQuery.email,
 			role: listQuery.role || undefined,
 			status: listQuery.status || undefined,
 		} as AdminUserListQuery);

@@ -11,6 +11,7 @@ import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
+import com.ccsanjuu.blog.modules.message.mapper.MessageMapper;
 import com.ccsanjuu.blog.modules.comment.model.dto.CreateCommentRequestDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.PublicCommentQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentStatus;
@@ -87,6 +88,9 @@ class ArticleCommentControllerTest {
 
     @MockitoBean
     private CommentMapper commentMapper;
+
+    @MockitoBean
+    private MessageMapper messageMapper;
 
     @MockitoBean
     private TagMapper tagMapper;

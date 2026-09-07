@@ -10,6 +10,7 @@ import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
+import com.ccsanjuu.blog.modules.message.mapper.MessageMapper;
 import com.ccsanjuu.blog.modules.tag.mapper.TagMapper;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
@@ -76,6 +77,9 @@ class UserControllerAvatarTest {
 
     @MockitoBean
     private CommentMapper commentMapper;
+
+    @MockitoBean
+    private MessageMapper messageMapper;
 
     @MockitoBean
     private TagMapper tagMapper;

@@ -5,7 +5,8 @@ import type { UserRole, UserStatus } from '@/modules/user/types/user';
 export interface AdminUserListQuery {
 	pageNum?: number;
 	pageSize?: number;
-	keyword?: string;
+	username?: string;
+	email?: string;
 	role?: UserRole;
 	status?: UserStatus;
 }

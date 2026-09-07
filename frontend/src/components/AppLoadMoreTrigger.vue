@@ -9,7 +9,7 @@
 			class="animate-spin text-xl text-gray-400"
 		/>
 		<span
-			v-else-if="!props.hasNext && !props.disabled"
+			v-else-if="props.showNoMore && !props.hasNext && !props.disabled"
 			class="text-sm text-gray-400"
 		>
 			没有更多{{ props.thingStr }}了
@@ -32,6 +32,7 @@ const props = withDefaults(
 		loading?: boolean;
 		hasNext?: boolean;
 		disabled?: boolean; // e.g. 网络原因，以防无限重新请求，可以暂时禁用，改为手动“加载失败，点击重试”
+		showNoMore?: boolean; // 是否显示“没有更多内容了”提示
 		rootMargin?: string;
 		thingStr?: string;
 	}>(),
@@ -39,6 +40,7 @@ const props = withDefaults(
 		loading: false,
 		hasNext: false,
 		disabled: false,
+		showNoMore: true,
 		rootMargin: '200px',
 		thingStr: '内容',
 	},

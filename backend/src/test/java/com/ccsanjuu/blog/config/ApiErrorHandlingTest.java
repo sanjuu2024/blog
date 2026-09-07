@@ -10,6 +10,7 @@ import com.ccsanjuu.blog.modules.auth.service.AuthService;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
+import com.ccsanjuu.blog.modules.message.mapper.MessageMapper;
 import com.ccsanjuu.blog.modules.tag.mapper.TagMapper;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import jakarta.validation.constraints.NotNull;
@@ -77,6 +78,9 @@ class ApiErrorHandlingTest {
 
     @MockitoBean
     private CommentMapper commentMapper;
+
+    @MockitoBean
+    private MessageMapper messageMapper;
 
     @MockitoBean
     private TagMapper tagMapper;

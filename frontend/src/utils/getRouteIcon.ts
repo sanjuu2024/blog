@@ -7,6 +7,7 @@ import IconView from '~icons/lucide/eye';
 import IconComment from '~icons/lucide/message-square-more';
 import IconLike from '~icons/lucide/thumbs-up';
 import IconFavorite from '~icons/lucide/star';
+import IconMessage from '~icons/lucide/mail';
 
 const iconMap = {
 	dashboard: IconSpeed,
@@ -18,6 +19,7 @@ const iconMap = {
 	comment: IconComment,
 	like: IconLike,
 	favorite: IconFavorite,
+	message: IconMessage,
 };
 
 type AdminMenuIcon = keyof typeof iconMap;

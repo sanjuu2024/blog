@@ -23,6 +23,17 @@ spring:
     multipart:
       max-file-size: 10MB
       max-request-size: 12MB
+  mail:
+    host: ${BLOG_SMTP_HOST:}
+    port: ${BLOG_SMTP_PORT:587}
+    username: ${BLOG_SMTP_USERNAME:}
+    password: ${BLOG_SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${BLOG_SMTP_AUTH:true}
+      mail.smtp.starttls.enable: ${BLOG_SMTP_STARTTLS:true}
+      mail.smtp.connectiontimeout: ${BLOG_SMTP_CONNECTION_TIMEOUT:5000}
+      mail.smtp.timeout: ${BLOG_SMTP_READ_TIMEOUT:10000}
+      mail.smtp.writetimeout: ${BLOG_SMTP_WRITE_TIMEOUT:10000}
 
 mybatis-plus:
   type-aliases-package: com.ccsanjuu.blog.**.entity   # 实体类所在的包，默认值
@@ -51,3 +62,7 @@ blog:
     access-key-id: ${BLOG_OBJECT_STORAGE_ACCESS_KEY_ID}
     access-key-secret: ${BLOG_OBJECT_STORAGE_ACCESS_KEY_SECRET}
     public-base-url: ${BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL}
+  mail:
+    enabled: ${BLOG_MAIL_ENABLED:false}
+    from: ${BLOG_MAIL_FROM:}
+    frontend-base-url: ${BLOG_MAIL_FRONTEND_BASE_URL:http://localhost:5173}

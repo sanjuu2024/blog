@@ -25,10 +25,12 @@ class AdminUserQueryValidationTest {
     }
 
     @Test
-    void keywordShouldRejectTooLongValue() {
+    void usernameAndEmailShouldRejectTooLongValues() {
         UserManagementPageQueryDTO request = new UserManagementPageQueryDTO();
-        request.setKeyword("a".repeat(256));
+        request.setUsername("a".repeat(21));
+        request.setEmail("a".repeat(256));
 
-        assertFalse(VALIDATOR.validateProperty(request, "keyword").isEmpty());
+        assertFalse(VALIDATOR.validateProperty(request, "username").isEmpty());
+        assertFalse(VALIDATOR.validateProperty(request, "email").isEmpty());
     }
 }

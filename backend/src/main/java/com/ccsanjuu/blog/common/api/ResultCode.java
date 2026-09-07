@@ -66,7 +66,21 @@ public enum ResultCode {
     IMAGE_TYPE_NOT_SUPPORTED(107002, "仅支持 JPG、JPEG、PNG、WebP 和 GIF 图片", 415),
     IMAGE_TOO_LARGE(107003, "图片大小超过限制", 413),
     IMAGE_UPLOAD_FAILED(107004, "图片上传失败，请稍后重试", 502),
-    AVATAR_UPLOAD_RATE_LIMITED(107005, "头像上传过于频繁，请稍后再试", 429);
+    AVATAR_UPLOAD_RATE_LIMITED(107005, "头像上传过于频繁，请稍后再试", 429),
+
+    // message 模块 08xxxx
+    MESSAGE_NOT_FOUND(108001, "留言不存在", 404),
+    MESSAGE_PARENT_UNAVAILABLE(108003, "留言回复目标不可用", 409),
+    MESSAGE_RATE_LIMITED(108004, "留言过于频繁，请稍后再试", 429),
+    MESSAGE_NO_PERMISSION(108005, "无权操作该留言", 403),
+    MESSAGE_STATUS_TRANSITION_INVALID(108006, "留言状态流转不合法", 409),
+    MESSAGE_MODERATION_REASON_REQUIRED(108007, "留言处理原因不能为空", 400),
+    MESSAGE_NICKNAME_INVALID(108008, "留言昵称不合法", 400),
+    MESSAGE_EMAIL_REQUIRED(108009, "勾选回复通知时必须填写邮箱", 400),
+    MESSAGE_UNSUBSCRIBE_TOKEN_INVALID(108010, "留言退订链接无效或已失效", 400),
+    MESSAGE_BATCH_INVALID(108011, "批量通过的留言必须是待审核顶层留言", 409),
+    MESSAGE_BATCH_TOO_LARGE(108012, "一次最多通过 100 条留言", 400),
+    MESSAGE_MAIL_CONFIG_INVALID(108013, "留言通知邮件配置不完整", 500);
 
     private final int code;
     private final String message;
