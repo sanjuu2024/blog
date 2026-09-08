@@ -2,7 +2,7 @@
 	<el-card class="admin-user-list-card">
 		<template #header>
 			<div class="header flex items-center justify-between">
-				<span class="my-4 text-xl font-bold">用户列表</span>
+				<span class="text-xl font-bold">用户列表</span>
 			</div>
 		</template>
 
