@@ -14,6 +14,7 @@ import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
 import com.ccsanjuu.blog.modules.message.mapper.MessageMapper;
+import com.ccsanjuu.blog.modules.audit.mapper.AdminAuditLogMapper;
 import com.ccsanjuu.blog.modules.message.model.vo.MessageMutationVO;
 import com.ccsanjuu.blog.modules.message.model.vo.PublicMessageItemVO;
 import com.ccsanjuu.blog.modules.message.service.MessageService;
@@ -87,6 +88,9 @@ class MessageControllerTest {
 
     @MockitoBean
     private MessageMapper messageMapper;
+
+    @MockitoBean
+    private AdminAuditLogMapper adminAuditLogMapper;
 
     @MockitoBean
     private CommentMapper commentMapper;

@@ -5,6 +5,7 @@ import com.ccsanjuu.blog.common.exception.GlobalExceptionHandler;
 import com.ccsanjuu.blog.config.WebMvcConfig;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
+import com.ccsanjuu.blog.modules.audit.mapper.AdminAuditLogMapper;
 import com.ccsanjuu.blog.modules.article.model.dto.PublicArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.enums.PublicArticleSort;
 import com.ccsanjuu.blog.modules.article.model.vo.PublicArticleDetailVO;
@@ -79,6 +80,9 @@ class ArticleControllerTest {
 
     @MockitoBean
     private ArticleTagMapper articleTagMapper;
+
+    @MockitoBean
+    private AdminAuditLogMapper adminAuditLogMapper;
 
     @Test
     void getPublicArticleListShouldBindQueryAndCallService() throws Exception {

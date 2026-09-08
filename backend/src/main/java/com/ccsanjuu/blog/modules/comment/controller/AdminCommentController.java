@@ -2,6 +2,9 @@ package com.ccsanjuu.blog.modules.comment.controller;
 
 import com.ccsanjuu.blog.common.api.PageResult;
 import com.ccsanjuu.blog.common.api.Result;
+import com.ccsanjuu.blog.modules.audit.annotation.AdminAudit;
+import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditAction;
+import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditResourceType;
 import com.ccsanjuu.blog.modules.auth.model.security.JwtPrincipal;
 import com.ccsanjuu.blog.modules.comment.model.dto.AdminCommentQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.CommentModerationRequestDTO;
@@ -45,6 +48,12 @@ public class AdminCommentController {
      */
     @PatchMapping("/{commentId}/moderation")
     @Operation(description = "审核、隐藏或删除评论")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.COMMENT,
+            action = AdminAuditAction.MODERATE,
+            resourceId = "#p0",
+            detail = "#p1.action"
+    )
     public Result<CommentMutationVO> moderateComment(
             @PathVariable @Positive Long commentId,
             @Valid @RequestBody CommentModerationRequestDTO commentModerationRequestDTO,

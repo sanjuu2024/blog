@@ -36,6 +36,7 @@
 | 预留表 | `blog_article_like` | 点赞表，P2 使用 |
 | 预留表 | `blog_article_favorite` | 收藏表，P2 使用 |
 | P1 使用 | `blog_message_board` | 留言表，支持游客留言、审核、管理员回复和通知退订 |
+| P1 使用 | `blog_admin_audit_log` | 后台管理操作追加式审计日志 |
 | 预留表 | `blog_project` | 项目作品表，待有实际作品后再评估使用 |
 | 预留表 | `blog_friend_link` | 友链表，P2 使用 |
 
@@ -45,6 +46,7 @@
 - P1 已使用 Redis 缓存用户 `tokenVersion`，用于降低 Access Token 鉴权时的数据库查询成本；缓存未命中或 Redis 不可用时回源数据库，缓存有效期与 Access Token 有效期一致
 - Refresh Token 会话仍以 `blog_auth_session` 为权威来源，Redis 运行态会话与刷新宽限期不在本次 `tokenVersion` 实现范围内
 - P1 阶段后台管理操作审计日志建议使用独立审计表，记录操作者、目标资源、操作类型、操作结果和操作时间
+- `blog_admin_audit_log` 只允许应用追加和管理员查询，不提供修改或删除接口；成功日志与业务操作同事务提交，失败日志在业务回滚后独立提交
 - `Refresh Token` 使用轮转机制；每次刷新成功后，旧会话记录标记为 `REVOKED`，新 Refresh Token 对应新的 `ACTIVE` 会话记录
 - P0 阶段不因普通刷新失败自动撤销用户全部活跃 Refresh Token；修改密码、用户禁用、管理员强制下线等明确安全事件可按业务规则撤销全部会话
 - 短暂宽限期用于处理网络波动下的幂等重试；P1 接入 Redis 后，可由 Redis 记录旧 `token_jti` 到新令牌结果的短 TTL 映射，数据库继续保留审计状态
@@ -640,7 +642,61 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_blog_message_board_unsubscribe_token
 
 P1 留言邮件使用纯文本；P2 升级为 `multipart/alternative` 只改变邮件内容格式，不需要修改现有留言订阅字段。
 
-## 4.5 表名：`blog_project`
+## 4.5 P1 使用表：`blog_admin_audit_log`
+
+### SQL（PostgreSQL）
+
+```sql
+CREATE TABLE IF NOT EXISTS blog_admin_audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    operator_id BIGINT NOT NULL,
+    operator_username VARCHAR(20) NOT NULL,
+    resource_type VARCHAR(30) NOT NULL,
+    resource_id TEXT,
+    action VARCHAR(30) NOT NULL,
+    action_detail VARCHAR(255),
+    result VARCHAR(20) NOT NULL CHECK (result IN ('SUCCESS', 'FAILURE')),
+    failure_code INTEGER,
+    failure_message VARCHAR(255),
+    request_method VARCHAR(10) NOT NULL,
+    request_path VARCHAR(500) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_blog_admin_audit_log_created_at
+    ON blog_admin_audit_log (created_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_blog_admin_audit_log_operator_created
+    ON blog_admin_audit_log (operator_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_blog_admin_audit_log_resource_created
+    ON blog_admin_audit_log (resource_type, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_blog_admin_audit_log_action_result_created
+    ON blog_admin_audit_log (action, result, created_at DESC);
+```
+
+### 字段表
+
+| 字段名称 | 字段类型 | 字段解释 |
+| --- | --- | --- |
+| `id` | `BIGSERIAL` | 审计日志主键和稳定排序标识 |
+| `operator_id` | `BIGINT` | 操作管理员用户 ID |
+| `operator_username` | `VARCHAR(20)` | 操作时的用户名快照 |
+| `resource_type` | `VARCHAR(30)` | 目标资源类型，如 `ARTICLE`、`COMMENT`、`MESSAGE` |
+| `resource_id` | `TEXT` | 目标 ID、批量 ID 列表或 OSS 公开 URL；无结果时为空 |
+| `action` | `VARCHAR(30)` | 操作类型，如 `CREATE`、`MODERATE`、`UPLOAD` |
+| `action_detail` | `VARCHAR(255)` | 状态、审核动作或上传场景等非敏感明细 |
+| `result` | `VARCHAR(20)` | `SUCCESS` 或 `FAILURE` |
+| `failure_code` | `INTEGER` | 失败时的业务码，成功时为空 |
+| `failure_message` | `VARCHAR(255)` | 失败时的安全错误说明，成功时为空 |
+| `request_method` | `VARCHAR(10)` | HTTP 方法 |
+| `request_path` | `VARCHAR(500)` | 不包含 query 参数的请求路径 |
+| `created_at` | `TIMESTAMPTZ` | 审计记录创建时间 |
+
+审计日志只允许追加和查询，不保存请求体、查询参数、密码、Token、邮箱、评论或留言正文、文件原名等敏感信息。成功日志和业务操作在同一事务中提交；失败日志在业务事务回滚后通过独立事务保存。
+
+## 4.6 表名：`blog_project`
 
 ### SQL（PostgreSQL）
 
@@ -692,7 +748,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_project_status_sort
 | `created_at` | `TIMESTAMPTZ` | 创建时间 | `2026-05-10 10:00:00+08` |
 | `updated_at` | `TIMESTAMPTZ` | 更新时间 | `2026-05-12 18:00:00+08` |
 
-## 4.6 表名：`blog_friend_link`
+## 4.7 表名：`blog_friend_link`
 
 ### SQL（PostgreSQL）
 
@@ -745,8 +801,9 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 8. `blog_article_like`
 9. `blog_article_favorite`
 10. `blog_message_board`
-11. `blog_project`
-12. `blog_friend_link`
+11. `blog_admin_audit_log`
+12. `blog_project`
+13. `blog_friend_link`
 
 ## 6. 落地建议
 

@@ -2,6 +2,7 @@ package com.ccsanjuu.blog.config;
 
 import com.ccsanjuu.blog.common.exception.GlobalExceptionHandler;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
+import com.ccsanjuu.blog.modules.audit.mapper.AdminAuditLogMapper;
 import com.ccsanjuu.blog.modules.auth.controller.AuthController;
 import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
@@ -90,6 +91,9 @@ class ApiErrorHandlingTest {
 
     @MockitoBean
     private ArticleTagMapper articleTagMapper;
+
+    @MockitoBean
+    private AdminAuditLogMapper adminAuditLogMapper;
 
     @MockitoBean
     private SecretKey jwtSigningKey;

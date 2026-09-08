@@ -2,6 +2,9 @@ package com.ccsanjuu.blog.modules.message.controller;
 
 import com.ccsanjuu.blog.common.api.PageResult;
 import com.ccsanjuu.blog.common.api.Result;
+import com.ccsanjuu.blog.modules.audit.annotation.AdminAudit;
+import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditAction;
+import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditResourceType;
 import com.ccsanjuu.blog.modules.auth.model.security.JwtPrincipal;
 import com.ccsanjuu.blog.modules.message.model.dto.CreateMessageReplyRequestDTO;
 import com.ccsanjuu.blog.modules.message.model.dto.MessageBatchApprovalRequestDTO;
@@ -57,6 +60,12 @@ public class AdminMessageController {
      */
     @PatchMapping("/{messageId}/moderation")
     @Operation(description = "审核、隐藏或删除留言")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.MESSAGE,
+            action = AdminAuditAction.MODERATE,
+            resourceId = "#p0",
+            detail = "#p1.action"
+    )
     public Result<MessageMutationVO> moderateMessage(
             @PathVariable @Positive Long messageId,
             @Valid @RequestBody MessageModerationRequestDTO requestDTO,
@@ -75,6 +84,11 @@ public class AdminMessageController {
      */
     @PostMapping("/{messageId}/replies")
     @Operation(description = "管理员回复留言")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.MESSAGE,
+            action = AdminAuditAction.REPLY,
+            resourceId = "#p0"
+    )
     public Result<MessageMutationVO> replyMessage(
             @PathVariable @Positive Long messageId,
             @Valid @RequestBody CreateMessageReplyRequestDTO requestDTO,
@@ -92,6 +106,11 @@ public class AdminMessageController {
      */
     @PatchMapping("/batch-approval")
     @Operation(description = "批量通过待审核顶层留言")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.MESSAGE,
+            action = AdminAuditAction.BATCH_APPROVE,
+            resourceId = "#p0.messageIds"
+    )
     public Result<Void> approveMessages(
             @Valid @RequestBody MessageBatchApprovalRequestDTO requestDTO,
             @AuthenticationPrincipal JwtPrincipal principal

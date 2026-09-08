@@ -4,6 +4,7 @@ import com.ccsanjuu.blog.common.exception.GlobalExceptionHandler;
 import com.ccsanjuu.blog.config.WebMvcConfig;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
+import com.ccsanjuu.blog.modules.audit.mapper.AdminAuditLogMapper;
 import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
 import com.ccsanjuu.blog.modules.article.model.vo.CreatedArticleVO;
@@ -86,6 +87,9 @@ class AdminArticleControllerTest {
 
     @MockitoBean
     private ArticleTagMapper articleTagMapper;
+
+    @MockitoBean
+    private AdminAuditLogMapper adminAuditLogMapper;
 
     @AfterEach
     void tearDown() {

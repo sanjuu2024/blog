@@ -35,6 +35,8 @@ tags:
     description: 后台分类管理接口
   - name: Admin Tags
     description: 后台标签管理接口
+  - name: Admin Audit Logs
+    description: 后台操作审计日志接口
 paths:
   /api/v1/auth/register:
     post:
@@ -721,6 +723,71 @@ paths:
           $ref: '#/components/responses/UnsupportedImageTypeResponse'
         '502':
           $ref: '#/components/responses/ImageUploadFailedResponse'
+  /api/v1/admin/audit-logs:
+    get:
+      tags:
+        - Admin Audit Logs
+      summary: 获取后台操作审计日志分页列表
+      description: 权限级别 `ADMIN`。只允许追加和查询审计日志，默认按创建时间倒序、日志 ID 倒序返回；不记录请求体、查询参数、密码、Token、邮箱或用户内容。
+      operationId: listAdminAuditLogs
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+        - name: operatorId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: resourceType
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AdminAuditResourceType'
+        - name: resourceId
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 255
+        - name: action
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AdminAuditAction'
+        - name: result
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AdminAuditResult'
+        - name: createdAtFrom
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: createdAtTo
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAuditLogPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
   /api/v1/admin/comments:
     get:
       tags:
@@ -3713,6 +3780,69 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/UploadedImageData'
+    AdminAuditResourceType:
+      type: string
+      enum: [USER, ARTICLE, CATEGORY, TAG, COMMENT, MESSAGE, FILE]
+    AdminAuditAction:
+      type: string
+      enum: [CREATE, UPDATE, DELETE, CHANGE_STATUS, CHANGE_ROLE, MODERATE, REPLY, BATCH_APPROVE, UPLOAD]
+    AdminAuditResult:
+      type: string
+      enum: [SUCCESS, FAILURE]
+    AdminAuditLogItem:
+      type: object
+      required: [id, operatorId, operatorUsername, resourceType, action, result, requestMethod, requestPath, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        operatorId:
+          type: integer
+          format: int64
+        operatorUsername:
+          type: string
+        resourceType:
+          $ref: '#/components/schemas/AdminAuditResourceType'
+        resourceId:
+          type: string
+          nullable: true
+        action:
+          $ref: '#/components/schemas/AdminAuditAction'
+        actionDetail:
+          type: string
+          nullable: true
+        result:
+          $ref: '#/components/schemas/AdminAuditResult'
+        failureCode:
+          type: integer
+          nullable: true
+        failureMessage:
+          type: string
+          nullable: true
+        requestMethod:
+          type: string
+        requestPath:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    AdminAuditLogPageData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          required: [records]
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminAuditLogItem'
+    AdminAuditLogPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AdminAuditLogPageData'
     MessageStatus:
       type: string
       enum: [PENDING, APPROVED, REJECTED, HIDDEN, DELETED]

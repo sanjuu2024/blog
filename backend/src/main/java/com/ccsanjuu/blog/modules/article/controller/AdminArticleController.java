@@ -2,6 +2,9 @@ package com.ccsanjuu.blog.modules.article.controller;
 
 import com.ccsanjuu.blog.common.api.PageResult;
 import com.ccsanjuu.blog.common.api.Result;
+import com.ccsanjuu.blog.modules.audit.annotation.AdminAudit;
+import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditAction;
+import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditResourceType;
 import com.ccsanjuu.blog.modules.article.model.dto.AdminArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.UpdateArticleStatusRequestDTO;
@@ -59,6 +62,12 @@ public class AdminArticleController {
      */
     @PostMapping
     @Operation(description = "创建文章")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.ARTICLE,
+            action = AdminAuditAction.CREATE,
+            resourceId = "#result.data.id",
+            detail = "#result.data.status"
+    )
     public Result<CreatedArticleVO> createArticle(
             @Valid @RequestBody ArticleUpsertRequestDTO articleUpsertRequestDTO,
             @AuthenticationPrincipal JwtPrincipal jwtPrincipal
@@ -76,6 +85,12 @@ public class AdminArticleController {
      */
     @PutMapping("/{articleId}")
     @Operation(description = "更新文章")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.ARTICLE,
+            action = AdminAuditAction.UPDATE,
+            resourceId = "#p0",
+            detail = "#p1.status"
+    )
     public Result<UpdatedArticleVO> updateArticle(
             @Positive @PathVariable Long articleId,
             @Valid @RequestBody ArticleUpsertRequestDTO articleUpsertRequestDTO,
@@ -93,6 +108,11 @@ public class AdminArticleController {
      */
     @DeleteMapping("/{articleId}")
     @Operation(description = "删除文章")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.ARTICLE,
+            action = AdminAuditAction.DELETE,
+            resourceId = "#p0"
+    )
     public Result<Void> deleteArticle(
             @Positive @PathVariable Long articleId,
             @AuthenticationPrincipal JwtPrincipal jwtPrincipal
@@ -110,6 +130,12 @@ public class AdminArticleController {
      */
     @PatchMapping("/{articleId}/status")
     @Operation(description = "修改文章状态")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.ARTICLE,
+            action = AdminAuditAction.CHANGE_STATUS,
+            resourceId = "#p0",
+            detail = "#p1.status"
+    )
     public Result<UpdatedArticleStatusVO> updateArticleStatus(
             @Positive @PathVariable Long articleId,
             @Valid @RequestBody UpdateArticleStatusRequestDTO updateArticleStatusRequestDTO,

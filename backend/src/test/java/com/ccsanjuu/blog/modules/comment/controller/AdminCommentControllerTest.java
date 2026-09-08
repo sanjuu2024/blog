@@ -11,6 +11,7 @@ import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
+import com.ccsanjuu.blog.modules.audit.mapper.AdminAuditLogMapper;
 import com.ccsanjuu.blog.modules.message.mapper.MessageMapper;
 import com.ccsanjuu.blog.modules.comment.model.dto.AdminCommentQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.CommentModerationRequestDTO;
@@ -93,6 +94,9 @@ class AdminCommentControllerTest {
 
     @MockitoBean
     private CommentMapper commentMapper;
+
+    @MockitoBean
+    private AdminAuditLogMapper adminAuditLogMapper;
 
     @MockitoBean
     private MessageMapper messageMapper;

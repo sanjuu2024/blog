@@ -12,6 +12,7 @@ import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
 import com.ccsanjuu.blog.modules.message.mapper.MessageMapper;
+import com.ccsanjuu.blog.modules.audit.mapper.AdminAuditLogMapper;
 import com.ccsanjuu.blog.modules.message.model.dto.MessagePageQueryDTO;
 import com.ccsanjuu.blog.modules.message.model.enums.MessageStatus;
 import com.ccsanjuu.blog.modules.message.model.enums.MessageType;
@@ -91,6 +92,9 @@ class AdminMessageControllerTest {
 
     @MockitoBean
     private MessageMapper messageMapper;
+
+    @MockitoBean
+    private AdminAuditLogMapper adminAuditLogMapper;
 
     @MockitoBean
     private TagMapper tagMapper;

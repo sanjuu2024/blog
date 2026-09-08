@@ -2,6 +2,9 @@ package com.ccsanjuu.blog.modules.user.controller;
 
 import com.ccsanjuu.blog.common.api.PageResult;
 import com.ccsanjuu.blog.common.api.Result;
+import com.ccsanjuu.blog.modules.audit.annotation.AdminAudit;
+import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditAction;
+import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditResourceType;
 import com.ccsanjuu.blog.modules.auth.model.security.JwtPrincipal;
 import com.ccsanjuu.blog.modules.user.model.dto.UpdateUserRoleRequestDTO;
 import com.ccsanjuu.blog.modules.user.model.dto.UpdateUserStatusRequestDTO;
@@ -48,6 +51,12 @@ public class AdminUserController {
      */
     @PatchMapping("/{userId}/status")
     @Operation(description = "修改用户状态")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.USER,
+            action = AdminAuditAction.CHANGE_STATUS,
+            resourceId = "#p0",
+            detail = "#p1.status"
+    )
     public Result<UpdatedUserStatusVO> changeUserStatus(
             @PathVariable @Positive Long userId,
             @Valid @RequestBody UpdateUserStatusRequestDTO updateUserStatusRequestDTO,
@@ -65,6 +74,12 @@ public class AdminUserController {
      */
     @PatchMapping("/{userId}/role")
     @Operation(description = "修改用户角色")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.USER,
+            action = AdminAuditAction.CHANGE_ROLE,
+            resourceId = "#p0",
+            detail = "#p1.role"
+    )
     public Result<UpdatedUserRoleVO> changeUserRole(
             @PathVariable @Positive Long userId,
             @Valid @RequestBody UpdateUserRoleRequestDTO updateUserRoleRequestDTO,

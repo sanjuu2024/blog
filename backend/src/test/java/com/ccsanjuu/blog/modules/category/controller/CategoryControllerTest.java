@@ -6,6 +6,7 @@ import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
 import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
+import com.ccsanjuu.blog.modules.audit.mapper.AdminAuditLogMapper;
 import com.ccsanjuu.blog.modules.category.model.vo.PublicCategoryItemVO;
 import com.ccsanjuu.blog.modules.category.service.CategoryService;
 import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
@@ -53,6 +54,9 @@ class CategoryControllerTest {
 
     @MockitoBean
     private CategoryMapper categoryMapper;
+
+    @MockitoBean
+    private AdminAuditLogMapper adminAuditLogMapper;
 
     @MockitoBean
     private CommentMapper commentMapper;
