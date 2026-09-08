@@ -29,6 +29,7 @@
 					background-color="transparent"
 					:collapse="isCollapse"
 					:collapse-transition="false"
+					popper-class="admin-sidebar-menu-tooltip"
 				>
 					<!-- 自定义封装 el-menu 递归组件 -->
 					<AdminMenu :menuList="adminRoutes"></AdminMenu>
@@ -204,13 +205,18 @@ const isCollapse = computed({
 }
 
 /* 隐藏普通菜单项（el-menu-item）折叠后的纯文字 Tooltip 提示 */
-:global(.el-popper.is-dark.el-tooltip__binder),
-:global(.el-popper.is-dark:not(.el-menu--popup-container)) {
-	display: none !important;
-}
+// :global(.el-popper.is-dark.el-tooltip__binder),
+// :global(.el-popper.is-dark:not(.el-menu--popup-container)) {
+// 	display: none !important;
+// }
 
 /* 隐藏有子菜单的项（el-sub-menu）折叠后弹出的子菜单大浮层 */
-:global(.el-popper.el-menu--popup-container) {
+// :global(.el-popper.el-menu--popup-container) {
+// 	display: none !important;
+// }
+
+/* 还是不要全局隐藏的好，改为使用自定义的 CSS 类隐藏了 */
+:global(.admin-sidebar-menu-tooltip) {
 	display: none !important;
 }
 </style>
