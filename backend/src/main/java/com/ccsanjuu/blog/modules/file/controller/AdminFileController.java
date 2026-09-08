@@ -1,6 +1,9 @@
 package com.ccsanjuu.blog.modules.file.controller;
 
 import com.ccsanjuu.blog.common.api.Result;
+import com.ccsanjuu.blog.modules.audit.annotation.AdminAudit;
+import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditAction;
+import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditResourceType;
 import com.ccsanjuu.blog.modules.file.model.enums.AdminImageUploadScene;
 import com.ccsanjuu.blog.modules.file.model.vo.UploadedImageVO;
 import com.ccsanjuu.blog.modules.file.service.ImageUploadService;
@@ -32,6 +35,12 @@ public class AdminFileController {
      */
     @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(description = "上传后台图片")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.FILE,
+            action = AdminAuditAction.UPLOAD,
+            resourceId = "#result.data.url",
+            detail = "#p0"
+    )
     public Result<UploadedImageVO> uploadImage(
             @RequestParam AdminImageUploadScene scene,
             @RequestPart("file") MultipartFile file

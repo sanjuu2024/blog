@@ -14,6 +14,7 @@ import com.ccsanjuu.blog.modules.message.mapper.MessageMapper;
 import com.ccsanjuu.blog.modules.file.model.enums.AdminImageUploadScene;
 import com.ccsanjuu.blog.modules.file.model.vo.UploadedImageVO;
 import com.ccsanjuu.blog.modules.file.service.ImageUploadService;
+import com.ccsanjuu.blog.modules.audit.mapper.AdminAuditLogMapper;
 import com.ccsanjuu.blog.modules.tag.mapper.TagMapper;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
@@ -60,6 +61,9 @@ class AdminFileControllerTest {
 
     @MockitoBean
     private ImageUploadService imageUploadService;
+
+    @MockitoBean
+    private AdminAuditLogMapper adminAuditLogMapper;
 
     @MockitoBean
     private TokenVersionService tokenVersionService;

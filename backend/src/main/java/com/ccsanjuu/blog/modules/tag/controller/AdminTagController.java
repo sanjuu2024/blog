@@ -1,6 +1,9 @@
 package com.ccsanjuu.blog.modules.tag.controller;
 
 import com.ccsanjuu.blog.common.api.Result;
+import com.ccsanjuu.blog.modules.audit.annotation.AdminAudit;
+import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditAction;
+import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditResourceType;
 import com.ccsanjuu.blog.modules.tag.model.dto.AdminTagQueryDTO;
 import com.ccsanjuu.blog.modules.tag.model.dto.TagUpsertRequestDTO;
 import com.ccsanjuu.blog.modules.tag.model.vo.AdminTagItemVO;
@@ -44,6 +47,11 @@ public class AdminTagController {
      */
     @PostMapping
     @Operation(description = "创建标签")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.TAG,
+            action = AdminAuditAction.CREATE,
+            resourceId = "#result.data.id"
+    )
     public Result<CreatedTagVO> createTag(@Valid @RequestBody TagUpsertRequestDTO tagUpsertRequestDTO){
         return Result.success(tagService.createTag(tagUpsertRequestDTO));
     }
@@ -55,6 +63,12 @@ public class AdminTagController {
      */
     @PutMapping("/{tagId}")
     @Operation(description = "更新标签")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.TAG,
+            action = AdminAuditAction.UPDATE,
+            resourceId = "#p0",
+            detail = "#p1.status"
+    )
     public Result<UpdatedTagVO> updateTag(
             @Positive @PathVariable Long tagId,
             @Valid @RequestBody TagUpsertRequestDTO tagUpsertRequestDTO
@@ -69,6 +83,11 @@ public class AdminTagController {
      */
     @DeleteMapping("/{tagId}")
     @Operation(description = "删除标签")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.TAG,
+            action = AdminAuditAction.DELETE,
+            resourceId = "#p0"
+    )
     public Result<Void> deleteTag(
             @Positive @PathVariable Long tagId
     ){

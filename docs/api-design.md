@@ -237,6 +237,7 @@ Authorization: Bearer <access_token>
 | 后台标签 | `POST` | `/api/v1/admin/tags` | `ADMIN` | 创建标签 |
 | 后台标签 | `PUT` | `/api/v1/admin/tags/{tagId}` | `ADMIN` | 更新标签 |
 | 后台标签 | `DELETE` | `/api/v1/admin/tags/{tagId}` | `ADMIN` | 删除标签 |
+| 后台审计日志 | `GET` | `/api/v1/admin/audit-logs` | `ADMIN` | 获取后台操作审计日志分页列表 |
 | 后台评论 | `GET` | `/api/v1/admin/comments` | `ADMIN` | 获取评论审核分页列表 |
 | 后台评论 | `PATCH` | `/api/v1/admin/comments/{commentId}/moderation` | `ADMIN` | 审核、隐藏或删除评论 |
 | 前台留言 | `GET` | `/api/v1/messages` | `PUBLIC` | 获取留言及管理员回复分页列表，可选登录态 |
@@ -2356,6 +2357,34 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 权限：`ADMIN`
 - Body：`{ "messageIds": [90001, 90002] }`，不能为空且最多 100 个。所有 ID 必须是 `PENDING` 顶层留言，否则整批失败；成功后统一写入审核管理员和审核时间。
 
+## 12.9 后台操作审计日志
+
+### 12.9.1 获取审计日志分页列表
+
+- 路由：`GET`
+- 路径：`/api/v1/admin/audit-logs`
+- 权限：`ADMIN`
+
+支持 `pageNum`、`pageSize`、`operatorId`、`resourceType`、`resourceId`、`action`、`result`、`createdAtFrom` 和 `createdAtTo` 查询参数。列表按 `created_at DESC, id DESC` 排序。
+
+响应记录包含操作者用户名快照、目标资源、操作明细、执行结果、失败业务码、失败说明、请求方法、请求路径和操作时间。审计日志只允许追加和查询，不提供修改或删除接口。
+
+审计记录不包含请求体、query 参数、密码、Token、邮箱、评论或留言正文、文件原名等敏感数据。后台写操作成功时，业务数据和 SUCCESS 日志在同一事务中提交；业务失败在原事务回滚后以独立事务记录 FAILURE。
+
+#### Query 参数
+
+| 参数位置 | 字段名称 | 字段类型 | 必填 | 字段解释 |
+| --- | --- | --- | --- | --- |
+| Query | `pageNum` | `Integer` | 否 | 页码，默认 `1` |
+| Query | `pageSize` | `Integer` | 否 | 每页条数，默认 `10` |
+| Query | `operatorId` | `Long` | 否 | 操作者用户 ID |
+| Query | `resourceType` | `String` | 否 | `USER`、`ARTICLE`、`CATEGORY`、`TAG`、`COMMENT`、`MESSAGE` 或 `FILE` |
+| Query | `resourceId` | `String` | 否 | 目标资源 ID、批量 ID 列表或对象 URL，支持模糊匹配 |
+| Query | `action` | `String` | 否 | 操作类型 |
+| Query | `result` | `String` | 否 | `SUCCESS` 或 `FAILURE` |
+| Query | `createdAtFrom` | `String` | 否 | 创建时间范围开始，ISO 8601 时间 |
+| Query | `createdAtTo` | `String` | 否 | 创建时间范围结束，ISO 8601 时间 |
+
 ## 13. 图片上传接口
 
 图片上传使用 `multipart/form-data`，由后端校验并中转上传到阿里云 OSS 公共读 Bucket。前端不得接触对象存储 AccessKey。支持 JPEG（`.jpg`、`.jpeg`）、PNG、WebP 和 GIF，不支持 SVG；后端以文件真实内容识别结果为准，不信任客户端文件扩展名或 Content-Type。
@@ -2490,7 +2519,9 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 ### 14.6 日志与审计
 
 - P0 阶段保留认证成功、认证失败、改密、禁用用户等关键安全事件的应用日志，避免记录密码、Token 等敏感值
-- P1 阶段补充后台管理操作审计日志，记录操作者用户 ID、目标资源 ID、操作类型、操作结果和操作时间
+- P1 阶段补充后台管理操作审计日志，记录操作者用户 ID、用户名快照、目标资源类型与标识、操作类型、操作结果、失败业务码、请求方法、请求路径和操作时间
+- 审计日志只允许追加和查询；成功日志与业务操作同事务提交，失败日志在业务事务回滚后以独立事务提交
+- 审计日志不记录请求体、查询参数、密码、Token、邮箱、评论或留言正文、文件原名等敏感值
 
 ## 15. 后续版本预留接口
 

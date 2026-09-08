@@ -1,6 +1,9 @@
 package com.ccsanjuu.blog.modules.category.controller;
 
 import com.ccsanjuu.blog.common.api.Result;
+import com.ccsanjuu.blog.modules.audit.annotation.AdminAudit;
+import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditAction;
+import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditResourceType;
 import com.ccsanjuu.blog.modules.category.model.dto.AdminCategoryQueryDTO;
 import com.ccsanjuu.blog.modules.category.model.dto.CategoryUpsertRequestDTO;
 import com.ccsanjuu.blog.modules.category.model.vo.AdminCategoryItemVO;
@@ -44,6 +47,12 @@ public class AdminCategoryController {
      */
     @PostMapping
     @Operation(description = "创建分类")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.CATEGORY,
+            action = AdminAuditAction.CREATE,
+            resourceId = "#result.data.id",
+            detail = "#result.data.level"
+    )
     public Result<CreatedCategoryVO> createCategory(@Valid @RequestBody CategoryUpsertRequestDTO categoryUpsertRequestDTO){
         return Result.success(categoryService.createCategory(categoryUpsertRequestDTO));
     }
@@ -56,6 +65,12 @@ public class AdminCategoryController {
      */
     @PutMapping("/{categoryId}")
     @Operation(description = "更新分类")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.CATEGORY,
+            action = AdminAuditAction.UPDATE,
+            resourceId = "#p0",
+            detail = "#p1.status"
+    )
     public Result<UpdatedCategoryVO> updateCategory(
             @Positive @PathVariable("categoryId") Long categoryId,
             @Valid @RequestBody CategoryUpsertRequestDTO categoryUpsertRequestDTO
@@ -70,6 +85,11 @@ public class AdminCategoryController {
      */
     @DeleteMapping("/{categoryId}")
     @Operation(description = "删除分类")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.CATEGORY,
+            action = AdminAuditAction.DELETE,
+            resourceId = "#p0"
+    )
     public Result<Void> deleteCategory(
             @Positive @PathVariable("categoryId") Long categoryId
     ){
