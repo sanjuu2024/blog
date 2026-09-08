@@ -131,7 +131,8 @@ async function handleSubmit(form: CreateMessageRequest) {
 	min-height: 0;
 	flex: 1;
 	overflow-y: auto;
-	padding-right: 0.5rem;
+	padding-inline: 0.5rem;
+	scrollbar-gutter: stable both-edges;
 	scrollbar-width: auto;
 }
 

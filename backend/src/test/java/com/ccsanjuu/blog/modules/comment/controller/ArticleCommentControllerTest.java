@@ -43,6 +43,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -131,6 +132,16 @@ class ArticleCommentControllerTest {
                 .andExpect(jsonPath("$.data.records[0].isMine").value(true));
 
         verify(commentService).getPublicCommentList(eq(ARTICLE_ID), eq(USER_ID), any(PublicCommentQueryDTO.class));
+    }
+
+    @Test
+    void publicCommentListShouldRejectInvalidTokenInsteadOfFallingBackToGuest() throws Exception {
+        mockMvc.perform(get("/api/v1/articles/{articleId}/comments", ARTICLE_ID)
+                        .header("Authorization", "Bearer not-a-valid-jwt"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(101001));
+
+        verifyNoInteractions(commentService);
     }
 
     @Test

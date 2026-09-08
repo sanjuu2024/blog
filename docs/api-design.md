@@ -2176,6 +2176,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 该接口只返回顶层评论、`APPROVED` 回复数量和当前请求者是否存在可见回复，不直接携带回复记录。游客只看到 `APPROVED` 评论；登录用户还可以看到自己发表的 `PENDING`、`REJECTED` 评论及处理原因。顶层评论按 `created_at DESC, id DESC` 排序。
 
+不携带 Access Token 时按游客身份处理；请求一旦携带 Token，Token 无效或过期必须返回 HTTP `401`，不能静默降级为游客，否则会隐藏当前用户自己的非公开评论。
+
 ### 请求参数
 
 | 参数位置 | 字段名称 | 字段类型 | 必填 | 字段解释 |
@@ -2195,6 +2197,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 权限：`PUBLIC`，可选携带 Access Token
 
 `commentId` 必须指向顶层评论。接口返回该顶层评论下所有层级的可见回复，并平铺为一个列表；`parentId` 保留直接父评论关系，`replyToUser` 用于显示直接被回复的用户。回复按 `created_at ASC, id ASC` 排序。
+
+不携带 Access Token 时按游客身份处理；请求一旦携带 Token，Token 无效或过期必须返回 HTTP `401`，不能静默降级为游客，否则会隐藏当前用户自己的非公开回复。
 
 首次展开默认请求 `limit=5`；之后把响应中的非空 `nextCursor` 原样传回并使用 `limit=10` 继续加载。`cursor` 是服务端生成的不透明字符串，前端不得解析或自行构造。
 

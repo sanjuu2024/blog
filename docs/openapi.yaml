@@ -338,7 +338,7 @@ paths:
       tags:
         - Public Comments
       summary: 获取文章顶层评论分页列表
-      description: 权限级别 `PUBLIC`，可选携带 Access Token。只返回顶层评论，不预载回复。游客只看到 APPROVED；登录用户还可看到自己发表的 PENDING 和 REJECTED 评论。默认按创建时间倒序。
+      description: 权限级别 `PUBLIC`，可选携带 Access Token。只返回顶层评论，不预载回复。游客只看到 APPROVED；登录用户还可看到自己发表的 PENDING 和 REJECTED 评论。默认按创建时间倒序。未携带 Token 时按游客处理，已携带的 Token 无效或过期时返回 401，不降级为游客。
       operationId: listArticleComments
       security:
         - {}
@@ -354,6 +354,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicCommentPageResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
         '404':
           $ref: '#/components/responses/ArticleNotFoundResponse'
     post:
@@ -396,7 +398,7 @@ paths:
       tags:
         - Public Comments
       summary: 获取顶层评论下的回复
-      description: 权限级别 `PUBLIC`，可选携带 Access Token。commentId 必须是顶层评论 ID。所有层级回复在响应中平铺，按创建时间正序。首次请求默认取 5 条，后续使用 nextCursor 继续加载。
+      description: 权限级别 `PUBLIC`，可选携带 Access Token。commentId 必须是顶层评论 ID。所有层级回复在响应中平铺，按创建时间正序。首次请求默认取 5 条，后续使用 nextCursor 继续加载。未携带 Token 时按游客处理，已携带的 Token 无效或过期时返回 401，不降级为游客。
       operationId: listCommentReplies
       security:
         - {}
@@ -412,6 +414,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CommentReplyPageResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
         '404':
           $ref: '#/components/responses/CommentNotFoundResponse'
   /api/v1/comments/{commentId}:

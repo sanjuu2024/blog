@@ -172,6 +172,61 @@ class JwtAuthenticationFilterTest {
         assertEquals(401, deleteResponse.getStatus());
     }
 
+    @Test
+    void anonymousCommentReadRequestShouldContinueWithoutAccessToken() throws Exception {
+        MockHttpServletResponse listResponse = performRequest(
+                "GET",
+                "/api/v1/articles/40001/comments",
+                null
+        );
+        MockHttpServletResponse repliesResponse = performRequest(
+                "GET",
+                "/api/v1/comments/60001/replies",
+                null
+        );
+
+        assertEquals(200, listResponse.getStatus());
+        assertEquals(200, repliesResponse.getStatus());
+    }
+
+    @Test
+    void identitySensitiveCommentReadRequestShouldRejectInvalidAccessToken() throws Exception {
+        String invalidToken = "not-a-valid-jwt";
+
+        MockHttpServletResponse listResponse = performRequest(
+                "GET",
+                "/api/v1/articles/40001/comments",
+                invalidToken
+        );
+        MockHttpServletResponse repliesResponse = performRequest(
+                "GET",
+                "/api/v1/comments/60001/replies",
+                invalidToken
+        );
+
+        assertEquals(401, listResponse.getStatus());
+        assertEquals(401, repliesResponse.getStatus());
+    }
+
+    @Test
+    void identitySensitiveCommentReadRequestShouldRejectExpiredAccessToken() throws Exception {
+        String expiredToken = Jwts.builder()
+                .subject("10001")
+                .issuedAt(Date.from(Instant.now().minusSeconds(120)))
+                .expiration(Date.from(Instant.now().minusSeconds(60)))
+                .signWith(SIGNING_KEY)
+                .compact();
+
+        MockHttpServletResponse response = performRequest(
+                "GET",
+                "/api/v1/articles/40001/comments",
+                expiredToken
+        );
+
+        assertEquals(401, response.getStatus());
+        assertTrue(response.getContentAsString().contains("101002"));
+    }
+
     private MockHttpServletResponse performProtectedRequest(String token) throws Exception {
         return performRequest("GET", "/api/v1/users/me", token);
     }
