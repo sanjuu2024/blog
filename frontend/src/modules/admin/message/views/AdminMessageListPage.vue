@@ -278,6 +278,16 @@
 							>
 								删除
 							</el-button>
+							<span
+								v-if="
+									!canApprove(row) &&
+									!canReply(row) &&
+									!canReject(row) &&
+									!canHide(row) &&
+									!canDelete(row)
+								"
+								>-</span
+							>
 						</template>
 					</el-table-column>
 				</el-table>

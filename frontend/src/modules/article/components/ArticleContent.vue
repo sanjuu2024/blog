@@ -34,11 +34,42 @@
 
 			<!-- 文章分类 -->
 			<div class="article-category mb-4 flex items-center justify-center text-lg font-bold">
-				<span>{{ article.category.parent.name }} > {{ article.category.name }}</span>
+				<component
+					:is="getRouteIcon('category')"
+					class="mr-2 text-sm"
+				/>
+				<RouterLink
+					:to="{
+						name: 'CategoryArticlesPage',
+						params: {
+							categoryId: article.category.parent.id,
+						},
+					}"
+				>
+					{{ article.category.parent.name }}
+				</RouterLink>
+				<span class="mx-2">></span>
+				<RouterLink
+					:to="{
+						name: 'CategoryArticlesPage',
+						params: {
+							categoryId: article.category.id,
+						},
+					}"
+				>
+					{{ article.category.name }}
+				</RouterLink>
 			</div>
 
 			<!-- 文章标签 -->
-			<div class="article-tags mb-4 flex items-center justify-center gap-2">
+			<div
+				class="article-tags mb-4 flex items-center justify-center gap-2"
+				v-if="article.tags.length"
+			>
+				<component
+					:is="getRouteIcon('tag')"
+					class="text-sm"
+				/>
 				<AppTagCapsule
 					v-for="tag in article.tags"
 					:key="tag.id"
@@ -178,6 +209,15 @@ watch(
 
 .article-content-wrapper-squeeze-to-the-right {
 	padding-left: var(--app-article-catalog-sidebar-width);
+}
+
+.article-category {
+	transition: color 0.1s ease-in-out;
+
+	> a:hover,
+	> a:focus-visible {
+		color: var(--app-main);
+	}
 }
 
 .article-statis-item {

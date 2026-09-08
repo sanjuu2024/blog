@@ -3,7 +3,6 @@
 		<span class="text-xl font-bold">文章列表</span>
 		<el-button
 			type="primary"
-			class="m-4"
 			@click="router.push('/admin/articles/create')"
 		>
 			编写笔记

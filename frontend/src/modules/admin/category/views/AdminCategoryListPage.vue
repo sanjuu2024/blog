@@ -6,7 +6,6 @@
 					<span class="text-xl font-bold">分类列表</span>
 					<el-button
 						type="primary"
-						class="m-4"
 						@click="openCreateDrawer()"
 					>
 						新建分类
