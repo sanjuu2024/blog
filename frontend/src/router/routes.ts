@@ -93,6 +93,15 @@ export const adminRoutes = [
 			title: '留言管理',
 		},
 	},
+	{
+		path: '/admin/audit-logs',
+		name: 'AdminAuditLogList',
+		component: () => import('@/modules/admin/audit/views/AdminAuditLogListPage.vue'),
+		meta: {
+			icon: 'audit',
+			title: '操作审计',
+		},
+	},
 ];
 
 // 前台路由
