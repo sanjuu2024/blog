@@ -82,7 +82,6 @@ export interface PublicArticleDetailData {
 	viewCount: number;
 	commentCount: number;
 	likeCount: number;
-	favoriteCount: number;
 	publishedAt: string;
 	updatedAt: string;
 	category: PublicArticleCategory;

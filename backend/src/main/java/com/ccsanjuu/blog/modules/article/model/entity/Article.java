@@ -50,8 +50,6 @@ public class Article {
 
     private Integer likeCount;
 
-    private Integer favoriteCount;
-
     private OffsetDateTime publishedAt;
 
     @TableField(fill = FieldFill.INSERT)

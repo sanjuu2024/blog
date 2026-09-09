@@ -34,8 +34,6 @@ public class PublicArticleDetailVO {
 
     private Integer likeCount;
 
-    private Integer favoriteCount;
-
     private OffsetDateTime publishedAt;
 
     private OffsetDateTime updatedAt;

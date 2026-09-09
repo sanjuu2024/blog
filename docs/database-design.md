@@ -34,7 +34,7 @@
 | P0 必建 | `blog_article_tag` | 文章标签关联表 |
 | P1 使用 | `blog_comment` | 评论表，支持审核、无限层级回复和逻辑删除 |
 | 预留表 | `blog_article_like` | 点赞表，P2 使用 |
-| 预留表 | `blog_article_favorite` | 收藏表，P2 使用 |
+| 历史保留 | `blog_article_favorite` | `V1.0.0` 已创建但当前产品暂不排期，应用不读写 |
 | P1 使用 | `blog_message_board` | 留言表，支持游客留言、审核、管理员回复和通知退订 |
 | P1 使用 | `blog_admin_audit_log` | 后台管理操作追加式审计日志 |
 | 预留表 | `blog_project` | 项目作品表，待有实际作品后再评估使用 |
@@ -50,7 +50,7 @@
 - `Refresh Token` 使用轮转机制；每次刷新成功后，旧会话记录标记为 `REVOKED`，新 Refresh Token 对应新的 `ACTIVE` 会话记录
 - P0 阶段不因普通刷新失败自动撤销用户全部活跃 Refresh Token；修改密码、用户禁用、管理员强制下线等明确安全事件可按业务规则撤销全部会话
 - 短暂宽限期用于处理网络波动下的幂等重试；P1 接入 Redis 后，可由 Redis 记录旧 `token_jti` 到新令牌结果的短 TTL 映射，数据库继续保留审计状态
-- 评论、点赞、收藏等互动能力虽然不在 P0 落地，但数据库结构先预留；P1 启用评论表并通过新 migration 扩展审核、根评论和逻辑删除字段
+- 评论、点赞等互动能力虽然不在 P0 落地，但数据库结构先预留；P1 启用评论表并通过新 migration 扩展审核、根评论和逻辑删除字段；历史版本遗留的收藏结构单独说明
 - 统计字段如 `comment_count`、`like_count` 放在主表冗余，行为明细拆分到独立表
 - `blog_article.comment_count` 统计文章下全部 `APPROVED` 评论，包括顶层评论和回复
 - 分类采用树形结构建模，当前业务约束为两级分类
@@ -76,8 +76,6 @@
 | `blog_comment` | `deleted_by` | `blog_user.id` | 用户或管理员删除评论时记录操作者用户 ID |
 | `blog_article_like` | `article_id` | `blog_article.id` | 点赞前必须确认文章存在且可见 |
 | `blog_article_like` | `user_id` | `blog_user.id` | 点赞前必须确认用户存在且未被禁用 |
-| `blog_article_favorite` | `article_id` | `blog_article.id` | 收藏前必须确认文章存在且可见 |
-| `blog_article_favorite` | `user_id` | `blog_user.id` | 收藏前必须确认用户存在且未被禁用 |
 | `blog_message_board` | `user_id` | `blog_user.id` | 登录用户留言时记录用户 ID；游客留言时允许为空，历史游客留言不自动关联后注册用户 |
 | `blog_message_board` | `parent_id` | `blog_message_board.id` | 管理员回复时必须确认父留言是已通过的顶层留言 |
 
@@ -403,7 +401,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_search_vector
 | `view_count` | `INTEGER` | 浏览量冗余字段 | `128` |
 | `comment_count` | `INTEGER` | 评论数冗余字段，P1 启用 | `6` |
 | `like_count` | `INTEGER` | 点赞数冗余字段，P2 启用 | `35` |
-| `favorite_count` | `INTEGER` | 收藏数冗余字段，P2 启用 | `12` |
+| `favorite_count` | `INTEGER` | 历史预留收藏数冗余字段，当前 API 不返回且应用不读写 | `12` |
 | `published_at` | `TIMESTAMPTZ` | 发布时间，草稿阶段可为空 | `2026-04-22 23:00:00+08` |
 | `created_at` | `TIMESTAMPTZ` | 创建时间 | `2026-04-22 21:30:00+08` |
 | `updated_at` | `TIMESTAMPTZ` | 更新时间 | `2026-04-22 22:45:00+08` |
@@ -554,9 +552,13 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_like_user_id
 | `user_id` | `BIGINT` | 点赞用户 ID | `10002` |
 | `created_at` | `TIMESTAMPTZ` | 点赞时间 | `2026-05-03 09:30:00+08` |
 
-## 4.3 表名：`blog_article_favorite`
+## 4.3 历史保留表：`blog_article_favorite`
 
-### SQL（PostgreSQL）
+该表由已执行的 `V1.0.0` migration 创建，当前收藏功能暂不排期，应用不提供收藏接口，
+也不读写该表。保留以下结构仅用于说明现有数据库状态；未来如启用收藏，应通过新的
+Flyway migration 和接口设计恢复业务约束，不修改历史 migration。
+
+### 历史 SQL（PostgreSQL）
 
 ```sql
 CREATE TABLE IF NOT EXISTS blog_article_favorite (
@@ -799,7 +801,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 6. `blog_article_tag`
 7. `blog_comment`
 8. `blog_article_like`
-9. `blog_article_favorite`
+9. `blog_article_favorite`（历史保留，当前不启用）
 10. `blog_message_board`
 11. `blog_admin_audit_log`
 12. `blog_project`
@@ -808,7 +810,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 ## 6. 落地建议
 
 - P0 最少先落地 `blog_user`、`blog_auth_session`、`blog_category`、`blog_tag`、`blog_article`、`blog_article_tag`
-- 如果你想避免后续频繁改表，建议本次把预留表一起建好
+- 历史版本已创建的预留表不会因功能暂不排期而回滚，后续结构变更必须新增 migration
 - `blog_auth_session` 可以作为 Redis 的补充审计表，不要求所有鉴权逻辑都依赖数据库
 - 文章封面与头像上传虽然在 P1 实现，但建议 P0 先把 URL 字段建好
 - P1 图片二进制保存在阿里云 OSS，业务表和 Markdown 仅保存公开 URL；当前不新增通用文件资源表

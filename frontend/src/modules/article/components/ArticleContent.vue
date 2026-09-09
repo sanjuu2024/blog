@@ -100,13 +100,6 @@
 					/>
 					<span>{{ article.likeCount }}</span>
 				</div>
-				<div class="article-statis-item">
-					<component
-						:is="getRouteIcon('favorite')"
-						class="mx-2"
-					/>
-					<span>{{ article.favoriteCount }}</span>
-				</div>
 			</div>
 
 			<!-- 文章摘要 -->

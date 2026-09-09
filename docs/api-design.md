@@ -664,7 +664,6 @@ GET /api/v1/articles/40001
 | `viewCount` | `Integer` | 浏览量 | `128` |
 | `commentCount` | `Integer` | 评论数 | `0` |
 | `likeCount` | `Integer` | 点赞数 | `0` |
-| `favoriteCount` | `Integer` | 收藏数 | `0` |
 | `publishedAt` | `String` | 发布时间 | `2026-04-22T23:00:00+08:00` |
 | `updatedAt` | `String` | 更新时间 | `2026-04-22T23:10:00+08:00` |
 | `category.id` | `Long` | 文章绑定的二级分类 ID | `21001` |
@@ -696,7 +695,6 @@ GET /api/v1/articles/40001
     "viewCount": 128,
     "commentCount": 0,
     "likeCount": 0,
-    "favoriteCount": 0,
     "publishedAt": "2026-04-22T23:00:00+08:00",
     "updatedAt": "2026-04-22T23:10:00+08:00",
     "category": {
@@ -2533,8 +2531,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | --- | --- | --- | --- |
 | 点赞 | `POST` | `/api/v1/articles/{articleId}/like` | P2 |
 | 取消点赞 | `DELETE` | `/api/v1/articles/{articleId}/like` | P2 |
-| 收藏 | `POST` | `/api/v1/articles/{articleId}/favorite` | P2 |
-| 取消收藏 | `DELETE` | `/api/v1/articles/{articleId}/favorite` | P2 |
 | 留言 | `GET` | `/api/v1/messages` | P1 |
 | 留言 | `POST` | `/api/v1/messages` | P1 |
 | 项目 | `GET` | `/api/v1/projects` | 待有实际项目作品后评估 |
