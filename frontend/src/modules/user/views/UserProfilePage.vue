@@ -53,20 +53,6 @@
 				<p class="article-list-empty__description">以后点赞过的文章会展示在这里。</p>
 			</div>
 		</div>
-
-		<div class="article-list-wrapper">
-			<div class="article-list-wrapper-title">
-				<component
-					:is="getRouteIcon('favorite')"
-					class="article-list-wrapper-title__icon"
-				/>
-				<span>收藏的文章</span>
-			</div>
-			<div class="article-list-empty">
-				<p class="article-list-empty__title">暂无收藏的文章</p>
-				<p class="article-list-empty__description">以后收藏过的文章会展示在这里。</p>
-			</div>
-		</div>
 	</div>
 </template>
 

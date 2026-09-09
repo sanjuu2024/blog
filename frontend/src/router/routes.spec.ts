@@ -40,12 +40,12 @@ describe('P0 route contract', () => {
 		);
 	});
 
-	it('places the message board between links and about in the public navigation', () => {
+	it('hides unfinished links and places about after the message board', () => {
 		const navigationNames = publicRoutes
 			.filter((route) => route.meta?.nav)
 			.map((route) => route.name);
 
-		expect(navigationNames.indexOf('MessageBoard')).toBe(navigationNames.indexOf('Link') + 1);
+		expect(navigationNames).not.toContain('Link');
 		expect(navigationNames.indexOf('About')).toBe(navigationNames.indexOf('MessageBoard') + 1);
 	});
 

@@ -166,9 +166,9 @@ export const publicRoutes = [
 		component: () => import('@/modules/link/views/LinkPage.vue'),
 		meta: {
 			title: '友链',
-			nav: {
-				pos: 'right', // 在顶部导航栏右侧
-			},
+			// nav: {
+			// 	pos: 'right', // 在顶部导航栏右侧（友链功能未正式开发，该路由暂时隐藏）
+			// },
 		},
 	},
 	{
