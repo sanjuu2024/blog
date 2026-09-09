@@ -188,6 +188,7 @@ BLOG_SMTP_WRITE_TIMEOUT=10000
 - 生产环境的 `BLOG_MAIL_FRONTEND_BASE_URL` 必须使用站点 HTTPS 地址，用于生成留言页和退订链接。
 - 密码或授权码只通过生产环境变量或密钥管理服务提供，不写入 Git、镜像或日志。
 - 生产环境默认启用邮件通知；配置不完整时后端拒绝启动，避免回复已创建但通知长期静默失败。
+- 邮件功能已启用但运行时无法取得邮件发送器时，后端记录包含留言 ID、回复 ID 和失败原因的结构化错误日志，不记录收件邮箱或留言正文，也不回滚已经提交的管理员回复。
 - `BLOG_SMTP_CONNECTION_TIMEOUT`、`BLOG_SMTP_READ_TIMEOUT`、`BLOG_SMTP_WRITE_TIMEOUT` 的单位均为毫秒，默认分别为 5000、10000、10000，避免网络异常时邮件线程长期阻塞而无法进入重试。
 - 开发环境默认关闭邮件；本地需要实际发信时，通过环境变量显式设置 `BLOG_MAIL_ENABLED=true` 并提供完整 SMTP 配置。
 - 生产环境启用邮件时，`BLOG_MAIL_FRONTEND_BASE_URL` 必须显式配置为完整 HTTPS 地址；缺失、使用 HTTP 或地址格式不合法时后端拒绝启动。

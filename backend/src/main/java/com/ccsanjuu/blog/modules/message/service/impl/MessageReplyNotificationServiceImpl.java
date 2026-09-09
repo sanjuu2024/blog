@@ -90,8 +90,16 @@ public class MessageReplyNotificationServiceImpl implements MessageReplyNotifica
      * @param replyMessage 管理员回复
      */
     private void sendWithRetry(Message rootMessage, Message replyMessage) {
+        if (!mailProperties.isEnabled()) {
+            return;
+        }
         JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
-        if (mailSender == null || !mailProperties.isEnabled()) {
+        if (mailSender == null) {
+            log.error(
+                    "notification_event=MESSAGE_REPLY_MAIL_FAILED description=\"留言回复通知邮件发送失败：邮件发送器不可用\" outcome=FAIL reason=MAIL_SENDER_UNAVAILABLE messageId={} replyId={}",
+                    rootMessage.getId(),
+                    replyMessage.getId()
+            );
             return;
         }
 

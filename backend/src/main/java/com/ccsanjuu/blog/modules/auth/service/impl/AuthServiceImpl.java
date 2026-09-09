@@ -121,15 +121,17 @@ public class AuthServiceImpl implements AuthService {
         // 🍰2. 密码是否正确、用户是否状态正常（被禁用则不能登录）
         if (!passwordEncoder.matches(loginRequestDTO.getPassword(), user.getPasswordHash())) {
             log.warn(
-                    "security_event=LOGIN_FAILED description=\"登录失败：密码错误\" outcome=FAIL reason=PASSWORD_ERROR account={}",
-                    maskAccount(loginRequestDTO.getAccount())
+                    "security_event=LOGIN_FAILED description=\"登录失败：密码错误\" outcome=FAIL reason=PASSWORD_ERROR userId={} username={}",
+                    user.getId(),
+                    user.getUsername()
             );
             throw new BizException(ResultCode.PASSWORD_ERROR);
         }
         if (user.getStatus() == UserStatus.DISABLED) {
             log.warn(
-                    "security_event=LOGIN_FAILED description=\"登录失败：用户已禁用\" outcome=FAIL reason=USER_DISABLED account={}",
-                    maskAccount(loginRequestDTO.getAccount())
+                    "security_event=LOGIN_FAILED description=\"登录失败：用户已禁用\" outcome=FAIL reason=USER_DISABLED userId={} username={}",
+                    user.getId(),
+                    user.getUsername()
             );
             throw new BizException(ResultCode.USER_DISABLED);
         }
@@ -249,9 +251,10 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
-     * 账号信息脱敏（用户名不脱敏，邮箱则部分隐藏）
-     * @param account
-     * @return
+     * 对尚未匹配到用户的账号输入进行脱敏，避免将未认证的用户名或邮箱原文写入日志。
+     *
+     * @param account 未确认归属的登录账号输入
+     * @return 脱敏后的账号
      */
     private String maskAccount(String account) {
         if (account == null || account.isBlank()) {
