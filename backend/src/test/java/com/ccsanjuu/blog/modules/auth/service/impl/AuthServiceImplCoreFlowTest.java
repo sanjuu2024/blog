@@ -139,7 +139,8 @@ class AuthServiceImplCoreFlowTest {
     }
 
     @Test
-    void loginShouldRejectDisabledUserWithoutCreatingSession() {
+    void loginShouldRejectDisabledUserWithoutCreatingSession(CapturedOutput output) {
+        String loginEmail = "sanjuu@example.com";
         User user = activeUser();
         user.setStatus(UserStatus.DISABLED);
         when(userMapper.selectOne(any())).thenReturn(user);
@@ -147,15 +148,20 @@ class AuthServiceImplCoreFlowTest {
         when(passwordEncoder.matches(PASSWORD, user.getPasswordHash())).thenReturn(true);
 
         BizException exception = assertThrows(BizException.class, () -> authService.login(
-                LoginRequestDTO.builder().account("sanjuu").password(PASSWORD).build()
+                LoginRequestDTO.builder().account(loginEmail).password(PASSWORD).build()
         ));
 
         assertEquals(ResultCode.USER_DISABLED, exception.getResultCode());
         verify(authMapper, never()).insert(any(AuthSession.class));
+        assertTrue(output.getOut().contains("reason=USER_DISABLED"));
+        assertTrue(output.getOut().contains("userId=" + USER_ID));
+        assertTrue(output.getOut().contains("username=Sanjuu"));
+        assertFalse(output.getOut().contains(loginEmail));
     }
 
     @Test
-    void loginShouldValidatePasswordUsingLockedUserState() {
+    void loginShouldValidatePasswordUsingLockedUserState(CapturedOutput output) {
+        String loginEmail = "sanjuu@example.com";
         User queriedUser = activeUser();
         User lockedUser = activeUser();
         lockedUser.setPasswordHash("changed-password-hash");
@@ -164,12 +170,30 @@ class AuthServiceImplCoreFlowTest {
         when(passwordEncoder.matches(PASSWORD, lockedUser.getPasswordHash())).thenReturn(false);
 
         BizException exception = assertThrows(BizException.class, () -> authService.login(
-                LoginRequestDTO.builder().account("sanjuu").password(PASSWORD).build()
+                LoginRequestDTO.builder().account(loginEmail).password(PASSWORD).build()
         ));
 
         assertEquals(ResultCode.PASSWORD_ERROR, exception.getResultCode());
         verify(userMapper).selectByIdForUpdate(USER_ID);
         verify(authMapper, never()).insert(any(AuthSession.class));
+        assertTrue(output.getOut().contains("reason=PASSWORD_ERROR"));
+        assertTrue(output.getOut().contains("userId=" + USER_ID));
+        assertTrue(output.getOut().contains("username=Sanjuu"));
+        assertFalse(output.getOut().contains(loginEmail));
+    }
+
+    @Test
+    void loginShouldMaskUnmatchedAccountInput(CapturedOutput output) {
+        String unknownEmail = "unknown@example.com";
+
+        BizException exception = assertThrows(BizException.class, () -> authService.login(
+                LoginRequestDTO.builder().account(unknownEmail).password(PASSWORD).build()
+        ));
+
+        assertEquals(ResultCode.USER_NOT_FOUND, exception.getResultCode());
+        assertTrue(output.getOut().contains("reason=USER_NOT_FOUND"));
+        assertTrue(output.getOut().contains("account=u***n@example.com"));
+        assertFalse(output.getOut().contains(unknownEmail));
     }
 
     @Test

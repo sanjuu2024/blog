@@ -10,6 +10,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.mail.MailAuthenticationException;
 import org.springframework.mail.MailSendException;
@@ -19,6 +21,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
@@ -27,7 +30,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
 class MessageReplyNotificationServiceImplTest {
 
     @Mock
@@ -98,6 +101,20 @@ class MessageReplyNotificationServiceImplTest {
         notificationService.sendAfterCommit(rootMessage(), replyMessage());
 
         verify(mailSender, times(2)).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void unavailableMailSenderShouldBeLoggedWithoutFailingCommittedReply(CapturedOutput output) {
+        when(mailSenderProvider.getIfAvailable()).thenReturn(null);
+
+        assertDoesNotThrow(() -> notificationService.sendAfterCommit(rootMessage(), replyMessage()));
+
+        assertTrue(output.getOut().contains("notification_event=MESSAGE_REPLY_MAIL_FAILED"));
+        assertTrue(output.getOut().contains("reason=MAIL_SENDER_UNAVAILABLE"));
+        assertTrue(output.getOut().contains("messageId=90001"));
+        assertTrue(output.getOut().contains("replyId=90002"));
+        assertFalse(output.getOut().contains("guest@example.com"));
+        assertFalse(output.getOut().contains("留言内容"));
     }
 
     @Test
