@@ -8,72 +8,103 @@
 			<el-form
 				:model="filterForm"
 				label-width="auto"
+				label-position="right"
 				@submit.prevent
 			>
 				<div class="admin-audit-log__filters">
 					<div class="admin-audit-log__filter-row admin-audit-log__filter-row--primary">
-						<el-input-number
-							v-model="filterForm.operatorId"
-							:min="1"
-							:controls="false"
-							placeholder="操作者 ID"
-						/>
-						<el-select
-							v-model="filterForm.resourceType"
-							clearable
-							placeholder="资源类型"
+						<el-form-item
+							prop="operatorId"
+							label="操作者 ID"
 						>
-							<el-option
-								v-for="item in resourceTypeOptions"
-								:key="item.value"
-								:label="item.label"
-								:value="item.value"
+							<el-input-number
+								v-model="filterForm.operatorId"
+								:min="1"
+								:controls="false"
+								placeholder="请输入操作者 ID"
 							/>
-						</el-select>
-						<el-input
-							v-model="filterForm.resourceId"
-							clearable
-							maxlength="255"
-							placeholder="目标资源 ID"
-						/>
-						<el-select
-							v-model="filterForm.action"
-							clearable
-							placeholder="操作类型"
+						</el-form-item>
+						<el-form-item
+							prop="resourceType"
+							label="资源类型"
 						>
-							<el-option
-								v-for="item in actionOptions"
-								:key="item.value"
-								:label="item.label"
-								:value="item.value"
-							/>
-						</el-select>
-						<el-select
-							v-model="filterForm.result"
-							clearable
-							placeholder="操作结果"
+							<el-select
+								v-model="filterForm.resourceType"
+								clearable
+								placeholder="请选择资源类型"
+							>
+								<el-option
+									v-for="item in resourceTypeOptions"
+									:key="item.value"
+									:label="item.label"
+									:value="item.value"
+								/>
+							</el-select>
+						</el-form-item>
+						<el-form-item
+							prop="resourceId"
+							label="目标资源"
 						>
-							<el-option
-								label="成功"
-								:value="AUDIT_RESULT.SUCCESS"
+							<el-input
+								v-model="filterForm.resourceId"
+								clearable
+								maxlength="255"
+								placeholder="请输入目标资源标识"
 							/>
-							<el-option
-								label="失败"
-								:value="AUDIT_RESULT.FAILURE"
-							/>
-						</el-select>
+						</el-form-item>
+						<el-form-item
+							prop="action"
+							label="操作类型"
+						>
+							<el-select
+								v-model="filterForm.action"
+								clearable
+								placeholder="请选择操作类型"
+							>
+								<el-option
+									v-for="item in actionOptions"
+									:key="item.value"
+									:label="item.label"
+									:value="item.value"
+								/>
+							</el-select>
+						</el-form-item>
+						<el-form-item
+							prop="result"
+							label="操作结果"
+						>
+							<el-select
+								v-model="filterForm.result"
+								clearable
+								placeholder="请选择操作结果"
+							>
+								<el-option
+									label="成功"
+									:value="AUDIT_RESULT.SUCCESS"
+								/>
+								<el-option
+									label="失败"
+									:value="AUDIT_RESULT.FAILURE"
+								/>
+							</el-select>
+						</el-form-item>
 					</div>
 
 					<div class="admin-audit-log__filter-row admin-audit-log__filter-row--secondary">
-						<el-date-picker
-							v-model="filterForm.createdAtRange"
-							type="datetimerange"
-							range-separator="至"
-							start-placeholder="开始时间"
-							end-placeholder="结束时间"
-							value-format="YYYY-MM-DDTHH:mm:ssZ"
-							class="admin-audit-log__date-range"
-						/>
+						<el-form-item
+							prop="createdAtRange"
+							label="操作时间"
+							class="admin-audit-log__op-time-form-item"
+						>
+							<el-date-picker
+								v-model="filterForm.createdAtRange"
+								type="datetimerange"
+								range-separator="至"
+								start-placeholder="开始时间"
+								end-placeholder="结束时间"
+								value-format="YYYY-MM-DDTHH:mm:ssZ"
+							/>
+						</el-form-item>
 						<div class="admin-audit-log__filter-actions">
 							<el-button
 								type="primary"
@@ -125,15 +156,16 @@
 									class="font-bold"
 									>{{ getResourceTypeLabel(row.resourceType) }}</el-tag
 								>
-								<button
+								<el-tooltip
 									v-if="row.resourceId"
-									type="button"
-									:title="`点击复制：${row.resourceId}`"
-									class="admin-audit-log__resource-id"
-									@click="copyResourceId(row.resourceId)"
+									:content="row.resourceId"
+									placement="bottom"
+									effect="light"
 								>
-									{{ row.resourceId }}
-								</button>
+									<span class="admin-audit-log__resource-id">{{
+										row.resourceId
+									}}</span>
+								</el-tooltip>
 								<p
 									v-else
 									class="admin-audit-log__secondary"
@@ -209,7 +241,7 @@
 						label="操作时间"
 						align="center"
 						width="180"
-						fixed="right"
+						:fixed="isMobile ? false : 'right'"
 					>
 						<template #default="{ row }: { row: AdminAuditLogItem }">
 							{{ formatDateTime(row.createdAt) }}
@@ -222,7 +254,11 @@
 				v-model:current-page="pageParams.pageNum"
 				v-model:page-size="pageParams.pageSize"
 				background
-				layout="prev, pager, next, jumper, ->, sizes, total"
+				:layout="
+					isMobile
+						? 'prev, next, jumper, total'
+						: 'prev, pager, next, jumper, ->, sizes, total'
+				"
 				:total="pageMeta.total"
 				:page-sizes="[10, 20, 50, 100]"
 				@current-change="getAuditLogList"
@@ -247,6 +283,9 @@ import {
 	type AuditAction,
 	type AuditResourceType,
 } from '../types/adminAudit';
+import { useMediaQuery } from '@vueuse/core';
+
+const isMobile = useMediaQuery('(width < 768px)');
 
 defineOptions({ name: 'AdminAuditLogListPage' });
 
@@ -340,7 +379,7 @@ function getRequestMethodClass(method: string) {
 		PATCH: 'admin-audit-log__method--patch',
 		DELETE: 'admin-audit-log__method--delete',
 		HEAD: 'admin-audit-log__method--head',
-		OPTIONS: 'admin-audit-log__method--options',
+		OPTIONS: 'admin-audit-log__method--options', // 兜底
 	};
 	return ['admin-audit-log__method', methodClass[method.toUpperCase()]].filter(Boolean);
 }
@@ -371,27 +410,27 @@ function getRequestMethodClass(method: string) {
 .admin-audit-log__filters {
 	display: flex;
 	flex-direction: column;
-	gap: 0.75rem;
+	gap: 0.5rem;
 	margin-bottom: 1rem;
 }
 
 .admin-audit-log__filter-row {
 	display: flex;
 	align-items: center;
-	gap: 0.75rem;
+	gap: 0.5rem;
 }
 
-.admin-audit-log__filter-row--primary > * {
+.admin-audit-log__filter-row--primary :deep(.el-input-number),
+.admin-audit-log__filter-row--primary :deep(.el-input),
+.admin-audit-log__filter-row--primary :deep(.el-select) {
+	width: 100%;
 	min-width: 0;
-	flex: 1;
 }
 
 .admin-audit-log__filter-row--secondary {
+	display: flex;
+	align-items: center;
 	justify-content: space-between;
-}
-
-.admin-audit-log__date-range {
-	width: min(32rem, 100%);
 }
 
 .admin-audit-log__filter-actions {
@@ -407,7 +446,7 @@ function getRequestMethodClass(method: string) {
 .admin-audit-log__secondary {
 	margin: 0.15rem 0 0;
 	color: var(--app-text-muted);
-	font-size: 0.75rem;
+	font-size: 0.8rem;
 }
 
 .admin-audit-log__resource {
@@ -418,32 +457,15 @@ function getRequestMethodClass(method: string) {
 }
 
 .admin-audit-log__resource-id {
-	display: block;
+	display: inline-block;
 	width: 100%;
 	overflow: hidden;
 	margin-top: 0.25rem;
-	padding: 0;
-	border: none;
-	background: none;
 	color: inherit;
-	cursor: copy;
-	font: inherit;
+	cursor: pointer;
 	text-align: center;
 	text-overflow: ellipsis;
 	white-space: nowrap;
-}
-
-.admin-audit-log__resource-id:hover,
-.admin-audit-log__resource-id:focus-visible {
-	color: var(--app-main);
-	text-decoration: underline;
-	text-underline-offset: 0.15rem;
-}
-
-.admin-audit-log__resource-id:focus-visible {
-	border-radius: 2px;
-	outline: 2px solid var(--el-color-primary-light-5);
-	outline-offset: 2px;
 }
 
 .admin-audit-log__ellipsis {
@@ -454,12 +476,16 @@ function getRequestMethodClass(method: string) {
 	white-space: nowrap;
 }
 
+.admin-audit-log__op-time-form-item {
+	margin-bottom: 0;
+}
+
 .admin-audit-log__method {
 	--audit-method-color: var(--app-text-muted);
 	--el-tag-bg-color: color-mix(in srgb, var(--audit-method-color) 12%, transparent);
 	--el-tag-border-color: color-mix(in srgb, var(--audit-method-color) 55%, transparent);
 	--el-tag-text-color: var(--audit-method-color);
-	font-weight: 600;
+	font-weight: bold;
 }
 
 .admin-audit-log__method--get {
@@ -491,18 +517,15 @@ function getRequestMethodClass(method: string) {
 }
 
 .admin-audit-log__pagination {
-	flex: none;
 	margin-top: 1.25rem;
 }
 
-@media (max-width: 1400px) {
-	.admin-audit-log__filter-row--primary {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(10rem, 1fr));
-	}
+.admin-audit-log__filter-row--primary {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(10rem, 1fr));
 }
 
-@media (max-width: 900px) {
+@media (width < 900px) {
 	.admin-audit-log__filter-row--primary {
 		grid-template-columns: repeat(2, minmax(10rem, 1fr));
 	}
@@ -510,10 +533,6 @@ function getRequestMethodClass(method: string) {
 	.admin-audit-log__filter-row--secondary {
 		align-items: stretch;
 		flex-direction: column;
-	}
-
-	.admin-audit-log__date-range {
-		width: 100%;
 	}
 
 	.admin-audit-log__filter-actions {

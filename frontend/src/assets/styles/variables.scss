@@ -5,7 +5,6 @@
 	--app-header-shadow: 0 1px 0 var(--app-border);
 	--app-container-width: 1200px;
 	--app-page-padding-x: 1rem;
-	--app-main-padding-x: 1.5rem;
 	--app-main-padding-y: 1.5rem;
 
 	--app-admin-sidebar-width: 200px;
@@ -16,7 +15,16 @@
 	--app-admin-main-padding-y: 0rem;
 
 	--app-article-detail-width: 1024px;
-	--app-article-catalog-sidebar-width: 250px;
+	--app-article-catalog-sidebar-width: 360px;
 
 	--app-about-content-width: 800px;
+
+	@media (width < 768px) {
+		--app-page-padding-x: 0.75rem;
+		--app-article-catalog-sidebar-width: 300px;
+	}
+
+	@media (width < 376px) {
+		--app-article-catalog-sidebar-width: 280px;
+	}
 }

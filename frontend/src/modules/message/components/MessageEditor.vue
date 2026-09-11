@@ -156,7 +156,7 @@ defineExpose({ clear });
 	flex: none;
 }
 
-@media (max-width: 640px) {
+@media (width < 768px) {
 	.message-editor__guest-fields,
 	.message-editor__body {
 		display: flex;
