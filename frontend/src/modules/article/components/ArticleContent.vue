@@ -63,7 +63,7 @@
 
 			<!-- 文章标签 -->
 			<div
-				class="article-tags mb-4 flex items-center justify-center gap-2"
+				class="article-tags mb-4 flex flex-wrap items-center justify-center gap-2"
 				v-if="article.tags.length"
 			>
 				<component
@@ -200,9 +200,10 @@ watch(
 		background-color 0.1s ease;
 }
 
-.article-content-wrapper-squeeze-to-the-right {
-	padding-left: var(--app-article-catalog-sidebar-width);
-}
+// .article-content-wrapper-squeeze-to-the-right {
+// 	后续觉得不美观也不方便，遂不做目录展开时内容压缩了
+// 	padding-left: var(--app-article-catalog-sidebar-width);
+// }
 
 .article-category {
 	transition: color 0.1s ease-in-out;
@@ -211,6 +212,10 @@ watch(
 	> a:focus-visible {
 		color: var(--app-main);
 	}
+}
+
+.article-tags {
+	width: 100%;
 }
 
 .article-statis-item {

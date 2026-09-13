@@ -141,7 +141,7 @@
 							label="标签操作"
 							align="center"
 							width="400"
-							fixed="right"
+							:fixed="isMobile ? false : 'right'"
 						>
 							<template #default="{ row }: { row: AdminTagItem }">
 								<el-button
@@ -281,18 +281,22 @@
 <script setup lang="ts">
 import { nextTick, onMounted, ref, watch } from 'vue';
 import type { TableInstance } from 'element-plus';
+import { useAdminTagList } from '../composables/useAdminTagList';
+import type { AdminTagItem } from '../types/adminTag';
+import { formatDateTime } from '@/utils/datetime';
+import { useAdminTagForm } from '../composables/useAdminTagForm';
+import { TAG_STATUS } from '@/modules/tag/constants/tag';
+import { useMediaQuery } from '@vueuse/core';
+
+const isMobile = useMediaQuery('(width < 768px)');
+
 defineOptions({
 	name: 'AdminTagListPage',
 });
 
-import { useAdminTagList } from '../composables/useAdminTagList';
-import type { AdminTagItem } from '../types/adminTag';
-import { formatDateTime } from '@/utils/datetime';
 const { tagList, queryParams, getTagList, resetQueryParams, handleDeleteTag, toggleTagStatus } =
 	useAdminTagList();
 
-import { useAdminTagForm } from '../composables/useAdminTagForm';
-import { TAG_STATUS } from '@/modules/tag/constants/tag';
 const {
 	showDrawer,
 	drawerMode,

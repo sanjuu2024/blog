@@ -16,68 +16,80 @@
 					@submit.prevent
 					class="ml-1"
 				>
-					<div class="mb-6 flex">
-						<el-input-number
-							v-model="filterForm.articleId"
-							:min="1"
-							:controls="false"
-							clearable
-							placeholder="请输入文章 ID"
-							class="mr-2 w-60"
-							@keyup.enter="getCommentList(1)"
-						/>
-						<el-input-number
-							v-model="filterForm.userId"
-							:min="1"
-							:controls="false"
-							clearable
-							placeholder="请输入用户 ID"
-							class="mr-2 w-60"
-							@keyup.enter="getCommentList(1)"
-						/>
-						<el-button
-							type="primary"
-							aria-label="搜索"
-							@click="getCommentList(1)"
+					<div class="admin-comment__search">
+						<el-form-item
+							prop="articleId"
+							label="文章 ID"
 						>
-							<template #icon>
-								<i-lets-icons-search-alt />
-							</template>
-							搜索
-						</el-button>
+							<el-input-number
+								v-model="filterForm.articleId"
+								:min="1"
+								:controls="false"
+								clearable
+								placeholder="请输入文章 ID"
+								@keyup.enter="getCommentList(1)"
+								align="left"
+							/>
+						</el-form-item>
+						<el-form-item
+							prop="userId"
+							label="用户 ID"
+						>
+							<el-input-number
+								v-model="filterForm.userId"
+								:min="1"
+								:controls="false"
+								clearable
+								placeholder="请输入用户 ID"
+								@keyup.enter="getCommentList(1)"
+								align="left"
+							/>
+						</el-form-item>
+						<div class="admin-comment__search-actions">
+							<el-button
+								type="primary"
+								aria-label="搜索"
+								@click="getCommentList(1)"
+							>
+								<template #icon>
+									<i-lets-icons-search-alt />
+								</template>
+								搜索
+							</el-button>
 
-						<el-button
-							type="warning"
-							class="ml-2"
-							aria-label="重置"
-							@click="resetFilterForm"
-						>
-							<template #icon>
-								<i-lets-icons-refresh />
-							</template>
-							重置
-						</el-button>
+							<el-button
+								type="warning"
+								aria-label="重置"
+								@click="resetFilterForm"
+							>
+								<template #icon>
+									<i-lets-icons-refresh />
+								</template>
+								重置
+							</el-button>
+						</div>
 					</div>
+
+					<el-form-item
+						prop="createdAtRange"
+						label="评论时间"
+					>
+						<el-date-picker
+							v-model="filterForm.createdAtRange"
+							type="datetimerange"
+							range-separator="至"
+							start-placeholder="开始时间"
+							end-placeholder="结束时间"
+							value-format="YYYY-MM-DDTHH:mm:ssZ"
+							@change="getCommentList(1)"
+						/>
+					</el-form-item>
 
 					<div class="flex">
 						<el-form-item
-							label="创建时间"
-							class="mr-4"
+							prop="status"
+							label="评论状态"
 						>
-							<el-date-picker
-								v-model="filterForm.createdAtRange"
-								type="datetimerange"
-								range-separator="至"
-								start-placeholder="开始时间"
-								end-placeholder="结束时间"
-								value-format="YYYY-MM-DDTHH:mm:ssZ"
-								@change="getCommentList(1)"
-							/>
-						</el-form-item>
-					</div>
-
-					<div class="flex">
-						<el-form-item label="评论状态">
 							<el-radio-group
 								v-model="filterForm.status"
 								@change="getCommentList(1)"
@@ -93,7 +105,10 @@
 					</div>
 
 					<div class="flex">
-						<el-form-item label="评论层级">
+						<el-form-item
+							prop="type"
+							label="评论层级"
+						>
 							<el-radio-group
 								v-model="filterForm.type"
 								@change="getCommentList(1)"
@@ -131,6 +146,7 @@
 								<el-tooltip
 									:content="row.content"
 									placement="top-start"
+									effect="light"
 								>
 									<p class="admin-comment-content">{{ row.content }}</p>
 								</el-tooltip>
@@ -152,7 +168,7 @@
 								</RouterLink>
 								<p
 									v-if="row.article"
-									class="admin-comment-secondary text-xs"
+									class="text-xs"
 								>
 									ID: {{ row.article.id }}
 								</p>
@@ -168,9 +184,7 @@
 							<template #default="{ row }: { row: AdminCommentItem }">
 								<div v-if="row.author">
 									<p>{{ row.author.nickname || row.author.username }}</p>
-									<p class="admin-comment-secondary text-xs">
-										ID: {{ row.author.id }}
-									</p>
+									<p class="text-xs">ID: {{ row.author.id }}</p>
 								</div>
 								<span v-else>-</span>
 							</template>
@@ -182,7 +196,12 @@
 							width="100"
 						>
 							<template #default="{ row }: { row: AdminCommentItem }">
-								<el-tag>{{ getCommentTypeLabel(row.type) }}</el-tag>
+								<el-tag
+									type="info"
+									effect="plain"
+								>
+									{{ getCommentTypeLabel(row.type) }}
+								</el-tag>
 							</template>
 						</el-table-column>
 
@@ -194,6 +213,8 @@
 							<template #default="{ row }: { row: AdminCommentItem }">
 								<el-tag
 									:type="getCommentStatusTagType(row.status)"
+									effect="plain"
+									class="font-bold"
 									:class="{
 										'comment-status-rejected':
 											row.status === COMMENT_STATUS.REJECTED,
@@ -244,7 +265,7 @@
 							label="评论操作"
 							align="center"
 							width="300"
-							fixed="right"
+							:fixed="isMobile ? false : 'right'"
 						>
 							<template #default="{ row }: { row: AdminCommentItem }">
 								<el-popconfirm
@@ -322,7 +343,11 @@
 					v-model:current-page="pageParams.pageNum"
 					v-model:page-size="pageParams.pageSize"
 					:background="true"
-					layout="prev, pager, next, jumper, ->, sizes, total"
+					:layout="
+						isMobile
+							? 'prev, next, jumper, total'
+							: 'prev, pager, next, jumper, ->, sizes, total'
+					"
 					:total="pageMeta.total"
 					:page-sizes="[3, 5, 7, 9]"
 					@current-change="getCommentList"
@@ -346,6 +371,9 @@ import {
 	type CommentStatus,
 	type CommentType,
 } from '../types/adminComment';
+import { useMediaQuery } from '@vueuse/core';
+
+const isMobile = useMediaQuery('(width < 768px)');
 
 defineOptions({
 	name: 'AdminCommentListPage',
@@ -452,6 +480,45 @@ function getCommentRowClassName({ row }: { row: AdminCommentItem }) {
 	flex: 1;
 }
 
+.admin-comment__search {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+	align-items: flex-start;
+	gap: 0.5rem;
+
+	:deep(.el-input-number) {
+		width: 100%;
+		min-width: 0;
+	}
+
+	.admin-comment__search-actions {
+		display: flex;
+		gap: 0.5rem;
+		margin-bottom: 1rem;
+	}
+
+	// Element Plus 默认给相邻按钮添加了左边距，记得去掉，否则相邻两个按钮除了 grid 布局的 gap 之外还会有额外的间距
+	:deep(.el-button) {
+		margin: 0;
+	}
+
+	@media (width < 768px) {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+
+		.admin-comment__search-actions {
+			grid-column: 1 / -1;
+
+			.el-button {
+				flex: 1;
+			}
+		}
+	}
+
+	@media (width < 400px) {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
 // 自定义表格样式，覆盖 Element Plus 默认的行 hover
 .admin-comment-table {
 	--el-table-row-hover-bg-color: var(--app-table-row-hover-bg-color);
@@ -470,20 +537,6 @@ function getCommentRowClassName({ row }: { row: AdminCommentItem }) {
 	color: var(--app-text-muted);
 }
 
-.admin-comment-table :deep(.comment-row-muted .el-tag) {
-	filter: grayscale(1);
-	opacity: 0.75;
-}
-
-.admin-comment-table :deep(.comment-row-muted .comment-status-rejected) {
-	filter: none;
-	opacity: 1;
-}
-
-.admin-comment-secondary {
-	color: var(--app-text-muted);
-}
-
 .admin-comment-content {
 	display: -webkit-box;
 	overflow: hidden;
@@ -494,7 +547,6 @@ function getCommentRowClassName({ row }: { row: AdminCommentItem }) {
 }
 
 .admin-comment-pagination {
-	flex: none;
 	margin-top: 1.5rem;
 }
 </style>

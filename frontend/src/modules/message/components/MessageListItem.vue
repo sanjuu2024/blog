@@ -276,15 +276,28 @@ function statusTagType(status: MessageStatus) {
 	color: var(--el-color-danger);
 }
 
-@media (max-width: 640px) {
+@media (width < 376px) {
 	.message-item__header {
-		align-items: flex-start;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0.4rem;
+	}
+
+	.message-item__identity {
+		width: 100%;
 	}
 
 	.message-item__header-actions {
-		align-items: flex-end;
+		width: 100%;
+		flex-direction: row;
+		justify-content: flex-end;
+		align-items: center;
+	}
+
+	.message-reply__meta {
+		display: flex;
 		flex-direction: column;
-		gap: 0.2rem;
+		align-items: stretch;
 	}
 }
 </style>

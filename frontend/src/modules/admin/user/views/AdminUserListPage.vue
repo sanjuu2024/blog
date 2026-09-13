@@ -168,7 +168,7 @@
 					label="用户操作"
 					align="center"
 					width="300"
-					fixed="right"
+					:fixed="isMobile ? false : 'right'"
 				>
 					<template #default="{ row }">
 						<el-popconfirm
@@ -216,7 +216,11 @@
 			v-model:current-page="pageNum"
 			v-model:page-size="pageSize"
 			:background="true"
-			layout="prev, pager, next, jumper, ->, sizes, total"
+			:layout="
+				isMobile
+					? 'prev, next, jumper, total'
+					: 'prev, pager, next, jumper, ->, sizes, total'
+			"
 			:total="total"
 			:pager-count="pagerCount"
 			:page-sizes="[3, 5, 7, 9]"
@@ -242,6 +246,9 @@ import { ElMessage } from 'element-plus';
 import { formatDateTime } from '@/utils/datetime';
 import { USER_ROLE, USER_STATUS, type UserRole, type UserStatus } from '@/modules/user/types/user';
 import { useUserStore } from '@/stores/userStore';
+import { useMediaQuery } from '@vueuse/core';
+
+const isMobile = useMediaQuery('(width < 768px)');
 
 type UserRoleFilter = UserRole | '';
 type UserStatusFilter = UserStatus | '';
@@ -260,7 +267,7 @@ const userTableRef = ref<TableInstance>();
 let pageNum = ref<number>(1); // 当前页
 let pageSize = ref<number>(5); // 每页条数
 let total = ref<number>(0); // 总条数
-let pagerCount = ref<number>(5); // 当前分页器显示多少个页码按钮
+let pagerCount = 5; // 当前分页器显示多少个页码按钮
 
 // 条件查询参数
 const listQuery = reactive({

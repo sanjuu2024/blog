@@ -19,54 +19,87 @@
 			<el-form
 				:model="filterForm"
 				label-width="auto"
+				label-position="right"
 				@submit.prevent
 			>
 				<div class="admin-message__filters">
-					<el-input-number
-						v-model="filterForm.messageId"
-						:min="1"
-						:controls="false"
-						placeholder="留言 ID"
-					/>
-					<el-input-number
-						v-model="filterForm.userId"
-						:min="1"
-						:controls="false"
-						placeholder="用户 ID"
-					/>
-					<el-input
-						v-model="filterForm.guestNickname"
-						clearable
-						placeholder="游客昵称"
-					/>
-					<el-input
-						v-model="filterForm.guestEmail"
-						clearable
-						placeholder="游客邮箱"
-					/>
-					<el-input
-						v-model="filterForm.content"
-						clearable
-						placeholder="留言内容"
-						@keyup.enter="getMessageList(1)"
-					/>
-					<el-button
-						type="primary"
-						@click="getMessageList(1)"
+					<el-form-item
+						prop="messageId"
+						label="留言 ID"
 					>
-						<i-lets-icons-search-alt />
-						搜索
-					</el-button>
-					<el-button
-						type="warning"
-						@click="resetFilterForm"
+						<el-input-number
+							v-model="filterForm.messageId"
+							:min="1"
+							:controls="false"
+							placeholder="请输入留言 ID"
+							align="left"
+						/>
+					</el-form-item>
+					<el-form-item
+						prop="userId"
+						label="用户 ID"
 					>
-						<i-lets-icons-refresh />
-						重置
-					</el-button>
+						<el-input-number
+							v-model="filterForm.userId"
+							:min="1"
+							:controls="false"
+							placeholder="请输入用户 ID"
+							align="left"
+						/>
+					</el-form-item>
+					<el-form-item
+						prop="guestNickname"
+						label="游客昵称"
+					>
+						<el-input
+							v-model="filterForm.guestNickname"
+							clearable
+							placeholder="请输入游客昵称"
+						/>
+					</el-form-item>
+					<el-form-item
+						prop="guestEmail"
+						label="游客邮箱"
+					>
+						<el-input
+							v-model="filterForm.guestEmail"
+							clearable
+							placeholder="请输入游客邮箱"
+						/>
+					</el-form-item>
+					<el-form-item
+						prop="content"
+						label="留言内容"
+					>
+						<el-input
+							v-model="filterForm.content"
+							clearable
+							placeholder="请输入留言内容"
+							@keyup.enter="getMessageList(1)"
+						/>
+					</el-form-item>
+					<div class="admin-message__filter-actions">
+						<el-button
+							type="primary"
+							@click="getMessageList(1)"
+						>
+							<i-lets-icons-search-alt />
+							搜索
+						</el-button>
+						<el-button
+							type="warning"
+							@click="resetFilterForm"
+						>
+							<i-lets-icons-refresh />
+							重置
+						</el-button>
+					</div>
 				</div>
 
-				<el-form-item label="创建时间">
+				<el-form-item
+					prop="createdAtRange"
+					label="创建时间"
+				>
 					<el-date-picker
 						v-model="filterForm.createdAtRange"
 						type="datetimerange"
@@ -78,7 +111,10 @@
 					/>
 				</el-form-item>
 
-				<el-form-item label="留言状态">
+				<el-form-item
+					prop="status"
+					label="留言状态"
+				>
 					<el-radio-group
 						v-model="filterForm.status"
 						@change="getMessageList(1)"
@@ -92,7 +128,10 @@
 					</el-radio-group>
 				</el-form-item>
 
-				<el-form-item label="留言层级">
+				<el-form-item
+					prop="type"
+					label="留言层级"
+				>
 					<el-radio-group
 						v-model="filterForm.type"
 						@change="getMessageList(1)"
@@ -177,9 +216,12 @@
 						width="110"
 					>
 						<template #default="{ row }: { row: AdminMessageItem }">
-							<el-tag>{{
-								row.type === MESSAGE_TYPE.TOP_LEVEL ? '顶层留言' : '回复'
-							}}</el-tag>
+							<el-tag
+								type="info"
+								effect="plain"
+							>
+								{{ row.type === MESSAGE_TYPE.TOP_LEVEL ? '顶层留言' : '回复' }}
+							</el-tag>
 						</template>
 					</el-table-column>
 					<el-table-column
@@ -190,6 +232,8 @@
 						<template #default="{ row }: { row: AdminMessageItem }">
 							<el-tag
 								:type="getStatusTagType(row.status)"
+								effect="plain"
+								class="font-bold"
 								:class="{
 									'message-status-rejected':
 										row.status === MESSAGE_STATUS.REJECTED,
@@ -235,7 +279,7 @@
 						label="操作"
 						align="center"
 						width="360"
-						fixed="right"
+						:fixed="isMobile ? false : 'right'"
 					>
 						<template #default="{ row }: { row: AdminMessageItem }">
 							<el-button
@@ -297,7 +341,11 @@
 				v-model:current-page="pageParams.pageNum"
 				v-model:page-size="pageParams.pageSize"
 				background
-				layout="prev, pager, next, jumper, ->, sizes, total"
+				:layout="
+					isMobile
+						? 'prev, next, jumper, total'
+						: 'prev, pager, next, jumper, ->, sizes, total'
+				"
 				:total="pageMeta.total"
 				:page-sizes="[5, 10, 20, 50]"
 				@current-change="getMessageList"
@@ -311,14 +359,21 @@
 			title="回复留言"
 			width="min(32rem, calc(100vw - 2rem))"
 		>
-			<el-input
-				v-model="replyContent"
-				type="textarea"
-				:rows="5"
-				maxlength="1000"
-				show-word-limit
-				placeholder="请输入回复内容"
-			/>
+			<el-form
+				label-position="top"
+				@submit.prevent
+			>
+				<el-form-item label="回复内容">
+					<el-input
+						v-model="replyContent"
+						type="textarea"
+						:rows="5"
+						maxlength="1000"
+						show-word-limit
+						placeholder="请输入回复内容"
+					/>
+				</el-form-item>
+			</el-form>
 			<template #footer>
 				<el-button @click="replyDialogVisible = false">取消</el-button>
 				<el-button
@@ -346,6 +401,9 @@ import {
 	type AdminMessageItem,
 	type MessageStatus,
 } from '../types/adminMessage';
+import { useMediaQuery } from '@vueuse/core';
+
+const isMobile = useMediaQuery('(width < 768px)');
 
 defineOptions({ name: 'AdminMessageListPage' });
 
@@ -449,9 +507,41 @@ function getRowClassName({ row }: { row: AdminMessageItem }) {
 
 .admin-message__filters {
 	display: grid;
-	grid-template-columns: repeat(5, minmax(9rem, 1fr)) auto auto;
-	gap: 0.5rem;
-	margin-bottom: 1rem;
+	grid-template-columns: repeat(4, minmax(0rem, 1fr));
+	gap: 0 0.5rem;
+
+	:deep(.el-input),
+	:deep(.el-input-number) {
+		width: 100%;
+		min-width: 0;
+	}
+
+	.admin-message__filter-actions {
+		margin-bottom: 1rem;
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	// Element Plus 默认给相邻按钮添加了左边距，记得去掉，否则相邻两个按钮除了 grid 布局的 gap 之外还会有额外的间距
+	:deep(.el-button) {
+		margin: 0;
+	}
+
+	@media (width < 768px) {
+		grid-template-columns: repeat(2, minmax(0rem, 1fr));
+
+		.admin-message__filter-actions {
+			grid-column: 1 / -1;
+
+			.el-button {
+				flex: 1;
+			}
+		}
+	}
+
+	@media (width < 376px) {
+		grid-template-columns: repeat(1, minmax(0rem, 1fr));
+	}
 }
 
 .admin-message__table-wrap {
@@ -489,24 +579,7 @@ function getRowClassName({ row }: { row: AdminMessageItem }) {
 	color: var(--app-text-muted);
 }
 
-:deep(.message-row-muted .el-tag) {
-	filter: grayscale(1);
-	opacity: 0.75;
-}
-
-:deep(.message-row-muted .message-status-rejected) {
-	filter: none;
-	opacity: 1;
-}
-
 .admin-message__pagination {
-	flex: none;
 	margin-top: 1.25rem;
-}
-
-@media (max-width: 1200px) {
-	.admin-message__filters {
-		grid-template-columns: repeat(3, minmax(10rem, 1fr));
-	}
 }
 </style>

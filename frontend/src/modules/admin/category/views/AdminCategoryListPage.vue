@@ -191,7 +191,7 @@
 							label="分类操作"
 							align="center"
 							width="400"
-							fixed="right"
+							:fixed="isMobile ? false : 'right'"
 						>
 							<template #default="{ row }: { row: AdminCategoryItem }">
 								<el-button
@@ -383,8 +383,18 @@ import { nextTick, onMounted, ref, watch } from 'vue';
 import type { TableInstance } from 'element-plus';
 import { formatDateTime } from '@/utils/datetime';
 import type { AdminCategoryItem } from '../types/adminCategory';
-
 import { useAdminCategoryForm } from '../composables/useAdminCategoryForm';
+import { useAdminCategoryList } from '../composables/useAdminCategoryList';
+import { useAdminCategoryOptions } from '../composables/useAdminCategoryOptions';
+import { CATEGORY_STATUS } from '@/modules/category/constants/category';
+import { useMediaQuery } from '@vueuse/core';
+
+const isMobile = useMediaQuery('(width < 768px)');
+
+defineOptions({
+	name: 'AdminCategoryListPage',
+});
+
 const {
 	showDrawer,
 	drawerMode,
@@ -396,7 +406,6 @@ const {
 	openUpdateDrawer,
 } = useAdminCategoryForm();
 
-import { useAdminCategoryList } from '../composables/useAdminCategoryList';
 const {
 	categoryList,
 	queryParams,
@@ -406,15 +415,9 @@ const {
 	resetQueryParams,
 } = useAdminCategoryList();
 
-import { useAdminCategoryOptions } from '../composables/useAdminCategoryOptions';
-import { CATEGORY_STATUS } from '@/modules/category/constants/category';
 const { parentCategoryOptions, getParentCategoryOptions } = useAdminCategoryOptions();
 
 const categoryTableRef = ref<TableInstance>();
-
-defineOptions({
-	name: 'AdminCategoryListPage',
-});
 
 onMounted(() => {
 	getCategoryList();

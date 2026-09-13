@@ -29,7 +29,7 @@ export function useAdminCommentList() {
 	// 分页参数初始值
 	const initPageParams: AdminCommentPageParams = {
 		pageNum: 1,
-		pageSize: 5,
+		pageSize: 7,
 	};
 
 	// 分页参数

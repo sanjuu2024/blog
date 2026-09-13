@@ -117,7 +117,7 @@
 					label="文章操作"
 					align="center"
 					width="320"
-					fixed="right"
+					:fixed="isMobile ? false : 'right'"
 				>
 					<!-- 已发布状态可以改为下线状态，其他状态可以改为已发布状态 -->
 					<template #default="{ row }: { row: AdminArticleListItem }">
@@ -201,7 +201,11 @@
 			v-model:current-page="pageNum"
 			v-model:page-size="pageSize"
 			:background="true"
-			layout="prev, pager, next, jumper, ->, sizes, total"
+			:layout="
+				isMobile
+					? 'prev, next, jumper, total'
+					: 'prev, pager, next, jumper, ->, sizes, total'
+			"
 			:total="pageMeta.total"
 			:page-sizes="[3, 5, 7, 9]"
 			@current-change="emit('pageChange')"
@@ -222,6 +226,9 @@ import {
 	type AdminArticlePageMeta,
 } from '../types/adminArticle';
 import AppImage from '@/components/AppImage.vue';
+import { useMediaQuery } from '@vueuse/core';
+
+const isMobile = useMediaQuery('(width < 768px)');
 
 const router = useRouter();
 

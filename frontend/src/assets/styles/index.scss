@@ -43,6 +43,21 @@ body .el-pagination.is-background .btn-next:disabled {
 	background-color: var(--app-pagination-bg-muted);
 }
 
+// 🔺避免移动端输入时自动聚焦放大局部，导致顶部提示信息不在视窗中
+// Element Plus 的输入框默认字号为 14px。iPhone Safari 会自动放大字号小于 16px 的原生 input 和 textarea
+@media (width < 768px) {
+	input,
+	textarea,
+	select {
+		font-size: 16px;
+	}
+
+	input.el-input__inner,
+	textarea.el-textarea__inner {
+		font-size: 16px;
+	}
+}
+
 html,
 body,
 #app {

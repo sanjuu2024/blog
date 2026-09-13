@@ -34,4 +34,11 @@ const adminLayoutStyle = computed<CSSProperties>(() => ({
 	height: 100dvh;
 	overflow: hidden;
 }
+
+@media (width < 768px) {
+	:root {
+		--app-admin-min-sidebar-width: 0px;
+		--app-admin-max-sidebar-width: 0px;
+	}
+}
 </style>
