@@ -28,12 +28,13 @@
 				aria-label="展开子分类"
 				:aria-expanded="expanded"
 				:class="{
-					'rotate-180': expanded,
+					'rotate-90': expanded,
 				}"
 				class="category-list-item__arrow mr-0.5 cursor-pointer transition-transform duration-100 ease-in-out"
 				@click.stop="handleClickArrow"
 			>
-				<i-lucide-chevron-down />
+				<!-- <i-lucide-chevron-down /> -->
+				<i-lucide-chevron-right />
 			</button>
 		</div>
 	</div>

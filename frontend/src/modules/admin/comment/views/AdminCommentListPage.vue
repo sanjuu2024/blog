@@ -28,6 +28,7 @@
 								clearable
 								placeholder="请输入文章 ID"
 								@keyup.enter="getCommentList(1)"
+								align="left"
 							/>
 						</el-form-item>
 						<el-form-item
@@ -41,6 +42,7 @@
 								clearable
 								placeholder="请输入用户 ID"
 								@keyup.enter="getCommentList(1)"
+								align="left"
 							/>
 						</el-form-item>
 						<div class="admin-comment__search-actions">
@@ -492,6 +494,7 @@ function getCommentRowClassName({ row }: { row: AdminCommentItem }) {
 	.admin-comment__search-actions {
 		display: flex;
 		gap: 0.5rem;
+		margin-bottom: 1rem;
 	}
 
 	// Element Plus 默认给相邻按钮添加了左边距，记得去掉，否则相邻两个按钮除了 grid 布局的 gap 之外还会有额外的间距

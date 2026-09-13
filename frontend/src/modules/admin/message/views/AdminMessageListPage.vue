@@ -32,6 +32,7 @@
 							:min="1"
 							:controls="false"
 							placeholder="请输入留言 ID"
+							align="left"
 						/>
 					</el-form-item>
 					<el-form-item
@@ -43,6 +44,7 @@
 							:min="1"
 							:controls="false"
 							placeholder="请输入用户 ID"
+							align="left"
 						/>
 					</el-form-item>
 					<el-form-item

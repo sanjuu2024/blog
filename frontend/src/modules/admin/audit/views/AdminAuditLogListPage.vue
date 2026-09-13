@@ -22,6 +22,7 @@
 								:min="1"
 								:controls="false"
 								placeholder="请输入操作者 ID"
+								align="left"
 							/>
 						</el-form-item>
 						<el-form-item
@@ -270,8 +271,6 @@
 </template>
 
 <script setup lang="ts">
-import { useClipboard } from '@vueuse/core';
-import { ElMessage } from 'element-plus';
 import { onMounted } from 'vue';
 import { formatDateTime } from '@/utils/datetime';
 import { useAdminAuditLogList } from '../composables/useAdminAuditLogList';
@@ -307,19 +306,8 @@ const actionOptions = Object.values(AUDIT_ACTION).map((value) => ({
 	value,
 	label: getActionLabel(value),
 }));
-const { copy } = useClipboard({ legacy: true });
 
 onMounted(() => getAuditLogList());
-
-// 资源标识可能是 ID、批量 ID 或图片 URL，点击后统一复制原始完整值。
-async function copyResourceId(resourceId: string) {
-	try {
-		await copy(resourceId);
-		ElMessage.success('目标资源标识已复制');
-	} catch {
-		ElMessage.error('复制失败，请手动复制');
-	}
-}
 
 function getResourceTypeLabel(resourceType: AuditResourceType) {
 	return {

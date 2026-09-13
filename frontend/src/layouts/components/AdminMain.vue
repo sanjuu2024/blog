@@ -80,4 +80,15 @@ watch(
 	opacity: 1;
 	transform: translateY(0);
 }
+
+@media (width < 768px) {
+	.admin-main {
+		overflow-y: auto;
+	}
+
+	.admin-main__inner {
+		height: auto;
+		min-height: 100%;
+	}
+}
 </style>

@@ -198,6 +198,7 @@
 		<el-dialog
 			v-model="tagWindowVisible"
 			title="选择标签"
+			width="min(40rem, calc(100vw - 2rem))"
 			@close="tagDialogCancel"
 		>
 			<el-check-tag

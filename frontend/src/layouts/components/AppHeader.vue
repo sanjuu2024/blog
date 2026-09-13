@@ -53,7 +53,7 @@
 							class="app-header__mobile-menu-button"
 							aria-label="打开主导航"
 						>
-							<i-lucide-list />
+							<i-lucide-list class="mx-3" />
 						</button>
 
 						<template #dropdown>
@@ -77,7 +77,7 @@
 				</div>
 
 				<!-- 头像下拉菜单 -->
-				<AppUserMenu :px-rem="1.25" />
+				<AppUserMenu :px-rem="isMobile ? 0.75 : 1.25" />
 			</div>
 		</div>
 	</header>
@@ -88,6 +88,9 @@ import { computed } from 'vue';
 import { publicRoutes } from '@/router/routes';
 import { useRouter } from 'vue-router';
 import { useUserStore } from '@/stores/userStore';
+import { useMediaQuery } from '@vueuse/core';
+
+const isMobile = useMediaQuery('(width < 768px)');
 
 const router = useRouter();
 const userStore = useUserStore();
