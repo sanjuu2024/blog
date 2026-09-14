@@ -279,7 +279,7 @@ defineExpose({ clear });
 
 .message-editor__guest-fields {
 	:deep(.el-form-item__label-wrap) {
-		margin-left: 0rem;
+		margin-left: 0;
 	}
 
 	display: flex;
@@ -333,7 +333,7 @@ defineExpose({ clear });
 	.message-editor__user-info-header {
 		flex-direction: column;
 		align-items: stretch;
-		gap: 0rem;
+		gap: 0;
 	}
 }
 </style>

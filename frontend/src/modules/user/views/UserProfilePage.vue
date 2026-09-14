@@ -84,7 +84,7 @@ onMounted(() => {
 	height: 200px;
 	padding: 1rem 2rem;
 	background: url('@/assets/img/food.png') repeat var(--app-main);
-	box-shadow: inset 0 -120px 80px -100px rgba(0, 0, 0, 0.5);
+	box-shadow: inset 0 -120px 80px -100px rgb(0 0 0 / 50%);
 }
 
 .article-list-wrapper {

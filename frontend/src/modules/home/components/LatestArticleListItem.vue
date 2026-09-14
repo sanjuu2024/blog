@@ -121,7 +121,7 @@ defineProps<{
 	}
 }
 
-@media (max-width: 767px) {
+@media (width < 768px) {
 	.latest-article-list-item {
 		flex-direction: column;
 		align-items: flex-start;

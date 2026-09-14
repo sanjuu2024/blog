@@ -144,7 +144,7 @@ useEventListener(document, 'keydown', (event: KeyboardEvent) => {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+	box-shadow: 0 2px 4px rgb(0 0 0 / 20%);
 	transition: background-color 0.1s ease;
 
 	&:hover {
@@ -165,7 +165,7 @@ useEventListener(document, 'keydown', (event: KeyboardEvent) => {
 	overflow: auto;
 	padding: 1rem;
 	background-color: var(--app-surface);
-	box-shadow: 2px 2px 2px rgba(0, 0, 0, 0.1);
+	box-shadow: 2px 2px 2px rgb(0 0 0 / 10%);
 	transition:
 		transform 0.2s ease,
 		background-color 0.1s ease;
@@ -174,12 +174,15 @@ useEventListener(document, 'keydown', (event: KeyboardEvent) => {
 	&::-webkit-scrollbar {
 		width: 10px;
 	}
+
 	&::-webkit-scrollbar-thumb {
 		border-radius: 999px;
 	}
+
 	&::-webkit-scrollbar-thumb:hover {
-		background: rgb(228, 228, 228);
+		background: rgb(228 228 228);
 	}
+
 	&::-webkit-scrollbar-track {
 		background: transparent;
 	}

@@ -70,5 +70,3 @@ function getVisibleChildren(route: RouteRecordRaw) {
 	return route.children?.filter((child) => !child.meta?.hidden) ?? [];
 }
 </script>
-
-<style></style>

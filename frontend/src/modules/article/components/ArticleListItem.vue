@@ -124,7 +124,7 @@
 		<div class="article-list-item-pin ml-4">
 			<i-solar-pin-bold
 				v-if="article.isTop"
-				style="color: var(--app-main)"
+				class="text-(--app-main)"
 			/>
 			<!-- <i-solar-pin-outline v-else /> -->
 		</div>

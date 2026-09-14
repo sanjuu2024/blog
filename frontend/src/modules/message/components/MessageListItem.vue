@@ -150,7 +150,8 @@ function statusTagType(status: MessageStatus) {
 
 <style scoped lang="scss">
 .message-item {
-	padding: 0 0 2rem 0;
+	padding-bottom: 2rem;
+
 	// border-bottom: 1px solid var(--app-border);
 }
 
@@ -209,8 +210,13 @@ function statusTagType(status: MessageStatus) {
 	max-height: 10rem;
 	overflow: hidden;
 	margin: 0.8rem 0 0;
+
+	// 保留用户输入的换行、保留必要空白，正常文本在行尾换行
 	white-space: pre-wrap;
-	word-break: break-word;
+
+	// 防止超长英文单词、URL 或连续字符撑破容器
+	// 优先正常断词；如果一个连续字符串仍然放不下，允许在任意位置断开。适合留言、评论、URL 等用户输入。
+	overflow-wrap: anywhere;
 }
 
 .message-item__content--expanded {
@@ -218,10 +224,10 @@ function statusTagType(status: MessageStatus) {
 }
 
 .message-item__content-toggle {
+	// color: var(--app-main);
 	padding: 0;
 	border: 0;
 	background: transparent;
-	// color: var(--app-main);
 	cursor: pointer;
 	font-size: 1rem;
 	font-weight: bold;

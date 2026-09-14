@@ -507,7 +507,7 @@ function getRowClassName({ row }: { row: AdminMessageItem }) {
 
 .admin-message__filters {
 	display: grid;
-	grid-template-columns: repeat(4, minmax(0rem, 1fr));
+	grid-template-columns: repeat(4, minmax(0, 1fr));
 	gap: 0 0.5rem;
 
 	:deep(.el-input),
@@ -528,7 +528,7 @@ function getRowClassName({ row }: { row: AdminMessageItem }) {
 	}
 
 	@media (width < 768px) {
-		grid-template-columns: repeat(2, minmax(0rem, 1fr));
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 
 		.admin-message__filter-actions {
 			grid-column: 1 / -1;
@@ -540,7 +540,7 @@ function getRowClassName({ row }: { row: AdminMessageItem }) {
 	}
 
 	@media (width < 376px) {
-		grid-template-columns: repeat(1, minmax(0rem, 1fr));
+		grid-template-columns: repeat(1, minmax(0, 1fr));
 	}
 }
 

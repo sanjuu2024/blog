@@ -19,5 +19,3 @@ defineOptions({
 	name: 'AdminArticleListHeader',
 });
 </script>
-
-<style></style>

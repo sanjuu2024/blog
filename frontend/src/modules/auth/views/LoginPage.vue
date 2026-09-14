@@ -159,6 +159,7 @@ async function handlerLogin() {
 <style lang="scss" scoped>
 .auth-card {
 	--el-font-size-base: 1rem;
+
 	:deep(.el-form-item__error) {
 		margin-top: 4px;
 		margin-left: 2px;

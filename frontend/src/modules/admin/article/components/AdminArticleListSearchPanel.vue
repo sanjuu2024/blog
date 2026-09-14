@@ -98,5 +98,3 @@ defineOptions({
 	name: 'AdminArticleListSearchPanel',
 });
 </script>
-
-<style></style>

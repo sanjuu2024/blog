@@ -18,7 +18,7 @@
 						<div class="admin-article-is-top">
 							<i-solar-pin-bold
 								v-if="row.isTop"
-								style="color: var(--app-main)"
+								class="text-(--app-main)"
 							/>
 							<i-solar-pin-outline v-else />
 						</div>
@@ -283,6 +283,7 @@ onActivated(() => {
 // 自定义表格样式，覆盖 Element Plus 默认的行 hover
 .admin-article-table {
 	--el-table-row-hover-bg-color: var(--app-table-row-hover-bg-color);
+
 	height: 100%;
 }
 

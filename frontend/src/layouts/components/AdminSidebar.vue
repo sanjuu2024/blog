@@ -100,6 +100,7 @@ const isCollapse = computed({
 	padding-inline: 0.5rem;
 	padding-block: 1rem;
 	transition: padding 0.2s ease;
+
 	// 使用 flex 布局，限制高度
 	display: flex;
 	flex-direction: column;
@@ -118,16 +119,20 @@ const isCollapse = computed({
 	// 接管剩余高度（固定），可使用滚动条
 	flex: 1;
 	overflow: auto;
+
 	&::-webkit-scrollbar {
 		width: 8px;
 	}
+
 	&::-webkit-scrollbar-thumb {
 		border-radius: 999px;
 	}
+
 	&::-webkit-scrollbar-thumb:hover {
 		// background: #DEF2E5;
 		background: lightgray;
 	}
+
 	&::-webkit-scrollbar-track {
 		background: transparent;
 	}
@@ -137,6 +142,7 @@ const isCollapse = computed({
 	border-right: none;
 	font-weight: 520;
 	width: 100%;
+
 	--el-menu-item-font-size: 1rem;
 
 	:deep(.el-menu-item) {

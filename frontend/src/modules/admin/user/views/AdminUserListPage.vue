@@ -360,6 +360,7 @@ watch(userList, async () => {
 // 自定义表格样式，覆盖 Element Plus 默认的行 hover
 .admin-user-table {
 	--el-table-row-hover-bg-color: var(--app-table-row-hover-bg-color);
+
 	height: 100%;
 }
 
