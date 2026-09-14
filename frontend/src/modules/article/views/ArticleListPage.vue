@@ -254,7 +254,7 @@ onMounted(() => {
 	}
 }
 
-@media (max-width: 767px) {
+@media (width < 768px) {
 	.article-search-form {
 		gap: 0.5rem;
 	}

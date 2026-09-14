@@ -7,5 +7,3 @@ defineOptions({
 	name: 'AdminDashboardPage',
 });
 </script>
-
-<style></style>

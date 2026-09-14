@@ -444,7 +444,7 @@ async function clickUpsertArticle() {
 	color: var(--app-button-text);
 }
 
-@media (max-width: 640px) {
+@media (width < 640px) {
 	.article-cover-control {
 		grid-template-columns: minmax(0, 1fr);
 

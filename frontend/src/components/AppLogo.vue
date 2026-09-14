@@ -104,6 +104,7 @@ const ariaLabel = computed(() => (props.showText ? appTitle : props.alt));
 	height: var(--app-logo-size);
 	aspect-ratio: var(--app-logo-text-aspect-ratio);
 	background-color: var(--app-logo-text-color);
+
 	// 用 SVG 做 mask 时，SVG 负责形状，background-color 负责颜色。
 	mask: var(--app-logo-text-url) center / contain no-repeat;
 	-webkit-mask: var(--app-logo-text-url) center / contain no-repeat;

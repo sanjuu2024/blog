@@ -17,5 +17,3 @@ defineOptions({
 	name: 'AuthLayout',
 });
 </script>
-
-<style></style>

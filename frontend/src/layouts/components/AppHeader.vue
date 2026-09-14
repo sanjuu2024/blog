@@ -139,6 +139,7 @@ function handleNavigation(path: string) {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+
 	// 当容器达到最大宽度后，让 app-header 在大屏居中
 	width: min(100% - var(--app-page-padding-x) * 2, var(--app-container-width));
 	height: 100%;

@@ -522,11 +522,13 @@ function getCommentRowClassName({ row }: { row: AdminCommentItem }) {
 // 自定义表格样式，覆盖 Element Plus 默认的行 hover
 .admin-comment-table {
 	--el-table-row-hover-bg-color: var(--app-table-row-hover-bg-color);
+
 	height: 100%;
 }
 
 .admin-comment-table :deep(.comment-row-muted) {
 	--el-table-text-color: var(--app-text-muted);
+
 	color: var(--app-text-muted);
 }
 

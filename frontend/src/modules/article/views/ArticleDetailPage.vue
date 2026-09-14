@@ -58,5 +58,3 @@ function changeCommentCount(delta: number) {
 	article.value.commentCount = Math.max(0, article.value.commentCount + delta);
 }
 </script>
-
-<style></style>

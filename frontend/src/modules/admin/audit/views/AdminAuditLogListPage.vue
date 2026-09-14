@@ -473,6 +473,7 @@ function getRequestMethodClass(method: string) {
 	--el-tag-bg-color: color-mix(in srgb, var(--audit-method-color) 12%, transparent);
 	--el-tag-border-color: color-mix(in srgb, var(--audit-method-color) 55%, transparent);
 	--el-tag-text-color: var(--audit-method-color);
+
 	font-weight: bold;
 }
 

@@ -62,5 +62,3 @@ useIntersectionObserver(
 	},
 );
 </script>
-
-<style></style>

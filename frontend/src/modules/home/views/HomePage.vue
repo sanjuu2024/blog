@@ -277,6 +277,7 @@ const getColor = (str: string) => {
 	width: 100%;
 	overflow: hidden;
 	border: 1px solid var(--app-border);
+
 	// border-radius: 0.7rem;
 
 	.home-header__bg {
@@ -306,7 +307,7 @@ const getColor = (str: string) => {
 			font-size: 1.2rem;
 			font-weight: 580;
 			text-align: center;
-			text-shadow: 2px 2px 3px rgba(0, 0, 0, 0.7);
+			text-shadow: 2px 2px 3px rgb(0 0 0 / 70%);
 		}
 	}
 }
@@ -369,7 +370,7 @@ const getColor = (str: string) => {
 	gap: 1rem;
 }
 
-@media (max-width: 767px) {
+@media (width < 768px) {
 	.top-article-list {
 		grid-template-columns: 1fr;
 	}
@@ -379,7 +380,7 @@ const getColor = (str: string) => {
 	}
 }
 
-@media (max-width: 480px) {
+@media (width < 480px) {
 	.category-list {
 		grid-template-columns: 1fr;
 	}

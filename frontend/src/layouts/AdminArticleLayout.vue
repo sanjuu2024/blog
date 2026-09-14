@@ -11,5 +11,3 @@ defineOptions({
 	name: 'AdminArticleLayout',
 });
 </script>
-
-<style></style>

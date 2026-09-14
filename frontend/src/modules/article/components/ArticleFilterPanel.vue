@@ -246,13 +246,13 @@ function removeSelectedTag(tagId: number) {
 	background-color: color-mix(in srgb, var(--app-main) 10%, var(--app-surface));
 }
 
-@media (max-width: 900px) {
+@media (width < 768px) {
 	.article-filter-panel__controls {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 }
 
-@media (max-width: 600px) {
+@media (width < 600px) {
 	.article-filter-panel__controls {
 		grid-template-columns: minmax(0, 1fr);
 	}
