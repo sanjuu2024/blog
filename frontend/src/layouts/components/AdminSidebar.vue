@@ -175,14 +175,14 @@ const isCollapse = computed({
 	background: var(--el-fill-color-light);
 }
 
-.admin-sidebar__collapse-button:focus:not(:hover) {
-	background: transparent;
-	box-shadow: none;
-}
-
 .admin-sidebar__collapse-button:focus-visible {
 	outline: 2px solid var(--el-color-primary-light-5);
 	outline-offset: 2px;
+}
+
+.admin-sidebar__collapse-button:focus:not(:hover) {
+	background: transparent;
+	box-shadow: none;
 }
 
 .admin-sidebar.is-collapsed {

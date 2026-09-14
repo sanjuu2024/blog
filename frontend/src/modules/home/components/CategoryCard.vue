@@ -66,6 +66,11 @@ defineProps<{
 		color 0.1s ease-in-out,
 		transform 0.1s ease-in-out;
 
+	.title {
+		font-size: 1.5rem;
+		font-weight: bold;
+	}
+
 	&:hover,
 	&:focus-within {
 		border: 2px solid var(--app-main);
@@ -80,11 +85,6 @@ defineProps<{
 		font-size: 0.9rem;
 		font-weight: 800;
 		color: var(--app-main);
-	}
-
-	.title {
-		font-size: 1.5rem;
-		font-weight: bold;
 	}
 
 	.desc {

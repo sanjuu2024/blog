@@ -52,8 +52,8 @@ export default {
 			},
 		],
 
-		// 先不把选择器顺序问题作为阻塞项，避免一次性改动大量历史样式。
-		'no-descending-specificity': null,
+		// 禁止低优先级选择器出现在高优先级选择器之后。
+		'no-descending-specificity': true,
 
 		// 允许使用 -webkit-mask 等浏览器前缀属性，保留兼容性写法。
 		'property-no-vendor-prefix': [
