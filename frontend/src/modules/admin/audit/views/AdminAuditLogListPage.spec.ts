@@ -18,23 +18,6 @@ vi.mock('@/utils/datetime', () => ({
 	formatDateTime: vi.fn((date: string | null) => date || '-'),
 }));
 
-const copy = vi.hoisted(() => vi.fn());
-const showSuccess = vi.hoisted(() => vi.fn());
-const showError = vi.hoisted(() => vi.fn());
-
-vi.mock('@vueuse/core', async (importOriginal) => ({
-	...(await importOriginal<typeof import('@vueuse/core')>()),
-	useClipboard: () => ({ copy }),
-}));
-
-vi.mock('element-plus', async (importOriginal) => ({
-	...(await importOriginal<typeof import('element-plus')>()),
-	ElMessage: {
-		success: showSuccess,
-		error: showError,
-	},
-}));
-
 function log(overrides: Partial<AdminAuditLogItem> = {}): AdminAuditLogItem {
 	return {
 		id: 1,
@@ -76,7 +59,6 @@ const ElTableColumnStub = defineComponent({
 describe('AdminAuditLogListPage', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		copy.mockResolvedValue(undefined);
 		vi.mocked(useAdminAuditLogList).mockReturnValue({
 			auditLogList: ref([
 				log({ id: 1, requestMethod: 'PUT' }),
@@ -99,7 +81,7 @@ describe('AdminAuditLogListPage', () => {
 		});
 	});
 
-	it('renders audit fields and copies the resource identifier', async () => {
+	it('renders audit fields and exposes the full resource identifier on hover', () => {
 		const wrapper = mount(AdminAuditLogListPage, {
 			global: {
 				stubs: {
@@ -114,6 +96,11 @@ describe('AdminAuditLogListPage', () => {
 					ElTable: ElTableStub,
 					ElTableColumn: ElTableColumnStub,
 					ElTag: { template: '<span><slot /></span>' },
+					ElTooltip: {
+						props: ['content'],
+						template:
+							'<span class="tooltip-stub" :data-content="content"><slot /></span>',
+					},
 					ElPagination: true,
 					ILetsIconsSearchAlt: true,
 					ILetsIconsRefresh: true,
@@ -130,17 +117,30 @@ describe('AdminAuditLogListPage', () => {
 		expect(wrapper.find('.admin-audit-log__method--patch').text()).toBe('PATCH');
 		expect(wrapper.find('.admin-audit-log__method--delete').text()).toBe('DELETE');
 		const resourceId = wrapper.find('.admin-audit-log__resource-id');
-		expect(resourceId.attributes('title')).toBe('点击复制：60001');
-		await resourceId.trigger('click');
-		expect(copy).toHaveBeenCalledWith('60001');
-		expect(showSuccess).toHaveBeenCalledWith('目标资源标识已复制');
+		expect(resourceId.text()).toBe('60001');
+		expect(resourceId.element.parentElement?.dataset.content).toBe('60001');
 		expect(wrapper.find('.admin-audit-log__ellipsis').attributes('title')).toBe(
 			'/api/v1/admin/comments/60001/moderation',
 		);
 	});
 
-	it('shows an error when copying the resource identifier fails', async () => {
-		copy.mockRejectedValueOnce(new Error('clipboard unavailable'));
+	it('renders a placeholder when the resource identifier is absent', () => {
+		vi.mocked(useAdminAuditLogList).mockReturnValue({
+			auditLogList: ref([log({ resourceId: null })]),
+			loading: ref(false),
+			pageMeta: reactive({ total: 1, totalPages: 1, hasNext: false }),
+			pageParams: reactive({ pageNum: 1, pageSize: 10 }),
+			filterForm: reactive({
+				operatorId: undefined,
+				resourceType: '',
+				resourceId: '',
+				action: '',
+				result: '',
+				createdAtRange: [],
+			}),
+			getAuditLogList: vi.fn(),
+			resetFilterForm: vi.fn(),
+		});
 		const wrapper = mount(AdminAuditLogListPage, {
 			global: {
 				stubs: {
@@ -155,6 +155,11 @@ describe('AdminAuditLogListPage', () => {
 					ElTable: ElTableStub,
 					ElTableColumn: ElTableColumnStub,
 					ElTag: { template: '<span><slot /></span>' },
+					ElTooltip: {
+						props: ['content'],
+						template:
+							'<span class="tooltip-stub" :data-content="content"><slot /></span>',
+					},
 					ElPagination: true,
 					ILetsIconsSearchAlt: true,
 					ILetsIconsRefresh: true,
@@ -162,8 +167,7 @@ describe('AdminAuditLogListPage', () => {
 			},
 		});
 
-		await wrapper.find('.admin-audit-log__resource-id').trigger('click');
-		await Promise.resolve();
-		expect(showError).toHaveBeenCalledWith('复制失败，请手动复制');
+		expect(wrapper.text()).toContain('未生成资源 ID');
+		expect(wrapper.find('.admin-audit-log__resource-id').exists()).toBe(false);
 	});
 });
