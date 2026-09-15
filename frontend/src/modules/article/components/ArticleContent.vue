@@ -2,6 +2,7 @@
 	<div
 		class="article-content-wrapper"
 		:class="{ 'article-content-wrapper-squeeze-to-the-right': expanded }"
+		@click="closeCatalog"
 	>
 		<div
 			v-if="isLoading"
@@ -119,14 +120,16 @@
 			></div>
 
 			<!-- 文章作者 & 发布时间 -->
-			<div
-				class="article-author-and-published-at mt-12 mb-4 flex items-center justify-center"
-			>
-				<i-solar-user-outline class="mr-2" />
-				<span>{{ article.author.nickname }}</span>
+			<div class="article-author-and-published-at">
+				<div class="flex items-center">
+					<i-solar-user-outline class="mr-2" />
+					<span>{{ article.author.nickname }}</span>
+				</div>
 				<span class="mx-4">·</span>
-				<i-solar-calendar-outline class="mr-2" />
-				<span>{{ formatDateTime(article.publishedAt) }}</span>
+				<div class="flex items-center">
+					<i-solar-calendar-outline class="mr-2" />
+					<span>{{ formatDateTime(article.publishedAt) }}</span>
+				</div>
 			</div>
 
 			<!-- 文章发布时间 -->
@@ -187,6 +190,13 @@ watch(
 	},
 	{ immediate: true },
 );
+
+// 点击文章详情区域时，关闭目录侧栏（侧栏展开状态下）
+function closeCatalog() {
+	if (expanded.value) {
+		expanded.value = false;
+	}
+}
 </script>
 
 <style scoped lang="scss">
@@ -243,6 +253,32 @@ watch(
 	p::after {
 		content: '”';
 		font-size: 1.5rem;
+	}
+}
+
+.markdown-body {
+	// 默认会有 45 px 的内边距，移动端布局下内容区域过窄
+	padding-inline: 0.5rem;
+}
+
+.article-author-and-published-at {
+	margin-top: 3rem;
+	margin-bottom: 1rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+@media (width < 376px) {
+	.article-title {
+		h1 {
+			font-size: 1.75rem;
+		}
+	}
+
+	.article-author-and-published-at {
+		flex-direction: column;
+		gap: 0.5rem;
 	}
 }
 </style>

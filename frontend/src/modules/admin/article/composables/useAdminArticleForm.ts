@@ -178,6 +178,7 @@ export function useAdminArticleForm() {
 
 	return {
 		submitting,
+		initUpsertRequest,
 		upsertRequest,
 		rules,
 		handleCreateArticle,

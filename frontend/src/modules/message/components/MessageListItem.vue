@@ -1,5 +1,6 @@
 <template>
-	<article
+	<div
+		ref="itemRef"
 		class="message-item"
 		:class="{ 'message-item--muted': isMuted }"
 	>
@@ -24,16 +25,6 @@
 				</el-tag>
 			</div>
 			<div class="message-item__header-actions">
-				<button
-					v-if="contentOverflows"
-					class="message-item__content-toggle"
-					type="button"
-					:aria-controls="`message-content-${item.id}`"
-					:aria-expanded="contentExpanded"
-					@click="toggleContent"
-				>
-					{{ contentExpanded ? '收起' : '展开' }}
-				</button>
 				<time>{{ formatDateTime(item.createdAt) }}</time>
 			</div>
 		</div>
@@ -51,6 +42,8 @@
 		>
 			处理原因：{{ item.moderationReason }}
 		</p>
+
+		<!-- 回复 -->
 		<div
 			v-if="item.replies.length"
 			class="message-item__replies"
@@ -75,16 +68,42 @@
 				</div>
 			</div>
 		</div>
-		<button
-			v-if="item.isMine && item.status !== MESSAGE_STATUS.DELETED"
-			class="message-item__delete"
-			type="button"
-			@click="emit('delete', item)"
+
+		<!-- 删除按钮（自己的留言）以及折叠、展开按钮 -->
+		<div
+			class="message-reply__bottom-toolbar"
+			:class="{ 'message-reply__bottom-toolbar--sticky': contentExpanded }"
 		>
-			<i-lucide-trash-2 />
-			<span>删除</span>
-		</button>
-	</article>
+			<button
+				v-if="item.isMine && item.status !== MESSAGE_STATUS.DELETED"
+				class="message-item__delete"
+				type="button"
+				@click="emit('delete', item)"
+			>
+				<i-lucide-trash-2 />
+				<span>删除</span>
+			</button>
+
+			<button
+				v-if="contentOverflows"
+				class="message-item__content-toggle"
+				type="button"
+				:aria-controls="`message-content-${item.id}`"
+				:aria-expanded="contentExpanded"
+				@click="toggleContent"
+			>
+				<div
+					class="message-item__content-toggle-icon transition-transform duration-100 ease-in-out"
+					:class="{
+						'-rotate-180': contentExpanded,
+					}"
+				>
+					<i-lucide-chevron-down />
+				</div>
+				{{ contentExpanded ? '收起' : '展开' }}
+			</button>
+		</div>
+	</div>
 </template>
 
 <script setup lang="ts">
@@ -106,6 +125,7 @@ const emit = defineEmits<{
 	delete: [item: PublicMessageItem];
 }>();
 
+const itemRef = ref<HTMLElement | null>(null); // 整个留言项实例，用于折叠、展开指定留言时定位
 const contentRef = ref<HTMLElement | null>(null);
 const contentExpanded = ref(false);
 const contentOverflows = ref(false);
@@ -124,11 +144,17 @@ useResizeObserver(contentRef, () => {
 
 async function toggleContent() {
 	contentExpanded.value = !contentExpanded.value;
-	if (contentExpanded.value) return;
+
 	await nextTick();
-	if (contentRef.value) {
+
+	if (!contentExpanded.value && contentRef.value) {
 		contentOverflows.value = contentRef.value.scrollHeight > contentRef.value.clientHeight;
 	}
+
+	itemRef.value?.scrollIntoView({
+		behavior: 'smooth',
+		block: 'start',
+	});
 }
 
 function statusLabel(status: MessageStatus) {
@@ -223,21 +249,6 @@ function statusTagType(status: MessageStatus) {
 	max-height: none;
 }
 
-.message-item__content-toggle {
-	// color: var(--app-main);
-	padding: 0;
-	border: 0;
-	background: transparent;
-	cursor: pointer;
-	font-size: 1rem;
-	font-weight: bold;
-}
-
-.message-item__content-toggle:hover,
-.message-item__content-toggle:focus-visible {
-	color: var(--app-button-hover);
-}
-
 .message-item__reason {
 	margin-top: 0.5rem;
 	color: var(--el-color-danger);
@@ -266,20 +277,46 @@ function statusTagType(status: MessageStatus) {
 	gap: 0.5rem;
 }
 
-.message-item__delete {
-	display: inline-flex;
+.message-reply__bottom-toolbar {
+	background-color: var(--app-bg);
+	display: flex;
 	align-items: center;
-	gap: 0.3rem;
-	margin-top: 0.5rem;
-	border: 0;
-	background: transparent;
-	color: var(--app-text-muted);
-	cursor: pointer;
+	margin-top: 0.8rem;
+	padding: 0.5rem;
 	font-size: 0.9rem;
+	color: var(--app-text-muted);
+
+	.message-item__delete {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		cursor: pointer;
+		font-size: 0.9rem;
+
+		&:hover {
+			color: var(--el-color-danger);
+		}
+	}
+
+	.message-item__content-toggle {
+		margin-left: auto;
+		display: flex;
+		align-items: center;
+		gap: 0.3rem;
+		background: transparent;
+		cursor: pointer;
+
+		&:hover,
+		&:focus-visible {
+			color: var(--app-main);
+		}
+	}
 }
 
-.message-item__delete:hover {
-	color: var(--el-color-danger);
+.message-reply__bottom-toolbar--sticky {
+	position: sticky;
+	bottom: 0;
+	z-index: 1;
 }
 
 @media (width < 376px) {

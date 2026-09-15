@@ -59,6 +59,7 @@
 				v-for="comment in commentList"
 				:key="comment.id"
 				class="comment-item"
+				data-comment-entry
 			>
 				<div class="comment-main">
 					<AppUserAvatar
@@ -87,65 +88,54 @@
 							}}</span>
 						</div>
 
-						<p class="comment-content">{{ comment.content }}</p>
-
-						<p
-							v-if="
-								comment.status === COMMENT_STATUS.REJECTED &&
-								comment.moderationReason
-							"
-							class="comment-reason"
+						<PublicCommentContent
+							:comment-id="comment.id"
+							:content="comment.content"
+							:show-actions="canReply(comment) || comment.isMine"
 						>
-							拒绝原因：{{ comment.moderationReason }}
-						</p>
-
-						<div class="comment-actions">
-							<el-button
-								v-if="canReply(comment)"
-								link
-								type="primary"
-								@click="openReplyEditor(comment, comment.author)"
-							>
-								回复
-							</el-button>
-
-							<el-button
-								v-if="comment.isMine"
-								link
-								type="danger"
-								@click="clickDeleteTopLevelComment(comment)"
-							>
-								删除
-							</el-button>
-						</div>
-
-						<div
-							v-if="isReplyEditorVisible(comment.id, comment.id)"
-							class="reply-editor"
-						>
-							<p class="reply-editor-title">
-								回复 {{ replyTargetMap[comment.id]?.nickname }}
-							</p>
-							<el-input
-								v-model.trim="replyContentMap[comment.id]"
-								type="textarea"
-								:rows="3"
-								maxlength="1000"
-								show-word-limit
-								placeholder="写下你的回复吧"
-							/>
-							<div class="mt-2 flex justify-end">
-								<el-button @click="closeReplyEditor(comment.id)">取消</el-button>
-								<el-button
-									type="primary"
-									:loading="submitting"
-									@click="submitCommentReply(comment)"
+							<template #reason>
+								<p
+									v-if="
+										comment.status === COMMENT_STATUS.REJECTED &&
+										comment.moderationReason
+									"
+									class="comment-reason"
 								>
-									发表回复
+									拒绝原因：{{ comment.moderationReason }}
+								</p>
+							</template>
+							<template #actions>
+								<el-button
+									v-if="canReply(comment)"
+									link
+									type="primary"
+									@click="openReplyEditor(comment, comment.author)"
+								>
+									回复
 								</el-button>
-							</div>
-						</div>
 
+								<el-button
+									v-if="comment.isMine"
+									link
+									type="danger"
+									@click="clickDeleteTopLevelComment(comment)"
+								>
+									删除
+								</el-button>
+							</template>
+						</PublicCommentContent>
+
+						<!-- 回复编辑器 -->
+						<PublicCommentReplyEditor
+							v-if="isReplyEditorVisible(comment.id, comment.id)"
+							v-model="replyContentMap[comment.id]"
+							:target-name="replyTargetMap[comment.id]?.nickname || ''"
+							:loading="submitting"
+							@cancel="closeReplyEditor(comment.id)"
+							@submit="submitCommentReply(comment)"
+						/>
+
+						<!-- 回复展开 / 折叠 -->
 						<div
 							v-if="comment.hasVisibleReplies"
 							class="reply-toggle"
@@ -155,6 +145,10 @@
 								type="primary"
 								@click="clickToggleReplies(comment)"
 							>
+								<i-lucide-chevron-down
+									class="mr-1 transition-transform duration-100 ease-in-out"
+									:class="{ '-rotate-180': getReplyState(comment.id).expanded }"
+								/>
 								{{
 									getReplyState(comment.id).expanded
 										? '收起回复'
@@ -165,6 +159,7 @@
 							</el-button>
 						</div>
 
+						<!-- 评论的回复列表 -->
 						<div
 							v-if="getReplyState(comment.id).expanded"
 							class="reply-list"
@@ -173,6 +168,7 @@
 								v-for="reply in getReplyState(comment.id).records"
 								:key="reply.id"
 								class="reply-item"
+								data-comment-entry
 							>
 								<AppUserAvatar
 									:avatar-url="reply.author.avatarUrl"
@@ -209,68 +205,53 @@
 										}}</span>
 									</div>
 
-									<p class="comment-content">{{ reply.content }}</p>
-
-									<p
-										v-if="
-											reply.status === COMMENT_STATUS.REJECTED &&
-											reply.moderationReason
-										"
-										class="comment-reason"
+									<PublicCommentContent
+										:comment-id="reply.id"
+										:content="reply.content"
+										:show-actions="canReply(reply) || reply.isMine"
 									>
-										拒绝原因：{{ reply.moderationReason }}
-									</p>
-
-									<div class="comment-actions">
-										<el-button
-											v-if="canReply(reply)"
-											link
-											type="primary"
-											@click="
-												openReplyEditor(comment, reply.author, reply.id)
-											"
-										>
-											回复
-										</el-button>
-
-										<el-button
-											v-if="reply.isMine"
-											link
-											type="danger"
-											@click="clickDeleteReply(comment, reply)"
-										>
-											删除
-										</el-button>
-									</div>
-
-									<div
-										v-if="isReplyEditorVisible(comment.id, reply.id)"
-										class="reply-editor"
-									>
-										<p class="reply-editor-title">
-											回复 {{ replyTargetMap[comment.id]?.nickname }}
-										</p>
-										<el-input
-											v-model.trim="replyContentMap[comment.id]"
-											type="textarea"
-											:rows="3"
-											maxlength="1000"
-											show-word-limit
-											placeholder="写下你的回复吧"
-										/>
-										<div class="mt-2 flex justify-end">
-											<el-button @click="closeReplyEditor(comment.id)">
-												取消
-											</el-button>
-											<el-button
-												type="primary"
-												:loading="submitting"
-												@click="submitCommentReply(comment)"
+										<template #reason>
+											<p
+												v-if="
+													reply.status === COMMENT_STATUS.REJECTED &&
+													reply.moderationReason
+												"
+												class="comment-reason"
 											>
-												发表回复
+												拒绝原因：{{ reply.moderationReason }}
+											</p>
+										</template>
+										<template #actions>
+											<el-button
+												v-if="canReply(reply)"
+												link
+												type="primary"
+												@click="
+													openReplyEditor(comment, reply.author, reply.id)
+												"
+											>
+												回复
 											</el-button>
-										</div>
-									</div>
+
+											<el-button
+												v-if="reply.isMine"
+												link
+												type="danger"
+												@click="clickDeleteReply(comment, reply)"
+											>
+												删除
+											</el-button>
+										</template>
+									</PublicCommentContent>
+
+									<PublicCommentReplyEditor
+										v-if="isReplyEditorVisible(comment.id, reply.id)"
+										v-model="replyContentMap[comment.id]"
+										:target-name="replyTargetMap[comment.id]?.nickname || ''"
+										:loading="submitting"
+										@cancel="closeReplyEditor(comment.id)"
+										@submit="submitCommentReply(comment)"
+									/>
 								</div>
 							</div>
 
@@ -320,6 +301,8 @@ import AppLoadMoreTrigger from '@/components/AppLoadMoreTrigger.vue';
 import AppUserAvatar from '@/components/AppUserAvatar.vue';
 import { useAuthStore } from '@/stores/authStore';
 import type { PublicArticleDetailData } from '@/modules/article/types/article';
+import PublicCommentContent from './PublicCommentContent.vue';
+import PublicCommentReplyEditor from './PublicCommentReplyEditor.vue';
 import { usePublicCommentList } from '../composables/usePublicCommentList';
 import {
 	COMMENT_STATUS,
@@ -616,6 +599,7 @@ function getCommentStatusTagType(status: CommentStatus) {
 .comment-item {
 	padding-block: 1.25rem;
 	border-top: 1px solid var(--app-border);
+	scroll-margin-top: calc(var(--app-header-height) + 1rem);
 }
 
 .comment-main,
@@ -641,33 +625,9 @@ function getCommentStatusTagType(status: CommentStatus) {
 	font-size: 0.85rem;
 }
 
-.comment-content {
-	margin-top: 0.4rem;
-	white-space: pre-wrap;
-	line-height: 1.7;
-}
-
 .comment-reason {
 	margin-top: 0.35rem;
 	color: var(--el-color-danger);
-	font-size: 0.9rem;
-}
-
-.comment-actions {
-	display: flex;
-	align-items: center;
-	margin-top: 0.35rem;
-}
-
-.reply-editor {
-	margin-top: 0.75rem;
-	padding: 0.75rem;
-	border-radius: 0.75rem;
-}
-
-.reply-editor-title {
-	margin-bottom: 0.5rem;
-	color: var(--app-text-muted);
 	font-size: 0.9rem;
 }
 
@@ -679,6 +639,10 @@ function getCommentStatusTagType(status: CommentStatus) {
 	margin-top: 0.75rem;
 	padding: 0.75rem;
 	border-radius: 0.75rem;
+}
+
+.reply-item {
+	scroll-margin-top: calc(var(--app-header-height) + 1rem);
 }
 
 .reply-item + .reply-item {

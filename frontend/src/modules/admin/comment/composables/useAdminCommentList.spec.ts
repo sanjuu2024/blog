@@ -73,7 +73,7 @@ describe('useAdminCommentList', () => {
 
 		expect(listComments).toHaveBeenCalledWith({
 			pageNum: 2,
-			pageSize: 5,
+			pageSize: 7,
 			articleId: 40001,
 			userId: 10001,
 			status: COMMENT_STATUS.PENDING,

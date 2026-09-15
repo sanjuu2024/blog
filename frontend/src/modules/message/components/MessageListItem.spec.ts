@@ -12,7 +12,7 @@ vi.mock('@vueuse/core', () => ({
 	}),
 }));
 
-function message(): PublicMessageItem {
+function message(overrides: Partial<PublicMessageItem> = {}): PublicMessageItem {
 	return {
 		id: 90001,
 		nickname: '访客',
@@ -23,6 +23,7 @@ function message(): PublicMessageItem {
 		isMine: false,
 		replies: [],
 		createdAt: '2026-08-12T00:00:00Z',
+		...overrides,
 	};
 }
 
@@ -49,15 +50,18 @@ describe('MessageListItem', () => {
 
 	it('shows expand and collapse controls only when the content overflows', async () => {
 		const wrapper = mount(MessageListItem, {
-			props: { item: message() },
+			props: { item: message({ isMine: true }) },
 			global: {
 				stubs: {
 					AppUserAvatar: true,
 					ElTag: true,
 					ILucideTrash2: true,
+					ILucideChevronDown: true,
 				},
 			},
 		});
+		const item = wrapper.get<HTMLElement>('.message-item');
+		item.element.scrollIntoView = vi.fn();
 		const content = wrapper.get('.message-item__content');
 		Object.defineProperty(content.element, 'scrollHeight', { value: 320 });
 		Object.defineProperty(content.element, 'clientHeight', { value: 160 });
@@ -65,26 +69,25 @@ describe('MessageListItem', () => {
 		await nextTick();
 
 		const toggle = wrapper.get('.message-item__content-toggle');
+		const toolbar = wrapper.get('.message-reply__bottom-toolbar');
 		expect(toggle.text()).toBe('展开');
-		expect(toggle.element.parentElement?.classList).toContain('message-item__header-actions');
-		expect(toggle.element.nextElementSibling?.tagName).toBe('TIME');
+		expect(toolbar.find('.message-item__delete').exists()).toBe(true);
+		expect(toggle.element.parentElement).toBe(toolbar.element);
 		expect(content.classes()).not.toContain('message-item__content--expanded');
-		expect(wrapper.get('.message-item__header').classes()).not.toContain(
-			'message-item__header--sticky',
-		);
+		expect(toolbar.classes()).not.toContain('message-reply__bottom-toolbar--sticky');
 
 		await toggle.trigger('click');
 		expect(toggle.text()).toBe('收起');
 		expect(content.classes()).toContain('message-item__content--expanded');
-		expect(wrapper.get('.message-item__header').classes()).toContain(
-			'message-item__header--sticky',
-		);
+		expect(toolbar.classes()).toContain('message-reply__bottom-toolbar--sticky');
+		expect(item.element.scrollIntoView).toHaveBeenCalledWith({
+			behavior: 'smooth',
+			block: 'start',
+		});
 
 		await toggle.trigger('click');
 		expect(toggle.text()).toBe('展开');
 		expect(content.classes()).not.toContain('message-item__content--expanded');
-		expect(wrapper.get('.message-item__header').classes()).not.toContain(
-			'message-item__header--sticky',
-		);
+		expect(toolbar.classes()).not.toContain('message-reply__bottom-toolbar--sticky');
 	});
 });

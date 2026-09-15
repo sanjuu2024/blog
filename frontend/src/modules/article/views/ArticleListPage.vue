@@ -220,6 +220,7 @@ onMounted(() => {
 	--el-button-active-text-color: var(--app-button-text);
 
 	flex: 0 0 auto;
+	margin-left: 0;
 }
 
 .article-search-reset-button {
@@ -262,6 +263,10 @@ onMounted(() => {
 	.article-search-reset-button span,
 	.article-search-button span {
 		display: none;
+	}
+
+	.article-list {
+		padding-inline: 0;
 	}
 }
 </style>

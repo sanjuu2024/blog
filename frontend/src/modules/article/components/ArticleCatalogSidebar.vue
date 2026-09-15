@@ -25,7 +25,7 @@
 				class="article-catalog-sidebar__item"
 				:class="{ 'is-active': catalogItem.id === displayedActiveCatalogId }"
 				:data-catalog-id="catalogItem.id"
-				:style="{ paddingLeft: `${catalogItem.level - 1}rem` }"
+				:style="{ paddingLeft: `${catalogItem.level - 0.5}rem` }"
 				@click="selectCatalogItem(catalogItem.id)"
 			>
 				{{ catalogItem.text }}
@@ -151,6 +151,11 @@ useEventListener(document, 'keydown', (event: KeyboardEvent) => {
 		background-color: var(--app-button-hover);
 	}
 
+	&:focus-visible {
+		outline: 2px solid var(--app-main);
+		outline-offset: 2px;
+	}
+
 	z-index: 999;
 	cursor: pointer;
 }
@@ -216,5 +221,9 @@ useEventListener(document, 'keydown', (event: KeyboardEvent) => {
 .article-catalog-sidebar__item.is-active {
 	color: var(--el-color-primary);
 	font-weight: bold;
+}
+
+.article-catalog-sidebar__item.is-active {
+	border-left: 3px solid var(--app-main);
 }
 </style>

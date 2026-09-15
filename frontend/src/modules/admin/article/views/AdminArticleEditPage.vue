@@ -2,13 +2,14 @@
 	<div class="admin-article-edit">
 		<el-card class="admin-article-edit-card">
 			<template #header>
-				<router-link
-					to="/admin/articles"
-					class="admin-article-edit-header flex items-center"
+				<button
+					@click="router.push('/admin/articles')"
+					class="admin-article-edit-header"
+					:disabled="submitting"
 				>
 					<i-ep-back />
 					<span class="ml-2">返回文章列表页</span>
-				</router-link>
+				</button>
 			</template>
 			<!-- 文章元信息 -->
 			<el-form
@@ -230,20 +231,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import 'element-plus/es/components/message-box/style/css';
+import { ref, onMounted, toRaw } from 'vue';
 import { MdEditor, type UploadImgEvent } from 'md-editor-v3';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { useAdminCategoryList } from '../../category/composables/useAdminCategoryList';
 import { useAdminTagList } from '../../tag/composables/useAdminTagList';
 import { useAdminArticleDetail } from '../composables/useAdminArticleDetail';
-import { useAdminArticleForm } from '../composables/useAdminArticleForm';
+import {
+	useAdminArticleForm,
+	type ArticleUpsertRequestFilter,
+} from '../composables/useAdminArticleForm';
 import { useTheme } from '@/composables/useTheme';
 import { ARTICLE_STATUS, type CheckTagItem } from '../types/adminArticle';
-import { ElMessage, type FormInstance, type UploadProps } from 'element-plus';
+import { ElMessage, ElMessageBox, type FormInstance, type UploadProps } from 'element-plus';
 import AppTagCapsule from '@/components/AppTagCapsule.vue';
 import { useAdminImageUpload } from '@/modules/admin/file/composables/useAdminImageUpload';
 import { ADMIN_IMAGE_UPLOAD_SCENE } from '@/modules/admin/file/types/adminFile';
 import { IMAGE_ACCEPT } from '@/modules/file/utils/image';
+import { isEqual } from 'lodash';
 
 const route = useRoute();
 const router = useRouter();
@@ -254,8 +260,14 @@ const { tagList, getTagList } = useAdminTagList();
 
 const { articleDetail, handleGetArticleDetails } = useAdminArticleDetail();
 
-const { submitting, upsertRequest, rules, handleCreateArticle, handleUpdateArticle } =
-	useAdminArticleForm();
+const {
+	submitting,
+	initUpsertRequest,
+	upsertRequest,
+	rules,
+	handleCreateArticle,
+	handleUpdateArticle,
+} = useAdminArticleForm();
 
 const { resolvedTheme } = useTheme();
 
@@ -280,6 +292,9 @@ let articleId: number | null = null;
 
 // 当前模式
 let mode = ref<'create' | 'edit'>('create');
+
+// 原先内容
+let originalUpsertRequest: ArticleUpsertRequestFilter = { ...initUpsertRequest };
 
 onMounted(async () => {
 	await getCategoryList();
@@ -307,6 +322,7 @@ onMounted(async () => {
 		upsertRequest.isTop = articleDetail?.isTop || false;
 		upsertRequest.status = articleDetail?.status || ARTICLE_STATUS.DRAFT;
 		upsertRequest.allowComment = articleDetail?.allowComment || false;
+		originalUpsertRequest = structuredClone(toRaw(upsertRequest));
 	} else {
 		// 创建文章
 		mode.value = 'create';
@@ -318,6 +334,36 @@ onMounted(async () => {
 			checked: upsertRequest.tagIds?.includes(tag.id) || false,
 		});
 	});
+});
+
+// 离开当前页面时触发路由守卫
+onBeforeRouteLeave(async () => {
+	console.log(
+		'离开编辑页，upsertRequest:',
+		upsertRequest,
+		'originalUpsertRequest:',
+		originalUpsertRequest,
+	);
+	if (isEqual(upsertRequest, originalUpsertRequest)) {
+		return true; // 内容无修改，放行
+	}
+
+	try {
+		await ElMessageBox.confirm(
+			'确认退出文章编辑页面吗？目前修改内容尚未保存，退出后将丢失所有未保存的更改。',
+			'退出编辑',
+			{
+				confirmButtonText: '确定离开',
+				cancelButtonText: '取消',
+				type: 'warning',
+			},
+		);
+		// 用户点击了确定按钮
+		return true;
+	} catch {
+		// 用户点了取消或关闭
+		return false;
+	}
 });
 
 function showTagDialog() {
@@ -382,6 +428,7 @@ async function clickUpsertArticle() {
 	}
 
 	if (success) {
+		originalUpsertRequest = structuredClone(toRaw(upsertRequest));
 		router.push('/admin/articles');
 	}
 }
@@ -396,6 +443,16 @@ async function clickUpsertArticle() {
 
 .admin-article-edit-card {
 	background-color: var(--app-bg);
+}
+
+.admin-article-edit-header {
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+
+	&:hover {
+		color: var(--app-main);
+	}
 }
 
 .article-cover-control {
