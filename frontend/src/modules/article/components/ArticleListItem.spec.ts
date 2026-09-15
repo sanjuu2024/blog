@@ -1,7 +1,17 @@
 import { mount, RouterLinkStub } from '@vue/test-utils';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ArticleListItem from './ArticleListItem.vue';
 import type { PublicArticleListItem } from '../types/article';
+
+const mediaQueryState = vi.hoisted(() => ({ isMobile: false }));
+
+vi.mock('@vueuse/core', async (importOriginal) => {
+	const { computed } = await import('vue');
+	return {
+		...(await importOriginal<typeof import('@vueuse/core')>()),
+		useMediaQuery: vi.fn(() => computed(() => mediaQueryState.isMobile)),
+	};
+});
 
 function article(overrides: Partial<PublicArticleListItem> = {}): PublicArticleListItem {
 	return {
@@ -37,6 +47,10 @@ function mountItem(articleData: PublicArticleListItem) {
 }
 
 describe('ArticleListItem', () => {
+	beforeEach(() => {
+		mediaQueryState.isMobile = false;
+	});
+
 	it('renders the safe search highlight fields returned by the backend', () => {
 		const wrapper = mountItem(
 			article({
@@ -58,5 +72,12 @@ describe('ArticleListItem', () => {
 			'<img src=x onerror=alert(1)>',
 		);
 		expect(wrapper.find('.article-list-item-title img').exists()).toBe(false);
+	});
+
+	it('marks the cover image for the mobile layout', () => {
+		mediaQueryState.isMobile = true;
+		const wrapper = mountItem(article());
+
+		expect(wrapper.find('.article-list-item-image').exists()).toBe(true);
 	});
 });

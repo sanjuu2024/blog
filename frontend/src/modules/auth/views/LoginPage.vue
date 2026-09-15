@@ -7,6 +7,7 @@
 			label-position="top"
 			:model="loginForm"
 			:rules="rules"
+			@submit.prevent="handlerLogin"
 		>
 			<el-form-item
 				prop="account"
@@ -35,17 +36,17 @@
 					</template>
 				</el-input>
 			</el-form-item>
-		</el-form>
-
-		<div class="footer">
 			<el-button
 				type="primary"
-				@click="handlerLogin"
+				native-type="submit"
 				class="my-4 w-full"
 				:disabled="!validated"
 			>
 				登录
 			</el-button>
+		</el-form>
+
+		<div class="footer">
 			<div class="links flex justify-between">
 				<el-link
 					type="primary"
@@ -70,6 +71,7 @@ import { useRouter, useRoute } from 'vue-router';
 import type { LoginData, LoginRequest } from '../types/auth';
 import { login } from '../api/authApi';
 import type { FormItemRule } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import {
 	ACCOUNT_FORMAT_MESSAGE,
 	ACCOUNT_FORMAT_PATTERN,
@@ -142,6 +144,7 @@ watch(
 
 // 登录
 async function handlerLogin() {
+	if (!validated.value) return;
 	try {
 		const res: LoginData = await login(loginForm);
 		useAuthStore().setAccessToken(res.accessToken);
@@ -150,6 +153,7 @@ async function handlerLogin() {
 		const userStore = useUserStore();
 		userStore.setUserInfo(res.user);
 		router.replace(typeof redirect === 'string' && redirect.startsWith('/') ? redirect : '/'); // 如果是从其他需要登录的页面跳过来登录页的，登录后跳转回去。
+		ElMessage.success('登录成功');
 	} catch {
 		// 错误提示已经由 request 响应拦截器统一处理
 	}

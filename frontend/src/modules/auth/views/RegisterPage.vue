@@ -7,6 +7,7 @@
 			label-position="top"
 			:model="registerForm"
 			:rules="rules"
+			@submit.prevent="handlerRegister"
 		>
 			<el-form-item
 				prop="username"
@@ -49,17 +50,17 @@
 					</template>
 				</el-input>
 			</el-form-item>
-		</el-form>
-
-		<div class="footer">
 			<el-button
 				type="primary"
-				@click="handlerRegister"
+				native-type="submit"
 				class="my-6 w-full"
 				:disabled="!validated"
 			>
 				创建账号
 			</el-button>
+		</el-form>
+
+		<div class="footer">
 			<div class="links flex justify-between">
 				<el-link
 					type="primary"
@@ -86,6 +87,7 @@ import { useRouter } from 'vue-router';
 import type { RegisterRequest } from '../types/auth';
 import { register } from '../api/authApi';
 import type { FormItemRule } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import {
 	EMAIL_FORMAT_MESSAGE,
 	EMAIL_FORMAT_PATTERN,
@@ -174,9 +176,11 @@ watch(
 
 // 注册
 async function handlerRegister() {
+	if (!validated.value) return;
 	try {
 		await register(registerForm);
 		router.replace('/auth/login');
+		ElMessage.success('注册成功，请登录');
 	} catch {
 		// 错误提示已经由 request 响应拦截器统一处理
 	}

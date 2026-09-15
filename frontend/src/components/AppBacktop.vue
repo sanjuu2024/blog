@@ -1,24 +1,33 @@
 <template>
-	<el-backtop
-		target=".app-layout"
+	<button
 		class="app-backtop__button"
-		:right="32"
-		:bottom="32"
-		:duration="100"
-		:visibility-height="0"
+		aria-label="回到顶部"
+		@click="scrollToTop"
 	>
 		<i-lucide-arrow-up class="text-xl" />
-	</el-backtop>
+	</button>
 </template>
 
 <script setup lang="ts">
 defineOptions({
 	name: 'AppBacktop',
 });
+
+function scrollToTop() {
+	const scrollContainer = document.querySelector<HTMLElement>('.app-layout');
+
+	scrollContainer?.scrollTo({
+		top: 0,
+		behavior: 'smooth',
+	});
+}
 </script>
 
 <style scoped lang="scss">
 .app-backtop__button {
+	position: fixed;
+	right: 32px;
+	bottom: 32px;
 	width: 44px;
 	height: 44px;
 	border-radius: 9999px;
@@ -33,5 +42,13 @@ defineOptions({
 	&:hover {
 		background-color: var(--app-button-hover);
 	}
+
+	&:focus-visible {
+		outline: 2px solid var(--app-main);
+		outline-offset: 2px;
+	}
+
+	z-index: 999;
+	cursor: pointer;
 }
 </style>

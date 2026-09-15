@@ -27,6 +27,7 @@
 				<el-table-column
 					align="center"
 					label="总览"
+					min-width="250"
 				>
 					<template #default="{ row }: { row: AdminArticleListItem }">
 						<div class="flex items-center">

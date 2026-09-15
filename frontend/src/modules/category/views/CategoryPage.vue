@@ -1,9 +1,21 @@
 <template>
 	<div class="category-page">
+		<!-- 分类列表侧栏 -->
 		<div
+			v-show="!isMobile || categoryDrawerVisible"
 			ref="categoryListWrapperRef"
-			class="category-list-wrapper app-scrollbar app-scrollbar--stable shadow-sm"
+			class="category-list-wrapper app-scrollbar .app-scrollbar--stable-both-edges shadow-sm"
 		>
+			<!-- 移动端布局下侧栏可关闭 -->
+			<div class="category-list-wrapper__header">
+				<button
+					v-if="isMobile"
+					class="category-list-wrapper__close-button"
+					@click="categoryDrawerVisible = false"
+				>
+					<i-lucide-x />
+				</button>
+			</div>
 			<div class="all-article-item">
 				<RouterLink
 					class="all-article-item__inner"
@@ -43,6 +55,20 @@
 		</div>
 
 		<div class="article-list-wrapper app-scrollbar app-scrollbar--stable">
+			<!-- 移动端的分类顶栏 -->
+			<div
+				v-show="isMobile && !categoryDrawerVisible"
+				class="category-page__mobile-header"
+			>
+				<button
+					class="category-page__mobile-header-button"
+					@click="categoryDrawerVisible = true"
+				>
+					<i-lucide-layers />
+					{{ currentCategoryName }}
+				</button>
+			</div>
+
 			<RouterView #="{ Component }">
 				<transition
 					name="fade"
@@ -61,6 +87,9 @@ import { computed, onMounted } from 'vue';
 import PrimaryCategoryList from '../components/PrimaryCategoryList.vue';
 import { useEnabledCategoryList } from '../composables/useEnabledCategoryList';
 import { useRoute } from 'vue-router';
+import { useMediaQuery } from '@vueuse/core';
+
+const isMobile = useMediaQuery('(width < 1024px)');
 
 const route = useRoute();
 
@@ -68,6 +97,21 @@ const categoryListWrapperRef = ref<HTMLElement | null>(null);
 
 const { enabledCategoryList, loading, loadFailed, loaded, getEnabledCategoryList } =
 	useEnabledCategoryList();
+
+// 控制移动端布局下分类侧栏是否可见
+const categoryDrawerVisible = ref(false);
+
+// 移动端布局下找到当前显示的分类名称
+const currentCategoryName = computed(() => {
+	if (!activeCategoryId.value) return '全部文章';
+	for (const c of enabledCategoryList.value) {
+		if (c.id === activeCategoryId.value) return c.name;
+
+		const child = c.children.find((child) => child.id === activeCategoryId.value);
+		if (child) return child.name;
+	}
+	return '无效分类';
+});
 
 defineOptions({
 	name: 'CategoryPage',
@@ -123,6 +167,7 @@ function scrollActiveCategoryToCenter() {
 watch(
 	() => [activeCategoryId.value, loaded.value, enabledCategoryList.value.length],
 	async () => {
+		categoryDrawerVisible.value = false;
 		await nextTick();
 		scrollActiveCategoryToCenter();
 	},
@@ -140,13 +185,21 @@ watch(
 	flex-direction: column;
 	align-items: center;
 	width: 300px;
-	min-width: 300px;
-	max-height: 100%;
+	width: min(300px, 100vw);
+	height: 100%;
 	border: 1px solid var(--app-border);
 	border-radius: 0.7rem;
 	padding-inline: 0.5rem;
 	overflow-y: auto;
 	padding-bottom: 0.5rem;
+
+	.category-list-wrapper__header {
+		display: flex;
+		align-items: center;
+		width: 100%;
+		justify-content: flex-end;
+		padding-block: 0.5rem;
+	}
 
 	.all-article-item {
 		width: 100%;
@@ -157,7 +210,7 @@ watch(
 			align-items: center;
 			justify-content: space-between;
 			width: 100%;
-			margin-block: 0.5rem;
+			margin-bottom: 0.5rem;
 			padding: 1.8rem 1rem;
 			border-radius: 0.7rem;
 			transition:
@@ -221,5 +274,42 @@ watch(
 .fade-leave-from {
 	opacity: 1;
 	transform: translateY(0);
+}
+
+.category-page__mobile-header {
+	position: sticky;
+	top: 0;
+	height: var(--app-category-mobile-header-height);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	background-color: var(--app-bg);
+	width: 100%;
+	z-index: 99;
+	font-size: 1.1rem;
+
+	.category-page__mobile-header-button {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		cursor: pointer;
+
+		&:hover,
+		&:focus-visible {
+			color: var(--app-main);
+		}
+	}
+}
+
+@media (width < 1024px) {
+	.article-list-wrapper {
+		margin-left: 0;
+	}
+}
+
+@media (width < 500px) {
+	.category-list-wrapper {
+		width: 100%;
+	}
 }
 </style>

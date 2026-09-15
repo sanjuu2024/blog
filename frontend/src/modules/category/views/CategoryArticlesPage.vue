@@ -1,9 +1,11 @@
 <template>
-	<ArticleListItem
-		v-for="article in articles"
-		:key="article.id"
-		:article="article"
-	/>
+	<div class="category-articles-list divide-y divide-(--app-border)">
+		<ArticleListItem
+			v-for="article in articles"
+			:key="article.id"
+			:article="article"
+		/>
+	</div>
 	<AppLoadMoreTrigger
 		:loading="loading"
 		:has-next="pageParams.hasNext"
