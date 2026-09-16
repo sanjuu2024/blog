@@ -39,6 +39,7 @@
         <flexmark.version>0.64.8</flexmark.version>
         <jsoup.version>1.22.2</jsoup.version>
         <jacoco.version>0.8.15</jacoco.version>
+        <greenmail.version>2.1.12</greenmail.version>
     </properties>
     <dependencies>
         <dependency>
@@ -191,6 +192,15 @@
             <artifactId>jsoup</artifactId>
             <version>${jsoup.version}</version>
             <scope>compile</scope>
+        </dependency>
+
+        <!-- greenmail SMTP 测试-->
+        <!-- Source: https://mvnrepository.com/artifact/com.icegreen/greenmail-junit5 -->
+        <dependency>
+            <groupId>com.icegreen</groupId>
+            <artifactId>greenmail-junit5</artifactId>
+            <version>${greenmail.version}</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
