@@ -36,6 +36,9 @@
         <mybatis-plus.version>3.5.16</mybatis-plus.version>
         <hutool.version>5.8.44</hutool.version>
         <aliyun-oss.version>3.18.2</aliyun-oss.version>
+        <flexmark.version>0.64.8</flexmark.version>
+        <jsoup.version>1.22.2</jsoup.version>
+        <jacoco.version>0.8.15</jacoco.version>
     </properties>
     <dependencies>
         <dependency>
@@ -179,14 +182,14 @@
         <dependency>
             <groupId>com.vladsch.flexmark</groupId>
             <artifactId>flexmark-all</artifactId>
-            <version>0.64.8</version>
+            <version>${flexmark.version}</version>
         </dependency>
         <!--另外 flexmark-all 自带的 jsoup 版本较老，这里显式声明一个较新版本-->
         <!-- Source: https://mvnrepository.com/artifact/org.jsoup/jsoup -->
         <dependency>
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
-            <version>1.22.2</version>
+            <version>${jsoup.version}</version>
             <scope>compile</scope>
         </dependency>
     </dependencies>
@@ -238,6 +241,28 @@
                                 </path>
                             </annotationProcessorPaths>
                         </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- 集成 Jacoco 基线报告 -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>
