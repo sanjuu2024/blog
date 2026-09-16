@@ -2216,10 +2216,10 @@ components:
       properties:
         username:
           type: string
-          minLength: 4
+          minLength: 2
           maxLength: 20
-          pattern: '^[\u4e00-\u9fa5A-Za-z0-9_-]{4,20}$'
-          description: 用户名，只允许中文、英文、数字、下划线和短横线，需唯一
+          pattern: '^[A-Za-z0-9_-]{2,20}$'
+          description: 用户名，只允许英文字母、数字、下划线和短横线，不限制首字符类型，需唯一
           example: alice_dev
         email:
           type: string
@@ -2232,9 +2232,9 @@ components:
           type: string
           format: password
           minLength: 6
-          maxLength: 20
-          pattern: '^[\u4e00-\u9fa5A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
-          description: 登录密码，允许中文、英文、数字、下划线、短横线和常用 ASCII 特殊字符，不允许空格
+          maxLength: 32
+          pattern: '^[A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
+          description: 登录密码，允许英文字母、数字、下划线、短横线和常用 ASCII 特殊字符，不允许中文或空白字符
           example: Passw0rd!
     LoginRequest:
       type: object
@@ -2245,16 +2245,16 @@ components:
         account:
           type: string
           maxLength: 255
-          pattern: '^(?:[\u4e00-\u9fa5A-Za-z0-9_-]{4,20}|[A-Za-z0-9](?:[A-Za-z0-9._%+\-]{0,62}[A-Za-z0-9])?@(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63})$'
-          description: 登录账号，必须是合法用户名或邮箱；包含 `@` 时按邮箱登录，否则按用户名登录
+          pattern: '^(?:[A-Za-z0-9_-]{2,20}|[A-Za-z0-9](?:[A-Za-z0-9._%+\-]{0,62}[A-Za-z0-9])?@(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63})$'
+          description: 登录账号，必须是 2-20 位合法用户名或合法邮箱；包含 `@` 时按邮箱登录，否则按用户名登录
           example: alice@example.com
         password:
           type: string
           format: password
           minLength: 6
-          maxLength: 20
-          pattern: '^[\u4e00-\u9fa5A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
-          description: 登录密码，允许中文、英文、数字、下划线、短横线和常用 ASCII 特殊字符，不允许空格
+          maxLength: 32
+          pattern: '^[A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
+          description: 登录密码，允许英文字母、数字、下划线、短横线和常用 ASCII 特殊字符，不允许中文或空白字符
           example: Passw0rd!
     RegisterResponse:
       allOf:
@@ -2716,17 +2716,17 @@ components:
           type: string
           format: password
           minLength: 6
-          maxLength: 20
-          pattern: '^[\u4e00-\u9fa5A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
-          description: 原密码，允许中文、英文、数字、下划线、短横线和常用 ASCII 特殊字符，不允许空格
+          maxLength: 32
+          pattern: '^[A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
+          description: 原密码，允许英文字母、数字、下划线、短横线和常用 ASCII 特殊字符，不允许中文或空白字符
           example: Passw0rd!
         newPassword:
           type: string
           format: password
           minLength: 6
-          maxLength: 20
-          pattern: '^[\u4e00-\u9fa5A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
-          description: 新密码，允许中文、英文、数字、下划线、短横线和常用 ASCII 特殊字符，不允许空格
+          maxLength: 32
+          pattern: '^[A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
+          description: 新密码，允许英文字母、数字、下划线、短横线和常用 ASCII 特殊字符，不允许中文或空白字符
           example: NewPassw0rd!
     AdminUserListItem:
       type: object

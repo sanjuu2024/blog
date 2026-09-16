@@ -270,9 +270,9 @@ Authorization: Bearer <access_token>
 
 | 字段名称 | 字段类型 | 必填 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- | --- |
-| `username` | `String` | 是 | 用户名，4-20 位，只允许中文、英文、数字、下划线和短横线，需唯一 | `alice_dev` |
+| `username` | `String` | 是 | 用户名，2-20 位，只允许英文字母、数字、下划线和短横线，不限制首字符类型，需唯一 | `alice_dev` |
 | `email` | `String` | 是 | 邮箱，仅支持常见邮箱格式，不能包含空格或中文字符，需唯一 | `alice@example.com` |
-| `password` | `String` | 是 | 登录密码，6-20 位；允许中文、英文、数字、下划线、短横线和常用 ASCII 特殊字符，不允许空格 | `Passw0rd!` |
+| `password` | `String` | 是 | 登录密码，6-32 位；允许英文字母、数字、下划线、短横线和常用 ASCII 特殊字符，不允许中文或空白字符 | `Passw0rd!` |
 
 说明：注册时无需传入 `nickname`，服务端默认使用 `username` 初始化昵称，后续用户可在个人中心修改昵称。
 用户名注册后不可修改，前端不应提供用户名修改入口。
@@ -317,8 +317,8 @@ Content-Type: application/json
 
 | 字段名称 | 字段类型 | 必填 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- | --- |
-| `account` | `String` | 是 | 登录账号，必须是合法用户名或邮箱；包含 `@` 时按邮箱登录，否则按用户名登录 | `alice_dev`、`alice@example.com` |
-| `password` | `String` | 是 | 登录密码，6-20 位；允许中文、英文、数字、下划线、短横线和常用 ASCII 特殊字符，不允许空格 | `Passw0rd!` |
+| `account` | `String` | 是 | 登录账号，必须是 2-20 位合法用户名或合法邮箱；包含 `@` 时按邮箱登录，否则按用户名登录 | `alice_dev`、`alice@example.com` |
+| `password` | `String` | 是 | 登录密码，6-32 位；允许英文字母、数字、下划线、短横线和常用 ASCII 特殊字符，不允许中文或空白字符 | `Passw0rd!` |
 
 说明：用户名和邮箱登录均按大小写不敏感处理。也就是允许用户注册展示名 `Sanjuu`，但不允许另一个人再注册 `sanjuu`；登录时输入 `sanjuu`、`SANJUU`、`Sanjuu` 都能找到同一个账号。邮箱同理，`A@example.com` 和 `a@example.com` 会识别为同一个邮箱账号。
 
@@ -1055,8 +1055,8 @@ Content-Type: application/json
 
 | 字段名称 | 字段类型 | 必填 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- | --- |
-| `oldPassword` | `String` | 是 | 原密码，6-20 位；允许中文、英文、数字、下划线、短横线和常用 ASCII 特殊字符，不允许空格 | `Passw0rd!` |
-| `newPassword` | `String` | 是 | 新密码，6-20 位；允许中文、英文、数字、下划线、短横线和常用 ASCII 特殊字符，不允许空格 | `NewPassw0rd!` |
+| `oldPassword` | `String` | 是 | 原密码，6-32 位；允许英文字母、数字、下划线、短横线和常用 ASCII 特殊字符，不允许中文或空白字符 | `Passw0rd!` |
+| `newPassword` | `String` | 是 | 新密码，6-32 位；允许英文字母、数字、下划线、短横线和常用 ASCII 特殊字符，不允许中文或空白字符 | `NewPassw0rd!` |
 
 ### 请求样例
 

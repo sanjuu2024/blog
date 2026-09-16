@@ -17,7 +17,7 @@ import lombok.NoArgsConstructor;
 public class RegisterRequestDTO {
 
     @NotBlank(message = "用户名不能为空")
-    @Size(min = 4, max = 20, message = "用户名长度必须在 4 到 20 个字符之间")
+    @Size(min = 2, max = 20, message = "用户名长度必须在 2 到 20 个字符之间")
     @Pattern(regexp = ValidationConstants.USERNAME_PATTERN, message = ValidationConstants.USERNAME_MESSAGE)
     private String username;
 
@@ -27,7 +27,7 @@ public class RegisterRequestDTO {
     private String email;
 
     @NotBlank(message = "密码不能为空")
-    @Size(min = 6, max = 20, message = "密码长度必须在 6 到 20 个字符之间")
+    @Size(min = 6, max = 32, message = "密码长度必须在 6 到 32 个字符之间")
     @Pattern(regexp = ValidationConstants.PASSWORD_PATTERN, message = ValidationConstants.PASSWORD_MESSAGE)
     private String password;
 }

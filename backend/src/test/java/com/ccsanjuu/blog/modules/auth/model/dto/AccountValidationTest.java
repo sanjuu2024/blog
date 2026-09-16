@@ -12,16 +12,22 @@ class AccountValidationTest {
 
     @Test
     void loginAccountShouldAllowUsernameOrEmail() {
+        assertAccountValid("ab");
+        assertAccountValid("_a");
+        assertAccountValid("-x");
         assertAccountValid("alice_dev");
-        assertAccountValid("中文-user_01");
+        assertAccountValid("a".repeat(20));
         assertAccountValid("alice.dev+blog@example.co");
         assertAccountValid("a@sub.example.com");
     }
 
     @Test
     void loginAccountShouldRejectInvalidUsernameAndEmail() {
-        assertAccountInvalid("abc");
+        assertAccountInvalid("a");
+        assertAccountInvalid("a".repeat(21));
+        assertAccountInvalid("中文-user_01");
         assertAccountInvalid("alice user");
+        assertAccountInvalid("alice.dev");
         assertAccountInvalid("alice@");
         assertAccountInvalid("alice@@example.com");
         assertAccountInvalid("alice@\u4f8b\u5b50.com");

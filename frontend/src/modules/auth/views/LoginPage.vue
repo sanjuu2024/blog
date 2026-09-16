@@ -28,6 +28,7 @@
 			>
 				<el-input
 					v-model="loginForm.password"
+					maxlength="32"
 					placeholder="请输入密码"
 					type="password"
 				>
