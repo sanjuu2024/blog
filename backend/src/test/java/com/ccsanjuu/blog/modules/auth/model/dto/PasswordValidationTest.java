@@ -12,8 +12,9 @@ class PasswordValidationTest {
     private static final Validator VALIDATOR = Validation.buildDefaultValidatorFactory().getValidator();
 
     @Test
-    void registerPasswordShouldAllowHanLettersNumbersAndCommonSpecialChars() {
-        assertPasswordValid("\u5bc6\u7801Aa1_!@#");
+    void registerPasswordShouldAllowLengthBoundariesAndCommonAsciiSpecialChars() {
+        assertPasswordValid("Aa123!");
+        assertPasswordValid("A".repeat(32));
 
         String allowedSpecialChars = "!@#$%^&*()+=[]{}:;'\".,?/~`|\\<>-_";
         for (char ch : allowedSpecialChars.toCharArray()) {
@@ -22,7 +23,10 @@ class PasswordValidationTest {
     }
 
     @Test
-    void registerPasswordShouldRejectWhitespaceAndUnsupportedCharacters() {
+    void registerPasswordShouldRejectInvalidLengthWhitespaceAndUnsupportedCharacters() {
+        assertPasswordInvalid("Aa12!");
+        assertPasswordInvalid("A".repeat(33));
+        assertPasswordInvalid("密码Aa1!@");
         assertPasswordInvalid("Aa123 456");
         assertPasswordInvalid("Aa123\t456");
         assertPasswordInvalid("Aa123\uD83D\uDE00");
@@ -30,11 +34,19 @@ class PasswordValidationTest {
 
     @Test
     void loginAndChangePasswordShouldUseSamePasswordPattern() {
-        LoginRequestDTO loginRequest = new LoginRequestDTO("alice_dev", "Aa123 456");
-        ChangePasswordRequestDTO changePasswordRequest = new ChangePasswordRequestDTO("Aa123!", "Aa123 456");
+        LoginRequestDTO validLoginRequest = new LoginRequestDTO("alice_dev", "A".repeat(32));
+        LoginRequestDTO invalidLoginRequest = new LoginRequestDTO("alice_dev", "密码Aa1!@");
+        ChangePasswordRequestDTO validChangeRequest =
+                new ChangePasswordRequestDTO("A".repeat(32), "A".repeat(32));
+        ChangePasswordRequestDTO invalidChangeRequest =
+                new ChangePasswordRequestDTO("密码Aa1!@", "Aa123 456");
 
-        assertFalse(VALIDATOR.validateProperty(loginRequest, "password").isEmpty());
-        assertFalse(VALIDATOR.validateProperty(changePasswordRequest, "newPassword").isEmpty());
+        assertTrue(VALIDATOR.validateProperty(validLoginRequest, "password").isEmpty());
+        assertFalse(VALIDATOR.validateProperty(invalidLoginRequest, "password").isEmpty());
+        assertTrue(VALIDATOR.validateProperty(validChangeRequest, "oldPassword").isEmpty());
+        assertTrue(VALIDATOR.validateProperty(validChangeRequest, "newPassword").isEmpty());
+        assertFalse(VALIDATOR.validateProperty(invalidChangeRequest, "oldPassword").isEmpty());
+        assertFalse(VALIDATOR.validateProperty(invalidChangeRequest, "newPassword").isEmpty());
     }
 
     private static void assertPasswordValid(String password) {

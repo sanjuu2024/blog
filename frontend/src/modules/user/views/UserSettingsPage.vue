@@ -149,6 +149,7 @@
 						<el-input
 							v-model="passwordForm.oldPassword"
 							type="password"
+							maxlength="32"
 							show-password
 							placeholder="请输入当前密码"
 						/>
@@ -160,6 +161,7 @@
 						<el-input
 							v-model="passwordForm.newPassword"
 							type="password"
+							maxlength="32"
 							show-password
 							placeholder="请输入新密码"
 						/>
@@ -171,6 +173,7 @@
 						<el-input
 							v-model="passwordForm.confirmPassword"
 							type="password"
+							maxlength="32"
 							show-password
 							placeholder="请再次输入新密码"
 						/>

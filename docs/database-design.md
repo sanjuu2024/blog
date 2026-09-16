@@ -109,7 +109,9 @@ CREATE TABLE IF NOT EXISTS blog_user (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_blog_user_username_length
-        CHECK (char_length(username) BETWEEN 4 AND 20),
+        CHECK (char_length(username) BETWEEN 2 AND 20),
+    CONSTRAINT chk_blog_user_username_format
+        CHECK (username ~ '^[A-Za-z0-9_-]{2,20}$'),
     CONSTRAINT chk_blog_user_nickname_length
         CHECK (char_length(nickname) BETWEEN 1 AND 20)
 );
@@ -126,7 +128,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_user_role_status
 
 说明：
 
-- `username` 保留注册时输入的原始大小写，用于展示和公开资料；唯一性和登录查询按 `LOWER(username)` 做大小写不敏感处理
+- `username` 长度为 2-20 个字符，只允许英文字母、数字、下划线和短横线，不限制首字符类型；保留注册时输入的原始大小写，用于展示和公开资料；唯一性和登录查询按 `LOWER(username)` 做大小写不敏感处理
 - `email` 唯一性和登录查询按 `LOWER(email)` 做大小写不敏感处理，产品层统一将 `A@example.com` 和 `a@example.com` 视为同一个邮箱账号
 - 例如允许用户注册展示名 `Sanjuu`，但不允许另一个人再注册 `sanjuu`；登录时输入 `sanjuu`、`SANJUU`、`Sanjuu` 都能找到同一个账号
 
@@ -135,7 +137,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_user_role_status
 | 字段名称 | 字段类型 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- |
 | `id` | `BIGSERIAL` | 用户主键 ID，可用于公开作者信息、登录态、后台管理和逻辑外键关联 | `10001` |
-| `username` | `VARCHAR(20)` | 登录用户名，要求唯一，支持用户名登录；注册后不可修改，作为展示字段和登录标识 | `ccsanjuu` |
+| `username` | `VARCHAR(20)` | 登录用户名，长度 2-20 个字符，只允许英文字母、数字、下划线和短横线；要求唯一，注册后不可修改 | `ccsanjuu` |
 | `nickname` | `VARCHAR(20)` | 展示昵称，长度 1-20 个字符，注册时默认使用用户名初始化 | `sanjuu` |
 | `email` | `VARCHAR(255)` | 用户邮箱，要求唯一，支持邮箱登录 | `ccsanjuu@example.com` |
 | `password_hash` | `VARCHAR(255)` | 密码哈希值，禁止明文存储 | `$2a$10$abc...` |
@@ -817,3 +819,4 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 - P1 不维护图片引用关系，也不自动删除被替换或失去引用的 OSS 对象；后续确有统一资源管理需求时再设计 `blog_asset` 表
 - 留言表的状态扩展、通知字段和索引通过 `V1.1.4` migration 落地，不修改已执行的初始 migration
 - 留言通知令牌使用随机不透明值；数据库泄露时不会暴露用户密码或登录 Token，令牌仅能关闭对应顶层留言的后续通知
+- 用户名长度和格式约束通过 `V1.1.6` migration 更新；升级前若存在不符合新规则的用户名，迁移会失败并要求先处理存量数据

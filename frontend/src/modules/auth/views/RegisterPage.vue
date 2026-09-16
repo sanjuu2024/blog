@@ -15,6 +15,7 @@
 			>
 				<el-input
 					v-model="registerForm.username"
+					maxlength="20"
 					placeholder="请输入用户名"
 				>
 					<template #prefix>
@@ -41,6 +42,7 @@
 			>
 				<el-input
 					v-model="registerForm.password"
+					maxlength="32"
 					placeholder="请输入密码"
 					type="password"
 					show-password
