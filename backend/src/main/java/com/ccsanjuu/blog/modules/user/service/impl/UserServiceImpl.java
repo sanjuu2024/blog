@@ -176,8 +176,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .select(User::getId,User::getUsername,User::getNickname,User::getEmail,User::getRole,User::getStatus,User::getLastLoginAt,User::getCreatedAt)
                 .eq(userManagementPageQueryDTO.getRole() != null, User::getRole, userManagementPageQueryDTO.getRole())
                 .eq(userManagementPageQueryDTO.getStatus() != null, User::getStatus, userManagementPageQueryDTO.getStatus())
-                .like(StringUtils.hasText(username), User::getUsername, username)
-                .like(StringUtils.hasText(email), User::getEmail, email)
+                .apply(
+                        StringUtils.hasText(username),
+                        "STRPOS(LOWER(username), LOWER({0})) > 0",
+                        username
+                )
+                .apply(
+                        StringUtils.hasText(email),
+                        "STRPOS(LOWER(email), LOWER({0})) > 0",
+                        email
+                )
                 .orderByDesc(User::getCreatedAt)
                 .orderByDesc(User::getId)
                 .page(page);

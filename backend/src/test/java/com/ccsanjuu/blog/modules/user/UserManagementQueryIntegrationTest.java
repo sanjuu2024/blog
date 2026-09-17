@@ -22,10 +22,10 @@ class UserManagementQueryIntegrationTest {
     private UserService userService;
 
     @Test
-    void userPageQueryShouldCombineUsernameAndEmailFilters() {
+    void userPageQueryShouldCombineCaseInsensitiveUsernameAndEmailFilters() {
         UserManagementPageQueryDTO matchingQuery = new UserManagementPageQueryDTO();
-        matchingQuery.setUsername(" demo ");
-        matchingQuery.setEmail(" bob@example.com ");
+        matchingQuery.setUsername(" DEMO_B ");
+        matchingQuery.setEmail(" BOB@EXAMPLE.COM ");
 
         PageResult<AdminUserItemVO> matchingResult = userService.userPageQuery(matchingQuery);
 
@@ -39,5 +39,15 @@ class UserManagementQueryIntegrationTest {
         PageResult<AdminUserItemVO> excludedResult = userService.userPageQuery(excludedQuery);
 
         assertTrue(excludedResult.getRecords().isEmpty());
+    }
+
+    @Test
+    void userPageQueryShouldTreatSqlWildcardAsPlainText() {
+        UserManagementPageQueryDTO query = new UserManagementPageQueryDTO();
+        query.setUsername("demo%b");
+
+        PageResult<AdminUserItemVO> result = userService.userPageQuery(query);
+
+        assertTrue(result.getRecords().isEmpty());
     }
 }
