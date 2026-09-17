@@ -1107,12 +1107,12 @@ Content-Type: application/json
 | --- | --- | --- | --- | --- |
 | `pageNum` | `Integer` | 否 | 页码，默认 `1` | `1` |
 | `pageSize` | `Integer` | 否 | 每页条数，默认 `10` | `10` |
-| `username` | `String` | 否 | 用户名模糊搜索，最长 20 个字符 | `alice` |
-| `email` | `String` | 否 | 邮箱模糊搜索，最长 255 个字符 | `example.com` |
+| `username` | `String` | 否 | 用户名模糊搜索，最长 20 个字符，不区分大小写，`%`、`_` 等字符按字面量匹配 | `alice` |
+| `email` | `String` | 否 | 邮箱模糊搜索，最长 255 个字符，不区分大小写，`%`、`_` 等字符按字面量匹配 | `example.com` |
 | `role` | `String` | 否 | 角色筛选 | `USER` |
 | `status` | `String` | 否 | 状态筛选 | `ACTIVE` |
 
-`username`、`email`、`role` 和 `status` 可以组合使用，同时传入多个条件时按 AND 关系筛选。
+`username`、`email`、`role` 和 `status` 可以组合使用，同时传入多个条件时按 AND 关系筛选。用户名和邮箱均按不区分大小写的字面量包含关系进行模糊搜索。
 
 排序规则：默认按 `createdAt` 倒序、`id` 倒序返回，不提供自定义排序参数。
 

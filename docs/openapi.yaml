@@ -887,7 +887,7 @@ paths:
       tags:
         - Admin Users
       summary: 获取用户分页列表
-      description: 权限级别 `ADMIN`。支持按用户名、邮箱、状态和角色组合筛选，同时传入多个条件时按 AND 关系查询。默认按创建时间倒序、用户 ID 倒序返回，不提供自定义排序参数。
+      description: 权限级别 `ADMIN`。支持按用户名、邮箱、状态和角色组合筛选，同时传入多个条件时按 AND 关系查询。用户名和邮箱均按不区分大小写的字面量包含关系进行模糊搜索。默认按创建时间倒序、用户 ID 倒序返回，不提供自定义排序参数。
       operationId: listAdminUsers
       security:
         - bearerAuth: []
@@ -896,7 +896,7 @@ paths:
         - $ref: '#/components/parameters/PageSize'
         - name: username
           in: query
-          description: 用户名模糊搜索
+          description: 用户名模糊搜索，不区分大小写，`%`、`_` 等字符按字面量匹配
           required: false
           schema:
             type: string
@@ -904,7 +904,7 @@ paths:
             example: alice
         - name: email
           in: query
-          description: 邮箱模糊搜索
+          description: 邮箱模糊搜索，不区分大小写，`%`、`_` 等字符按字面量匹配
           required: false
           schema:
             type: string
