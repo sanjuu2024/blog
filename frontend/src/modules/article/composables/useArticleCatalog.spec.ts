@@ -57,7 +57,14 @@ describe('useArticleCatalog', () => {
 		const wrapper = mount(CatalogHarness, { attachTo: document.body });
 		const container = wrapper.get<HTMLElement>('.scroll-container').element;
 		const heading = wrapper.get<HTMLElement>('h2').element;
-		container.style.overflowY = 'auto';
+		const getComputedStyle = window.getComputedStyle.bind(window);
+		vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudoElement) => {
+			if (element === container) {
+				return { overflowY: 'auto' } as CSSStyleDeclaration;
+			}
+
+			return getComputedStyle(element, pseudoElement);
+		});
 		container.scrollTo = vi.fn();
 		Object.defineProperty(container, 'scrollTop', { configurable: true, value: 50 });
 		Object.defineProperty(container, 'clientHeight', { configurable: true, value: 500 });
