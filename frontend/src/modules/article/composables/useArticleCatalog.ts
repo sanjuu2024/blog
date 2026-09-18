@@ -16,7 +16,7 @@ const HEADING_SELECTOR = 'h1, h2, h3, h4, h5, h6';
 
 // 当前章节判定线距离滚动容器顶部的偏移量。
 // 这里不只避开 Header，也包含页面顶部留白和标题跳转缓冲。
-const ACTIVE_HEADING_OFFSET = 80;
+export const ACTIVE_HEADING_OFFSET = 96;
 
 // 和 VitePress 类似，用“滚动位置 + 顶部偏移”作为阅读线
 // 已经越过这条线的最后一个标题，就是当前章节

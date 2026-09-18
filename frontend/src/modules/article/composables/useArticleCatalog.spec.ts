@@ -1,7 +1,7 @@
 import { mount } from '@vue/test-utils';
 import { defineComponent, ref } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { useArticleCatalog } from './useArticleCatalog';
+import { ACTIVE_HEADING_OFFSET, useArticleCatalog } from './useArticleCatalog';
 
 const CatalogHarness = defineComponent({
 	setup() {
@@ -80,7 +80,7 @@ describe('useArticleCatalog', () => {
 		wrapper.vm.scrollToHeading('重复-标题');
 
 		expect(container.scrollTo).toHaveBeenCalledWith({
-			top: 154,
+			top: 210 - 10 + 50 - ACTIVE_HEADING_OFFSET,
 			behavior: 'smooth',
 		});
 	});
