@@ -9,12 +9,31 @@
 			:class="{ 'message-item__header--sticky': contentExpanded }"
 		>
 			<div class="message-item__identity">
-				<AppUserAvatar
-					:avatar-url="item.author?.avatarUrl"
-					:name="item.author?.nickname || item.nickname"
-					:user-id="item.author?.id"
-					:size="34"
-				/>
+				<PublicUserProfilePopover
+					v-if="item.author?.id"
+					:user-id="item.author.id"
+					class="flex flex-col"
+				>
+					<AppUserAvatar
+						:avatar-url="item.author.avatarUrl"
+						:name="item.author.nickname || item.nickname"
+						:user-id="item.author.id"
+						:size="34"
+						class="self-start"
+					/>
+				</PublicUserProfilePopover>
+
+				<GuestUserPopover
+					v-else
+					:nickname="item.nickname"
+					class="flex flex-col"
+				>
+					<AppUserAvatar
+						:name="item.nickname"
+						:size="34"
+						class="self-start"
+					/>
+				</GuestUserPopover>
 				<strong>{{ item.author?.nickname || item.nickname }}</strong>
 				<el-tag
 					v-if="item.status !== MESSAGE_STATUS.APPROVED"
@@ -53,11 +72,27 @@
 				:key="reply.id"
 				class="message-reply"
 			>
+				<PublicUserProfilePopover
+					v-if="reply.author?.id"
+					:user-id="reply.author.id"
+					class="flex flex-col"
+				>
+					<AppUserAvatar
+						:avatar-url="reply.author.avatarUrl"
+						:name="reply.author.nickname || '管理员'"
+						:user-id="reply.author.id"
+						:size="28"
+						class="self-start"
+					/>
+				</PublicUserProfilePopover>
+
 				<AppUserAvatar
+					v-else
 					:avatar-url="reply.author?.avatarUrl"
 					:name="reply.author?.nickname || '管理员'"
 					:user-id="reply.author?.id"
 					:size="28"
+					class="self-start"
 				/>
 				<div>
 					<div class="message-reply__meta">

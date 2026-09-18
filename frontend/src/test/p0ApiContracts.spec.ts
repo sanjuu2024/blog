@@ -4,6 +4,7 @@ import { login, logout, refreshToken, register } from '@/modules/auth/api/authAp
 import {
 	changeCurrentUserPassword,
 	getCurrentUserProfile,
+	getPublicUserProfile,
 	updateCurrentUserProfile,
 } from '@/modules/user/api/userApi';
 import { listUsers, updateRole, updateStatus } from '@/modules/admin/user/api/adminUserApi';
@@ -89,6 +90,12 @@ describe('P0 frontend API contracts', () => {
 		expect(request.get).toHaveBeenCalledWith('users/me', undefined);
 		expect(request.put).toHaveBeenNthCalledWith(1, 'users/me/profile', profilePayload);
 		expect(request.put).toHaveBeenNthCalledWith(2, 'users/me/password', passwordPayload);
+	});
+
+	it('uses the documented public user profile endpoint', () => {
+		getPublicUserProfile(10001);
+
+		expect(request.get).toHaveBeenCalledWith('users/10001/public-profile', undefined);
 	});
 
 	it('uses public article and category browsing endpoints', () => {

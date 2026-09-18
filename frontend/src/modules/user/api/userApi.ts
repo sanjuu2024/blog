@@ -33,9 +33,13 @@ export const getCurrentUserProfile = (
 };
 
 // 获取用户公开资料接口
-export const getPublicUserProfile = (userId: number): Promise<PublicUserProfileData> => {
+export const getPublicUserProfile = (
+	userId: number,
+	config?: AxiosRequestConfig,
+): Promise<PublicUserProfileData> => {
 	return request.get<PublicUserProfileResponse, PublicUserProfileData>(
 		USER_API.publicProfile(userId),
+		config,
 	);
 };
 
