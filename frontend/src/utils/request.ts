@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { showErrorMessage } from './feedback';
 import type { ApiResult } from '@/types/api';
 import { ApiCode } from '@/constants/apiCode';
 import { useAuthStore } from '@/stores/authStore';
@@ -9,6 +8,7 @@ import router from '@/router';
 // 因此在这个 request 模块里维护一个 refreshPromise 变量，可以让所有请求共享它；
 // 防止多个请求同时触发 token 刷新，会导致后端 refresh token 轮换时互相覆盖。
 let refreshPromise: Promise<void> | null = null; // 当前有没有正在进行的 refresh 请求
+let sessionFailurePromise: Promise<void> | null = null; // 当前有没有正在处理登录态失效
 
 function refreshSession() {
 	const authStore = useAuthStore();
@@ -20,6 +20,27 @@ function refreshSession() {
 	}
 
 	return refreshPromise;
+}
+
+function handleSessionFailure() {
+	if (!sessionFailurePromise) {
+		sessionFailurePromise = (async () => {
+			useAuthStore().clearAuth();
+
+			// 已经位于登录页时无需提示或重复跳转。
+			if (router.currentRoute.value.path === '/auth/login') return;
+
+			ElMessage.error('登录状态恢复失败，正在跳转到登录页...');
+			await router.replace({
+				path: '/auth/login',
+				query: { redirect: router.currentRoute.value.fullPath },
+			});
+		})().finally(() => {
+			sessionFailurePromise = null;
+		});
+	}
+
+	return sessionFailurePromise;
 }
 
 // 1. 创建 axios 实例
@@ -72,15 +93,9 @@ request.interceptors.response.use(
 								return Promise.reject(err);
 							}
 
-							const authStore = useAuthStore();
-
 							// 已尝试过原请求失败之后刷新 token；虽然这次原请求还是失败，但不再尝试刷新 token 了，避免死循环
 							if (originalRequest._retry) {
-								authStore.clearAuth();
-								router.replace({
-									path: '/auth/login',
-									query: { redirect: router.currentRoute.value.fullPath },
-								});
+								await handleSessionFailure();
 
 								return Promise.reject(err);
 							}
@@ -91,11 +106,7 @@ request.interceptors.response.use(
 								await refreshSession(); // 等待刷新 token 的请求完成 / 申请刷新 token
 								return request(originalRequest); // 🔺刷新 token 后重试原请求
 							} catch {
-								authStore.clearAuth();
-								router.replace({
-									path: '/auth/login',
-									query: { redirect: router.currentRoute.value.fullPath },
-								});
+								await handleSessionFailure();
 
 								return Promise.reject(err);
 							}
@@ -122,7 +133,7 @@ request.interceptors.response.use(
 			errMsg = '请求未发出：' + err.message;
 		}
 
-		if (showError) showErrorMessage(errMsg); // 在页面上弹出错误信息提示
+		if (showError) ElMessage.error(errMsg); // 在页面上弹出错误信息提示
 
 		return Promise.reject(err);
 	},

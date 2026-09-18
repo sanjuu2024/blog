@@ -28,11 +28,11 @@ const authStore = vi.hoisted(() => ({
 }));
 
 const router = vi.hoisted(() => ({
-	currentRoute: { value: { fullPath: '/admin/articles' } },
+	currentRoute: { value: { path: '/admin/articles', fullPath: '/admin/articles' } },
 	replace: vi.fn(),
 }));
 
-const showErrorMessage = vi.hoisted(() => vi.fn());
+const messageError = vi.hoisted(() => vi.fn());
 
 vi.mock('axios', () => ({
 	default: {
@@ -49,8 +49,10 @@ vi.mock('@/router', () => ({
 	default: router,
 }));
 
-vi.mock('./feedback', () => ({
-	showErrorMessage,
+vi.mock('element-plus', () => ({
+	ElMessage: {
+		error: messageError,
+	},
 }));
 
 await import('./request');
@@ -88,6 +90,8 @@ describe('request interceptors', () => {
 		authStore.refreshToken.mockResolvedValue(undefined);
 		axiosState.instance.mockResolvedValue('retried-response');
 		axiosState.isCancel.mockReturnValue(false);
+		router.currentRoute.value = { path: '/admin/articles', fullPath: '/admin/articles' };
+		router.replace.mockResolvedValue(undefined);
 	});
 
 	it('injects the current access token into protected requests', () => {
@@ -139,11 +143,55 @@ describe('request interceptors', () => {
 
 		await expect(axiosState.responseRejected?.(error)).rejects.toBe(error);
 
+		expect(messageError).toHaveBeenCalledWith('登录状态恢复失败，正在跳转到登录页...');
 		expect(authStore.clearAuth).toHaveBeenCalled();
 		expect(router.replace).toHaveBeenCalledWith({
 			path: '/auth/login',
 			query: { redirect: '/admin/articles' },
 		});
+	});
+
+	it('handles concurrent refresh failures only once', async () => {
+		let rejectRefresh!: (reason?: unknown) => void;
+		let resolveNavigation!: () => void;
+		authStore.refreshToken.mockReturnValue(
+			new Promise<void>((_resolve, reject) => {
+				rejectRefresh = reject;
+			}),
+		);
+		router.replace.mockReturnValue(
+			new Promise<void>((resolve) => {
+				resolveNavigation = resolve;
+			}),
+		);
+
+		const firstError = responseError(401, ApiCode.ACCESS_TOKEN_EXPIRED);
+		const secondError = responseError(401, ApiCode.ACCESS_TOKEN_INVALID);
+		const first = axiosState.responseRejected?.(firstError);
+		const second = axiosState.responseRejected?.(secondError);
+
+		rejectRefresh(new Error('refresh failed'));
+		await vi.waitFor(() => {
+			expect(router.replace).toHaveBeenCalledTimes(1);
+		});
+		expect(messageError).toHaveBeenCalledTimes(1);
+		expect(authStore.clearAuth).toHaveBeenCalledTimes(1);
+
+		resolveNavigation();
+		await expect(first).rejects.toBe(firstError);
+		await expect(second).rejects.toBe(secondError);
+	});
+
+	it('clears auth silently without redirecting when already on the login page', async () => {
+		authStore.refreshToken.mockRejectedValue(new Error('refresh failed'));
+		router.currentRoute.value = { path: '/auth/login', fullPath: '/auth/login' };
+		const error = responseError(401, ApiCode.ACCESS_TOKEN_EXPIRED);
+
+		await expect(axiosState.responseRejected?.(error)).rejects.toBe(error);
+
+		expect(authStore.clearAuth).toHaveBeenCalledTimes(1);
+		expect(messageError).not.toHaveBeenCalled();
+		expect(router.replace).not.toHaveBeenCalled();
 	});
 
 	it('does not refresh a retried request again', async () => {
@@ -156,7 +204,12 @@ describe('request interceptors', () => {
 		await expect(axiosState.responseRejected?.(error)).rejects.toBe(error);
 
 		expect(authStore.refreshToken).not.toHaveBeenCalled();
+		expect(messageError).toHaveBeenCalledWith('登录状态恢复失败，正在跳转到登录页...');
 		expect(authStore.clearAuth).toHaveBeenCalled();
+		expect(router.replace).toHaveBeenCalledWith({
+			path: '/auth/login',
+			query: { redirect: '/admin/articles' },
+		});
 	});
 
 	it('clears auth when the backend reports that the user is disabled', async () => {
@@ -166,7 +219,7 @@ describe('request interceptors', () => {
 
 		expect(authStore.clearAuth).toHaveBeenCalled();
 		expect(router.replace).toHaveBeenCalled();
-		expect(showErrorMessage).toHaveBeenCalledWith('请求错误');
+		expect(messageError).toHaveBeenCalledWith('请求错误');
 	});
 
 	it('does not show an error for canceled requests', async () => {
@@ -175,6 +228,6 @@ describe('request interceptors', () => {
 
 		await expect(axiosState.responseRejected?.(error)).rejects.toBe(error);
 
-		expect(showErrorMessage).not.toHaveBeenCalled();
+		expect(messageError).not.toHaveBeenCalled();
 	});
 });

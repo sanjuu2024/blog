@@ -38,6 +38,23 @@ const ArticleCatalogSidebarStub = defineComponent({
 		'<button class="catalog-open" @click.stop="$emit(\'update:expanded\', true)">打开目录</button>',
 });
 
+const PublicUserProfilePopoverStub = defineComponent({
+	props: {
+		userId: Number,
+	},
+	template: '<div class="public-profile-popover-stub"><slot /></div>',
+});
+
+const AppUserAvatarStub = defineComponent({
+	props: {
+		avatarUrl: String,
+		name: String,
+		userId: Number,
+		size: Number,
+	},
+	template: '<span class="user-avatar-stub" />',
+});
+
 function article(): PublicArticleDetailData {
 	return {
 		id: 40001,
@@ -82,6 +99,8 @@ describe('ArticleContent', () => {
 					ArticleCatalogSidebar: ArticleCatalogSidebarStub,
 					AppImage: true,
 					AppTagCapsule: true,
+					AppUserAvatar: AppUserAvatarStub,
+					PublicUserProfilePopover: PublicUserProfilePopoverStub,
 				},
 			},
 		});
@@ -95,5 +114,14 @@ describe('ArticleContent', () => {
 		expect(wrapper.get('.article-content-wrapper').classes()).not.toContain(
 			'article-content-wrapper-squeeze-to-the-right',
 		);
+
+		expect(wrapper.getComponent(PublicUserProfilePopoverStub).props('userId')).toBe(10001);
+		expect(wrapper.getComponent(AppUserAvatarStub).props()).toMatchObject({
+			avatarUrl: '',
+			name: '管理员',
+			userId: 10001,
+			size: 24,
+		});
+		expect(wrapper.get('.public-profile-popover-stub').text()).toContain('管理员');
 	});
 });

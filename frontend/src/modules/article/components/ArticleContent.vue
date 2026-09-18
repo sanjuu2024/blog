@@ -121,10 +121,16 @@
 
 			<!-- 文章作者 & 发布时间 -->
 			<div class="article-author-and-published-at">
-				<div class="flex items-center">
-					<i-solar-user-outline class="mr-2" />
-					<span>{{ article.author.nickname }}</span>
-				</div>
+				<PublicUserProfilePopover :user-id="article.author.id">
+					<AppUserAvatar
+						:avatar-url="article.author.avatarUrl"
+						:name="article.author.nickname || article.author.username"
+						:user-id="article.author.id"
+						:size="24"
+						class="mr-2"
+					/>
+					<span>{{ article.author.nickname || article.author.username }}</span>
+				</PublicUserProfilePopover>
 				<span class="mx-4">·</span>
 				<div class="flex items-center">
 					<i-solar-calendar-outline class="mr-2" />
@@ -150,6 +156,8 @@ import { ref, watch, nextTick } from 'vue';
 import { formatDateTime } from '@/utils/datetime';
 import type { PublicArticleDetailData } from '../types/article';
 import AppImage from '@/components/AppImage.vue';
+import AppUserAvatar from '@/components/AppUserAvatar.vue';
+import PublicUserProfilePopover from '@/components/PublicUserProfilePopover.vue';
 import getRouteIcon from '@/utils/getRouteIcon';
 import ArticleCatalogSidebar from './ArticleCatalogSidebar.vue';
 import { useArticleCatalog } from '../composables/useArticleCatalog';

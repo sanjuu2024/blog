@@ -62,13 +62,18 @@
 				data-comment-entry
 			>
 				<div class="comment-main">
-					<AppUserAvatar
-						:avatar-url="comment.author.avatarUrl"
-						:name="comment.author.nickname || comment.author.username"
+					<PublicUserProfilePopover
 						:user-id="comment.author.id"
-						:size="36"
-						class="mr-3 shrink-0"
-					/>
+						class="flex flex-col"
+					>
+						<AppUserAvatar
+							:avatar-url="comment.author.avatarUrl"
+							:name="comment.author.nickname || comment.author.username"
+							:user-id="comment.author.id"
+							:size="36"
+							class="mr-3 shrink-0 self-start"
+						/>
+					</PublicUserProfilePopover>
 
 					<div class="min-w-0 flex-1">
 						<div class="comment-meta">
@@ -170,13 +175,18 @@
 								class="reply-item"
 								data-comment-entry
 							>
-								<AppUserAvatar
-									:avatar-url="reply.author.avatarUrl"
-									:name="reply.author.nickname || reply.author.username"
+								<PublicUserProfilePopover
 									:user-id="reply.author.id"
-									:size="28"
-									class="mr-3 shrink-0"
-								/>
+									class="flex flex-col"
+								>
+									<AppUserAvatar
+										:avatar-url="reply.author.avatarUrl"
+										:name="reply.author.nickname || reply.author.username"
+										:user-id="reply.author.id"
+										:size="28"
+										class="mr-3 shrink-0 self-start"
+									/>
+								</PublicUserProfilePopover>
 
 								<div class="min-w-0 flex-1">
 									<div class="comment-meta">
