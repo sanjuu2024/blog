@@ -116,6 +116,7 @@
 									type="primary"
 									@click="openReplyEditor(comment, comment.author)"
 								>
+									<i-lucide-message-circle-reply class="mr-1" />
 									回复
 								</el-button>
 
@@ -125,6 +126,7 @@
 									type="danger"
 									@click="clickDeleteTopLevelComment(comment)"
 								>
+									<i-lucide-trash-2 class="mr-1" />
 									删除
 								</el-button>
 							</template>

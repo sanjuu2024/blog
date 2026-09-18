@@ -35,12 +35,9 @@ public class CategoryServiceImpl implements CategoryService {
     private final ArticleMapper articleMapper;
 
     /**
-     * 获取分类列表，返回规则：
-     * - 不传 `keyword`、`level` 和 `parentId` 时，返回完整分类树，一级分类下包含二级分类。
-     * - 传 `keyword` 时，返回分类名称匹配的平铺列表，每个节点的 `children` 为空数组。
-     * - 传 `parentId` 时，返回该一级分类下的二级分类平铺列表，每个节点的 `children` 为空数组。
-     * - 传 `level=2` 时，返回二级分类平铺列表，每个节点的 `children` 为空数组。
-     * - 传 `level=1` 时，返回一级分类平铺列表，每个节点的 `children` 为空数组。
+     * 后台分类管理页获取分类列表，返回规则：
+     * - 不传任何筛选条件时，返回完整分类树，一级分类下包含二级分类。
+     * - 传入任一筛选条件时，返回符合条件的平铺列表，每个节点的 `children` 为空数组。
      *
      * @param adminCategoryQueryDTO
      * @return
@@ -59,6 +56,7 @@ public class CategoryServiceImpl implements CategoryService {
         // 拦截非法查询请求
         Integer level = adminCategoryQueryDTO.getLevel();
         Long parentId = adminCategoryQueryDTO.getParentId();
+        CategoryStatus status = adminCategoryQueryDTO.getStatus();
         if (parentId != null && level != null && level == 1) {
             throw new BizException(ResultCode.PARAM_INVALID, "parentId 和 level = 1 不能同时使用。");
         }
@@ -67,7 +65,7 @@ public class CategoryServiceImpl implements CategoryService {
         List<Category> categoryList = categoryMapper.selectList(
                 new LambdaQueryWrapper<Category>()
                         .apply(hasKeyword, "LOWER(name) like {0}", likeKeyword)   // 🔺🔺🔺mysql 的 like 默认大小写不敏感，但 pg 的 like 是大小写敏感的！最好统一转化为小写查询
-                        .eq(adminCategoryQueryDTO.getStatus() != null, Category::getStatus, adminCategoryQueryDTO.getStatus())
+                        .eq(status != null, Category::getStatus, status)
                         .eq(adminCategoryQueryDTO.getLevel() != null, Category::getLevel, adminCategoryQueryDTO.getLevel())
                         .eq(adminCategoryQueryDTO.getParentId() != null, Category::getParentId, adminCategoryQueryDTO.getParentId())
                         .orderByAsc(Category::getSortNo)
@@ -117,15 +115,13 @@ public class CategoryServiceImpl implements CategoryService {
 
         // 4. 组装返回值
         List<AdminCategoryItemVO> res = new ArrayList<>();
-        // (1) 不传 keyword、level、parentId：返回完整分类树，一级分类下包含二级分类。
-        if (!hasKeyword && level == null && parentId == null) {
+        // 不传任何筛选条件时返回树；有筛选条件时保持平铺，避免匹配到的二级分类因父级未匹配而丢失。
+        boolean hasFilter = hasKeyword || status != null || level != null || parentId != null;
+        if (!hasFilter) {
             res = convertToCategoryTree(categoryVoList);
         }
 
-        // (2) 传 keyword 时，返回分类名称匹配的平铺列表，每个节点的 `children` 为空数组。
-        // (3) 传 parentId 时，返回该一级分类下的二级分类平铺列表，每个节点的 `children` 为空数组。
-        // (4) 传 level=2 时，返回二级分类平铺列表，每个节点的 `children` 为空数组。
-        // (5) 传 level=1 时，返回一级分类平铺列表，每个节点的 `children` 为空数组。
+        // 传入 keyword、status、parentId 或 level 时，返回符合条件的平铺列表。
         else {
             res = categoryVoList;   // 都是平铺列表
         }

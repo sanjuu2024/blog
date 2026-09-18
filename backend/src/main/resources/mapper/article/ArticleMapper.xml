@@ -61,7 +61,18 @@
             <foreach collection="categoryIds" item="categoryId" separator="," open="(" close=")">
                 #{categoryId}
             </foreach>
-          and a.search_vector @@ search_query.value
+          and (
+              a.search_vector @@ search_query.value
+              or (
+                  numnode(search_query.value) = 0
+                  and char_length(#{keyword}) = 1
+                  and (
+                      strpos(lower(coalesce(a.title, '')), lower(#{keyword})) > 0
+                      or strpos(lower(coalesce(a.summary, '')), lower(#{keyword})) > 0
+                      or strpos(lower(coalesce(a.content_text, '')), lower(#{keyword})) > 0
+                  )
+              )
+          )
         <if test="articleIds != null and articleIds.size() > 0">
           and a.id in
             <foreach collection="articleIds" item="articleId" separator="," open="(" close=")">
@@ -72,6 +83,13 @@
           and a.is_top = #{isTop}
         </if>
         order by
+        <if test="prioritizeRelevance">
+            case
+                when numnode(search_query.value) > 0
+                    then ts_rank(a.search_vector, search_query.value)
+                else 0
+            end desc,
+        </if>
         <if test="prioritizeTop">
             a.is_top desc,
         </if>

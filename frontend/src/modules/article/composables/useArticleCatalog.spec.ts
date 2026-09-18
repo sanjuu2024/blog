@@ -1,7 +1,7 @@
 import { mount } from '@vue/test-utils';
 import { defineComponent, ref } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { useArticleCatalog } from './useArticleCatalog';
+import { ACTIVE_HEADING_OFFSET, useArticleCatalog } from './useArticleCatalog';
 
 const CatalogHarness = defineComponent({
 	setup() {
@@ -57,7 +57,14 @@ describe('useArticleCatalog', () => {
 		const wrapper = mount(CatalogHarness, { attachTo: document.body });
 		const container = wrapper.get<HTMLElement>('.scroll-container').element;
 		const heading = wrapper.get<HTMLElement>('h2').element;
-		container.style.overflowY = 'auto';
+		const getComputedStyle = window.getComputedStyle.bind(window);
+		vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudoElement) => {
+			if (element === container) {
+				return { overflowY: 'auto' } as CSSStyleDeclaration;
+			}
+
+			return getComputedStyle(element, pseudoElement);
+		});
 		container.scrollTo = vi.fn();
 		Object.defineProperty(container, 'scrollTop', { configurable: true, value: 50 });
 		Object.defineProperty(container, 'clientHeight', { configurable: true, value: 500 });
@@ -73,7 +80,7 @@ describe('useArticleCatalog', () => {
 		wrapper.vm.scrollToHeading('重复-标题');
 
 		expect(container.scrollTo).toHaveBeenCalledWith({
-			top: 154,
+			top: 210 - 10 + 50 - ACTIVE_HEADING_OFFSET,
 			behavior: 'smooth',
 		});
 	});

@@ -399,6 +399,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
                     categoryIds,
                     tagArticleIds,
                     queryDTO.getIsTop(),
+                    queryDTO.getSort() != PublicArticleSort.LATEST,
                     queryDTO.getSort() != PublicArticleSort.LATEST
             );
 

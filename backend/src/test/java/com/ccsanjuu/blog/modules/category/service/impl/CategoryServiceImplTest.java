@@ -109,6 +109,25 @@ class CategoryServiceImplTest {
     }
 
     @Test
+    void getCategoryListShouldReturnFlatStatusResult() {
+        Category disabledChild = childCategory(FIRST_CHILD_CATEGORY_ID, PARENT_CATEGORY_ID, "Java", 11);
+        disabledChild.setStatus(CategoryStatus.DISABLED);
+        AdminCategoryQueryDTO queryDTO = AdminCategoryQueryDTO.builder()
+                .status(CategoryStatus.DISABLED)
+                .build();
+        when(categoryMapper.selectList(any())).thenReturn(List.of(disabledChild));
+        when(articleMapper.getArticleCountByCategoryIds(List.of(FIRST_CHILD_CATEGORY_ID), false))
+                .thenReturn(List.of());
+
+        List<AdminCategoryItemVO> result = categoryService.getCategoryList(queryDTO);
+
+        assertEquals(1, result.size());
+        assertEquals(FIRST_CHILD_CATEGORY_ID, result.getFirst().getId());
+        assertEquals(CategoryStatus.DISABLED, result.getFirst().getStatus());
+        assertTrue(result.getFirst().getChildren().isEmpty());
+    }
+
+    @Test
     void getCategoryListShouldRejectParentIdCombinedWithFirstLevel() {
         AdminCategoryQueryDTO queryDTO = AdminCategoryQueryDTO.builder()
                 .level(1)

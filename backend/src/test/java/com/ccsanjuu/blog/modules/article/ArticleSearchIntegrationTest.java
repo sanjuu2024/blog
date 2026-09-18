@@ -81,6 +81,61 @@ class ArticleSearchIntegrationTest {
         assertTrue(excludedResult.getRecords().isEmpty());
     }
 
+    @Test
+    void publicArticleSearchShouldMatchSingleChineseCharacter() {
+        Long articleId = jdbcTemplate.queryForObject(
+                "select id from blog_article where status = 'PUBLISHED' limit 1",
+                Long.class
+        );
+        jdbcTemplate.update(
+                "update blog_article set title = ?, summary = ?, content_text = ? where id = ?",
+                "阿斯顿夫",
+                "单字搜索测试",
+                "正文内容",
+                articleId
+        );
+
+        PublicArticleQueryDTO query = new PublicArticleQueryDTO();
+        query.setKeyword("阿");
+
+        PageResult<PublicArticleListItemVO> result = articleService.getPublicArticleList(query);
+
+        assertEquals(1, result.getTotal());
+        assertEquals("阿斯顿夫", result.getRecords().getFirst().getTitle());
+    }
+
+    @Test
+    void publicArticleSearchShouldSortByRelevanceBeforePublishTime() {
+        var articleIds = jdbcTemplate.queryForList(
+                "select id from blog_article where status = 'PUBLISHED' order by id limit 2",
+                Long.class
+        );
+        assertEquals(2, articleIds.size());
+
+        jdbcTemplate.update(
+                "update blog_article set title = ?, summary = ?, content_text = ? where id = ?",
+                "相关度标题 ranktest",
+                "普通摘要",
+                "普通正文",
+                articleIds.get(0)
+        );
+        jdbcTemplate.update(
+                "update blog_article set title = ?, summary = ?, content_text = ? where id = ?",
+                "普通标题",
+                "普通摘要",
+                "相关度正文 ranktest",
+                articleIds.get(1)
+        );
+
+        PublicArticleQueryDTO query = new PublicArticleQueryDTO();
+        query.setKeyword("ranktest");
+
+        PageResult<PublicArticleListItemVO> result = articleService.getPublicArticleList(query);
+
+        assertEquals(2, result.getTotal());
+        assertEquals(articleIds.get(0), result.getRecords().getFirst().getId());
+    }
+
     // 分别用标题、摘要和正文中的关键词调用真实数据库，确认三个搜索字段都能返回同一篇已发布文章
     private PublicArticleListItemVO assertSingleTitle(String keyword, String expectedTitle) {
         PublicArticleQueryDTO query = new PublicArticleQueryDTO();
