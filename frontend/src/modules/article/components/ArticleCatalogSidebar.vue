@@ -5,6 +5,7 @@
 	>
 		<button
 			class="article-catalog-sidebar-button"
+			:class="{ 'article-catalog-sidebar-button-expanded': expanded }"
 			aria-label="打开/关闭文章目录侧栏"
 			:aria-expanded="expanded"
 			@click="expanded = !expanded"
@@ -134,8 +135,8 @@ useEventListener(document, 'keydown', (event: KeyboardEvent) => {
 // 侧栏拉开/关上的按钮
 .article-catalog-sidebar-button {
 	position: fixed;
-	right: 32px;
-	bottom: 100px;
+	left: 32px;
+	bottom: 32px;
 	width: 44px;
 	height: 44px;
 	border-radius: 9999px;
@@ -145,7 +146,9 @@ useEventListener(document, 'keydown', (event: KeyboardEvent) => {
 	align-items: center;
 	justify-content: center;
 	box-shadow: 0 2px 4px rgb(0 0 0 / 20%);
-	transition: background-color 0.1s ease;
+	transition:
+		transform 0.2s ease,
+		background-color 0.1s ease;
 
 	&:hover {
 		background-color: var(--app-button-hover);
@@ -195,6 +198,10 @@ useEventListener(document, 'keydown', (event: KeyboardEvent) => {
 
 .article-catalog-sidebar-expanded {
 	transform: translateX(var(--app-article-catalog-sidebar-width));
+}
+
+.article-catalog-sidebar-button-expanded {
+	transform: translateX(calc(var(--app-article-catalog-sidebar-width) - 16px));
 }
 
 // 目录侧栏中的顶部标题

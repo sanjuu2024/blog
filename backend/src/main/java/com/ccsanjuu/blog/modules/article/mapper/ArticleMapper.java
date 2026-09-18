@@ -30,6 +30,7 @@ public interface ArticleMapper extends BaseMapper<Article> {
      * @param articleIds 包含全部筛选标签的文章 ID；未筛选标签时为空
      * @param isTop 是否只查询置顶或非置顶文章；为空时不限制
      * @param prioritizeTop 是否优先展示置顶文章
+     * @param prioritizeRelevance 是否优先展示全文检索相关度
      * @return 全文检索分页结果
      */
     Page<PublicArticleSearchBO> selectPublicArticleSearchPage(
@@ -38,6 +39,7 @@ public interface ArticleMapper extends BaseMapper<Article> {
             @Param("categoryIds") List<Long> categoryIds,
             @Param("articleIds") List<Long> articleIds,
             @Param("isTop") Boolean isTop,
-            @Param("prioritizeTop") boolean prioritizeTop
+            @Param("prioritizeTop") boolean prioritizeTop,
+            @Param("prioritizeRelevance") boolean prioritizeRelevance
     );
 }

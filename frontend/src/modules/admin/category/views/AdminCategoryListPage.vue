@@ -148,7 +148,11 @@
 							prop="description"
 							align="center"
 							label="描述"
-						/>
+						>
+							<template #default="{ row }">
+								{{ row.description || '-' }}
+							</template>
+						</el-table-column>
 						<el-table-column
 							prop="sortNo"
 							align="center"
@@ -298,6 +302,7 @@
 						prop="parentId"
 						label="父级分类"
 						v-if="categoryForm.level == 2"
+						:required="categoryForm.level == 2"
 					>
 						<el-select
 							v-model="categoryForm.parentId"

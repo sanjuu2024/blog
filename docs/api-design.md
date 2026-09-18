@@ -513,12 +513,12 @@ Set-Cookie: refresh_token=; Max-Age=0; Path=/api/v1/auth; HttpOnly; SameSite=Lax
 | `categoryId` | `Long` | 否 | 分类 ID，用于分类筛选。支持一级分类或二级分类；传一级分类时返回其下所有二级分类文章 | `20001`、`21001` |
 | `tagIds` | `Array<Long>` | 否 | 标签 ID 列表，用于标签筛选；传多个时表示文章必须同时包含这些标签 | `[30001, 30002]` |
 | `isTop` | `Boolean` | 否 | 是否置顶；`true` 只返回置顶文章，`false` 只返回非置顶文章，不传则不限制 | `true` |
-| `sort` | `String` | 否 | 排序模式；`DEFAULT` 为置顶优先，`LATEST` 为仅按首次发布时间倒序，默认 `DEFAULT` | `LATEST` |
+| `sort` | `String` | 否 | 排序模式；`DEFAULT` 为相关度（有关键词时）或置顶优先，`LATEST` 为仅按首次发布时间倒序，默认 `DEFAULT` | `LATEST` |
 
 ### 搜索规则
 
 - `keyword` 去除首尾空白后为空时不添加搜索条件。
-- 非空关键词通过 PostgreSQL `zhparser` 解析，并使用 `plainto_tsquery` 查询 `title`、`summary` 和 `content_text` 生成的全文检索向量；多个解析后的检索词之间为 AND 关系。
+- 非空关键词通过 PostgreSQL `zhparser` 解析，并使用 `plainto_tsquery` 查询 `title`、`summary` 和 `content_text` 生成的全文检索向量；多个解析后的检索词之间为 AND 关系。若单字符未产生有效词元，则对三个字段执行字面量包含匹配兜底。
 - 搜索条件可以和 `categoryId`、`tagIds`、`isTop`、`sort` 组合使用，分页结构和排序规则保持不变。
 - 仅返回 `PUBLISHED` 文章，草稿和已下线文章即使匹配关键词也不会出现在结果中。
 - 搜索时使用 `ts_headline` 返回可选的标题高亮和摘要/正文高亮片段；不新增独立搜索接口。
@@ -526,8 +526,8 @@ Set-Cookie: refresh_token=; Max-Age=0; Path=/api/v1/auth; HttpOnly; SameSite=Lax
 
 ### 排序规则
 
-- `sort=DEFAULT` 或不传 `sort`：按 `isTop DESC, publishedAt DESC, id DESC` 排序。
-- `sort=LATEST`：不考虑置顶状态，按 `publishedAt DESC, id DESC` 排序。
+- `sort=DEFAULT` 或不传 `sort`：有关键词时按全文检索相关度 DESC，再按 `isTop DESC, publishedAt DESC, id DESC` 排序；无关键词时按 `isTop DESC, publishedAt DESC, id DESC` 排序。
+- `sort=LATEST`：不考虑置顶和全文检索相关度，按 `publishedAt DESC, id DESC` 排序。
 - `isTop` 只负责筛选，可以和任一排序模式组合使用。
 - 首页置顶文章使用 `isTop=true`，首页最新文章使用 `sort=LATEST` 且不传 `isTop`，因此同一篇文章允许同时出现在两个区域。
 
@@ -568,7 +568,7 @@ GET /api/v1/articles?pageNum=1&pageSize=4&sort=LATEST
 | `coverUrl` | `String` | 封面地址 | `https://cdn.example.com/cover/token.png` |
 | `isTop` | `Boolean` | 是否置顶 | `true` |
 | `publishedAt` | `String` | 发布时间 | `2026-04-22T23:00:00+08:00` |
-| `viewCount` | `Integer` | 浏览量 | `128` |
+| `viewCount` | `Integer` | 浏览量预留值；P2 启用真实浏览统计 | `128` |
 | `category.id` | `Long` | 文章绑定的二级分类 ID | `21001` |
 | `category.name` | `String` | 二级分类名称 | `Java` |
 | `category.level` | `Integer` | 分类层级，固定为 `2` | `2` |
@@ -661,7 +661,7 @@ GET /api/v1/articles/40001
 | `coverUrl` | `String` | 封面地址 | `https://cdn.example.com/cover/token.png` |
 | `isTop` | `Boolean` | 是否置顶 | `true` |
 | `allowComment` | `Boolean` | 是否允许新增评论和回复；关闭后已有 APPROVED 评论仍可展示 | `true` |
-| `viewCount` | `Integer` | 浏览量 | `128` |
+| `viewCount` | `Integer` | 浏览量预留值；P2 启用真实浏览统计 | `128` |
 | `commentCount` | `Integer` | 评论数 | `0` |
 | `likeCount` | `Integer` | 点赞数 | `0` |
 | `publishedAt` | `String` | 发布时间 | `2026-04-22T23:00:00+08:00` |
@@ -1690,12 +1690,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ### 返回规则
 
-- 不传 `keyword`、`level` 和 `parentId` 时，返回完整分类树，一级分类下包含二级分类。
-- 传 `keyword` 时，返回分类名称匹配的平铺列表，每个节点的 `children` 为空数组。
-- `keyword` 可与 `status`、`level`、`parentId` 组合筛选；只要传入有效 `keyword`，结果仍为平铺列表。
-- 传 `parentId` 时，返回该一级分类下的二级分类平铺列表，每个节点的 `children` 为空数组。
-- 传 `level=2` 时，返回二级分类平铺列表，每个节点的 `children` 为空数组。
-- 传 `level=1` 时，返回一级分类平铺列表，每个节点的 `children` 为空数组。
+- 不传 `keyword`、`status`、`level` 和 `parentId` 时，返回完整分类树，一级分类下包含二级分类。
+- 传入 `keyword`、`status`、`level` 或 `parentId` 中任一条件时，返回符合条件的平铺列表，每个节点的 `children` 为空数组；这样状态筛选可以返回父级状态不同的二级分类。
 - `parentId` 与 `level=1` 不能同时使用；若同时传入，后端返回参数错误。
 - `parentId` 与 `level=2` 可以同时使用，但 `level=2` 只是冗余限定。
 

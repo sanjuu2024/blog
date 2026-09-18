@@ -536,7 +536,7 @@ class ArticleServiceImplTest {
         query.setKeyword("  ReDiS  ");
 
         when(categoryMapper.selectList(any())).thenReturn(List.of(enabledParentCategory(), enabledChildCategory()));
-        when(articleMapper.selectPublicArticleSearchPage(any(Page.class), any(), any(), any(), any(), eq(true)))
+        when(articleMapper.selectPublicArticleSearchPage(any(Page.class), any(), any(), any(), any(), eq(true), eq(true)))
                 .thenAnswer(invocation -> {
             Page<PublicArticleSearchBO> page = invocation.getArgument(0);
             page.setTotal(0);
@@ -552,6 +552,7 @@ class ArticleServiceImplTest {
                 eq(List.of(CATEGORY_ID)),
                 eq(List.of()),
                 isNull(),
+                eq(true),
                 eq(true)
         );
         verify(articleMapper, never()).selectPage(any(Page.class), any());
@@ -579,7 +580,7 @@ class ArticleServiceImplTest {
                 List.of(enabledChildCategory()),
                 List.of(enabledParentCategory())
         );
-        when(articleMapper.selectPublicArticleSearchPage(any(Page.class), any(), any(), any(), any(), eq(true)))
+        when(articleMapper.selectPublicArticleSearchPage(any(Page.class), any(), any(), any(), any(), eq(true), eq(true)))
                 .thenAnswer(invocation -> {
             Page<PublicArticleSearchBO> page = invocation.getArgument(0);
             page.setTotal(1);

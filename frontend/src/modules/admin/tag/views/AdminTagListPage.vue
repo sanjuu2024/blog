@@ -96,7 +96,11 @@
 							prop="description"
 							align="center"
 							label="描述"
-						/>
+						>
+							<template #default="{ row }">
+								{{ row.description || '-' }}
+							</template>
+						</el-table-column>
 
 						<el-table-column
 							label="状态"

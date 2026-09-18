@@ -400,7 +400,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_search_vector
 | `author_id` | `BIGINT` | 文章作者 ID，当前通常是管理员 | `10001` |
 | `is_top` | `BOOLEAN` | 是否置顶 | `true` |
 | `allow_comment` | `BOOLEAN` | 是否允许评论，先预留控制字段 | `true` |
-| `view_count` | `INTEGER` | 浏览量冗余字段 | `128` |
+| `view_count` | `INTEGER` | 浏览量冗余字段，P2 确定有效浏览与去重规则后启用真实统计 | `128` |
 | `comment_count` | `INTEGER` | 评论数冗余字段，P1 启用 | `6` |
 | `like_count` | `INTEGER` | 点赞数冗余字段，P2 启用 | `35` |
 | `favorite_count` | `INTEGER` | 历史预留收藏数冗余字段，当前 API 不返回且应用不读写 | `12` |
@@ -414,7 +414,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_search_vector
 - 文章的 `category_id` 应指向 `Java`、`算法` 这类二级分类，而不是 `技术` 这类一级分类
 - 保存或更新文章时，应用层应以 `content_md` 为源生成 `content_html` 与 `content_text`
 - P1 文章搜索使用 PostgreSQL `zhparser` 解析 `title`、`summary` 和 `content_text`，并通过生成列 `search_vector` 与 GIN 索引完成全文检索
-- 搜索查询使用 `plainto_tsquery('public.zhparser_cfg', keyword)`，多个解析后的检索词之间为 AND 关系
+- `search_vector` 为标题、摘要、正文分别设置 A、B、C 权重；有关键词且使用默认排序时通过 `ts_rank` 计算相关度，权重影响标题、摘要和正文的匹配分数
+- 搜索查询使用 `plainto_tsquery('public.zhparser_cfg', keyword)`，多个解析后的检索词之间为 AND 关系；单字符未产生词元时由应用查询对三个字段执行字面量包含匹配兜底
 - `zhparser` 扩展和 `public.zhparser_cfg` 均属于数据库级对象；每个由 Flyway 管理的数据库都必须执行对应 migration，不能只依赖容器首次初始化脚本
 - P0 阶段文章详情 URL 以 `id` 作为稳定定位标识；`slug` 不作为必填字段，也不要求管理员手动维护
 - P2 阶段可在前台 URL 中追加 `slug` 提升可读性，例如 `/articles/40001-spring-boot-dual-token-login`，实际定位仍优先以 `id` 为准
