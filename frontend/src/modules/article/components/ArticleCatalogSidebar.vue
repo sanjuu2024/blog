@@ -15,7 +15,7 @@
 
 		<aside
 			ref="sidebarRef"
-			class="article-catalog-sidebar"
+			class="article-catalog-sidebar app-scrollbar"
 			:class="{ 'article-catalog-sidebar-expanded': expanded }"
 		>
 			<p class="article-catalog-sidebar__title">目录</p>
@@ -178,22 +178,6 @@ useEventListener(document, 'keydown', (event: KeyboardEvent) => {
 		transform 0.2s ease,
 		background-color 0.1s ease;
 	z-index: 999;
-
-	&::-webkit-scrollbar {
-		width: 10px;
-	}
-
-	&::-webkit-scrollbar-thumb {
-		border-radius: 999px;
-	}
-
-	&::-webkit-scrollbar-thumb:hover {
-		background: rgb(228 228 228);
-	}
-
-	&::-webkit-scrollbar-track {
-		background: transparent;
-	}
 }
 
 .article-catalog-sidebar-expanded {

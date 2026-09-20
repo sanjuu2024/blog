@@ -1,4 +1,6 @@
 import { ElMessage, ElMessageBox } from 'element-plus';
+import 'element-plus/es/components/message/style/css';
+import 'element-plus/es/components/message-box/style/css';
 import { listComments, moderateComment } from '../api/adminCommentApi';
 import {
 	COMMENT_MODERATION_ACTION,

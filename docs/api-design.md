@@ -990,7 +990,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.access
 | 字段名称 | 字段类型 | 必填 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- | --- |
 | `nickname` | `String` | 否 | 用户昵称，1-20 位，不能全为空白字符 | `Alice` |
-| `bio` | `String` | 否 | 个人简介，最长 500 个字符 | `专注 Java 与前端工程化` |
+| `bio` | `String` | 否 | 个人简介，最长 100 个字符，换行和空行均计入字符数 | `专注 Java 与前端工程化` |
 
 ### 请求样例
 
@@ -2529,5 +2529,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | 取消点赞 | `DELETE` | `/api/v1/articles/{articleId}/like` | P2 |
 | 留言 | `GET` | `/api/v1/messages` | P1 |
 | 留言 | `POST` | `/api/v1/messages` | P1 |
+| 评论批量通过 | `PATCH` | `/api/v1/admin/comments/batch-approval` | 待实际审核量评估 |
 | 项目 | `GET` | `/api/v1/projects` | 待有实际项目作品后评估 |
 | 项目详情 | `GET` | `/api/v1/projects/{projectId}` | 待有实际项目作品后评估 |

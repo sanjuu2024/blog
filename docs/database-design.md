@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS blog_user (
     token_version BIGINT NOT NULL DEFAULT 0
         CHECK (token_version >= 0),
     avatar_url VARCHAR(500) NOT NULL DEFAULT '',
-    bio VARCHAR(500) NOT NULL DEFAULT '',
+    bio VARCHAR(100) NOT NULL DEFAULT '',
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     email_verified_at TIMESTAMPTZ,
     last_login_at TIMESTAMPTZ,
@@ -145,7 +145,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_user_role_status
 | `status` | `VARCHAR(20)` | 用户状态，控制是否允许登录 | `ACTIVE`、`DISABLED` |
 | `token_version` | `BIGINT` | Access Token 版本号；修改密码、禁用用户或修改角色时原子递增，使旧 Access Token 立即失效 | `0`、`1` |
 | `avatar_url` | `VARCHAR(500)` | 用户头像地址，P0 可为空；P1 保存 OSS 自定义域名的公开 URL | `https://img.example.com/avatars/10002/avatar.jpg` |
-| `bio` | `VARCHAR(500)` | 用户个人简介 | `专注后端和前端工程化` |
+| `bio` | `VARCHAR(100)` | 用户个人简介，换行和空行均计入长度 | `专注后端和前端工程化` |
 | `email_verified` | `BOOLEAN` | 邮箱是否完成验证，P0 默认未启用，但字段先预留 | `false` |
 | `email_verified_at` | `TIMESTAMPTZ` | 邮箱验证完成时间 | `2026-05-01 10:00:00+08` |
 | `last_login_at` | `TIMESTAMPTZ` | 最近一次登录时间 | `2026-04-22 22:10:00+08` |
@@ -821,3 +821,4 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 - 留言表的状态扩展、通知字段和索引通过 `V1.1.4` migration 落地，不修改已执行的初始 migration
 - 留言通知令牌使用随机不透明值；数据库泄露时不会暴露用户密码或登录 Token，令牌仅能关闭对应顶层留言的后续通知
 - 用户名长度和格式约束通过 `V1.1.6` migration 更新；升级前若存在不符合新规则的用户名，迁移会失败并要求先处理存量数据
+- 用户简介字段通过 `V1.1.7` migration 缩短为 `VARCHAR(100)`；升级前若存在超过 100 个字符的简介，迁移会失败并要求先处理存量数据

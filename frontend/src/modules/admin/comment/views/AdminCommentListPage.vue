@@ -82,6 +82,7 @@
 							end-placeholder="结束时间"
 							value-format="YYYY-MM-DDTHH:mm:ssZ"
 							@change="getCommentList(1)"
+							:default-time="defaultTime"
 						/>
 					</el-form-item>
 
@@ -397,6 +398,8 @@ const {
 } = useAdminCommentList();
 
 const commentTableRef = ref<TableInstance>();
+
+const defaultTime: [Date, Date] = [new Date(2000, 1, 1, 0, 0, 0), new Date(2000, 2, 1, 23, 59, 59)]; // '00:00:00', '23:59:59'
 
 onMounted(() => {
 	getCommentList();

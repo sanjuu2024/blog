@@ -54,6 +54,7 @@
 						:name="userProfile.nickname || userProfile.username"
 						:user-id="userProfile.id"
 						:size="88"
+						class="shrink-0"
 					/>
 					<div>
 						<p class="avatar-setting__label">头像</p>
@@ -101,7 +102,7 @@
 							v-model="profileForm.bio"
 							type="textarea"
 							:rows="4"
-							maxlength="500"
+							maxlength="100"
 							show-word-limit
 							placeholder="请输入个人简介"
 						/>
@@ -359,6 +360,14 @@ onMounted(() => {
 	.security-item__value {
 		margin-top: 0.25rem;
 		font-weight: 600;
+	}
+}
+
+@media (width < 376px) {
+	.avatar-setting {
+		display: flex;
+		flex-direction: column;
+		text-align: center;
 	}
 }
 </style>

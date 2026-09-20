@@ -104,6 +104,7 @@
 								start-placeholder="开始时间"
 								end-placeholder="结束时间"
 								value-format="YYYY-MM-DDTHH:mm:ssZ"
+								:default-time="defaultTime"
 							/>
 						</el-form-item>
 						<div class="admin-audit-log__filter-actions">
@@ -306,6 +307,8 @@ const actionOptions = Object.values(AUDIT_ACTION).map((value) => ({
 	value,
 	label: getActionLabel(value),
 }));
+
+const defaultTime: [Date, Date] = [new Date(2000, 1, 1, 0, 0, 0), new Date(2000, 2, 1, 23, 59, 59)]; // '00:00:00', '23:59:59'
 
 onMounted(() => getAuditLogList());
 
@@ -526,6 +529,12 @@ function getRequestMethodClass(method: string) {
 
 	.admin-audit-log__filter-actions {
 		justify-content: flex-end;
+	}
+}
+
+@media (width < 360px) {
+	.admin-audit-log__filter-row--primary {
+		grid-template-columns: 1fr;
 	}
 }
 </style>

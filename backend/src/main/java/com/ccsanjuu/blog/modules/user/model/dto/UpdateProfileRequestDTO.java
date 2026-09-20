@@ -17,6 +17,6 @@ public class UpdateProfileRequestDTO {
     @Pattern(regexp = ".*\\S.*", message = "昵称不能全为空白字符")
     private String nickname;
 
-    @Size(max = 500, message = "个人简介长度不能超过 500 个字符")
+    @Size(max = 100, message = "个人简介长度不能超过 100 个字符")
     private String bio;
 }

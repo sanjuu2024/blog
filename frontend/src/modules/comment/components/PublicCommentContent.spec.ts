@@ -42,10 +42,10 @@ function mountContent(showActions = false) {
 }
 
 describe('PublicCommentContent', () => {
-	it('does not show the toggle when the content fits', async () => {
+	it('does not show the toggle for a one-pixel rendering difference', async () => {
 		const { wrapper } = mountContent();
 		const content = wrapper.get('.comment-content');
-		Object.defineProperty(content.element, 'scrollHeight', { value: 120 });
+		Object.defineProperty(content.element, 'scrollHeight', { value: 121 });
 		Object.defineProperty(content.element, 'clientHeight', { value: 120 });
 		resizeObserver.callback?.();
 		await nextTick();
