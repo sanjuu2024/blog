@@ -144,8 +144,8 @@
 	--app-default-img-bg-color: #333333;
 	--app-default-img-text-color: #ababad;
 	--app-main: #587f5c;
-	--app-router-hover: #323232;
-	--app-message-item-header-bg: #494949;
+	--app-router-hover: #3c3c3c;
+	--app-message-item-header-bg: #3b3b3b;
 	--app-icon-green-color: #176334;
 	--app-icon-red-color: #872e18;
 	--app-icon-gray-color: #656564;
@@ -236,4 +236,25 @@
 	--el-overlay-color: rgb(0 0 0 / 78%);
 	--el-overlay-color-light: rgb(0 0 0 / 58%);
 	--el-overlay-color-lighter: rgb(0 0 0 / 38%);
+
+	.el-message--success {
+		--el-message-bg-color: var(--el-color-success);
+		--el-message-text-color: var(--app-text);
+		--el-message-border-color: var(--app-border);
+	}
+	.el-message--warning {
+		--el-message-bg-color: var(--el-color-warning);
+		--el-message-text-color: var(--app-text);
+		--el-message-border-color: var(--app-border);
+	}
+	.el-message--error {
+		--el-message-bg-color: var(--el-color-error);
+		--el-message-text-color: var(--app-text);
+		--el-message-border-color: var(--app-border);
+	}
+	.el-message--info {
+		--el-message-bg-color: var(--el-color-info);
+		--el-message-text-color: var(--app-text);
+		--el-message-border-color: var(--app-border);
+	}
 }

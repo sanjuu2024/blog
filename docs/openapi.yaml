@@ -2663,8 +2663,8 @@ components:
           example: Alice
         bio:
           type: string
-          maxLength: 500
-          description: 个人简介，最长 500 个字符
+          maxLength: 100
+          description: 个人简介，最长 100 个字符，换行和空行均计入字符数
           example: 专注 Java 与前端工程化
     UpdateProfileData:
       type: object

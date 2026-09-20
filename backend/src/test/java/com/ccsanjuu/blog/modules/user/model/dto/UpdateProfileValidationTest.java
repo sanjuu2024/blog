@@ -29,11 +29,15 @@ class UpdateProfileValidationTest {
         UpdateProfileRequestDTO nullBioRequest = UpdateProfileRequestDTO.builder()
                 .bio(null)
                 .build();
+        UpdateProfileRequestDTO maxLengthBioRequest = UpdateProfileRequestDTO.builder()
+                .bio("a".repeat(100))
+                .build();
         UpdateProfileRequestDTO tooLongBioRequest = UpdateProfileRequestDTO.builder()
-                .bio("a".repeat(501))
+                .bio("a".repeat(101))
                 .build();
 
         assertTrue(VALIDATOR.validateProperty(nullBioRequest, "bio").isEmpty());
+        assertTrue(VALIDATOR.validateProperty(maxLengthBioRequest, "bio").isEmpty());
         assertFalse(VALIDATOR.validateProperty(tooLongBioRequest, "bio").isEmpty());
     }
 

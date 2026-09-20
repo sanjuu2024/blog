@@ -67,4 +67,16 @@ describe('useUserSettings avatar upload', () => {
 		expect(updateCurrentUserAvatar).not.toHaveBeenCalled();
 		expect(ElMessage.warning).toHaveBeenCalledWith('图片大小不能超过 2 MB');
 	});
+
+	it('accepts a 100-character bio and rejects a longer bio', () => {
+		const { profileForm, profileValidated } = useUserSettings();
+		profileForm.nickname = 'Alice';
+		profileForm.bio = 'a'.repeat(100);
+
+		expect(profileValidated.value).toBe(true);
+
+		profileForm.bio = 'a'.repeat(101);
+
+		expect(profileValidated.value).toBe(false);
+	});
 });

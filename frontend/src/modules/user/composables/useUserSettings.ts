@@ -73,7 +73,7 @@ export function useUserSettings() {
 	}
 
 	function isValidBio(bio: string) {
-		return bio.length <= 500;
+		return bio.length <= 100;
 	}
 
 	function isValidPassword(password: string) {
@@ -152,7 +152,7 @@ export function useUserSettings() {
 				) => {
 					const bio = value ?? '';
 					if (!isValidBio(bio)) {
-						callback(new Error('个人简介长度不能超过 500 个字符。'));
+						callback(new Error('个人简介长度不能超过 100 个字符。'));
 					} else {
 						callback();
 					}

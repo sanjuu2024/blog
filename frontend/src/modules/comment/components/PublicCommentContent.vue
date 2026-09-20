@@ -53,20 +53,24 @@ defineProps<{
 const contentRef = ref<HTMLElement | null>(null);
 const contentExpanded = ref(false);
 const contentOverflows = ref(false);
+const OVERFLOW_TOLERANCE_PX = 1;
+
+function updateContentOverflow() {
+	if (!contentRef.value || contentExpanded.value) return;
+	contentOverflows.value =
+		contentRef.value.scrollHeight - contentRef.value.clientHeight > OVERFLOW_TOLERANCE_PX;
+}
 
 // 折叠状态下根据实际渲染高度判断是否需要展示“展开”按钮。
-useResizeObserver(contentRef, () => {
-	if (!contentRef.value || contentExpanded.value) return;
-	contentOverflows.value = contentRef.value.scrollHeight > contentRef.value.clientHeight;
-});
+useResizeObserver(contentRef, updateContentOverflow);
 
 async function toggleContent() {
 	contentExpanded.value = !contentExpanded.value;
 
 	await nextTick();
 
-	if (!contentExpanded.value && contentRef.value) {
-		contentOverflows.value = contentRef.value.scrollHeight > contentRef.value.clientHeight;
+	if (!contentExpanded.value) {
+		updateContentOverflow();
 	}
 
 	contentRef.value?.closest<HTMLElement>('[data-comment-entry]')?.scrollIntoView({
@@ -78,16 +82,21 @@ async function toggleContent() {
 
 <style scoped lang="scss">
 .comment-content {
-	max-height: 10rem;
+	display: -webkit-box;
 	overflow: hidden;
 	margin-top: 0.4rem;
 	overflow-wrap: anywhere;
 	white-space: pre-wrap;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 6;
+	line-clamp: 6;
 	line-height: 1.7;
 }
 
 .comment-content--expanded {
-	max-height: none;
+	display: block;
+	-webkit-line-clamp: unset;
+	line-clamp: unset;
 }
 
 .comment-content__bottom-toolbar {

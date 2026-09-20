@@ -84,7 +84,18 @@
 						>
 							<span class="article-tag-option">
 								<span class="article-tag-option__bullet"></span>
-								<span class="article-tag-option__name">{{ tag.name }}</span>
+								<el-tooltip
+									effect="light"
+									:content="tag.name"
+									:disabled="tagTooltipDisabled"
+								>
+									<span
+										class="article-tag-option__name"
+										@mouseover="updateTagTooltip"
+									>
+										{{ tag.name }}
+									</span>
+								</el-tooltip>
 							</span>
 						</el-option>
 					</el-select>
@@ -95,6 +106,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
 import { useElementSize } from '@vueuse/core';
 import { computed, useTemplateRef } from 'vue';
 import type { PublicCategoryItem } from '@/modules/category/types/category';
@@ -105,6 +117,9 @@ import getRouteIcon from '@/utils/getRouteIcon';
 defineOptions({
 	name: 'ArticleFilterPanel',
 });
+
+// 控制标签是否由于过长显示 tooltip（同一时刻只会悬浮一个标签所以只需要维护一个变量即可）
+const tagTooltipDisabled = ref(true);
 
 // 选择的分类和标签
 const filterForm = defineModel<ArticleFilterForm>('filterForm', {
@@ -136,6 +151,13 @@ const selectedTagList = computed(() => {
 function removeSelectedTag(tagId: number) {
 	const selectedTagIds = filterForm.value.tagIds ?? [];
 	filterForm.value.tagIds = selectedTagIds.filter((id) => id !== tagId);
+}
+
+// 动态判断标签是否需要显示 tooltip
+function updateTagTooltip(event: MouseEvent) {
+	const element = event.currentTarget as HTMLElement;
+
+	tagTooltipDisabled.value = element.scrollWidth - element.clientWidth <= 1;
 }
 </script>
 
@@ -196,7 +218,7 @@ function removeSelectedTag(tagId: number) {
 
 :global(.article-tag-select-popper .el-select-dropdown__item) {
 	min-width: 0;
-	padding-inline: 0.5rem;
+	padding-inline: 0.5rem 2rem;
 	border-radius: 4px;
 }
 
