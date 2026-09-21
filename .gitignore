@@ -69,3 +69,6 @@ temp/
 
 # dev deploy environment files
 deploy/*
+
+# performance
+blog-p1-acceptance/
