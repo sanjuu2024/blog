@@ -51,7 +51,7 @@
 - 生成符合 Angular / Conventional Commits 规范的 commit message。
 - commit subject 使用英文，格式如 `feat(scope): summary`。
 - long description 使用中文，整体风格与仓库近期 commit message 保持一致。
-- body 使用短横线列表，每行尽量不超过 100 个字符，避免触发 commitlint。
+- commit body 必须使用中文，并使用短横线列表；每行尽量不超过 100 个字符，避免触发 commitlint。
 - 根据暂存区内容给出推荐分支命名。
 - 如果暂存区代码存在明显问题、拆分风险、格式问题或提交范围不清，先提出修改建议；用户改完后再给最终 commit message。
 
