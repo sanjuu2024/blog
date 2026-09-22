@@ -94,7 +94,7 @@ jobs:
           cache-dependency-path: backend/pom.xml
 
       - name: Start PostgreSQL and Redis
-        run: docker compose up -d --build --wait blog_db blog_redis
+        run: docker compose -f compose.dev.yaml up -d --build --wait blog_db blog_redis
 
       - name: Create test database
         run: docker exec blog_db createdb -U sanjuu blog_test
@@ -114,8 +114,8 @@ jobs:
           
       - name: Show container logs on failure
         if: failure()
-        run: docker compose logs --no-color
+        run: docker compose -f compose.dev.yaml logs --no-color
 
       - name: Stop test infrastructure
         if: always()
-        run: docker compose down -v
+        run: docker compose -f compose.dev.yaml down -v
