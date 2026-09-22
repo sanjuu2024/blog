@@ -1,5 +1,5 @@
 services:
-  blog_db:
+  postgres:
     build:
       context: .
       dockerfile: docker/postgres/Dockerfile
@@ -24,7 +24,7 @@ services:
     networks:
       - blog_network
 
-  blog_redis:
+  redis:
     image: redis:7.4-alpine
     restart: unless-stopped
     ports:

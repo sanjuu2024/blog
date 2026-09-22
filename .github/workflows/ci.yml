@@ -94,10 +94,10 @@ jobs:
           cache-dependency-path: backend/pom.xml
 
       - name: Start PostgreSQL and Redis
-        run: docker compose -f compose.dev.yaml up -d --build --wait blog_db blog_redis
+        run: docker compose -f compose.dev.yaml up -d --build --wait postgres redis
 
       - name: Create test database
-        run: docker compose -f compose.dev.yaml exec -T blog_db createdb -U sanjuu blog_test
+        run: docker compose -f compose.dev.yaml exec -T postgres createdb -U sanjuu blog_test
 
       - name: Verify backend
         working-directory: backend

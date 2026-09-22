@@ -27,7 +27,7 @@
 | 验收负责人            | sanjuu                                                       |
 | 前端地址              | http://localhost:5173                                        |
 | 后端地址              | http://localhost:8080                                        |
-| 数据库环境            | PostgreSQL 16.13，localhost:5432/blog_db                     |
+| 数据库环境            | PostgreSQL 16.13，Compose 服务 `postgres`，localhost:5432/blog_db |
 | Redis 环境            | Redis 7.4，localhost:6379/0                                  |
 | 浏览器及版本          | Edge v153.0.4234.32；Chrome v153.0.8010.48                   |
 | 操作系统 / 设备       | Windows 11                                                   |
@@ -75,7 +75,7 @@ P1 验收范围以 [PRD.md](./PRD.md)、[database-design.md](./database-design.m
 - [x] 已记录本次验收 Commit SHA，后续结果均对应这一版本。
 - [x] 前端使用生产构建或明确记录的开发构建，后端使用对应同一 Commit 的代码。
 - [x] PostgreSQL、Redis 状态正常，测试库与日常开发库相互隔离。
-    -   人工验收：`blog_db` + Redis DB 0。
+    -   人工验收：Compose 服务 `postgres` + 服务 `redis`，Redis DB 0。
       - 自动化测试：`blog_test` + Redis DB 1。
 - [x] 测试环境所需变量已经注入，密码、JWT、OSS、SMTP 凭据没有提交到 Git。
 - [x] 已准备管理员、普通用户、禁用用户和游客场景。
