@@ -1,9 +1,8 @@
 services:
   blog_db:
-    container_name: blog_db
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/postgres/Dockerfile
     restart: unless-stopped
     ports:
       - "5432:5432"
@@ -26,7 +25,6 @@ services:
       - blog_network
 
   blog_redis:
-    container_name: blog_redis
     image: redis:7.4-alpine
     restart: unless-stopped
     ports:
