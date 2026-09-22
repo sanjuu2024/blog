@@ -97,7 +97,7 @@ jobs:
         run: docker compose -f compose.dev.yaml up -d --build --wait blog_db blog_redis
 
       - name: Create test database
-        run: docker exec blog_db createdb -U sanjuu blog_test
+        run: docker compose -f compose.dev.yaml exec -T blog_db createdb -U sanjuu blog_test
 
       - name: Verify backend
         working-directory: backend
