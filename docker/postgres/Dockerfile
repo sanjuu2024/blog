@@ -1,4 +1,4 @@
-FROM postgres:16.13-bookworm
+FROM postgres:16.13-bookworm@sha256:472efd9a66f2b2f1a5aeb18b28de74332e6ef88c2b93a1a5d812fb6db67a5f60
 
 ENV DEBIAN_FRONTEND=noninteractive \
 	SCWS_VERSION=1.2.3 \
@@ -23,8 +23,11 @@ RUN curl -fsSL "https://www.xunsearch.com/scws/down/scws-${SCWS_VERSION}.tar.bz2
 	&& ldconfig \
 	&& rm -rf /tmp/scws.tar.bz2 /tmp/scws-src
 
-RUN git clone --depth=1 https://github.com/amutu/zhparser.git /tmp/zhparser \
+RUN git init /tmp/zhparser \
 	&& cd /tmp/zhparser \
+	&& git remote add origin https://github.com/amutu/zhparser.git \
+	&& git fetch --depth=1 origin "2e995c4df672563992b4d7a147b8fa2d0d4cda6c" \
+	&& git checkout --detach FETCH_HEAD \
 	&& make SCWS_HOME="${SCWS_PREFIX}" \
 	&& make install \
 	&& rm -rf /tmp/zhparser

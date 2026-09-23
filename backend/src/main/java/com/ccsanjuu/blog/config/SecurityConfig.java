@@ -37,6 +37,8 @@ public class SecurityConfig {
             "/api/v1/auth/login",
             "/api/v1/auth/refresh",
             "/api/v1/auth/logout",
+            "/actuator/health",
+            "/actuator/health/**",
             // knife4j（否则访问会弹出一个登录界面）
             "/doc.html",
             "/webjars/**",

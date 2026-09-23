@@ -35,6 +35,17 @@ spring:
       mail.smtp.timeout: ${BLOG_SMTP_READ_TIMEOUT:10000}
       mail.smtp.writetimeout: ${BLOG_SMTP_WRITE_TIMEOUT:10000}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
 mybatis-plus:
   type-aliases-package: com.ccsanjuu.blog.**.entity   # 实体类所在的包，默认值
   mapper-locations: "classpath*:/mapper/**/*.xml"
