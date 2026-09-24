@@ -1,0 +1,11 @@
+spring:
+  main:
+    web-application-type: none
+
+blog:
+  bootstrap:
+    admin:
+      username: ${BLOG_BOOTSTRAP_ADMIN_USERNAME:}
+      nickname: ${BLOG_BOOTSTRAP_ADMIN_NICKNAME:站点管理员}
+      email: ${BLOG_BOOTSTRAP_ADMIN_EMAIL:}
+      password-file: ${BLOG_BOOTSTRAP_ADMIN_PASSWORD_FILE:/run/secrets/bootstrap_admin_password}

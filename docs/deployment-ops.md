@@ -283,12 +283,87 @@ blog:
 
 生产式 Compose 使用 Spring Boot Actuator 的 `/actuator/health/readiness` 作为 backend 健康检查；该端点只返回健康状态，不展示数据库、Redis 或其他内部细节。Nginx 使用独立的 `/nginx-health` 端点检查自身是否已正常提供服务，并等待 backend 通过 readiness 后再启动流量代理。
 
-生产环境管理员初始化不应依赖 devdata migration，也不应在镜像或仓库中保存固定的
-`admin/123456`。推荐提供一次性 bootstrap 命令或独立 Compose profile：从受保护的环境变量或
-Secret 文件读取管理员用户名、邮箱和密码，使用后端现有密码哈希逻辑创建管理员；若管理员已
-存在则失败并停止，缺少必要变量也必须失败，密码不得写入日志。bootstrap 成功后删除临时
-Secret，普通 `prod` 启动不再自动创建或重置管理员。该流程需要先在后端实现一次性命令，
-不能直接把一条永久 SQL 或默认密码当作生产初始化方案。
+### 8.1 一次性生产管理员初始化
+
+生产环境不加载 `db/devdata`，管理员通过 `bootstrap-admin` 专用 Spring profile 和
+`compose.bootstrap.yaml` 中的 `admin-bootstrap` 一次性任务创建。普通生产部署只读取
+`compose.prod.yaml`，不会解析 bootstrap 服务或密码 Secret，也不会创建或重置管理员。
+Flyway、镜像和仓库中均不保存固定的 `admin/123456`。
+
+先在部署目录外创建临时密码文件。使用 `read -s` 避免密码进入 Shell 历史：
+
+```bash
+install -d -m 700 "$HOME/deploy/sanjuu-blog-prodtest/secrets"
+umask 077
+read -rsp "Bootstrap admin password: " BOOTSTRAP_ADMIN_PASSWORD
+printf '%s' "$BOOTSTRAP_ADMIN_PASSWORD" \
+  > "$HOME/deploy/sanjuu-blog-prodtest/secrets/bootstrap-admin-password.txt"
+unset BOOTSTRAP_ADMIN_PASSWORD
+```
+
+在仓库外的 `.env.prodtest` 中配置非敏感身份信息和密码文件的宿主机绝对路径：
+
+```dotenv
+BLOG_BOOTSTRAP_ADMIN_USERNAME=prod_admin
+BLOG_BOOTSTRAP_ADMIN_NICKNAME=站点管理员
+BLOG_BOOTSTRAP_ADMIN_EMAIL=admin@example.com
+BLOG_BOOTSTRAP_ADMIN_PASSWORD_PATH=/home/<user>/deploy/sanjuu-blog-prodtest/secrets/bootstrap-admin-password.txt
+```
+
+执行前分别校验日常配置和加入 bootstrap overlay 后的合并配置：
+
+```bash
+docker compose \
+  --env-file "$HOME/deploy/sanjuu-blog-prodtest/.env.prodtest" \
+  -f compose.prod.yaml config -q
+
+docker compose \
+  --env-file "$HOME/deploy/sanjuu-blog-prodtest/.env.prodtest" \
+  -f compose.prod.yaml \
+  -f compose.bootstrap.yaml \
+  config -q
+```
+
+先启动 PostgreSQL，再显式合并 bootstrap overlay 并运行一次初始化任务：
+
+```bash
+docker compose \
+  --env-file "$HOME/deploy/sanjuu-blog-prodtest/.env.prodtest" \
+  -f compose.prod.yaml up -d --wait postgres
+
+docker compose \
+  --env-file "$HOME/deploy/sanjuu-blog-prodtest/.env.prodtest" \
+  -f compose.prod.yaml \
+  -f compose.bootstrap.yaml \
+  run --rm --build admin-bootstrap
+```
+
+任务只接受 `prod,bootstrap-admin` profile 组合，执行时会完成与注册接口一致的用户名、邮箱、
+密码校验，并使用 BCrypt 保存密码。以下情况会以非零状态退出：配置缺失或不合法、密码文件
+不存在或不可读、系统中已存在任意管理员、用户名或邮箱已被占用、数据库写入失败。日志只记录
+新管理员 ID 和用户名，不记录邮箱或密码。
+
+看到 `ADMIN_BOOTSTRAP_SUCCESS` 后立即删除密码文件：
+
+```bash
+rm "$HOME/deploy/sanjuu-blog-prodtest/secrets/bootstrap-admin-password.txt"
+```
+
+`BLOG_BOOTSTRAP_ADMIN_*` 变量只会被 `compose.bootstrap.yaml` 使用，可以在初始化完成后从
+`.env.prodtest` 手动删除，也可以保留非敏感的用户名、昵称、邮箱和已失效的文件路径；普通
+`compose.prod.yaml` 不会读取它们。真正必须删除的是保存明文密码的临时文件。
+
+随后只使用日常生产 Compose 启动长期服务：
+
+```bash
+docker compose \
+  --env-file "$HOME/deploy/sanjuu-blog-prodtest/.env.prodtest" \
+  -f compose.prod.yaml \
+  up -d --build --wait --wait-timeout 180
+```
+
+第二次运行 bootstrap 必须因“系统中已存在管理员”而失败，这属于预期的一次性保护，不能通过
+删除或降级现有管理员来绕过。管理员凭据遗失时应走受控的密码恢复流程，而不是重复执行初始化。
 
 ## 9. 日志与监控
 

@@ -466,6 +466,7 @@ JMeter 原始 `.jtl` 和 HTML 报告默认保存在仓库外；仓库只记录�
 - [ ] 前端和后端均能通过可复现的 Dockerfile 构建生产镜像。
 - [ ] Docker Compose 可以启动 Nginx、后端、PostgreSQL、Redis，服务健康检查正常。
 - [ ] 后端使用 `prod` profile，生产变量通过 `.env`、Compose 或 Secrets 注入，镜像中没有真实密钥。
+- [ ] 空生产数据库通过一次性 bootstrap 创建首个管理员；密码未进入环境变量、镜像或日志，重复执行会失败。
 - [ ] Nginx 托管前端静态资源，并将 `/api/**` 反向代理到后端。
 - [ ] 使用本地域名和可信测试证书或明确记录的临时证书验证 HTTPS。
 - [ ] HTTPS 下 Refresh Token Cookie 带 `Secure`，登录、刷新、退出流程正常。
