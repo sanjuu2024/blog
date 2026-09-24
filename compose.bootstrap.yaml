@@ -1,0 +1,41 @@
+# One-time overlay; always use together with compose.prod.yaml.
+services:
+  admin-bootstrap:
+    image: ${BLOG_BACKEND_IMAGE:-blog-backend:prodtest}
+    build:
+      context: backend
+      dockerfile: Dockerfile
+    restart: "no"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod,bootstrap-admin
+      BLOG_DB_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}"
+      BLOG_DB_USERNAME: ${POSTGRES_USER:?POSTGRES_USER is required}
+      BLOG_DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      BLOG_JWT_SECRET: ${BLOG_JWT_SECRET:?BLOG_JWT_SECRET is required}
+      BLOG_REDIS_HOST: redis
+      BLOG_REDIS_PORT: 6379
+      BLOG_REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      BLOG_REDIS_DATABASE: ${BLOG_REDIS_DATABASE:-0}
+      BLOG_OBJECT_STORAGE_PROVIDER: ${BLOG_OBJECT_STORAGE_PROVIDER:-aliyun}
+      BLOG_OBJECT_STORAGE_ENDPOINT: ${BLOG_OBJECT_STORAGE_ENDPOINT:?BLOG_OBJECT_STORAGE_ENDPOINT is required}
+      BLOG_OBJECT_STORAGE_BUCKET: ${BLOG_OBJECT_STORAGE_BUCKET:?BLOG_OBJECT_STORAGE_BUCKET is required}
+      BLOG_OBJECT_STORAGE_ACCESS_KEY_ID: ${BLOG_OBJECT_STORAGE_ACCESS_KEY_ID:?BLOG_OBJECT_STORAGE_ACCESS_KEY_ID is required}
+      BLOG_OBJECT_STORAGE_ACCESS_KEY_SECRET: ${BLOG_OBJECT_STORAGE_ACCESS_KEY_SECRET:?BLOG_OBJECT_STORAGE_ACCESS_KEY_SECRET is required}
+      BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL: ${BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL:?BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL is required}
+      BLOG_MAIL_ENABLED: false
+      BLOG_MAIL_FRONTEND_BASE_URL: ${BLOG_MAIL_FRONTEND_BASE_URL:?BLOG_MAIL_FRONTEND_BASE_URL is required}
+      BLOG_BOOTSTRAP_ADMIN_USERNAME: ${BLOG_BOOTSTRAP_ADMIN_USERNAME:-}
+      BLOG_BOOTSTRAP_ADMIN_NICKNAME: ${BLOG_BOOTSTRAP_ADMIN_NICKNAME:-站点管理员}
+      BLOG_BOOTSTRAP_ADMIN_EMAIL: ${BLOG_BOOTSTRAP_ADMIN_EMAIL:-}
+      BLOG_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/bootstrap_admin_password
+    depends_on:
+      postgres:
+        condition: service_healthy
+    secrets:
+      - bootstrap_admin_password
+    networks:
+      - backend_net
+
+secrets:
+  bootstrap_admin_password:
+    file: ${BLOG_BOOTSTRAP_ADMIN_PASSWORD_PATH:?BLOG_BOOTSTRAP_ADMIN_PASSWORD_PATH is required}
