@@ -343,6 +343,11 @@ docker compose \
 不存在或不可读、系统中已存在任意管理员、用户名或邮箱已被占用、数据库写入失败。日志只记录
 新管理员 ID 和用户名，不记录邮箱或密码。
 
+`bootstrap_admin_password.txt` 保持宿主机 `600` 权限即可。由于本地 Compose 的 file secret
+通常以 `root:root` 挂载，而正式 backend 镜像使用 UID `10001` 运行，bootstrap overlay 会让
+这个一次性任务以 `root` 读取该文件；这不会改变长期 backend 的非 root 运行用户，也不会把
+密码写入环境变量或日志。
+
 看到 `ADMIN_BOOTSTRAP_SUCCESS` 后立即删除密码文件：
 
 ```bash

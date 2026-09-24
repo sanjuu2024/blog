@@ -4,6 +4,7 @@ WORKDIR /build
 
 # Copy the build descriptor first so dependency resolution remains cacheable.
 COPY pom.xml ./
+COPY settings.xml /root/.m2/settings.xml
 RUN mvn -B -ntp dependency:go-offline
 
 COPY src ./src

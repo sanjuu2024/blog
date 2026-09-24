@@ -5,6 +5,9 @@ services:
     build:
       context: backend
       dockerfile: Dockerfile
+    # Compose file secrets are commonly mounted as root-owned bind mounts.
+    # This one-shot task needs root only to read the 0600 password file.
+    user: "0:0"
     restart: "no"
     environment:
       SPRING_PROFILES_ACTIVE: prod,bootstrap-admin
