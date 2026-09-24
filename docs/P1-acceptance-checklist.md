@@ -20,7 +20,7 @@
 
 | 项目                  | 记录                                                         |
 | --------------------- | ------------------------------------------------------------ |
-| 验收版本 / Commit SHA | eba0c9b05c86dae5ea6d599163113192ac0eeb0f                     |
+| 验收版本 / Commit SHA | 41bc91233eee26bee83cd9a2e3845e43ddaaafe0                     |
 | 验收分支              | `develop`                                                    |
 | 验收开始时间          | 2026-09-16                                                   |
 | 验收完成时间          |                                                              |
@@ -31,7 +31,7 @@
 | Redis 环境            | Redis 7.4，localhost:6379/0                                  |
 | 浏览器及版本          | Edge v153.0.4234.32；Chrome v153.0.8010.48                   |
 | 操作系统 / 设备       | Windows 11                                                   |
-| 关联 CI 运行地址      | [CI #33](https://github.com/sanjuu2024/blog/actions/runs/35721516369) |
+| 关联 CI 运行地址      | [CI #44](https://github.com/sanjuu2024/blog/actions/runs/36022056752) |
 | 最终结论              | 进行中                                                       |
 
 ### 1.3 缺陷记录
