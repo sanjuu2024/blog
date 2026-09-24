@@ -50,6 +50,58 @@ External services
 - Redis 如果用于 Refresh Token 或缓存，也必须配置持久化或明确可丢失策略。
 - 生产环境数据库密码、JWT 密钥、Redis 密码、对象存储密钥不能直接写在 `docker-compose.yaml` 中。
 - 建议使用 `.env` 或服务器侧环境变量注入配置。
+- 通过 Compose `environment:` 注入的值通常可被有 Docker 管理权限的用户通过
+  `docker inspect <container>` 查看；写入 `command:` 的值还可能出现在容器命令行元数据中。
+- 本地 WSL 演练可使用仓库外、权限受限的 `.env.prodtest`；正式生产应优先使用 Docker
+  Secrets 或云厂商密钥管理服务。应用目前读取 `BLOG_*` 环境变量，切换到文件型 Secret
+  前需要增加 `/run/secrets/*` 到配置的适配层，不能只修改 Compose 文件。
+
+生产式 Compose 的 Docker 日志使用有限大小的轮转，避免容器日志无限增长：
+
+```yaml
+logging:
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "5"
+```
+
+当前 `compose.prod.yaml` 对 PostgreSQL、Redis、Nginx 使用 `10m × 5`，backend 使用
+`20m × 5`。轮转只限制 Docker 日志文件，不替代应用错误日志、Nginx 访问日志或数据库备份；
+发布后应通过 `docker compose logs` 和宿主机磁盘监控确认配置生效。
+
+镜像和源码依赖应在正式发布前固定到可验证的不可变版本。基础镜像使用
+`image:tag@sha256:<digest>`，zhparser 源码使用固定 Git commit，而不是默认拉取分支最新提交。
+digest 和 commit 必须从实际构建环境取得并记录在发布记录中，不能手工猜测：
+
+```bash
+docker buildx imagetools inspect postgres:16.13-bookworm
+docker buildx imagetools inspect redis:7.4-alpine
+docker buildx imagetools inspect nginx:1.29-alpine
+docker buildx imagetools inspect maven:3.9.11-eclipse-temurin-21
+docker buildx imagetools inspect eclipse-temurin:21-jre
+docker buildx imagetools inspect node:22-alpine
+git ls-remote https://github.com/amutu/zhparser.git HEAD
+```
+
+拿到结果后，把 Dockerfile 中的 `FROM` 和 zhparser checkout 改为对应 digest/commit，并在
+发布记录中保留镜像名称、digest、zhparser commit、构建时间和源码 commit SHA。
+
+当前生产式部署演练已锁定以下版本：
+
+| 构建依赖 | 锁定值 |
+| --- | --- |
+| PostgreSQL 基础镜像 | `postgres:16.13-bookworm@sha256:472efd9a66f2b2f1a5aeb18b28de74332e6ef88c2b93a1a5d812fb6db67a5f60` |
+| Redis 运行时镜像 | `redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499` |
+| Maven 构建镜像 | `maven:3.9.11-eclipse-temurin-21@sha256:6fdc855a6ed81d288ca7ca37ac6ff5e9308b612485c0801d70b25a858c83d237` |
+| Java 运行时镜像 | `eclipse-temurin:21-jre@sha256:49e21e16e3c86eb7816a44a67549910ed090fbeb40c29c525d58bf5e02e91b0f` |
+| Node 构建镜像 | `node:22-alpine@sha256:b6f26b36c8ff49624cfdac716b8ea1138d606df02586a77d364bb5536a634f85` |
+| Nginx 运行时镜像 | `nginx:1.29-alpine@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de` |
+| zhparser 源码 commit | `2e995c4df672563992b4d7a147b8fa2d0d4cda6c` |
+
+这些值只代表当前演练所验证的构建输入。升级任一镜像、zhparser 或源码依赖时，应重新构建、
+运行测试并更新本表；不要只修改 tag 而保留旧 digest。当前 SCWS 源码包仍由版本号 URL
+下载，若未来需要更强的完全可复现构建，还应额外记录该 tarball 的 SHA-256。
 
 建议保留的关键配置项：
 
@@ -210,6 +262,13 @@ BLOG_SMTP_WRITE_TIMEOUT=10000
 - 域名解析 TTL 不要设得太长，推荐先使用 `300s` 到 `600s`，迁移稳定后可按需调高。
 - 迁移服务器、切换负载均衡或更换 CDN 前，提前降低 TTL。
 
+生产环境使用标准的宿主机端口 `80 -> 80`、`443 -> 443` 时，HTTP 重定向应为
+`https://$host$request_uri`。本机 WSL 演练若使用 Compose 的 `8088:80`、`8443:443`，
+该重定向会默认丢失 `8443`，浏览器会跳到 `https://localhost` 的 443 端口。应使用单独的
+prodtest Nginx 配置，将重定向写成 `https://$host:8443$request_uri`，并只在演练 Compose
+中挂载它；正式生产继续使用不带端口的配置。另一种简单方案是确保宿主机可绑定 80/443，
+这样演练也使用标准端口，不需要修改重定向逻辑。
+
 Refresh Token Cookie 的 `Secure` 属性通过后端配置区分环境：
 
 ```yaml
@@ -221,6 +280,15 @@ blog:
 
 - 开发环境如果使用本地 HTTP，可配置为 `false`，避免浏览器因 `Secure` 拒绝发送 Cookie。
 - 生产环境启用 HTTPS 后必须配置为 `true`，确保 `refresh_token` 只随 HTTPS 请求发送。
+
+生产式 Compose 使用 Spring Boot Actuator 的 `/actuator/health/readiness` 作为 backend 健康检查；该端点只返回健康状态，不展示数据库、Redis 或其他内部细节。Nginx 使用独立的 `/nginx-health` 端点检查自身是否已正常提供服务，并等待 backend 通过 readiness 后再启动流量代理。
+
+生产环境管理员初始化不应依赖 devdata migration，也不应在镜像或仓库中保存固定的
+`admin/123456`。推荐提供一次性 bootstrap 命令或独立 Compose profile：从受保护的环境变量或
+Secret 文件读取管理员用户名、邮箱和密码，使用后端现有密码哈希逻辑创建管理员；若管理员已
+存在则失败并停止，缺少必要变量也必须失败，密码不得写入日志。bootstrap 成功后删除临时
+Secret，普通 `prod` 启动不再自动创建或重置管理员。该流程需要先在后端实现一次性命令，
+不能直接把一条永久 SQL 或默认密码当作生产初始化方案。
 
 ## 9. 日志与监控
 

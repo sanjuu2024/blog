@@ -6,6 +6,11 @@ services:
       context: .
       dockerfile: docker/postgres/Dockerfile
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
       POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
@@ -25,8 +30,13 @@ services:
       - backend_net
 
   redis:
-    image: redis:7.4-alpine
+    image: redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
     command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"]
     environment:
       TZ: UTC
@@ -47,6 +57,11 @@ services:
       context: backend
       dockerfile: Dockerfile
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: "5"
     environment:
       SPRING_PROFILES_ACTIVE: prod
       BLOG_DB_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}"
@@ -80,6 +95,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health/readiness | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     networks:
       - backend_net
 
@@ -88,6 +109,11 @@ services:
       context: frontend
       dockerfile: Dockerfile
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
     ports:
       - "${NGINX_HTTP_PORT:-8088}:80"
       - "${NGINX_HTTPS_PORT:-8443}:443"
@@ -96,7 +122,13 @@ services:
       - ${NGINX_TLS_CERT_DIR:?NGINX_TLS_CERT_DIR is required}:/etc/nginx/certs:ro
     depends_on:
       backend:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - https://127.0.0.1/nginx-health --no-check-certificate | grep -q '^ok$'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
     networks:
       - backend_net
 

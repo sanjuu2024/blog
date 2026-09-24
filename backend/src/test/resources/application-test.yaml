@@ -7,6 +7,10 @@ spring:
   data:
     redis:
       database: ${BLOG_TEST_REDIS_DATABASE:1}
+  flyway:
+    locations:
+      - classpath:db/migration
+      - classpath:db/devdata
 
 blog:
   jwt:

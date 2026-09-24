@@ -1,3 +1,10 @@
+# application-dev.yaml、application-test.yaml
+spring:
+  flyway:
+    locations:
+      - classpath:db/migration
+      - classpath:db/devdata
+
 blog:
   auth:
     refresh-cookie:
