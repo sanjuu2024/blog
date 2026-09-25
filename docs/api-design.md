@@ -518,7 +518,7 @@ Set-Cookie: refresh_token=; Max-Age=0; Path=/api/v1/auth; HttpOnly; SameSite=Lax
 ### 搜索规则
 
 - `keyword` 去除首尾空白后为空时不添加搜索条件。
-- 非空关键词通过 PostgreSQL `zhparser` 解析，并使用 `plainto_tsquery` 查询 `title`、`summary` 和 `content_text` 生成的全文检索向量；多个解析后的检索词之间为 AND 关系。若单字符未产生有效词元，则对三个字段执行字面量包含匹配兜底。
+- 非空关键词通过 PostgreSQL `zhparser` 解析，并使用 `plainto_tsquery` 查询 `title`、`summary` 和 `content_text` 生成的全文检索向量；多个解析后的检索词之间为 AND 关系。若单字符未产生有效词元或关键词为纯数字，则对三个字段执行字面量包含匹配兜底；因此纯数字关键词支持按子串命中更长数字文本。
 - 搜索条件可以和 `categoryId`、`tagIds`、`isTop`、`sort` 组合使用，分页结构和排序规则保持不变。
 - 仅返回 `PUBLISHED` 文章，草稿和已下线文章即使匹配关键词也不会出现在结果中。
 - 搜索时使用 `ts_headline` 返回可选的标题高亮和摘要/正文高亮片段；不新增独立搜索接口。

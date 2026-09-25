@@ -105,6 +105,24 @@ class ArticleSearchIntegrationTest {
     }
 
     @Test
+    void publicArticleSearchShouldMatchNumericSubstring() {
+        Long articleId = jdbcTemplate.queryForObject(
+                "select id from blog_article where status = 'PUBLISHED' limit 1",
+                Long.class
+        );
+        jdbcTemplate.update(
+                "update blog_article set title = ?, summary = ?, content_text = ? where id = ?",
+                "111",
+                "数字搜索测试",
+                "正文内容",
+                articleId
+        );
+
+        assertEquals("111", assertSingleTitle("1", "111").getTitle());
+        assertEquals("111", assertSingleTitle("11", "111").getTitle());
+    }
+
+    @Test
     void publicArticleSearchShouldSortByRelevanceBeforePublishTime() {
         var articleIds = jdbcTemplate.queryForList(
                 "select id from blog_article where status = 'PUBLISHED' order by id limit 2",
