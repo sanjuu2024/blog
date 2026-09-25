@@ -415,7 +415,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_search_vector
 - 保存或更新文章时，应用层应以 `content_md` 为源生成 `content_html` 与 `content_text`
 - P1 文章搜索使用 PostgreSQL `zhparser` 解析 `title`、`summary` 和 `content_text`，并通过生成列 `search_vector` 与 GIN 索引完成全文检索
 - `search_vector` 为标题、摘要、正文分别设置 A、B、C 权重；有关键词且使用默认排序时通过 `ts_rank` 计算相关度，权重影响标题、摘要和正文的匹配分数
-- 搜索查询使用 `plainto_tsquery('public.zhparser_cfg', keyword)`，多个解析后的检索词之间为 AND 关系；单字符未产生词元时由应用查询对三个字段执行字面量包含匹配兜底
+- 搜索查询使用 `plainto_tsquery('public.zhparser_cfg', keyword)`，多个解析后的检索词之间为 AND 关系；单字符未产生词元或关键词为纯数字时，由应用查询对三个字段执行字面量包含匹配兜底。纯数字兜底支持 `1`、`11` 命中标题 `111`
 - `zhparser` 扩展和 `public.zhparser_cfg` 均属于数据库级对象；每个由 Flyway 管理的数据库都必须执行对应 migration，不能只依赖容器首次初始化脚本
 - P0 阶段文章详情 URL 以 `id` 作为稳定定位标识；`slug` 不作为必填字段，也不要求管理员手动维护
 - P2 阶段可在前台 URL 中追加 `slug` 提升可读性，例如 `/articles/40001-spring-boot-dual-token-login`，实际定位仍优先以 `id` 为准

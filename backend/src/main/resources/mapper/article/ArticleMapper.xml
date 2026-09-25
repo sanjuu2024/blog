@@ -64,8 +64,10 @@
           and (
               a.search_vector @@ search_query.value
               or (
-                  numnode(search_query.value) = 0
-                  and char_length(#{keyword}) = 1
+                  (
+                      (numnode(search_query.value) = 0 and char_length(#{keyword}) = 1)
+                      or #{keyword} ~ '^[0-9]+$'
+                  )
                   and (
                       strpos(lower(coalesce(a.title, '')), lower(#{keyword})) > 0
                       or strpos(lower(coalesce(a.summary, '')), lower(#{keyword})) > 0
