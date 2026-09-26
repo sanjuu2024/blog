@@ -1,78 +1,40 @@
 <template>
 	<div class="about-page">
-		<div class="about-block">
-			<h1>关于本站 ——「{{ appTitle }}」</h1>
-			<p>
-				在刚接触计算机的时候，很多知识都是从网上博客学到的，那些个性化的博客给予我很深的印象，点击就会迸出彩带和个性化语句的光标、背景飘落的花瓣、飘浮着的会随光标组装的几何线条......当时就想着等自己学成了也要做个人博客。
-			</p>
-			<p>于是乎「青禾边」就这样诞生了。</p>
-			<p>
-				由于它同时也作为我第一次打通开发全链路的练手项目，即便网上有很多优秀的开源博客项目和快捷建站模板，我还是选择了从头开始一点点动手搭建，看着「青禾边」逐渐成长、落地，其实还是很有成就感的。
-			</p>
-			<p>
-				虽然以前浏览的大多是技术博客，但是我对「青禾边」的定位不止于此，我希望它能成为一个小窝，不仅仅是分享技术（具体内容请参考分类页），也记录我的兴趣爱好和生活。
-			</p>
-			<p>
-				虽然在 2026
-				上半年就已经筹划着买下了域名等等，但是由于学业、技术不够成熟、<del>偷懒</del>等不可抗拒因素（bushi），该站直到
-				x 年 x 月才正式上线。
-			</p>
-			<p>本站技术栈：</p>
-			<ul>
-				<li>前端：Vue3 + Vite + Pinia + Vue Router + Element Plus</li>
-				<li>后端：Spring Boot + MyBatis Plus</li>
-				<li>数据库：PostgreSQL</li>
-				<li>部署：Docker + Nginx</li>
-			</ul>
-			<p>希望大家在「{{ appTitle }}」浏览快乐~！ψ(｀∇´)ψ 欢迎大家的评论和留言~！╰(*°▽°*)╯</p>
-		</div>
-
-		<div class="about-block">
-			<h1>关于我 —— sanjuu</h1>
-			<p>一名普通在读大三学生。</p>
-			<p>
-				从大一开始为了就业还是考公还是读研而纠结，纠结后的结论是不管三七二十一先学东西，能学多少是多少（）
-			</p>
-			<p>
-				网名来自日语的 さんじゅう（罗马音 sanjuu），没有什么特别的原因，只是单纯觉得发音好听
-				♪(´▽｀)
-			</p>
-			<p>
-				小时候并没有太多接触到计算机，<del>直到初中看到某本小说中的黑客人设</del>才开始对计算机感兴趣，不过本身也不是什么特别有天赋的人，所以至今也没有什么大作为（）
-			</p>
-			<p>大学如愿以偿进入了计算机相关专业，也才真正开始了解这个广阔无垠的世界。</p>
-			<p>
-				平时兴趣爱好比较杂，主要还是看看二次元相关的内容，偶尔看看小说，玩玩游戏。_(:з)∠)_
-			</p>
-		</div>
-
-		<div class="about-block">
-			<h1>联系方式</h1>
-			<p>
-				如果你有任何问题或者想法，欢迎通过<RouterLink
-					to="/messages"
-					class="messageboard-link"
-					>本站留言板</RouterLink
-				>或者以下方式联系我：
-			</p>
-			<ul>
-				<li>邮箱：2269102080@qq.com</li>
-			</ul>
-		</div>
-
-		<div class="about-block">
-			<h1>本站日志</h1>
-			<p>记录本站的更新和维护情况。</p>
-		</div>
+		<AppLoading :loading="loading">
+			<div
+				v-if="loadFailed"
+				class="about-page__state"
+			>
+				<p>关于页加载失败</p>
+				<el-button
+					type="primary"
+					@click="getAboutPageContent"
+				>
+					重试
+				</el-button>
+			</div>
+			<div
+				v-else-if="aboutPage"
+				class="about-content article-markdown markdown-body"
+				v-html="aboutPage.contentHtml"
+			></div>
+		</AppLoading>
 	</div>
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue';
+import { useAboutPage } from '../composables/useAboutPage';
+
 defineOptions({
 	name: 'AboutPage',
 });
 
-const appTitle = import.meta.env.VITE_APP_TITLE;
+const { aboutPage, loading, loadFailed, getAboutPageContent } = useAboutPage();
+
+onMounted(() => {
+	getAboutPageContent();
+});
 </script>
 
 <style lang="scss" scoped>
@@ -82,35 +44,22 @@ const appTitle = import.meta.env.VITE_APP_TITLE;
 	max-width: var(--app-about-content-width);
 }
 
-.about-block {
-	text-align: left;
+.about-content {
+	padding: 0;
 	line-height: 2rem;
-	padding-bottom: 2rem;
 
-	h1 {
-		font-size: 2rem;
-		font-weight: bold;
-		line-height: 5rem;
-	}
-
-	ul {
-		list-style: disc;
-		padding-left: 2rem;
-	}
-
-	p {
-		margin: 1rem 0;
-	}
+	// :deep(p) {
+	// 	text-indent: 2em;
+	// }
 }
 
-.messageboard-link {
-	text-decoration: underline;
-	transition: color 0.1s ease-in-out;
-	font-weight: bold;
-
-	&:hover,
-	&:focus-visible {
-		color: var(--app-main);
-	}
+.about-page__state {
+	display: flex;
+	min-height: 10rem;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 1rem;
+	color: var(--app-text-muted);
 }
 </style>

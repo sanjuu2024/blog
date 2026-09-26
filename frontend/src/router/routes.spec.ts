@@ -30,6 +30,7 @@ describe('P0 route contract', () => {
 				'AdminTagList',
 				'AdminCommentList',
 				'AdminMessageList',
+				'AdminAbout',
 				'AdminAuditLogList',
 			]),
 		);

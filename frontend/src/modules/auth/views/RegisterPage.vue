@@ -55,12 +55,29 @@
 			<el-button
 				type="primary"
 				native-type="submit"
-				class="my-6 w-full"
+				class="my-4 w-full"
 				:disabled="!validated"
 			>
 				创建账号
 			</el-button>
 		</el-form>
+
+		<div class="mb-2 flex items-center gap-1 text-sm">
+			<el-checkbox
+				v-model="checked"
+				class="auth-footer-checkbox"
+			>
+				我已知晓并同意
+			</el-checkbox>
+			<el-link
+				type="primary"
+				class="auth-footer-link"
+				@click="privacyPolicyVisible = true"
+			>
+				隐私政策
+			</el-link>
+		</div>
+		<PrivacyPolicyDialog v-model="privacyPolicyVisible" />
 
 		<div class="footer">
 			<div class="links flex justify-between">
@@ -90,6 +107,7 @@ import type { RegisterRequest } from '../types/auth';
 import { register } from '../api/authApi';
 import type { FormItemRule } from 'element-plus';
 import { ElMessage } from 'element-plus';
+import PrivacyPolicyDialog from '@/modules/privacy/components/PrivacyPolicyDialog.vue';
 import {
 	EMAIL_FORMAT_MESSAGE,
 	EMAIL_FORMAT_PATTERN,
@@ -104,6 +122,7 @@ defineOptions({
 });
 
 const router = useRouter();
+const privacyPolicyVisible = ref(false);
 
 // 注册表单数据
 let registerForm = reactive<RegisterRequest>({
@@ -115,6 +134,7 @@ let registerForm = reactive<RegisterRequest>({
 let usernameAvailable = ref<boolean>(false);
 let emailAvailable = ref<boolean>(false);
 let passwordValid = ref<boolean>(false);
+const checked = ref<boolean>(false);
 
 // 表单校验规则
 const rules = {
@@ -170,9 +190,10 @@ let validated = ref<boolean>(false);
 
 // 监听并更新按钮是否可用
 watch(
-	() => [usernameAvailable.value, emailAvailable.value, passwordValid.value],
+	() => [usernameAvailable.value, emailAvailable.value, passwordValid.value, checked.value],
 	() => {
-		validated.value = usernameAvailable.value && emailAvailable.value && passwordValid.value;
+		validated.value =
+			usernameAvailable.value && emailAvailable.value && passwordValid.value && checked.value;
 	},
 );
 
@@ -197,6 +218,12 @@ async function handlerRegister() {
 		margin-top: 4px;
 		margin-left: 2px;
 		line-height: 0.8rem;
+	}
+}
+
+.auth-footer-checkbox {
+	:deep(.el-checkbox__label) {
+		font-size: 0.8rem;
 	}
 }
 

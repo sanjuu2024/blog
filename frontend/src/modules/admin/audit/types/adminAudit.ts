@@ -8,6 +8,7 @@ export const AUDIT_RESOURCE_TYPE = {
 	COMMENT: 'COMMENT',
 	MESSAGE: 'MESSAGE',
 	FILE: 'FILE',
+	ABOUT_PAGE: 'ABOUT_PAGE',
 } as const;
 
 export type AuditResourceType = (typeof AUDIT_RESOURCE_TYPE)[keyof typeof AUDIT_RESOURCE_TYPE];
