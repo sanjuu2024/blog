@@ -577,7 +577,7 @@ GET /api/v1/articles?pageNum=1&pageSize=4&sort=LATEST
 | `coverUrl` | `String` | 封面地址 | `https://cdn.example.com/cover/token.png` |
 | `isTop` | `Boolean` | 是否置顶 | `true` |
 | `publishedAt` | `String` | 发布时间 | `2026-04-22T23:00:00+08:00` |
-| `viewCount` | `Integer` | 浏览量预留值；P2 启用真实浏览统计 | `128` |
+| `viewCount` | `Integer` | 文章有效浏览总数 | `128` |
 | `category.id` | `Long` | 文章绑定的二级分类 ID | `21001` |
 | `category.name` | `String` | 二级分类名称 | `Java` |
 | `category.level` | `Integer` | 分类层级，固定为 `2` | `2` |
@@ -643,6 +643,11 @@ GET /api/v1/articles?pageNum=1&pageSize=4&sort=LATEST
 
 文章详情要求文章关联作者存在；若作者不存在，返回 `ARTICLE_AUTHOR_NOT_FOUND`，前台不展示该文章详情。
 
+文章详情请求在文章公开读取成功后记录一次可能的有效浏览，并在响应中返回更新后的 `viewCount`。登录用户按
+`userId` 去重，游客使用匿名 `visitor_id` HttpOnly Cookie；同一文章、同一主体一小时内只计一次。Redis
+仅保存一小时去重 key；Redis 不可用时仍返回文章详情，但本次浏览不计数。有效浏览会在同一事务中原子递增
+`blog_article.view_count` 和按 `Asia/Shanghai` 自然日统计的 `blog_article_daily_stat` 聚合记录。
+
 ### 请求参数
 
 #### Path 参数
@@ -670,7 +675,7 @@ GET /api/v1/articles/40001
 | `coverUrl` | `String` | 封面地址 | `https://cdn.example.com/cover/token.png` |
 | `isTop` | `Boolean` | 是否置顶 | `true` |
 | `allowComment` | `Boolean` | 是否允许新增评论和回复；关闭后已有 APPROVED 评论仍可展示 | `true` |
-| `viewCount` | `Integer` | 浏览量预留值；P2 启用真实浏览统计 | `128` |
+| `viewCount` | `Integer` | 本次详情读取完成后的文章有效浏览总数 | `128` |
 | `commentCount` | `Integer` | 评论数 | `0` |
 | `likeCount` | `Integer` | 点赞数 | `0` |
 | `publishedAt` | `String` | 发布时间 | `2026-04-22T23:00:00+08:00` |
@@ -2581,11 +2586,10 @@ Redis 只保存验证码哈希、失败次数和 TTL，最多允许 5 次校验�
 
 | 方法 | 路径 | 权限 | 说明 |
 | --- | --- | --- | --- |
-| `POST` | `/api/v1/articles/{articleId}/views` | `PUBLIC` | 记录一次可能的有效浏览，返回当前浏览数 |
 | `GET` | `/api/v1/admin/dashboard` | `ADMIN` | 获取总览、趋势和三类 Top 10 |
 
-浏览接口允许不携带 Access Token；一旦携带 Token 必须校验成功。登录用户按 `userId`、游客按匿名
-Cookie token 哈希去重，同一文章一小时只计一次。Redis 不可用时接口仍成功但 `counted=false`。
+文章详情接口允许不携带 Access Token；一旦携带 Token 必须校验成功。登录用户按 `userId`、游客按匿名
+Cookie token 哈希去重，同一文章一小时只计一次。Redis 不可用时文章详情仍成功，但本次访问不计数。
 
 Dashboard Query：`range=7D|30D`，默认 `7D`。响应至少包含：
 

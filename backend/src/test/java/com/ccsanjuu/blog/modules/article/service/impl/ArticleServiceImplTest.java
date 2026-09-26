@@ -11,6 +11,7 @@ import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
 import com.ccsanjuu.blog.modules.article.model.bo.PublicArticleSearchBO;
+import com.ccsanjuu.blog.modules.article.model.bo.ArticleViewIdentity;
 import com.ccsanjuu.blog.modules.article.model.dto.AdminArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.PublicArticleQueryDTO;
@@ -27,6 +28,7 @@ import com.ccsanjuu.blog.modules.article.model.vo.PublicArticleListItemVO;
 import com.ccsanjuu.blog.modules.article.model.vo.UpdatedArticleStatusVO;
 import com.ccsanjuu.blog.modules.article.model.vo.UpdatedArticleVO;
 import com.ccsanjuu.blog.modules.article.support.ArticleContentRenderer;
+import com.ccsanjuu.blog.modules.article.service.ArticleViewService;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.category.model.entity.Category;
 import com.ccsanjuu.blog.modules.category.model.enums.CategoryStatus;
@@ -98,6 +100,9 @@ class ArticleServiceImplTest {
     @Mock
     private UserMapper userMapper;
 
+    @Mock
+    private ArticleViewService articleViewService;
+
     private ArticleServiceImpl articleService;
 
     @BeforeAll
@@ -116,7 +121,8 @@ class ArticleServiceImplTest {
                 categoryMapper,
                 articleMapper,
                 tagMapper,
-                userMapper
+                userMapper,
+                articleViewService
         );
         ReflectionTestUtils.setField(articleService, "baseMapper", articleMapper);
         ReflectionTestUtils.setField(articleService, "entityClass", Article.class);
@@ -628,8 +634,13 @@ class ArticleServiceImplTest {
         ));
         when(tagMapper.selectList(any())).thenReturn(List.of(enabledTag(TAG_ID), disabledTag(SECOND_TAG_ID)));
         when(userMapper.selectById(USER_ID)).thenReturn(author());
+        when(articleViewService.recordView(ARTICLE_ID, new ArticleViewIdentity(USER_ID, null)))
+                .thenReturn(129);
 
-        PublicArticleDetailVO result = articleService.getPublicArticleDetail(ARTICLE_ID);
+        PublicArticleDetailVO result = articleService.getPublicArticleDetail(
+                ARTICLE_ID,
+                new ArticleViewIdentity(USER_ID, null)
+        );
 
         assertEquals(ARTICLE_ID, result.getId());
         assertEquals(CONTENT_HTML, result.getContentHtml());
@@ -639,6 +650,7 @@ class ArticleServiceImplTest {
         assertEquals(TAG_ID, result.getTags().getFirst().getId());
         assertEquals(USER_ID, result.getAuthor().getId());
         assertEquals("ccsanjuu", result.getAuthor().getUsername());
+        assertEquals(129, result.getViewCount());
     }
 
     @Test
@@ -650,7 +662,10 @@ class ArticleServiceImplTest {
         when(userMapper.selectById(USER_ID)).thenReturn(null);
 
         BizException exception = assertThrows(BizException.class,
-                () -> articleService.getPublicArticleDetail(ARTICLE_ID));
+                () -> articleService.getPublicArticleDetail(
+                        ARTICLE_ID,
+                        new ArticleViewIdentity(USER_ID, null)
+                ));
 
         assertEquals(ResultCode.ARTICLE_AUTHOR_NOT_FOUND, exception.getResultCode());
         verify(userMapper).selectById(USER_ID);
@@ -661,7 +676,10 @@ class ArticleServiceImplTest {
         when(articleMapper.selectById(ARTICLE_ID)).thenReturn(existingArticle(ArticleStatus.DRAFT, null));
 
         BizException exception = assertThrows(BizException.class,
-                () -> articleService.getPublicArticleDetail(ARTICLE_ID));
+                () -> articleService.getPublicArticleDetail(
+                        ARTICLE_ID,
+                        new ArticleViewIdentity(USER_ID, null)
+                ));
 
         assertEquals(ResultCode.ARTICLE_NOT_VISIBLE, exception.getResultCode());
         verifyNoInteractions(categoryMapper, articleTagMapper, tagMapper, userMapper);
@@ -674,7 +692,10 @@ class ArticleServiceImplTest {
         when(categoryMapper.selectById(PARENT_CATEGORY_ID)).thenReturn(disabledParentCategory());
 
         BizException exception = assertThrows(BizException.class,
-                () -> articleService.getPublicArticleDetail(ARTICLE_ID));
+                () -> articleService.getPublicArticleDetail(
+                        ARTICLE_ID,
+                        new ArticleViewIdentity(USER_ID, null)
+                ));
 
         assertEquals(ResultCode.ARTICLE_CATEGORY_DISABLED, exception.getResultCode());
         verifyNoInteractions(articleTagMapper, tagMapper, userMapper);

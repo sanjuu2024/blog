@@ -18,9 +18,6 @@ x-p2-planned-operations:
       path: /api/v1/auth/register
       summary: P2 注册增加验证码和隐私政策版本
     - method: POST
-      path: /api/v1/articles/{articleId}/views
-      summary: 记录一小时去重的有效浏览
-    - method: POST
       path: /api/v1/articles/{articleId}/like
       summary: 登录用户或游客点赞文章
     - method: DELETE
@@ -470,7 +467,7 @@ paths:
       tags:
         - Public Articles
       summary: 获取文章详情
-      description: 权限级别 `PUBLIC`。仅可查看已发布文章详情。响应中的 `tags` 仅包含当前启用且仍存在的关联标签；历史关联的禁用标签或已被删除的标签不返回，不影响文章详情展示。文章所属二级分类及其父分类必须均存在且启用；分类不存在返回 `ARTICLE_CATEGORY_NOT_FOUND`，分类已禁用返回 `ARTICLE_CATEGORY_DISABLED`。文章关联作者必须存在；作者不存在返回 `ARTICLE_AUTHOR_NOT_FOUND`。P0 以 articleId 定位文章；slug 仅作为 P2 URL 可读化与 SEO 优化预留，不参与当前接口路径。
+      description: 权限级别 `PUBLIC`。仅可查看已发布文章详情。公开读取成功后会尝试记录一次有效浏览并返回更新后的 `viewCount`：登录用户按 `userId`、游客按匿名 `visitor_id` HttpOnly Cookie 去重，同一文章一小时内只计一次。Redis 不可用时仍返回文章详情，但本次访问不计数。响应中的 `tags` 仅包含当前启用且仍存在的关联标签；历史关联的禁用标签或已被删除的标签不返回，不影响文章详情展示。文章所属二级分类及其父分类必须均存在且启用；分类不存在返回 `ARTICLE_CATEGORY_NOT_FOUND`，分类已禁用返回 `ARTICLE_CATEGORY_DISABLED`。文章关联作者必须存在；作者不存在返回 `ARTICLE_AUTHOR_NOT_FOUND`。P0 以 articleId 定位文章；slug 仅作为 P2 URL 可读化与 SEO 优化预留，不参与当前接口路径。
       operationId: getPublishedArticleDetail
       parameters:
         - $ref: '#/components/parameters/ArticleId'
@@ -2654,7 +2651,7 @@ components:
           example: '2026-04-22T23:00:00+08:00'
         viewCount:
           type: integer
-          description: 浏览量预留值；P2 启用真实浏览统计
+          description: 文章有效浏览总数
           example: 128
         category:
           $ref: '#/components/schemas/SimpleCategory'
@@ -2724,7 +2721,7 @@ components:
           example: true
         viewCount:
           type: integer
-          description: 浏览量预留值；P2 启用真实浏览统计
+          description: 本次详情读取完成后的文章有效浏览总数
           example: 128
         commentCount:
           type: integer

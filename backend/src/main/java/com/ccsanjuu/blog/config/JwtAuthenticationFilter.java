@@ -47,6 +47,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String CURRENT_USER_API_PREFIX = CURRENT_USER_API + "/";
     private static final String MESSAGE_API = API_PREFIX + "/messages";
     private static final Pattern ARTICLE_COMMENT_API_PATTERN = Pattern.compile("^" + API_PREFIX + "/articles/[^/]+/comments$");
+    private static final Pattern ARTICLE_DETAIL_API_PATTERN = Pattern.compile("^" + API_PREFIX + "/articles/[^/]+$");
     private static final Pattern COMMENT_DETAIL_API_PATTERN = Pattern.compile("^" + API_PREFIX + "/comments/[^/]+$");
     private static final Pattern COMMENT_REPLIES_API_PATTERN = Pattern.compile("^" + API_PREFIX + "/comments/[^/]+/replies$");
     private static final Pattern MESSAGE_DETAIL_API_PATTERN = Pattern.compile("^" + MESSAGE_API + "/[^/]+$");
@@ -231,6 +232,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return path.startsWith(ADMIN_API_PREFIX)
                 || path.equals(CURRENT_USER_API)
                 || path.startsWith(CURRENT_USER_API_PREFIX)
+                || ("GET".equals(request.getMethod()) && ARTICLE_DETAIL_API_PATTERN.matcher(path).matches())
                 || isIdentitySensitiveCommentApi(request, path)
                 || isIdentitySensitiveMessageApi(request, path);
     }

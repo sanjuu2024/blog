@@ -160,6 +160,18 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    void articleDetailRequestShouldRejectInvalidAccessToken() throws Exception {
+        MockHttpServletResponse response = performRequest(
+                "GET",
+                "/api/v1/articles/40001",
+                "not-a-valid-jwt"
+        );
+
+        assertEquals(401, response.getStatus());
+        assertTrue(response.getContentAsString().contains("101001"));
+    }
+
+    @Test
     void identitySensitiveMessageRequestShouldRejectInvalidAccessToken() throws Exception {
         String invalidToken = "not-a-valid-jwt";
 
