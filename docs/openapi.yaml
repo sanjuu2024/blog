@@ -8,6 +8,90 @@ info:
 servers:
   - url: http://localhost:8080
     description: 本地开发环境
+x-p2-planned-operations:
+  description: 以下为已冻结但尚未实现的 P2 契约方向；实现时再加入 paths 和 schemas，当前不可调用。
+  operations:
+    - method: POST
+      path: /api/v1/auth/email-verification-codes
+      summary: 发送注册邮箱验证码
+    - method: POST
+      path: /api/v1/auth/register
+      summary: P2 注册增加验证码和隐私政策版本
+    - method: POST
+      path: /api/v1/articles/{articleId}/views
+      summary: 记录一小时去重的有效浏览
+    - method: POST
+      path: /api/v1/articles/{articleId}/like
+      summary: 登录用户或游客点赞文章
+    - method: DELETE
+      path: /api/v1/articles/{articleId}/like
+      summary: 登录用户或游客取消文章点赞
+    - method: POST
+      path: /api/v1/comments/{commentId}/like
+      summary: 登录用户点赞评论
+    - method: DELETE
+      path: /api/v1/comments/{commentId}/like
+      summary: 登录用户取消评论点赞
+    - method: GET
+      path: /api/v1/admin/dashboard
+      summary: 获取总览、7/30 天趋势和文章 Top 10
+    - method: GET
+      path: /api/v1/notifications
+      summary: 查询当前用户通知
+    - method: GET
+      path: /api/v1/notifications/unread-count
+      summary: 获取通知未读数
+    - method: PATCH
+      path: /api/v1/notifications/{notificationId}/read
+      summary: 标记单条通知已读
+    - method: PATCH
+      path: /api/v1/notifications/read-all
+      summary: 标记全部或指定分类已读
+    - method: GET
+      path: /api/v1/announcements
+      summary: 获取当前有效游客公告
+    - method: GET
+      path: /api/v1/admin/notifications
+      summary: 查询管理员消息与公告
+    - method: POST
+      path: /api/v1/admin/notifications
+      summary: 创建管理员消息或公告
+    - method: PUT
+      path: /api/v1/admin/notifications/{notificationId}
+      summary: 更新通知草稿
+    - method: PATCH
+      path: /api/v1/admin/notifications/{notificationId}/status
+      summary: 发布或下线公告
+    - method: GET
+      path: /api/v1/admin/mail-deliveries
+      summary: 查询邮件投递记录
+    - method: GET
+      path: /api/v1/admin/mail-deliveries/{deliveryId}
+      summary: 获取邮件投递详情
+    - method: POST
+      path: /api/v1/admin/mail-deliveries/{deliveryId}/retry
+      summary: 手动重试失败的回复通知邮件
+    - method: POST
+      path: /api/v1/comments/notifications/unsubscribe
+      summary: 退订单条评论的直接回复邮件
+    - method: POST
+      path: /api/v1/articles/{articleId}/comments
+      summary: P2 创建评论增加直接回复邮件订阅开关
+    - method: POST
+      path: /api/v1/messages
+      summary: P2 游客留言增加 Turnstile token
+    - method: POST
+      path: /api/v1/users/me/totp/setup
+      summary: 创建待确认的管理员 TOTP 配置
+    - method: POST
+      path: /api/v1/users/me/totp/confirm
+      summary: 启用 TOTP 并生成一次性恢复码
+    - method: DELETE
+      path: /api/v1/users/me/totp
+      summary: 停用管理员 TOTP
+    - method: POST
+      path: /api/v1/auth/login/totp
+      summary: 完成管理员登录第二步验证
 tags:
   - name: Auth
     description: 认证模块
@@ -17,6 +101,8 @@ tags:
     description: 前台评论接口
   - name: Public Users
     description: 前台公共用户接口
+  - name: Site Content
+    description: 关于页和隐私政策公开内容
   - name: Profile
     description: 个人中心接口
   - name: Admin Files
@@ -37,7 +123,103 @@ tags:
     description: 后台标签管理接口
   - name: Admin Audit Logs
     description: 后台操作审计日志接口
+  - name: Admin Site Content
+    description: 后台关于页内容管理
 paths:
+  /api/v1/about:
+    get:
+      tags:
+        - Site Content
+      summary: 获取关于页
+      description: 权限级别 `PUBLIC`。关于页尚未创建时仍返回 200，正文为“暂无内容”。
+      operationId: getAboutPage
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicAboutPageResponse'
+  /api/v1/privacy-policy:
+    get:
+      tags:
+        - Site Content
+      summary: 获取当前隐私政策
+      description: 权限级别 `PUBLIC`。版本为去除首尾空白后的 Markdown 内容 SHA-256；资源缺失或为空时应用拒绝启动。
+      operationId: getPrivacyPolicy
+      parameters:
+        - name: If-None-Match
+          in: header
+          required: false
+          description: 上次响应返回的 ETag；仍为当前版本时返回 304
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 获取最新隐私政策
+          headers:
+            ETag:
+              description: 当前隐私政策内容版本
+              schema:
+                type: string
+                example: '"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"'
+            Cache-Control:
+              schema:
+                type: string
+                example: no-cache
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivacyPolicyResponse'
+        '304':
+          description: 隐私政策未变化，响应体为空
+  /api/v1/admin/about:
+    get:
+      tags:
+        - Admin Site Content
+      summary: 获取关于页编辑数据
+      description: 权限级别 `ADMIN`。尚未创建时返回空 Markdown、`exists=false` 和“暂无内容”预览。
+      operationId: getAdminAboutPage
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAboutPageResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+    put:
+      tags:
+        - Admin Site Content
+      summary: 保存关于页
+      description: 权限级别 `ADMIN`。使用 upsert 保存；规范化后的 Markdown 未变化时不重复更新。
+      operationId: upsertAboutPage
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAboutPageRequest'
+      responses:
+        '200':
+          description: 保存成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAboutPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
   /api/v1/auth/register:
     post:
       tags:
@@ -2065,6 +2247,100 @@ components:
               nullable: true
               description: 无业务数据返回
               example: null
+    PublicAboutPageData:
+      type: object
+      required: [exists, contentHtml, contentText]
+      properties:
+        exists:
+          type: boolean
+          description: 是否已经由管理员保存过关于页
+          example: true
+        contentHtml:
+          type: string
+          description: 经过白名单清洗的 Markdown 渲染结果
+          example: '<h1>关于本站</h1><p>欢迎来到青禾边。</p>'
+        contentText:
+          type: string
+          description: 关于页纯文本
+          example: 关于本站 欢迎来到青禾边。
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: '2026-09-25T10:00:00Z'
+    PublicAboutPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/PublicAboutPageData'
+    AboutPageEditor:
+      type: object
+      required: [id, username]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10001
+        username:
+          type: string
+          example: admin
+    AdminAboutPageData:
+      allOf:
+        - $ref: '#/components/schemas/PublicAboutPageData'
+        - type: object
+          required: [contentMd]
+          properties:
+            contentMd:
+              type: string
+              description: Markdown 编辑源；未创建时为空字符串
+              example: '# 关于本站\n\n欢迎来到青禾边。'
+            updatedBy:
+              allOf:
+                - $ref: '#/components/schemas/AboutPageEditor'
+              nullable: true
+    AdminAboutPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/AdminAboutPageData'
+    UpdateAboutPageRequest:
+      type: object
+      required: [contentMd]
+      properties:
+        contentMd:
+          type: string
+          minLength: 1
+          maxLength: 100000
+          description: Markdown 正文；去除首尾空白后不能为空
+    PrivacyPolicyData:
+      type: object
+      required: [version, contentHtml, contentText]
+      properties:
+        version:
+          type: string
+          pattern: '^sha256:[0-9a-f]{64}$'
+          description: 当前 Markdown 源内容的 SHA-256
+          example: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+        contentHtml:
+          type: string
+          description: 经过白名单清洗的隐私政策 HTML
+        contentText:
+          type: string
+          description: 隐私政策纯文本
+    PrivacyPolicyResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/PrivacyPolicyData'
     PagedMeta:
       type: object
       required:
@@ -3779,7 +4055,7 @@ components:
               $ref: '#/components/schemas/UploadedImageData'
     AdminAuditResourceType:
       type: string
-      enum: [USER, ARTICLE, CATEGORY, TAG, COMMENT, MESSAGE, FILE]
+      enum: [USER, ARTICLE, CATEGORY, TAG, COMMENT, MESSAGE, FILE, ABOUT_PAGE]
     AdminAuditAction:
       type: string
       enum: [CREATE, UPDATE, DELETE, CHANGE_STATUS, CHANGE_ROLE, MODERATE, REPLY, BATCH_APPROVE, UPLOAD]

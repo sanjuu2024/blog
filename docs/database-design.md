@@ -33,12 +33,19 @@
 | P0 必建 | `blog_article` | 文章表 |
 | P0 必建 | `blog_article_tag` | 文章标签关联表 |
 | P1 使用 | `blog_comment` | 评论表，支持审核、无限层级回复和逻辑删除 |
-| 预留表 | `blog_article_like` | 点赞表，P2 使用 |
+| P2 使用 | `blog_article_like` | 文章点赞明细，支持登录用户和匿名访客 |
+| P2 使用 | `blog_comment_like` | 评论点赞明细，仅支持登录用户 |
+| P2 使用 | `blog_about_page` | 后台可编辑的单例关于页 Markdown 内容 |
+| P2 使用 | `blog_article_daily_stat` | 文章有效浏览每日聚合 |
+| P2 使用 | `blog_notification` | 回复通知、管理员消息和公告内容 |
+| P2 使用 | `blog_notification_recipient` | 登录用户通知收件与已读状态 |
+| P2 使用 | `blog_mail_delivery` | 回复通知邮件投递状态与重试记录 |
+| P2 使用 | `blog_user_recovery_code` | 管理员 TOTP 一次性恢复码哈希 |
 | 历史保留 | `blog_article_favorite` | `V1.0.0` 已创建但当前产品暂不排期，应用不读写 |
 | P1 使用 | `blog_message_board` | 留言表，支持游客留言、审核、管理员回复和通知退订 |
 | P1 使用 | `blog_admin_audit_log` | 后台管理操作追加式审计日志 |
 | 预留表 | `blog_project` | 项目作品表，待有实际作品后再评估使用 |
-| 预留表 | `blog_friend_link` | 友链表，P2 使用 |
+| 上线后迭代 | `blog_friend_link` | 友链表，P2 不启用 |
 
 ### 2.3 设计原则
 
@@ -52,6 +59,9 @@
 - 短暂宽限期用于处理网络波动下的幂等重试；P1 接入 Redis 后，可由 Redis 记录旧 `token_jti` 到新令牌结果的短 TTL 映射，数据库继续保留审计状态
 - 评论、点赞等互动能力虽然不在 P0 落地，但数据库结构先预留；P1 启用评论表并通过新 migration 扩展审核、根评论和逻辑删除字段；历史版本遗留的收藏结构单独说明
 - 统计字段如 `comment_count`、`like_count` 放在主表冗余，行为明细拆分到独立表
+- P2 浏览去重使用 Redis 一小时 key，PostgreSQL 只保存文章总量和每日聚合，不保存完整访问轨迹
+- 匿名访客 token 只保存在 HttpOnly Cookie；数据库和 Redis 只保存不可逆哈希
+- 站内通知内容与用户收件状态分表；游客公告不创建收件记录，也不保存已读状态
 - `blog_article.comment_count` 统计文章下全部 `APPROVED` 评论，包括顶层评论和回复
 - 分类采用树形结构建模，当前业务约束为两级分类
 - 数据库不创建业务表之间的物理外键，统一使用逻辑外键；关联完整性、删除校验和级联清理由应用层负责
@@ -76,6 +86,14 @@
 | `blog_comment` | `deleted_by` | `blog_user.id` | 用户或管理员删除评论时记录操作者用户 ID |
 | `blog_article_like` | `article_id` | `blog_article.id` | 点赞前必须确认文章存在且可见 |
 | `blog_article_like` | `user_id` | `blog_user.id` | 点赞前必须确认用户存在且未被禁用 |
+| `blog_comment_like` | `comment_id` | `blog_comment.id` | 点赞前必须确认评论为当前可见的 `APPROVED` 状态 |
+| `blog_comment_like` | `user_id` | `blog_user.id` | 评论点赞只允许未禁用登录用户 |
+| `blog_about_page` | `updated_by` | `blog_user.id` | 只有管理员可以保存关于页 |
+| `blog_article_daily_stat` | `article_id` | `blog_article.id` | 只聚合公开已发布文章的有效浏览 |
+| `blog_notification` | `created_by` | `blog_user.id` | 自动通知可为空；管理员消息和公告必须记录创建管理员 |
+| `blog_notification_recipient` | `notification_id` | `blog_notification.id` | 创建收件记录前必须确认通知已发布或正在同一事务发布 |
+| `blog_notification_recipient` | `user_id` | `blog_user.id` | 只为存在的登录用户创建收件和已读状态 |
+| `blog_user_recovery_code` | `user_id` | `blog_user.id` | 仅为已启用 TOTP 的管理员生成恢复码 |
 | `blog_message_board` | `user_id` | `blog_user.id` | 登录用户留言时记录用户 ID；游客留言时允许为空，历史游客留言不自动关联后注册用户 |
 | `blog_message_board` | `parent_id` | `blog_message_board.id` | 管理员回复时必须确认父留言是已通过的顶层留言 |
 
@@ -146,7 +164,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_user_role_status
 | `token_version` | `BIGINT` | Access Token 版本号；修改密码、禁用用户或修改角色时原子递增，使旧 Access Token 立即失效 | `0`、`1` |
 | `avatar_url` | `VARCHAR(500)` | 用户头像地址，P0 可为空；P1 保存 OSS 自定义域名的公开 URL | `https://img.example.com/avatars/10002/avatar.jpg` |
 | `bio` | `VARCHAR(100)` | 用户个人简介，换行和空行均计入长度 | `专注后端和前端工程化` |
-| `email_verified` | `BOOLEAN` | 邮箱是否完成验证，P0 默认未启用，但字段先预留 | `false` |
+| `email_verified` | `BOOLEAN` | 邮箱是否完成验证；P2 注册成功的账号固定为已验证 | `true` |
 | `email_verified_at` | `TIMESTAMPTZ` | 邮箱验证完成时间 | `2026-05-01 10:00:00+08` |
 | `last_login_at` | `TIMESTAMPTZ` | 最近一次登录时间 | `2026-04-22 22:10:00+08` |
 | `deleted_at` | `TIMESTAMPTZ` | 软删除时间，当前版本可不使用 | `NULL` |
@@ -154,6 +172,30 @@ CREATE INDEX IF NOT EXISTS idx_blog_user_role_status
 | `updated_at` | `TIMESTAMPTZ` | 记录更新时间 | `2026-04-22 22:10:00+08` |
 
 公开用户资料、文章作者资料卡等前台公开场景可以返回 `blog_user.id`，并可使用 `userId` 作为路径标识；`username` 主要作为展示字段和登录标识。
+
+P2 通过新 migration 为 `blog_user` 增加：
+
+- `privacy_policy_version VARCHAR(71)`、`privacy_policy_accepted_at TIMESTAMPTZ`，记录注册时接受的 `sha256:` 内容哈希
+- `totp_secret_ciphertext TEXT`、`totp_enabled_at TIMESTAMPTZ`，仅管理员启用 2FA 时使用；TOTP secret 必须加密存储
+- 注册成功时直接写入 `email_verified=true` 和 `email_verified_at`；验证码只在 Redis 中保存哈希和失败次数，不落数据库
+
+管理员恢复码使用独立表：
+
+```sql
+CREATE TABLE blog_user_recovery_code (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    code_hash VARCHAR(255) NOT NULL,
+    used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_blog_user_recovery_code_user_unused
+    ON blog_user_recovery_code (user_id, id)
+    WHERE used_at IS NULL;
+```
+
+恢复码只保存强哈希，验证成功后原子写入 `used_at`，不可重复使用。
 
 ## 3.2 表名：`blog_auth_session`
 
@@ -444,7 +486,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_tag_tag_id
 | `tag_id` | `BIGINT` | 关联标签 ID | `30001` |
 | `created_at` | `TIMESTAMPTZ` | 关联关系创建时间 | `2026-04-22 22:00:00+08` |
 
-## 4. P1 已启用与后续预留表
+## 4. P1 已启用与 P2 目标表
 
 ## 4.1 P1 已启用表：`blog_comment`
 
@@ -522,28 +564,40 @@ CREATE INDEX IF NOT EXISTS idx_blog_comment_user_article_created_at
 - 统一的评论树锁用于避免删除期间新增回复或审核状态变化造成孤立数据和 `comment_count` 失真
 - 评论审核、拒绝、隐藏或删除的结构化操作历史由 P1 后台操作审计日志记录；评论表字段仅保存当前状态和最近一次处理信息
 
-### P2 评论直接回复通知预留
+### P2 评论扩展目标
 
 - P2 为单条评论增加自愿订阅直接回复邮件的能力，订阅者固定为该评论作者，收件地址使用用户账号邮箱
 - 计划通过新的 Flyway migration 增加 `notify_on_reply` 和随机不透明 `unsubscribe_token`，不修改已经执行的 P1 migration
 - `unsubscribe_token` 仅能关闭对应评论未来的直接回复通知，并建立非空值唯一索引
-- 具体字段与索引只在 P2 接口模型确定后落地；当前 P1 数据库结构和 OpenAPI 不提前变更
+- P2 新增 `like_count INTEGER NOT NULL DEFAULT 0 CHECK (like_count >= 0)`，与 `blog_comment_like` 明细保持事务一致
+- 回复排序通过关联 `blog_user.role` 判断当前管理员身份，不在评论表冗余作者角色
+- 上述变更必须通过新的 P2 Flyway migration 落地，不修改现有 P1 migration
 
-## 4.2 表名：`blog_article_like`
+## 4.2 P2 使用表：`blog_article_like`
 
-### SQL（PostgreSQL）
+现有历史表只支持登录用户。P2 通过新 migration 删除原唯一约束、允许 `user_id` 为空，
+并增加匿名访客哈希和部分唯一索引。目标结构如下：
+
+### P2 目标 SQL（PostgreSQL）
 
 ```sql
 CREATE TABLE IF NOT EXISTS blog_article_like (
     id BIGSERIAL PRIMARY KEY,
     article_id BIGINT NOT NULL,
-    user_id BIGINT NOT NULL,
+    user_id BIGINT,
+    visitor_token_hash VARCHAR(71),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_blog_article_like UNIQUE (article_id, user_id)
+    CONSTRAINT chk_blog_article_like_actor
+        CHECK ((user_id IS NOT NULL) <> (visitor_token_hash IS NOT NULL))
 );
 
-CREATE INDEX IF NOT EXISTS idx_blog_article_like_user_id
-    ON blog_article_like (user_id);
+CREATE UNIQUE INDEX uq_blog_article_like_user
+    ON blog_article_like (article_id, user_id)
+    WHERE user_id IS NOT NULL;
+
+CREATE UNIQUE INDEX uq_blog_article_like_visitor
+    ON blog_article_like (article_id, visitor_token_hash)
+    WHERE visitor_token_hash IS NOT NULL;
 ```
 
 ### 字段表
@@ -552,10 +606,147 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_like_user_id
 | --- | --- | --- | --- |
 | `id` | `BIGSERIAL` | 点赞记录主键 ID | `70001` |
 | `article_id` | `BIGINT` | 被点赞文章 ID | `40001` |
-| `user_id` | `BIGINT` | 点赞用户 ID | `10002` |
+| `user_id` | `BIGINT` | 登录点赞用户 ID；游客点赞时为空 | `10002` |
+| `visitor_token_hash` | `VARCHAR(71)` | 游客匿名 token 哈希；登录用户点赞时为空 | `sha256:...` |
 | `created_at` | `TIMESTAMPTZ` | 点赞时间 | `2026-05-03 09:30:00+08` |
 
-## 4.3 历史保留表：`blog_article_favorite`
+文章点赞允许登录用户和游客。清除 Cookie 或更换设备可能形成新的游客主体，因此游客点赞属于
+非严格统计，并使用 Redis 限流降低滥用。文章下线后保留历史点赞，但不允许新增点赞。
+
+## 4.3 P2 使用表：`blog_comment_like`
+
+```sql
+CREATE TABLE blog_comment_like (
+    id BIGSERIAL PRIMARY KEY,
+    comment_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_blog_comment_like UNIQUE (comment_id, user_id)
+);
+
+CREATE INDEX idx_blog_comment_like_user_created
+    ON blog_comment_like (user_id, created_at DESC);
+```
+
+- 评论点赞只允许登录用户，`user_id` 不可为空
+- 仅当前可见的 `APPROVED` 评论允许新增点赞；隐藏或删除后保留历史明细但不能新增
+- 点赞/取消点赞与 `blog_comment.like_count` 在同一事务执行
+
+## 4.4 P2 使用表：`blog_about_page`
+
+```sql
+CREATE TABLE blog_about_page (
+    id BIGINT PRIMARY KEY,
+    content_md TEXT NOT NULL,
+    content_html TEXT NOT NULL,
+    content_text TEXT NOT NULL,
+    updated_by BIGINT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_blog_about_page_singleton CHECK (id = 1)
+);
+```
+
+关于页固定使用主键 `1`，migration 只建表、不插入业务内容。管理员第一次保存时创建记录，之后更新
+同一记录；规范化后的 Markdown 未变化时不更新。隐私政策不进入该表，而是由后端 classpath 中的
+`privacy-policy.md` 提供，版本为去除首尾空白后的 Markdown 内容 SHA-256；资源缺失或为空时后端拒绝启动。
+
+## 4.5 P2 使用表：`blog_article_daily_stat`
+
+```sql
+CREATE TABLE blog_article_daily_stat (
+    article_id BIGINT NOT NULL,
+    stat_date DATE NOT NULL,
+    view_count BIGINT NOT NULL DEFAULT 0 CHECK (view_count >= 0),
+    PRIMARY KEY (article_id, stat_date)
+);
+
+CREATE INDEX idx_blog_article_daily_stat_date
+    ON blog_article_daily_stat (stat_date DESC);
+```
+
+同一文章与同一用户/匿名访客的一小时去重 key 只保存在 Redis。有效浏览产生时，在同一事务中
+原子递增 `blog_article.view_count` 和当日聚合记录。Redis 不可用时不增加浏览量，但文章读取继续。
+
+## 4.6 P2 使用表：`blog_notification`
+
+```sql
+CREATE TABLE blog_notification (
+    id BIGSERIAL PRIMARY KEY,
+    type VARCHAR(30) NOT NULL
+        CHECK (type IN ('COMMENT_REPLY', 'MESSAGE_REPLY', 'ADMIN_MESSAGE', 'ANNOUNCEMENT')),
+    target_scope VARCHAR(30) NOT NULL
+        CHECK (target_scope IN ('SELECTED_USERS', 'ALL_USERS', 'ALL_VISITORS')),
+    title VARCHAR(100) NOT NULL,
+    content TEXT NOT NULL CHECK (char_length(content) BETWEEN 1 AND 2000),
+    status VARCHAR(20) NOT NULL DEFAULT 'PUBLISHED'
+        CHECK (status IN ('DRAFT', 'PUBLISHED', 'OFFLINE')),
+    source_type VARCHAR(30),
+    source_id BIGINT,
+    created_by BIGINT,
+    published_at TIMESTAMPTZ,
+    offline_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_blog_notification_public
+    ON blog_notification (target_scope, status, published_at DESC, id DESC);
+```
+
+- 自动回复通知使用 `SELECTED_USERS`；管理员消息使用 `SELECTED_USERS` 或 `ALL_USERS`
+- 公告使用 `ALL_USERS` 或 `ALL_VISITORS`，支持草稿、发布和下线；`ALL_VISITORS` 表示公开给站点所有访问者，也包含登录用户
+- 管理员消息和公告第一版只保存并按纯文本展示；`title` 最长 100 个字符，`content` 最长 2000 个字符
+- 发布 `ALL_VISITORS` 公告时仍为当前启用用户生成收件记录，使登录用户具有未读红点；未登录游客只查询公开公告，不产生已读记录
+- 新用户注册时为仍处于发布状态的 `ALL_VISITORS` 公告补收件记录；历史 `ALL_USERS` 消息不补发给注册后的新用户
+
+## 4.7 P2 使用表：`blog_notification_recipient`
+
+```sql
+CREATE TABLE blog_notification_recipient (
+    notification_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    read_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (notification_id, user_id)
+);
+
+CREATE INDEX idx_blog_notification_recipient_unread
+    ON blog_notification_recipient (user_id, created_at DESC)
+    WHERE read_at IS NULL;
+```
+
+发布给全部启用用户时在事务中生成收件记录。用户禁用后接口拒绝读取通知，但不删除历史记录。
+
+## 4.8 P2 使用表：`blog_mail_delivery`
+
+```sql
+CREATE TABLE blog_mail_delivery (
+    id BIGSERIAL PRIMARY KEY,
+    mail_type VARCHAR(30) NOT NULL
+        CHECK (mail_type IN ('COMMENT_REPLY', 'MESSAGE_REPLY')),
+    source_id BIGINT NOT NULL,
+    reply_id BIGINT NOT NULL,
+    recipient_masked VARCHAR(255) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+        CHECK (status IN ('PENDING', 'SENT', 'FAILED')),
+    attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+    last_error_type VARCHAR(100),
+    last_error_message VARCHAR(255),
+    sent_at TIMESTAMPTZ,
+    last_attempt_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_blog_mail_delivery_status_created
+    ON blog_mail_delivery (status, created_at DESC, id DESC);
+```
+
+投递记录只保存脱敏地址和安全错误摘要。手动重试根据 `source_id`、`reply_id` 读取当前业务数据
+重新生成正文；不保存完整邮件正文、SMTP 凭据、验证码或异常堆栈。
+
+## 4.9 历史保留表：`blog_article_favorite`
 
 该表由已执行的 `V1.0.0` migration 创建，当前收藏功能暂不排期，应用不提供收藏接口，
 也不读写该表。保留以下结构仅用于说明现有数据库状态；未来如启用收藏，应通过新的
@@ -585,7 +776,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_favorite_user_id
 | `user_id` | `BIGINT` | 收藏用户 ID | `10002` |
 | `created_at` | `TIMESTAMPTZ` | 收藏时间 | `2026-05-03 09:40:00+08` |
 
-## 4.4 表名：`blog_message_board`
+## 4.10 表名：`blog_message_board`
 
 ### SQL（PostgreSQL）
 
@@ -647,7 +838,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_blog_message_board_unsubscribe_token
 
 P1 留言邮件使用纯文本；P2 升级为 `multipart/alternative` 只改变邮件内容格式，不需要修改现有留言订阅字段。
 
-## 4.5 P1 使用表：`blog_admin_audit_log`
+## 4.11 P1 使用表：`blog_admin_audit_log`
 
 ### SQL（PostgreSQL）
 
@@ -701,7 +892,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_admin_audit_log_action_result_created
 
 审计日志只允许追加和查询，不保存请求体、查询参数、密码、Token、邮箱、评论或留言正文、文件原名等敏感信息。成功日志和业务操作在同一事务中提交；失败日志在业务事务回滚后通过独立事务保存。
 
-## 4.6 表名：`blog_project`
+## 4.12 表名：`blog_project`
 
 ### SQL（PostgreSQL）
 
@@ -753,7 +944,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_project_status_sort
 | `created_at` | `TIMESTAMPTZ` | 创建时间 | `2026-05-10 10:00:00+08` |
 | `updated_at` | `TIMESTAMPTZ` | 更新时间 | `2026-05-12 18:00:00+08` |
 
-## 4.7 表名：`blog_friend_link`
+## 4.13 上线后迭代表：`blog_friend_link`
 
 ### SQL（PostgreSQL）
 
@@ -804,11 +995,18 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 6. `blog_article_tag`
 7. `blog_comment`
 8. `blog_article_like`
-9. `blog_article_favorite`（历史保留，当前不启用）
-10. `blog_message_board`
-11. `blog_admin_audit_log`
-12. `blog_project`
-13. `blog_friend_link`
+9. `blog_comment_like`
+10. `blog_about_page`
+11. `blog_article_daily_stat`
+12. `blog_notification`
+13. `blog_notification_recipient`
+14. `blog_mail_delivery`
+15. `blog_user_recovery_code`
+16. `blog_article_favorite`（历史保留，当前不启用）
+17. `blog_message_board`
+18. `blog_admin_audit_log`
+19. `blog_project`
+20. `blog_friend_link`（上线后迭代）
 
 ## 6. 落地建议
 
@@ -822,3 +1020,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 - 留言通知令牌使用随机不透明值；数据库泄露时不会暴露用户密码或登录 Token，令牌仅能关闭对应顶层留言的后续通知
 - 用户名长度和格式约束通过 `V1.1.6` migration 更新；升级前若存在不符合新规则的用户名，迁移会失败并要求先处理存量数据
 - 用户简介字段通过 `V1.1.7` migration 缩短为 `VARCHAR(100)`；升级前若存在超过 100 个字符的简介，迁移会失败并要求先处理存量数据
+- P2 所有新表、字段、约束和索引都必须使用新的 Flyway migration；本节目标 SQL 不能用于修改已执行的历史 migration
+- 文章/评论点赞明细与冗余计数必须事务一致；游客点赞不与登录账号自动合并
+- 浏览去重 key 只保存在 Redis 一小时，PostgreSQL 保存文章总量和每日聚合
+- 通知收件记录只面向登录用户；游客公告不保存已读状态
+- 邮件投递失败原因只能保存安全摘要，手动重试根据业务关联重新生成正文

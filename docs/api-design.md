@@ -207,6 +207,8 @@ Authorization: Bearer <access_token>
 | 认证 | `POST` | `/api/v1/auth/login` | `PUBLIC` | 用户登录 |
 | 认证 | `POST` | `/api/v1/auth/refresh` | `PUBLIC` | 刷新登录态 |
 | 认证 | `POST` | `/api/v1/auth/logout` | `PUBLIC` | 用户退出登录 |
+| 站点内容 | `GET` | `/api/v1/about` | `PUBLIC` | 获取关于页，未创建时返回“暂无内容” |
+| 站点内容 | `GET` | `/api/v1/privacy-policy` | `PUBLIC` | 获取隐私政策和内容哈希版本 |
 | 前台文章 | `GET` | `/api/v1/articles` | `PUBLIC` | 获取已发布文章分页列表 |
 | 前台文章 | `GET` | `/api/v1/articles/{articleId}` | `PUBLIC` | 获取文章详情 |
 | 前台评论 | `GET` | `/api/v1/articles/{articleId}/comments` | `PUBLIC` | 获取顶层评论分页列表，可选登录态用于返回本人评论 |
@@ -229,6 +231,8 @@ Authorization: Bearer <access_token>
 | 后台文章 | `PUT` | `/api/v1/admin/articles/{articleId}` | `ADMIN` | 更新文章 |
 | 后台文章 | `PATCH` | `/api/v1/admin/articles/{articleId}/status` | `ADMIN` | 修改文章状态 |
 | 后台文章 | `DELETE` | `/api/v1/admin/articles/{articleId}` | `ADMIN` | 删除文章 |
+| 后台站点内容 | `GET` | `/api/v1/admin/about` | `ADMIN` | 获取关于页编辑数据 |
+| 后台站点内容 | `PUT` | `/api/v1/admin/about` | `ADMIN` | upsert 保存关于页 |
 | 后台分类 | `GET` | `/api/v1/admin/categories` | `ADMIN` | 获取分类列表 |
 | 后台分类 | `POST` | `/api/v1/admin/categories` | `ADMIN` | 创建分类 |
 | 后台分类 | `PUT` | `/api/v1/admin/categories/{categoryId}` | `ADMIN` | 更新分类 |
@@ -2372,7 +2376,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | Query | `pageNum` | `Integer` | 否 | 页码，默认 `1` |
 | Query | `pageSize` | `Integer` | 否 | 每页条数，默认 `10` |
 | Query | `operatorId` | `Long` | 否 | 操作者用户 ID |
-| Query | `resourceType` | `String` | 否 | `USER`、`ARTICLE`、`CATEGORY`、`TAG`、`COMMENT`、`MESSAGE` 或 `FILE` |
+| Query | `resourceType` | `String` | 否 | `USER`、`ARTICLE`、`CATEGORY`、`TAG`、`COMMENT`、`MESSAGE`、`FILE` 或 `ABOUT_PAGE` |
 | Query | `resourceId` | `String` | 否 | 目标资源 ID、批量 ID 列表或对象 URL，支持模糊匹配 |
 | Query | `action` | `String` | 否 | 操作类型 |
 | Query | `result` | `String` | 否 | `SUCCESS` 或 `FAILURE` |
@@ -2483,7 +2487,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 前台文章列表通过 `tagIds` 筛选时，传入标签必须存在且启用；不存在返回 `ARTICLE_TAG_NOT_FOUND`，禁用返回 `ARTICLE_TAG_DISABLED`
 - 前台文章列表通过 `categoryId` 筛选时，传入分类必须存在且启用；不存在返回 `ARTICLE_CATEGORY_NOT_FOUND`，禁用返回 `ARTICLE_CATEGORY_DISABLED`
 - 前台文章列表和详情要求文章所属二级分类及其父分类均存在且启用；分类不存在或禁用时，文章对前台不可见
-- P0 文章详情以 `articleId` 定位；P2 再考虑将 `slug` 追加到前台 URL 中提升可读性与 SEO 表达
+- P0 文章详情以 `articleId` 定位；P2 使用 `/articles/{articleId}-{slug}` 提升可读性与 SEO 表达，后端仍以 ID 稳定定位
 - 文章从 `PUBLISHED` 修改为 `OFFLINE` 后，前台立即不可见
 
 ### 14.3 分类和标签相关
@@ -2518,6 +2522,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - P1 阶段补充后台管理操作审计日志，记录操作者用户 ID、用户名快照、目标资源类型与标识、操作类型、操作结果、失败业务码、请求方法、请求路径和操作时间
 - 审计日志只允许追加和查询；成功日志与业务操作同事务提交，失败日志在业务事务回滚后以独立事务提交
 - 审计日志不记录请求体、查询参数、密码、Token、邮箱、评论或留言正文、文件原名等敏感值
+- P2 站点页面保存、管理员消息/公告创建与状态变更、邮件投递手动重试必须写入后台审计日志
+- 邮箱验证码、TOTP 启停、TOTP 登录挑战和恢复码使用写入脱敏安全日志，不记录验证码、secret、恢复码或完整邮箱
 
 ## 15. 后续版本预留接口
 
@@ -2532,3 +2538,139 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | 评论批量通过 | `PATCH` | `/api/v1/admin/comments/batch-approval` | 待实际审核量评估 |
 | 项目 | `GET` | `/api/v1/projects` | 待有实际项目作品后评估 |
 | 项目详情 | `GET` | `/api/v1/projects/{projectId}` | 待有实际项目作品后评估 |
+
+## 16. P2 接口规划
+
+本节冻结 P2 契约方向；关于页和隐私政策接口已经实现，其余接口尚不可调用。后续实现必须继续
+使用 `/api/v1/**`、统一响应结构、现有认证错误码和后台审计规则，并同步补入 `openapi.yaml`。
+
+### 16.1 注册邮箱验证码
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| `POST` | `/api/v1/auth/email-verification-codes` | `PUBLIC` | 向注册邮箱发送 6 位验证码 |
+| `POST` | `/api/v1/auth/register` | `PUBLIC` | P2 增加 `verificationCode`、`privacyPolicyVersion` |
+
+验证码有效期 10 分钟，同一邮箱 60 秒内最多发送一次、每小时最多 5 次，并增加 IP 小时级限流。
+Redis 只保存验证码哈希、失败次数和 TTL，最多允许 5 次校验失败。发送失败返回“验证码发送失败，
+请稍后重试”，不得暴露邮箱是否已注册；注册成功后删除验证码并写入邮箱验证时间和隐私政策版本。
+
+### 16.2 关于页与隐私政策（已实现）
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| `GET` | `/api/v1/about` | `PUBLIC` | 获取关于页；未创建时返回“暂无内容” |
+| `GET` | `/api/v1/admin/about` | `ADMIN` | 获取 Markdown 编辑源、预览和最后编辑者 |
+| `PUT` | `/api/v1/admin/about` | `ADMIN` | upsert 保存关于页，立即生效 |
+| `GET` | `/api/v1/privacy-policy` | `PUBLIC` | 获取当前隐私政策正文和内容哈希版本 |
+
+关于页保存请求只包含 `contentMd`，去除首尾空白后不能为空且最长 100000 个字符。后端生成
+`contentHtml`、`contentText`；规范化后的 Markdown 未变化时不重复更新。公开响应保留现有
+`/about` 前端路由所需内容，前端 Markdown 容器继续使用 `2rem` 行距。
+
+隐私政策读取后端 classpath 中的 `privacy-policy.md`，返回规范化 Markdown 的 `sha256:` 内容哈希、HTML 和纯文本。
+响应使用 `ETag` 和 `Cache-Control: no-cache`；`If-None-Match` 命中时返回 304。资源缺失或为空
+时后端拒绝启动。注册请求提交当前哈希，哈希不一致时要求用户重新读取和确认。
+
+### 16.3 有效浏览与 Dashboard
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| `POST` | `/api/v1/articles/{articleId}/views` | `PUBLIC` | 记录一次可能的有效浏览，返回当前浏览数 |
+| `GET` | `/api/v1/admin/dashboard` | `ADMIN` | 获取总览、趋势和三类 Top 10 |
+
+浏览接口允许不携带 Access Token；一旦携带 Token 必须校验成功。登录用户按 `userId`、游客按匿名
+Cookie token 哈希去重，同一文章一小时只计一次。Redis 不可用时接口仍成功但 `counted=false`。
+
+Dashboard Query：`range=7D|30D`，默认 `7D`。响应至少包含：
+
+- 用户、已发布文章、评论、留言、文章点赞、评论点赞、有效浏览总量
+- 按日新增用户、发布文章、评论、留言、点赞和有效浏览趋势
+- `topByViews`、`topByLikes`、`topByComments`，各最多 10 篇已发布文章
+
+### 16.4 文章与评论点赞
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| `POST` | `/api/v1/articles/{articleId}/like` | `PUBLIC` | 登录用户或游客点赞，幂等 |
+| `DELETE` | `/api/v1/articles/{articleId}/like` | `PUBLIC` | 登录用户或游客取消点赞，幂等 |
+| `POST` | `/api/v1/comments/{commentId}/like` | `LOGIN` | 点赞可见的已通过评论，幂等 |
+| `DELETE` | `/api/v1/comments/{commentId}/like` | `LOGIN` | 取消评论点赞，幂等 |
+
+响应返回 `liked` 和最新 `likeCount`。文章点赞接口为游客设置安全的匿名 HttpOnly Cookie；评论
+不允许游客点赞。文章下线及评论隐藏/删除后保留历史明细，但禁止新增点赞。
+
+匿名 Cookie 名为 `visitor_id`，生产环境使用 `Secure`、`HttpOnly`、`SameSite=Lax` 和根路径 `/`；
+数据库与 Redis 只使用 token 哈希。该 Cookie 同时用于文章有效浏览去重和游客文章点赞。
+
+文章列表、文章详情和评论响应增加 `likeCount`；文章响应增加当前访问主体的 `liked`，评论响应
+为登录用户返回 `liked`。未携带登录态时评论 `liked=false`。
+
+### 16.5 站内通知、管理员消息与公告
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| `GET` | `/api/v1/notifications` | `LOGIN` | 分页查询当前用户通知，支持分类筛选 |
+| `GET` | `/api/v1/notifications/unread-count` | `LOGIN` | 获取未读总数和分类数量 |
+| `PATCH` | `/api/v1/notifications/{notificationId}/read` | `LOGIN` | 幂等标记单条已读 |
+| `PATCH` | `/api/v1/notifications/read-all` | `LOGIN` | 幂等标记全部或指定分类已读 |
+| `GET` | `/api/v1/announcements` | `PUBLIC` | 获取当前有效的访客公告，无已读状态 |
+| `GET` | `/api/v1/admin/notifications` | `ADMIN` | 查询管理员消息与公告 |
+| `POST` | `/api/v1/admin/notifications` | `ADMIN` | 创建管理员消息或公告 |
+| `PUT` | `/api/v1/admin/notifications/{notificationId}` | `ADMIN` | 更新草稿内容或目标范围 |
+| `PATCH` | `/api/v1/admin/notifications/{notificationId}/status` | `ADMIN` | 发布或下线公告 |
+
+用户端分类固定为 `ALL`、`REPLY`、`ADMIN_MESSAGE`、`ANNOUNCEMENT`；`REPLY` 合并数据库中的
+`COMMENT_REPLY` 与 `MESSAGE_REPLY`。管理员创建的类型只允许 `ADMIN_MESSAGE`、`ANNOUNCEMENT`。
+目标范围只允许指定用户、全部启用用户和全部访客；全部访客只适用于公告。`ALL_VISITORS`
+表示公开给站点所有访问者，也包含登录用户；发布时为当前启用用户生成收件记录，使其具有未读红点，
+未登录游客只通过公开接口读取且不保存已读状态。新用户注册时补入仍有效公开公告的收件记录，
+不补发历史 `ALL_USERS` 管理员消息。
+
+评论直接回复审核通过后创建 `COMMENT_REPLY`；管理员回复登录用户留言后创建 `MESSAGE_REPLY`。
+站内通知不依赖邮件订阅，邮件失败也不回滚通知。游客公告没有已读状态和未读红点。
+
+### 16.6 邮件投递管理
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| `GET` | `/api/v1/admin/mail-deliveries` | `ADMIN` | 按类型、状态和时间分页查询投递记录 |
+| `GET` | `/api/v1/admin/mail-deliveries/{deliveryId}` | `ADMIN` | 查看尝试次数和安全失败摘要 |
+| `POST` | `/api/v1/admin/mail-deliveries/{deliveryId}/retry` | `ADMIN` | 手动重试 `FAILED` 回复通知 |
+
+响应只返回脱敏收件地址。手动重试必须锁定投递记录，只允许一个任务执行，并根据业务关联重新
+生成正文；不保存或返回完整正文、邮箱、SMTP 密码、验证码及异常堆栈。
+
+### 16.7 评论回复通知和排序
+
+- 创建评论请求 P2 增加可选 `notifyOnReply`；订阅使用账号验证邮箱
+- 评论退订接口：`POST /api/v1/comments/notifications/unsubscribe`，使用随机不透明 token 且幂等
+- 同一顶层评论下按“当前作者角色是否为管理员、创建时间、评论 ID”排序；管理员回复优先
+- 管理员身份按查询时当前角色判断，不在评论记录中保存角色快照
+- 留言和评论通知均发送 `multipart/alternative`，用户内容必须在 HTML 中转义
+
+### 16.8 Turnstile
+
+游客发表留言时请求增加 `turnstileToken`；后端向 Cloudflare 验证并结合 Redis/IP 限流处理。
+登录用户留言和评论暂不要求 Turnstile。验证失败使用统一业务错误，不返回 Cloudflare 原始响应。
+
+### 16.9 管理员 TOTP 2FA
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| `POST` | `/api/v1/users/me/totp/setup` | `ADMIN` | 生成待确认 TOTP secret 和二维码数据 |
+| `POST` | `/api/v1/users/me/totp/confirm` | `ADMIN` | 校验首个验证码并启用，返回一次性恢复码 |
+| `DELETE` | `/api/v1/users/me/totp` | `ADMIN` | 校验密码与 TOTP 后停用 |
+| `POST` | `/api/v1/auth/login/totp` | `PUBLIC` | 完成管理员登录的第二步验证 |
+
+管理员第一步密码验证成功后不得直接签发完整登录态，而是返回短期、单用途 challenge。TOTP secret
+加密存储；启用时一次性返回 10 个恢复码，恢复码只保存强哈希、展示一次、使用后失效。相关操作写入安全日志，不记录 secret、
+TOTP 验证码或恢复码。
+
+### 16.10 SEO
+
+- 前台文章路由采用 `/articles/{articleId}-{slug}`，服务端仍以 ID 为稳定定位；slug 不一致时重定向到规范 URL
+- 每篇公开文章输出 canonical、Open Graph 标题/摘要/封面和绝对 URL
+- `sitemap.xml` 只包含公开页面与已发布文章；`robots.txt` 禁止抓取后台、登录、注册和个人中心
+- slug 由标题生成并允许管理员调整，要求非空值唯一；历史文章迁移时生成稳定 slug
+- 现有客户端 SPA 仅在浏览器运行后修改 meta，不能满足多数搜索和社交抓取器；实现前必须选定 SSR、预渲染或后端动态 HTML shell，不能只增加前端路由 meta
