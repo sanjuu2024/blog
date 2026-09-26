@@ -90,8 +90,8 @@ public class AboutPageServiceImpl implements AboutPageService {
                     .updatedBy(adminId)
                     .build();
             aboutPageMapper.updateById(updateAboutPage);
-            aboutPage = updateAboutPage;
         }
+        aboutPage = aboutPageMapper.selectById(ABOUT_PAGE_ID);
         return toAdminAboutPageVO(aboutPage);
     }
 

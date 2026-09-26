@@ -80,7 +80,6 @@ class AboutPageServiceImplTest {
     @Test
     void shouldCreateAboutPageWithRenderedContent() {
         OffsetDateTime updatedAt = OffsetDateTime.now();
-        when(aboutPageMapper.selectById(1L)).thenReturn(null);
         when(articleContentRenderer.convertMarkdownToHtml("# 关于本站"))
                 .thenReturn("<h1>关于本站</h1>");
         when(articleContentRenderer.convertToText("# 关于本站")).thenReturn("关于本站");
@@ -89,6 +88,12 @@ class AboutPageServiceImplTest {
             aboutPage.setUpdatedAt(updatedAt);
             return 1;
         });
+        AboutPage persistedAboutPage = AboutPage.builder()
+                .id(1L)
+                .updatedBy(ADMIN_ID)
+                .updatedAt(updatedAt)
+                .build();
+        when(aboutPageMapper.selectById(1L)).thenReturn(null, persistedAboutPage);
         when(userMapper.selectById(ADMIN_ID)).thenReturn(editor());
 
         AdminAboutPageVO result = aboutPageService.upsertAboutPage(
@@ -125,15 +130,21 @@ class AboutPageServiceImplTest {
     @Test
     void shouldUpdateChangedMarkdownAndEditor() {
         OffsetDateTime updatedAt = OffsetDateTime.now().plusMinutes(1);
-        when(aboutPageMapper.selectById(1L)).thenReturn(aboutPage());
         when(articleContentRenderer.convertMarkdownToHtml("## 新内容"))
                 .thenReturn("<h2>新内容</h2>");
         when(articleContentRenderer.convertToText("## 新内容")).thenReturn("新内容");
+        AboutPage persistedAboutPage = aboutPage();
         when(aboutPageMapper.updateById(any(AboutPage.class))).thenAnswer(invocation -> {
             AboutPage update = invocation.getArgument(0);
+            persistedAboutPage.setContentMd(update.getContentMd());
+            persistedAboutPage.setContentHtml(update.getContentHtml());
+            persistedAboutPage.setContentText(update.getContentText());
+            persistedAboutPage.setUpdatedBy(update.getUpdatedBy());
             update.setUpdatedAt(updatedAt);
+            persistedAboutPage.setUpdatedAt(updatedAt);
             return 1;
         });
+        when(aboutPageMapper.selectById(1L)).thenReturn(aboutPage(), persistedAboutPage);
         when(userMapper.selectById(ADMIN_ID)).thenReturn(editor());
 
         AdminAboutPageVO result = aboutPageService.upsertAboutPage(
