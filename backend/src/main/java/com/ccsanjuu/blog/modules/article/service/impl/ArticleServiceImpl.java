@@ -10,6 +10,7 @@ import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
+import com.ccsanjuu.blog.modules.article.model.bo.ArticleViewIdentity;
 import com.ccsanjuu.blog.modules.article.model.bo.PublicArticleSearchBO;
 import com.ccsanjuu.blog.modules.article.model.dto.AdminArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
@@ -21,6 +22,7 @@ import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
 import com.ccsanjuu.blog.modules.article.model.enums.PublicArticleSort;
 import com.ccsanjuu.blog.modules.article.model.vo.*;
 import com.ccsanjuu.blog.modules.article.service.ArticleService;
+import com.ccsanjuu.blog.modules.article.service.ArticleViewService;
 import com.ccsanjuu.blog.modules.article.support.ArticleContentRenderer;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.category.model.entity.Category;
@@ -54,6 +56,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     private final ArticleMapper articleMapper;
     private final TagMapper tagMapper;
     private final UserMapper userMapper;
+    private final ArticleViewService articleViewService;
 
     /**
      * 获取后台文章分页列表
@@ -491,7 +494,10 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
      * @return
      */
     @Override
-    public PublicArticleDetailVO getPublicArticleDetail(Long articleId) {
+    public PublicArticleDetailVO getPublicArticleDetail(
+            Long articleId,
+            ArticleViewIdentity viewIdentity
+    ) {
         Article article = articleMapper.selectById(articleId);
         if (article == null){
             throw new BizException(ResultCode.ARTICLE_NOT_FOUND);
@@ -558,6 +564,10 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         vo.setAuthor(BeanUtil.copyProperties(author, ArticleAuthorVO.class));
 
         // 4. 返回
+        if (viewIdentity != null) {
+            vo.setViewCount(articleViewService.recordView(articleId, viewIdentity));
+        }
+
         return vo;
     }
 

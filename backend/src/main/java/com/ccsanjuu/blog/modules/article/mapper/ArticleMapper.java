@@ -12,6 +12,15 @@ import java.util.List;
 
 @Mapper
 public interface ArticleMapper extends BaseMapper<Article> {
+
+    /**
+     * 仅对仍处于已发布状态的文章原子递增浏览总数。
+     *
+     * @param articleId 文章 ID
+     * @return 更新行数
+     */
+    int incrementViewCount(@Param("articleId") Long articleId);
+
     /**
      * 根据所给的二级分类 id 列表，给出其中每一个二级分类对应的文章数
      *

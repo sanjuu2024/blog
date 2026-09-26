@@ -665,8 +665,9 @@ CREATE INDEX idx_blog_article_daily_stat_date
     ON blog_article_daily_stat (stat_date DESC);
 ```
 
-同一文章与同一用户/匿名访客的一小时去重 key 只保存在 Redis。有效浏览产生时，在同一事务中
-原子递增 `blog_article.view_count` 和当日聚合记录。Redis 不可用时不增加浏览量，但文章读取继续。
+文章详情公开读取成功后尝试记录有效浏览。同一文章与同一用户/匿名访客的一小时去重 key 只保存在 Redis。
+每日聚合按 `Asia/Shanghai` 自然日统计。有效浏览产生时，在同一事务中原子递增 `blog_article.view_count` 和当日聚合记录。Redis 不可用时不增加浏览量，
+但文章读取继续。游客身份使用 `visitor_id` HttpOnly Cookie，数据库和 Redis 只保存其哈希。
 
 ## 4.6 P2 使用表：`blog_notification`
 
@@ -1020,6 +1021,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 - 留言通知令牌使用随机不透明值；数据库泄露时不会暴露用户密码或登录 Token，令牌仅能关闭对应顶层留言的后续通知
 - 用户名长度和格式约束通过 `V1.1.6` migration 更新；升级前若存在不符合新规则的用户名，迁移会失败并要求先处理存量数据
 - 用户简介字段通过 `V1.1.7` migration 缩短为 `VARCHAR(100)`；升级前若存在超过 100 个字符的简介，迁移会失败并要求先处理存量数据
+- `V1.2.1` migration 新增 `blog_article_daily_stat`，保存文章有效浏览每日聚合；文章总浏览数继续保存在 `blog_article.view_count`
 - P2 所有新表、字段、约束和索引都必须使用新的 Flyway migration；本节目标 SQL 不能用于修改已执行的历史 migration
 - 文章/评论点赞明细与冗余计数必须事务一致；游客点赞不与登录账号自动合并
 - 浏览去重 key 只保存在 Redis 一小时，PostgreSQL 保存文章总量和每日聚合

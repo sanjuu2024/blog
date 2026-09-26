@@ -6,11 +6,13 @@ import com.ccsanjuu.blog.config.WebMvcConfig;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
 import com.ccsanjuu.blog.modules.audit.mapper.AdminAuditLogMapper;
+import com.ccsanjuu.blog.modules.article.model.bo.ArticleViewIdentity;
 import com.ccsanjuu.blog.modules.article.model.dto.PublicArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.enums.PublicArticleSort;
 import com.ccsanjuu.blog.modules.article.model.vo.PublicArticleDetailVO;
 import com.ccsanjuu.blog.modules.article.model.vo.PublicArticleListItemVO;
 import com.ccsanjuu.blog.modules.article.service.ArticleService;
+import com.ccsanjuu.blog.modules.article.support.VisitorIdCookieManager;
 import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
@@ -82,6 +84,9 @@ class ArticleControllerTest {
     private ArticleTagMapper articleTagMapper;
 
     @MockitoBean
+    private VisitorIdCookieManager visitorIdCookieManager;
+
+    @MockitoBean
     private AdminAuditLogMapper adminAuditLogMapper;
 
     @Test
@@ -141,7 +146,8 @@ class ArticleControllerTest {
 
     @Test
     void getPublicArticleDetailShouldCallService() throws Exception {
-        when(articleService.getPublicArticleDetail(eq(ARTICLE_ID)))
+        when(visitorIdCookieManager.resolve(any(), any())).thenReturn("visitor-token");
+        when(articleService.getPublicArticleDetail(eq(ARTICLE_ID), any(ArticleViewIdentity.class)))
                 .thenReturn(PublicArticleDetailVO.builder()
                         .id(ARTICLE_ID)
                         .title("Spring Boot notes")
@@ -152,6 +158,6 @@ class ArticleControllerTest {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.id").value(ARTICLE_ID));
 
-        verify(articleService).getPublicArticleDetail(eq(ARTICLE_ID));
+        verify(articleService).getPublicArticleDetail(eq(ARTICLE_ID), any(ArticleViewIdentity.class));
     }
 }

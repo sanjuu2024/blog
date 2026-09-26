@@ -2,6 +2,13 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
 <mapper namespace="com.ccsanjuu.blog.modules.article.mapper.ArticleMapper">
+    <update id="incrementViewCount">
+        UPDATE blog_article
+        SET view_count = view_count + 1
+        WHERE id = #{articleId}
+          AND status = 'PUBLISHED'
+    </update>
+
     <select id="getArticleCountByCategoryIds" resultType="com.ccsanjuu.blog.modules.article.model.bo.CategoryArticleCountBO">
         select category_id as categoryId, count(id) as articleCount
         from blog_article
