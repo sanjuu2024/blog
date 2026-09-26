@@ -17,6 +17,7 @@ import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
 import com.ccsanjuu.blog.modules.user.model.enums.UserStatus;
+import com.ccsanjuu.blog.modules.privacy.service.PrivacyPolicyService;
 import com.ccsanjuu.blog.properties.JwtProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -61,6 +63,9 @@ class AuthServiceImplCoreFlowTest {
     @Mock
     private AuthMapper authMapper;
 
+    @Mock
+    private PrivacyPolicyService privacyPolicyService;
+
     private AuthServiceImpl authService;
 
     @BeforeEach
@@ -71,7 +76,15 @@ class AuthServiceImplCoreFlowTest {
                 Duration.ofMinutes(15),
                 Duration.ofDays(7)
         );
-        authService = new AuthServiceImpl(userMapper, passwordEncoder, jwtProperties, SIGNING_KEY, authMapper);
+        authService = new AuthServiceImpl(
+                userMapper,
+                passwordEncoder,
+                jwtProperties,
+                SIGNING_KEY,
+                authMapper,
+                privacyPolicyService
+        );
+        lenient().when(privacyPolicyService.compareTo(any())).thenReturn(true);
     }
 
     @Test
@@ -82,6 +95,7 @@ class AuthServiceImplCoreFlowTest {
                 .username("Sanjuu")
                 .email("sanjuu@example.com")
                 .password(PASSWORD)
+                .privacyPolicyVersion("sha256:" + "a".repeat(64))
                 .build());
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
@@ -105,10 +119,28 @@ class AuthServiceImplCoreFlowTest {
                         .username("sanjuu")
                         .email("another@example.com")
                         .password(PASSWORD)
+                        .privacyPolicyVersion("sha256:" + "a".repeat(64))
                         .build()
         ));
 
         assertEquals(ResultCode.USERNAME_EXISTS, exception.getResultCode());
+        verify(userMapper, never()).insert(any(User.class));
+    }
+
+    @Test
+    void registerShouldRejectWhenPrivacyPolicyVersionIsStale() {
+        when(privacyPolicyService.compareTo(any())).thenReturn(false);
+
+        BizException exception = assertThrows(BizException.class, () -> authService.register(
+                RegisterRequestDTO.builder()
+                        .username("sanjuu")
+                        .email("sanjuu@example.com")
+                        .password(PASSWORD)
+                        .privacyPolicyVersion("sha256:" + "b".repeat(64))
+                        .build()
+        ));
+
+        assertEquals(ResultCode.PRIVACY_POLICY_VERSION_MISMATCH, exception.getResultCode());
         verify(userMapper, never()).insert(any(User.class));
     }
 

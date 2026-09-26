@@ -25,6 +25,7 @@ public enum ResultCode {
     USER_DISABLED(102005, "用户已被禁用", 403),
     SELF_ROLE_CHANGE_NOT_ALLOWED(102007, "当前用户不允许修改自己的角色", 403),
     SELF_STATUS_CHANGE_NOT_ALLOWED(102008, "当前用户不允许修改自己的状态", 403),
+    PRIVACY_POLICY_VERSION_MISMATCH(102009, "隐私政策已更新，请重新打开隐私政策页面", 409),
 
     // article 模块 03xxxx
     ARTICLE_NOT_FOUND(103001, "文章不存在", 404),

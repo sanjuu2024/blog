@@ -22,6 +22,9 @@ public final class ValidationConstants {
     public static final String PASSWORD_MESSAGE =
             "密码只能包含英文字母、数字、下划线、短横线或常用 ASCII 特殊字符，且不能包含空白字符";
 
+    public static final String PRIVACY_POLICY_VERSION_PATTERN = "^sha256:[0-9a-f]{64}$";
+    public static final String PRIVACY_POLICY_VERSION_MESSAGE = "隐私政策版本不合法";
+
     private ValidationConstants() {
     }
 }

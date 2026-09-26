@@ -19,6 +19,12 @@ public class PrivacyPolicyServiceImpl implements PrivacyPolicyService {
 
     private final PrivacyPolicyVO privacyPolicy;
 
+    /**
+     * 注入 privacy-policy.md 为 privacyPolicy 对象
+     *
+     * @param articleContentRenderer
+     * @param resource
+     */
     public PrivacyPolicyServiceImpl(
             ArticleContentRenderer articleContentRenderer,
             @Value("${blog.privacy-policy.resource:classpath:content/privacy-policy.md}") Resource resource
@@ -56,5 +62,15 @@ public class PrivacyPolicyServiceImpl implements PrivacyPolicyService {
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException("SHA-256 不可用", exception);
         }
+    }
+
+    /**
+     * 根据 sha256 值判断版本是否一致
+     *
+     * @param sha256Txt
+     * @return
+     */
+    public boolean compareTo(String sha256Txt) {
+        return sha256Txt != null && sha256Txt.equals(getPrivacyPolicy().getVersion());
     }
 }

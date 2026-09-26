@@ -4,6 +4,7 @@ import com.ccsanjuu.blog.common.util.JwtUtil;
 import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.auth.model.dto.LogoutRequestDTO;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
+import com.ccsanjuu.blog.modules.privacy.service.PrivacyPolicyService;
 import com.ccsanjuu.blog.properties.JwtProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +34,9 @@ class AuthServiceImplLogoutTest {
     @Mock
     private AuthMapper authMapper;
 
+    @Mock
+    private PrivacyPolicyService privacyPolicyService;
+
     private AuthServiceImpl authService;
 
     @BeforeEach
@@ -43,7 +47,14 @@ class AuthServiceImplLogoutTest {
                 Duration.ofMinutes(15),
                 Duration.ofDays(7)
         );
-        authService = new AuthServiceImpl(userMapper, passwordEncoder, jwtProperties, SIGNING_KEY, authMapper);
+        authService = new AuthServiceImpl(
+                userMapper,
+                passwordEncoder,
+                jwtProperties,
+                SIGNING_KEY,
+                authMapper,
+                privacyPolicyService
+        );
     }
 
     @Test

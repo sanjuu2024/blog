@@ -3,7 +3,6 @@
 		v-model="visible"
 		title="隐私政策"
 		width="min(48rem, calc(100vw - 2rem))"
-		@open="getPrivacyPolicyContent"
 	>
 		<div class="privacy-policy-dialog__body app-scrollbar">
 			<AppLoading :loading="loading">
@@ -14,7 +13,7 @@
 					<p>隐私政策加载失败</p>
 					<el-button
 						type="primary"
-						@click="getPrivacyPolicyContent"
+						@click="handleOpen"
 					>
 						重试
 					</el-button>
@@ -38,7 +37,9 @@
 </template>
 
 <script setup lang="ts">
+import { watch } from 'vue';
 import { usePrivacyPolicy } from '../composables/usePrivacyPolicy';
+import type { PrivacyPolicyData } from '../types/privacy';
 
 defineOptions({
 	name: 'PrivacyPolicyDialog',
@@ -46,7 +47,20 @@ defineOptions({
 
 const visible = defineModel<boolean>({ required: true });
 
+const emit = defineEmits<{
+	loaded: [policy: PrivacyPolicyData];
+}>();
+
 const { privacyPolicy, loading, loadFailed, getPrivacyPolicyContent } = usePrivacyPolicy();
+
+async function handleOpen() {
+	await getPrivacyPolicyContent();
+	if (privacyPolicy.value) emit('loaded', privacyPolicy.value);
+}
+
+watch(visible, (isVisible) => {
+	if (isVisible) void handleOpen();
+});
 </script>
 
 <style lang="scss" scoped>

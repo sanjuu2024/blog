@@ -77,7 +77,10 @@
 				隐私政策
 			</el-link>
 		</div>
-		<PrivacyPolicyDialog v-model="privacyPolicyVisible" />
+		<PrivacyPolicyDialog
+			v-model="privacyPolicyVisible"
+			@loaded="handlePrivacyPolicyLoaded"
+		/>
 
 		<div class="footer">
 			<div class="links flex justify-between">
@@ -101,13 +104,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue';
+import { nextTick, ref, reactive, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import { isAxiosError } from 'axios';
+import type { ApiResult } from '@/types/api';
 import type { RegisterRequest } from '../types/auth';
 import { register } from '../api/authApi';
 import type { FormItemRule } from 'element-plus';
 import { ElMessage } from 'element-plus';
 import PrivacyPolicyDialog from '@/modules/privacy/components/PrivacyPolicyDialog.vue';
+import { getPrivacyPolicy } from '@/modules/privacy/api/privacyApi';
+import { ApiCode } from '@/constants/apiCode';
 import {
 	EMAIL_FORMAT_MESSAGE,
 	EMAIL_FORMAT_PATTERN,
@@ -123,12 +130,14 @@ defineOptions({
 
 const router = useRouter();
 const privacyPolicyVisible = ref(false);
+const privacyPolicyVersion = ref('');
 
 // 注册表单数据
 let registerForm = reactive<RegisterRequest>({
 	username: '',
 	email: '',
 	password: '',
+	privacyPolicyVersion: '',
 });
 
 let usernameAvailable = ref<boolean>(false);
@@ -200,13 +209,38 @@ watch(
 // 注册
 async function handlerRegister() {
 	if (!validated.value) return;
+
 	try {
-		await register(registerForm);
+		if (!privacyPolicyVersion.value) {
+			const policy = await getPrivacyPolicy();
+			privacyPolicyVersion.value = policy.version;
+		}
+
+		await register({
+			...registerForm,
+			privacyPolicyVersion: privacyPolicyVersion.value,
+		});
 		router.replace('/auth/login');
 		ElMessage.success('注册成功，请登录');
-	} catch {
+	} catch (error) {
+		if (
+			isAxiosError<ApiResult>(error) &&
+			error.response?.data?.code === ApiCode.PRIVACY_POLICY_VERSION_MISMATCH
+		) {
+			privacyPolicyVersion.value = '';
+			// ElMessage.warning('隐私政策已更新，请重新打开隐私政策页面');   // request.ts 响应拦截器中已经统一处理了错误提示
+			privacyPolicyVisible.value = false;
+			checked.value = false; // 需要用户手动重新确认
+			await nextTick();
+			privacyPolicyVisible.value = true;
+			return;
+		}
 		// 错误提示已经由 request 响应拦截器统一处理
 	}
+}
+
+function handlePrivacyPolicyLoaded(policy: { version: string }) {
+	privacyPolicyVersion.value = policy.version;
 }
 </script>
 

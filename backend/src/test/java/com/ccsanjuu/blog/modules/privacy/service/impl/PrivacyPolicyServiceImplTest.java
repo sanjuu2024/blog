@@ -44,6 +44,16 @@ class PrivacyPolicyServiceImplTest {
         );
     }
 
+    @Test
+    void shouldCompareCurrentPrivacyPolicyVersion() {
+        PrivacyPolicyServiceImpl service = service("# 隐私政策\n\n正文");
+        String version = service.getPrivacyPolicy().getVersion();
+
+        assertTrue(service.compareTo(version));
+        assertTrue(!service.compareTo("sha256:" + "0".repeat(64)));
+        assertTrue(!service.compareTo(null));
+    }
+
     private PrivacyPolicyServiceImpl service(String markdown) {
         return new PrivacyPolicyServiceImpl(
                 articleContentRenderer,

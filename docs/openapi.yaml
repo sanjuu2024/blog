@@ -237,6 +237,7 @@ paths:
               username: alice_dev
               email: alice@example.com
               password: Passw0rd!
+              privacyPolicyVersion: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       responses:
         '200':
           description: 注册成功
@@ -251,7 +252,7 @@ paths:
         '400':
           $ref: '#/components/responses/CommentReasonRequiredResponse'
         '409':
-          $ref: '#/components/responses/UserConflictResponse'
+          $ref: '#/components/responses/RegisterConflictResponse'
   /api/v1/auth/login:
     post:
       tags:
@@ -2489,6 +2490,7 @@ components:
         - username
         - email
         - password
+        - privacyPolicyVersion
       properties:
         username:
           type: string
@@ -2512,6 +2514,11 @@ components:
           pattern: '^[A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
           description: 登录密码，允许英文字母、数字、下划线、短横线和常用 ASCII 特殊字符，不允许中文或空白字符
           example: Passw0rd!
+        privacyPolicyVersion:
+          type: string
+          pattern: '^sha256:[0-9a-f]{64}$'
+          description: 当前隐私政策版本，必须来自 GET /api/v1/privacy-policy
+          example: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
     LoginRequest:
       type: object
       required:
@@ -4429,6 +4436,31 @@ components:
               value:
                 code: 102004
                 message: 邮箱已存在
+                data: null
+    RegisterConflictResponse:
+      description: 注册业务冲突
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            usernameExists:
+              summary: 用户名已存在
+              value:
+                code: 102002
+                message: 用户名已存在
+                data: null
+            emailExists:
+              summary: 邮箱已存在
+              value:
+                code: 102004
+                message: 邮箱已存在
+                data: null
+            privacyPolicyVersionMismatch:
+              summary: 隐私政策版本已更新
+              value:
+                code: 102009
+                message: 隐私政策已更新，请重新打开隐私政策页面
                 data: null
     RefreshTokenInvalidResponse:
       description: Refresh Token 无效或已过期
