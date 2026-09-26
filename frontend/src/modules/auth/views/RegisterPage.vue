@@ -228,7 +228,7 @@ async function handlerRegister() {
 			error.response?.data?.code === ApiCode.PRIVACY_POLICY_VERSION_MISMATCH
 		) {
 			privacyPolicyVersion.value = '';
-			// ElMessage.warning('隐私政策已更新，请重新打开隐私政策页面');   // request.ts 响应拦截器中已经统一处理了错误提示
+			ElMessage.warning('隐私政策已更新，请重新打开隐私政策页面');
 			privacyPolicyVisible.value = false;
 			checked.value = false; // 需要用户手动重新确认
 			await nextTick();

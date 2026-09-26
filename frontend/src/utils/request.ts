@@ -74,11 +74,11 @@ request.interceptors.response.use(
 
 		const showError = err.config?.meta?.showError !== false; // 只要 showError 不是明确的 false，就当作 true
 		let errMsg = err.response?.data?.message || '请求失败，请稍后重试';
+		const code = (err.response?.data as ApiResult | undefined)?.code;
 
 		if (err.response) {
 			// 有响应
 			const { status } = err.response;
-			const { code } = err.response.data as ApiResult; // 默认 T 是 unknown
 
 			switch (status) {
 				case 401: {
@@ -133,7 +133,9 @@ request.interceptors.response.use(
 			errMsg = '请求未发出：' + err.message;
 		}
 
-		if (showError) ElMessage.error(errMsg); // 在页面上弹出错误信息提示
+		if (showError && code !== ApiCode.PRIVACY_POLICY_VERSION_MISMATCH) {
+			ElMessage.error(errMsg);
+		}
 
 		return Promise.reject(err);
 	},
