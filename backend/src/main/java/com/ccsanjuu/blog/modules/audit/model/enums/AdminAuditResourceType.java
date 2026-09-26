@@ -10,5 +10,6 @@ public enum AdminAuditResourceType {
     TAG,
     COMMENT,
     MESSAGE,
-    FILE
+    FILE,
+    ABOUT_PAGE
 }

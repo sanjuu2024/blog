@@ -22,6 +22,7 @@ import com.ccsanjuu.blog.modules.auth.model.vo.LoginUserVO;
 import com.ccsanjuu.blog.modules.auth.model.vo.LoginVO;
 import com.ccsanjuu.blog.modules.auth.model.vo.RefreshTokenVO;
 import com.ccsanjuu.blog.modules.auth.service.AuthService;
+import com.ccsanjuu.blog.modules.privacy.service.PrivacyPolicyService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
@@ -49,6 +50,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtProperties jwtProperties;
     private final SecretKey jwtSigningKey;
     private final AuthMapper authMapper;
+    private final PrivacyPolicyService privacyPolicyService;
 
     /**
      * 用户注册
@@ -68,7 +70,9 @@ public class AuthServiceImpl implements AuthService {
             throw new BizException(ResultCode.EMAIL_EXISTS);
         }
 
-        // 3. 密码加密，封装要插入的 User 对象
+        // TODO 3. 验证隐私政策版本
+
+        // 4. 密码加密，封装要插入的 User 对象
         User newUser = User.builder()
                 .username(registerRequestDTO.getUsername())
                 .nickname(registerRequestDTO.getUsername())  // 初始昵称默认同用户名
@@ -80,7 +84,7 @@ public class AuthServiceImpl implements AuthService {
                 .avatarUrl("")
                 .build();
 
-        // 4，插入用户信息
+        // 5，插入用户信息
         userMapper.insert(newUser);
 
         log.info(
