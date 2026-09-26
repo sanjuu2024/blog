@@ -7,18 +7,23 @@ import com.icegreen.greenmail.util.ServerSetup;
 import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 
 @ActiveProfiles("test")
 @SpringBootTest(properties = {
@@ -49,6 +54,17 @@ class MessageReplyNotificationGreenMailIntegrationTest {
 
     @Autowired
     private PlatformTransactionManager transactionManager;
+
+    @MockitoBean(name = "messageMailTaskExecutor")
+    private TaskExecutor messageMailTaskExecutor;
+
+    @BeforeEach
+    void executeMailTasksSynchronously() {
+        doAnswer(invocation -> {
+            invocation.<Runnable>getArgument(0).run();
+            return null;
+        }).when(messageMailTaskExecutor).execute(any(Runnable.class));
+    }
 
     /**
      * 将 Spring Mail 指向当前测试进程中的 GreenMail 动态端口。

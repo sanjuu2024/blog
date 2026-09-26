@@ -13,6 +13,7 @@ import IconView from '~icons/lucide/eye';
 import IconComment from '~icons/lucide/message-circle-more';
 import IconLike from '~icons/lucide/thumbs-up';
 import IconMessage from '~icons/lucide/message-square-text';
+import IconAbout from '~icons/lucide/info';
 import IconAudit from '~icons/lucide/scroll-text';
 
 const iconMap = {
@@ -25,6 +26,7 @@ const iconMap = {
 	comment: IconComment,
 	like: IconLike,
 	message: IconMessage,
+	about: IconAbout,
 	audit: IconAudit,
 };
 

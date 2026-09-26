@@ -7,6 +7,7 @@ export interface RegisterRequest {
 	username: string;
 	email: string;
 	password: string;
+	privacyPolicyVersion: string;
 }
 
 export type RegisterResponse = ApiResult<null>;

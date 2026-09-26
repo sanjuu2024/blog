@@ -222,6 +222,14 @@ describe('request interceptors', () => {
 		expect(messageError).toHaveBeenCalledWith('请求错误');
 	});
 
+	it('leaves privacy policy version conflicts to the registration page', async () => {
+		const error = responseError(409, ApiCode.PRIVACY_POLICY_VERSION_MISMATCH);
+
+		await expect(axiosState.responseRejected?.(error)).rejects.toBe(error);
+
+		expect(messageError).not.toHaveBeenCalled();
+	});
+
 	it('does not show an error for canceled requests', async () => {
 		axiosState.isCancel.mockReturnValue(true);
 		const error = { code: 'ERR_CANCELED' } as AxiosError;

@@ -50,6 +50,8 @@ External services
 - Redis 如果用于 Refresh Token 或缓存，也必须配置持久化或明确可丢失策略。
 - 生产环境数据库密码、JWT 密钥、Redis 密码、对象存储密钥不能直接写在 `docker-compose.yaml` 中。
 - 建议使用 `.env` 或服务器侧环境变量注入配置。
+- 隐私政策由后端镜像中的 `content/privacy-policy.md` 提供；修改政策必须重新构建并部署 backend，
+  应用启动时会校验资源非空并以规范化内容 SHA-256 作为版本。
 - 通过 Compose `environment:` 注入的值通常可被有 Docker 管理权限的用户通过
   `docker inspect <container>` 查看；写入 `command:` 的值还可能出现在容器命令行元数据中。
 - 本地 WSL 演练可使用仓库外、权限受限的 `.env.prodtest`；正式生产应优先使用 Docker
@@ -388,6 +390,40 @@ P0 阶段至少需要关注：
 - CPU 使用率长期超过 `70%`
 - 数据库备份任务失败
 - 后端容器反复重启
+
+### 9.1 P2 上线准备
+
+P2 功能、自动化测试和全量验收稳定后再锁定正式服务器变量和服务商配置，避免开发阶段过早绑定
+生产环境。正式上线前必须完成：
+
+- 数据库密码、Redis 密码、JWT、OSS Secret、SMTP 密码使用文件型 Secret 或云密钥管理，不通过容器环境变量长期暴露
+- 每日 `pg_dump`，本机保留最近 7 天、最近 4 周周备份，并上传异机或对象存储；每季度至少完成一次独立数据库恢复演练
+- SMTP 发信域名按服务商要求配置 SPF、DKIM，DMARC 先使用 `p=none` 观察再收紧策略
+- 使用 Certbot、acme.sh 或等价 ACME 客户端自动续期站点证书，续期后 reload Nginx 并执行健康检查
+- OSS 自定义图片域名证书单独记录续期方式；当前不使用阿里云自动续期，优先评估 ACME 脚本与部署钩子，若无法自动部署则必须配置到期告警和人工续期清单
+- 至少监控 HTTPS 可用性、容器停止、磁盘阈值、备份失败和邮件持续失败，并配置外部告警渠道
+- Prometheus + Grafana 作为上线后迭代，不阻塞首次上线；上线前不得完全依赖人工查看日志
+
+P2 管理员启用 TOTP 后，应将一次性恢复码离线保存到受保护位置；服务器端只保存恢复码哈希。
+
+P2 上线新增配置至少包括：
+
+```text
+BLOG_TURNSTILE_SECRET_KEY
+VITE_TURNSTILE_SITE_KEY
+BLOG_TOTP_ENCRYPTION_KEY
+BLOG_VISITOR_COOKIE_SECURE=true
+```
+
+Turnstile site key 可以进入前端构建配置，secret key 和 TOTP 加密密钥必须使用 Secret 注入。
+匿名访客 Cookie 在生产环境必须启用 `Secure`、`HttpOnly`、`SameSite=Lax`，并使用根路径 `/`。
+
+### 9.2 上线后迭代
+
+- 接入 Prometheus + Grafana，补充应用、JVM、PostgreSQL、Redis、Nginx 和业务指标仪表盘
+- 根据实际使用情况评估游客点赞与账号点赞合并、点赞反作弊和 SMTP 退信自动处理
+- 增加头像审核：拒绝后回退为默认头像并发送管理员消息，不联动隐藏已有评论或留言
+- 实现友链管理
 
 ## 10. 发布前检查清单
 

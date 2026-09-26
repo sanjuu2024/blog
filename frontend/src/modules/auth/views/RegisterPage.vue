@@ -55,12 +55,32 @@
 			<el-button
 				type="primary"
 				native-type="submit"
-				class="my-6 w-full"
+				class="my-4 w-full"
 				:disabled="!validated"
 			>
 				创建账号
 			</el-button>
 		</el-form>
+
+		<div class="mb-2 flex items-center gap-1 text-sm">
+			<el-checkbox
+				v-model="checked"
+				class="auth-footer-checkbox"
+			>
+				我已知晓并同意
+			</el-checkbox>
+			<el-link
+				type="primary"
+				class="auth-footer-link"
+				@click="privacyPolicyVisible = true"
+			>
+				隐私政策
+			</el-link>
+		</div>
+		<PrivacyPolicyDialog
+			v-model="privacyPolicyVisible"
+			@loaded="handlePrivacyPolicyLoaded"
+		/>
 
 		<div class="footer">
 			<div class="links flex justify-between">
@@ -84,12 +104,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue';
+import { nextTick, ref, reactive, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import { isAxiosError } from 'axios';
+import type { ApiResult } from '@/types/api';
 import type { RegisterRequest } from '../types/auth';
 import { register } from '../api/authApi';
 import type { FormItemRule } from 'element-plus';
 import { ElMessage } from 'element-plus';
+import PrivacyPolicyDialog from '@/modules/privacy/components/PrivacyPolicyDialog.vue';
+import { getPrivacyPolicy } from '@/modules/privacy/api/privacyApi';
+import { ApiCode } from '@/constants/apiCode';
 import {
 	EMAIL_FORMAT_MESSAGE,
 	EMAIL_FORMAT_PATTERN,
@@ -104,17 +129,21 @@ defineOptions({
 });
 
 const router = useRouter();
+const privacyPolicyVisible = ref(false);
+const privacyPolicyVersion = ref('');
 
 // 注册表单数据
 let registerForm = reactive<RegisterRequest>({
 	username: '',
 	email: '',
 	password: '',
+	privacyPolicyVersion: '',
 });
 
 let usernameAvailable = ref<boolean>(false);
 let emailAvailable = ref<boolean>(false);
 let passwordValid = ref<boolean>(false);
+const checked = ref<boolean>(false);
 
 // 表单校验规则
 const rules = {
@@ -170,22 +199,48 @@ let validated = ref<boolean>(false);
 
 // 监听并更新按钮是否可用
 watch(
-	() => [usernameAvailable.value, emailAvailable.value, passwordValid.value],
+	() => [usernameAvailable.value, emailAvailable.value, passwordValid.value, checked.value],
 	() => {
-		validated.value = usernameAvailable.value && emailAvailable.value && passwordValid.value;
+		validated.value =
+			usernameAvailable.value && emailAvailable.value && passwordValid.value && checked.value;
 	},
 );
 
 // 注册
 async function handlerRegister() {
 	if (!validated.value) return;
+
 	try {
-		await register(registerForm);
+		if (!privacyPolicyVersion.value) {
+			const policy = await getPrivacyPolicy();
+			privacyPolicyVersion.value = policy.version;
+		}
+
+		await register({
+			...registerForm,
+			privacyPolicyVersion: privacyPolicyVersion.value,
+		});
 		router.replace('/auth/login');
 		ElMessage.success('注册成功，请登录');
-	} catch {
+	} catch (error) {
+		if (
+			isAxiosError<ApiResult>(error) &&
+			error.response?.data?.code === ApiCode.PRIVACY_POLICY_VERSION_MISMATCH
+		) {
+			privacyPolicyVersion.value = '';
+			ElMessage.warning('隐私政策已更新，请重新打开隐私政策页面');
+			privacyPolicyVisible.value = false;
+			checked.value = false; // 需要用户手动重新确认
+			await nextTick();
+			privacyPolicyVisible.value = true;
+			return;
+		}
 		// 错误提示已经由 request 响应拦截器统一处理
 	}
+}
+
+function handlePrivacyPolicyLoaded(policy: { version: string }) {
+	privacyPolicyVersion.value = policy.version;
 }
 </script>
 
@@ -197,6 +252,12 @@ async function handlerRegister() {
 		margin-top: 4px;
 		margin-left: 2px;
 		line-height: 0.8rem;
+	}
+}
+
+.auth-footer-checkbox {
+	:deep(.el-checkbox__label) {
+		font-size: 0.8rem;
 	}
 }
 

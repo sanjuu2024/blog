@@ -58,6 +58,7 @@ describe('P0 frontend API contracts', () => {
 			username: 'sanjuu',
 			email: 'sanjuu@example.com',
 			password: 'Password_123',
+			privacyPolicyVersion: 'sha256:' + 'a'.repeat(64),
 		};
 		const loginPayload = { account: 'sanjuu', password: 'Password_123' };
 

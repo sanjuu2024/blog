@@ -22,6 +22,7 @@ import com.ccsanjuu.blog.modules.auth.model.vo.LoginUserVO;
 import com.ccsanjuu.blog.modules.auth.model.vo.LoginVO;
 import com.ccsanjuu.blog.modules.auth.model.vo.RefreshTokenVO;
 import com.ccsanjuu.blog.modules.auth.service.AuthService;
+import com.ccsanjuu.blog.modules.privacy.service.PrivacyPolicyService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
@@ -49,6 +50,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtProperties jwtProperties;
     private final SecretKey jwtSigningKey;
     private final AuthMapper authMapper;
+    private final PrivacyPolicyService privacyPolicyService;
 
     /**
      * 用户注册
@@ -56,19 +58,24 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     public void register(RegisterRequestDTO registerRequestDTO) {
-        // 1. 验证用户名唯一性
+        // 1. 验证隐私政策版本，版本不一致时不能创建账号。
+        if (!privacyPolicyService.compareTo(registerRequestDTO.getPrivacyPolicyVersion())) {
+            throw new BizException(ResultCode.PRIVACY_POLICY_VERSION_MISMATCH);
+        }
+
+        // 2. 验证用户名唯一性
         User user = findUserByUsername(registerRequestDTO.getUsername());
         if (user != null) {
             throw new BizException(ResultCode.USERNAME_EXISTS);
         }
 
-        // 2. 验证邮箱唯一性
+        // 3. 验证邮箱唯一性
         user = findUserByEmail(registerRequestDTO.getEmail());
         if (user != null) {
             throw new BizException(ResultCode.EMAIL_EXISTS);
         }
 
-        // 3. 密码加密，封装要插入的 User 对象
+        // 4. 密码加密，封装要插入的 User 对象
         User newUser = User.builder()
                 .username(registerRequestDTO.getUsername())
                 .nickname(registerRequestDTO.getUsername())  // 初始昵称默认同用户名
@@ -80,7 +87,7 @@ public class AuthServiceImpl implements AuthService {
                 .avatarUrl("")
                 .build();
 
-        // 4，插入用户信息
+        // 5，插入用户信息
         userMapper.insert(newUser);
 
         log.info(

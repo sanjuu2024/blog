@@ -94,6 +94,15 @@ export const adminRoutes = [
 		},
 	},
 	{
+		path: '/admin/about',
+		name: 'AdminAbout',
+		component: () => import('@/modules/admin/about/views/AdminAboutPage.vue'),
+		meta: {
+			icon: 'about',
+			title: '关于内容',
+		},
+	},
+	{
 		path: '/admin/audit-logs',
 		name: 'AdminAuditLogList',
 		component: () => import('@/modules/admin/audit/views/AdminAuditLogListPage.vue'),

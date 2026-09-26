@@ -4,6 +4,8 @@ build/
 coverage/
 public/
 .eslintrc-auto-import.json
+src/components.d.ts
+src/auto-import.d.ts
 
 *.yaml
 *.yml
