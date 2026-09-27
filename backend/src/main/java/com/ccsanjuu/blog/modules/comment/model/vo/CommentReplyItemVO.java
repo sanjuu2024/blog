@@ -38,5 +38,9 @@ public class CommentReplyItemVO {
 
     private Boolean isMine;
 
+    private Integer likeCount;
+
+    private Boolean liked;
+
     private OffsetDateTime createdAt;
 }

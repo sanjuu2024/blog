@@ -21,4 +21,20 @@ public interface CommentMapper extends BaseMapper<Comment> {
             @Param("rootIds") List<Long> rootIds,
             @Param("currentUserId") Long currentUserId
     );
+
+    /**
+     * 原子递增评论点赞数。
+     *
+     * @param commentId 评论 ID
+     * @return 更新行数
+     */
+    int incrementLikeCount(@Param("commentId") Long commentId);
+
+    /**
+     * 原子递减评论点赞数，并防止冗余计数变为负数。
+     *
+     * @param commentId 评论 ID
+     * @return 更新行数
+     */
+    int decrementLikeCount(@Param("commentId") Long commentId);
 }

@@ -94,6 +94,8 @@ public class SecurityConfig {
                         // 前台评论写入和删除要求登录
                         .requestMatchers(HttpMethod.POST, "/api/v1/articles/*/comments").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/comments/*").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/comments/*/like").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/comments/*/like").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/messages/*").authenticated()
                         // 其余接口先按公开访问处理，后续业务逐步实现再补充完善
                         .anyRequest().permitAll()

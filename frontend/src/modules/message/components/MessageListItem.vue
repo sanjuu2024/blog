@@ -329,7 +329,7 @@ function statusTagType(status: MessageStatus) {
 		font-size: 0.9rem;
 
 		&:hover {
-			color: var(--el-color-danger);
+			color: var(--el-color-danger-dark-2);
 		}
 	}
 

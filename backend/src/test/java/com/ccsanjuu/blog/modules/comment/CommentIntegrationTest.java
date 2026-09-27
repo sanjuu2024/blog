@@ -7,16 +7,19 @@ import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
 import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
 import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
+import com.ccsanjuu.blog.modules.comment.mapper.CommentLikeMapper;
 import com.ccsanjuu.blog.modules.comment.model.bo.CommentReplyCountBO;
 import com.ccsanjuu.blog.modules.comment.model.dto.CommentModerationRequestDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.CommentReplyQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.CreateCommentRequestDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.PublicCommentQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.entity.Comment;
+import com.ccsanjuu.blog.modules.comment.model.entity.CommentLike;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentModerationAction;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentStatus;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentDeleteVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentMutationVO;
+import com.ccsanjuu.blog.modules.comment.model.vo.CommentLikeMutationVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentReplyPageVO;
 import com.ccsanjuu.blog.modules.comment.service.CommentService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
@@ -57,6 +60,9 @@ class CommentIntegrationTest {
 
     @Autowired
     private CommentMapper commentMapper;
+
+    @Autowired
+    private CommentLikeMapper commentLikeMapper;
 
     @Autowired
     private CommentService commentService;
@@ -190,6 +196,31 @@ class CommentIntegrationTest {
                 .action(CommentModerationAction.APPROVE)
                 .build());
         assertEquals(originalCount + 1, articleMapper.selectById(article.getId()).getCommentCount());
+    }
+
+    @Test
+    void commentLikeShouldKeepDetailAndCountConsistent() {
+        Article article = findPublishedArticle();
+        User user = findActiveUser();
+        Comment comment = insertComment(article.getId(), user.getId(), null, null, CommentStatus.APPROVED);
+
+        CommentLikeMutationVO first = commentService.likeComment(comment.getId(), user.getId());
+        CommentLikeMutationVO repeated = commentService.likeComment(comment.getId(), user.getId());
+
+        assertTrue(first.getLiked());
+        assertEquals(1, first.getLikeCount());
+        assertEquals(1, repeated.getLikeCount());
+        assertNotNull(commentLikeMapper.selectByCommentAndUser(comment.getId(), user.getId()));
+        assertEquals(1, commentMapper.selectById(comment.getId()).getLikeCount());
+
+        comment.setStatus(CommentStatus.HIDDEN);
+        commentMapper.updateById(comment);
+        CommentLikeMutationVO unliked = commentService.unlikeComment(comment.getId(), user.getId());
+
+        assertFalse(unliked.getLiked());
+        assertEquals(0, unliked.getLikeCount());
+        assertEquals(null, commentLikeMapper.selectByCommentAndUser(comment.getId(), user.getId()));
+        assertEquals(0, commentMapper.selectById(comment.getId()).getLikeCount());
     }
 
     @Test

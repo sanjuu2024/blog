@@ -11,6 +11,7 @@ import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
 import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
 import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
+import com.ccsanjuu.blog.modules.comment.mapper.CommentLikeMapper;
 import com.ccsanjuu.blog.modules.comment.model.bo.CommentReplyCountBO;
 import com.ccsanjuu.blog.modules.comment.model.dto.AdminCommentQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.CommentModerationRequestDTO;
@@ -18,11 +19,13 @@ import com.ccsanjuu.blog.modules.comment.model.dto.CommentReplyQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.CreateCommentRequestDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.PublicCommentQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.entity.Comment;
+import com.ccsanjuu.blog.modules.comment.model.entity.CommentLike;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentModerationAction;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentStatus;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentType;
 import com.ccsanjuu.blog.modules.comment.model.vo.AdminCommentItemVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentDeleteVO;
+import com.ccsanjuu.blog.modules.comment.model.vo.CommentLikeMutationVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentMutationVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.PublicCommentItemVO;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
@@ -59,6 +62,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -78,6 +82,9 @@ class CommentServiceImplTest {
     private CommentMapper commentMapper;
 
     @Mock
+    private CommentLikeMapper commentLikeMapper;
+
+    @Mock
     private UserMapper userMapper;
 
     @Mock
@@ -95,7 +102,7 @@ class CommentServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        commentService = new CommentServiceImpl(articleMapper, commentMapper, userMapper, stringRedisTemplate);
+        commentService = new CommentServiceImpl(articleMapper, commentMapper, commentLikeMapper, userMapper, stringRedisTemplate);
         ReflectionTestUtils.setField(commentService, "baseMapper", commentMapper);
         ReflectionTestUtils.setField(commentService, "entityClass", Comment.class);
         ReflectionTestUtils.setField(commentService, "mapperClass", CommentMapper.class);
@@ -650,5 +657,98 @@ class CommentServiceImplTest {
         assertEquals(2L, result.getDeletedApprovedCount());
         verify(commentMapper).selectByIdForUpdate(COMMENT_ID);
         verify(articleMapper).update(any(), any(Wrapper.class));
+    }
+
+    @Test
+    void likeCommentShouldInsertAndIncrementCount() {
+        Comment lockedComment = Comment.builder()
+                .id(COMMENT_ID)
+                .articleId(ARTICLE_ID)
+                .status(CommentStatus.APPROVED)
+                .likeCount(2)
+                .build();
+        when(articleMapper.selectById(ARTICLE_ID)).thenReturn(Article.builder()
+                .id(ARTICLE_ID)
+                .status(ArticleStatus.PUBLISHED)
+                .build());
+        when(commentMapper.selectByIdForUpdate(COMMENT_ID)).thenReturn(lockedComment);
+        when(commentLikeMapper.selectByCommentAndUser(COMMENT_ID, USER_ID)).thenReturn(null);
+        when(commentLikeMapper.insertIgnore(any(CommentLike.class))).thenReturn(1);
+        when(commentMapper.selectById(COMMENT_ID)).thenReturn(Comment.builder()
+                .id(COMMENT_ID)
+                .likeCount(3)
+                .build());
+
+        CommentLikeMutationVO result = commentService.likeComment(COMMENT_ID, USER_ID);
+
+        assertTrue(result.getLiked());
+        assertEquals(3, result.getLikeCount());
+        verify(commentMapper).incrementLikeCount(COMMENT_ID);
+    }
+
+    @Test
+    void repeatedCommentLikeShouldBeIdempotent() {
+        when(commentMapper.selectByIdForUpdate(COMMENT_ID)).thenReturn(Comment.builder()
+                .id(COMMENT_ID)
+                .articleId(ARTICLE_ID)
+                .status(CommentStatus.APPROVED)
+                .likeCount(2)
+                .build());
+        when(articleMapper.selectById(ARTICLE_ID)).thenReturn(Article.builder()
+                .id(ARTICLE_ID)
+                .status(ArticleStatus.PUBLISHED)
+                .build());
+        when(commentLikeMapper.selectByCommentAndUser(COMMENT_ID, USER_ID))
+                .thenReturn(CommentLike.builder().commentId(COMMENT_ID).userId(USER_ID).build());
+        when(commentMapper.selectById(COMMENT_ID)).thenReturn(Comment.builder()
+                .id(COMMENT_ID)
+                .likeCount(2)
+                .build());
+
+        CommentLikeMutationVO result = commentService.likeComment(COMMENT_ID, USER_ID);
+
+        assertTrue(result.getLiked());
+        assertEquals(2, result.getLikeCount());
+        verify(commentLikeMapper, never()).insertIgnore(any(CommentLike.class));
+        verify(commentMapper, never()).incrementLikeCount(COMMENT_ID);
+    }
+
+    @Test
+    void unlikeCommentShouldDeleteAndDecrementCount() {
+        when(commentMapper.selectByIdForUpdate(COMMENT_ID)).thenReturn(Comment.builder()
+                .id(COMMENT_ID)
+                .status(CommentStatus.HIDDEN)
+                .likeCount(2)
+                .build());
+        when(commentLikeMapper.deleteByCommentAndUser(COMMENT_ID, USER_ID)).thenReturn(1);
+        when(commentMapper.selectById(COMMENT_ID)).thenReturn(Comment.builder()
+                .id(COMMENT_ID)
+                .likeCount(1)
+                .build());
+
+        CommentLikeMutationVO result = commentService.unlikeComment(COMMENT_ID, USER_ID);
+
+        assertFalse(result.getLiked());
+        assertEquals(1, result.getLikeCount());
+        verify(commentMapper).decrementLikeCount(COMMENT_ID);
+    }
+
+    @Test
+    void commentLikeShouldRejectNonApprovedComment() {
+        when(commentMapper.selectByIdForUpdate(COMMENT_ID)).thenReturn(Comment.builder()
+                .id(COMMENT_ID)
+                .articleId(ARTICLE_ID)
+                .status(CommentStatus.PENDING)
+                .build());
+        when(articleMapper.selectById(ARTICLE_ID)).thenReturn(Article.builder()
+                .id(ARTICLE_ID)
+                .status(ArticleStatus.PUBLISHED)
+                .build());
+
+        BizException exception = assertThrows(BizException.class,
+                () -> commentService.likeComment(COMMENT_ID, USER_ID));
+
+        assertEquals(ResultCode.COMMENT_NOT_FOUND, exception.getResultCode());
+        verifyNoInteractions(commentLikeMapper);
     }
 }

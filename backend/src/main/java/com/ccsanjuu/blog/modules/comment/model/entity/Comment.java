@@ -38,6 +38,8 @@ public class Comment {
 
     private String moderationReason;
 
+    private Integer likeCount;
+
     private Long deletedBy;
 
     private OffsetDateTime deletedAt;

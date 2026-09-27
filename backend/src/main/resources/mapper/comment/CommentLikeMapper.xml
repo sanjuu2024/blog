@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ccsanjuu.blog.modules.comment.mapper.CommentLikeMapper">
+
+    <select id="selectLikedCommentIds" resultType="java.lang.Long">
+        SELECT comment_id
+        FROM blog_comment_like
+        WHERE user_id = #{userId}
+          AND comment_id IN
+        <foreach collection="commentIds" item="commentId" open="(" separator="," close=")">
+            #{commentId}
+        </foreach>
+    </select>
+
+    <select id="selectByCommentAndUser"
+            resultType="com.ccsanjuu.blog.modules.comment.model.entity.CommentLike">
+        SELECT id, comment_id, user_id, created_at
+        FROM blog_comment_like
+        WHERE comment_id = #{commentId}
+          AND user_id = #{userId}
+        LIMIT 1
+    </select>
+
+    <insert id="insertIgnore"
+            parameterType="com.ccsanjuu.blog.modules.comment.model.entity.CommentLike">
+        INSERT INTO blog_comment_like (comment_id, user_id)
+        VALUES (#{commentId}, #{userId})
+        ON CONFLICT DO NOTHING
+    </insert>
+
+    <delete id="deleteByCommentAndUser">
+        DELETE FROM blog_comment_like
+        WHERE comment_id = #{commentId}
+          AND user_id = #{userId}
+    </delete>
+</mapper>

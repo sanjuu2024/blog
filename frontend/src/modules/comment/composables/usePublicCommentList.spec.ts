@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createComment, listComments, listReplies } from '../api/commentApi';
+import {
+	createComment,
+	likeComment,
+	listComments,
+	listReplies,
+	unlikeComment,
+} from '../api/commentApi';
 import {
 	COMMENT_STATUS,
 	type CommentAuthor,
@@ -13,8 +19,10 @@ import { usePublicCommentList } from './usePublicCommentList';
 vi.mock('../api/commentApi', () => ({
 	createComment: vi.fn(),
 	deleteComment: vi.fn(),
+	likeComment: vi.fn(),
 	listComments: vi.fn(),
 	listReplies: vi.fn(),
+	unlikeComment: vi.fn(),
 }));
 
 vi.mock('element-plus', () => ({
@@ -44,6 +52,8 @@ function topLevelComment(overrides: Partial<PublicCommentItem> = {}): PublicComm
 		replyCount: 0,
 		hasVisibleReplies: false,
 		isMine: false,
+		likeCount: 0,
+		liked: false,
 		createdAt: '2026-05-08T09:20:00+08:00',
 		...overrides,
 	};
@@ -101,6 +111,32 @@ describe('usePublicCommentList', () => {
 			limit: 10,
 			cursor: 'next-cursor',
 		});
+	});
+
+	it('toggles comment like and keeps duplicate requests from racing', async () => {
+		const comment = topLevelComment({ likeCount: 2, liked: false });
+		let resolveLike!: (value: { liked: boolean; likeCount: number }) => void;
+		vi.mocked(likeComment).mockReturnValue(
+			new Promise((resolve) => {
+				resolveLike = resolve;
+			}),
+		);
+
+		const { toggleCommentLike } = usePublicCommentList();
+		const firstRequest = toggleCommentLike(comment);
+		const secondRequest = toggleCommentLike(comment);
+
+		expect(likeComment).toHaveBeenCalledExactlyOnceWith(comment.id);
+		resolveLike({ liked: true, likeCount: 3 });
+		await Promise.all([firstRequest, secondRequest]);
+
+		expect(comment.liked).toBe(true);
+		expect(comment.likeCount).toBe(3);
+
+		vi.mocked(unlikeComment).mockResolvedValue({ liked: false, likeCount: 2 });
+		await toggleCommentLike(comment);
+		expect(unlikeComment).toHaveBeenCalledExactlyOnceWith(comment.id);
+		expect(comment.liked).toBe(false);
 	});
 
 	it('reloads the first page after creating a top-level comment', async () => {

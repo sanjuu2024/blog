@@ -3,6 +3,8 @@ import type {
 	CommentMutationData,
 	CommentMutationResponse,
 	CommentDeleteData,
+	CommentLikeData,
+	CommentLikeResponse,
 	CommentReplyListQuery,
 	CommentReplyPageData,
 	CommentReplyPageResponse,
@@ -18,6 +20,7 @@ const COMMENT_API = {
 	createComment: (articleId: number) => `articles/${articleId}/comments`,
 	listReplies: (commentId: number) => `comments/${commentId}/replies`,
 	deleteComment: (commentId: number) => `comments/${commentId}`,
+	likeComment: (commentId: number) => `comments/${commentId}/like`,
 } as const;
 
 // 获取文章顶层评论分页列表接口
@@ -59,5 +62,17 @@ export const createComment = (
 export const deleteComment = (commentId: number): Promise<CommentDeleteData> => {
 	return request.delete<DeleteCommentResponse, CommentDeleteData, null>(
 		COMMENT_API.deleteComment(commentId),
+	);
+};
+
+// 点赞评论接口
+export const likeComment = (commentId: number): Promise<CommentLikeData> => {
+	return request.post<CommentLikeResponse, CommentLikeData>(COMMENT_API.likeComment(commentId));
+};
+
+// 取消评论点赞接口
+export const unlikeComment = (commentId: number): Promise<CommentLikeData> => {
+	return request.delete<CommentLikeResponse, CommentLikeData, null>(
+		COMMENT_API.likeComment(commentId),
 	);
 };

@@ -13,6 +13,7 @@ import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
 import com.ccsanjuu.blog.modules.audit.mapper.AdminAuditLogMapper;
 import com.ccsanjuu.blog.modules.message.mapper.MessageMapper;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentDeleteVO;
+import com.ccsanjuu.blog.modules.comment.model.vo.CommentLikeMutationVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentReplyPageVO;
 import com.ccsanjuu.blog.modules.comment.service.CommentService;
 import com.ccsanjuu.blog.modules.tag.mapper.TagMapper;
@@ -41,6 +42,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -165,6 +167,41 @@ class CommentControllerTest {
                 .andExpect(jsonPath("$.data.deletedApprovedCount").value(3));
 
         verify(commentService).deleteOwnComment(COMMENT_ID, USER_ID);
+    }
+
+    @Test
+    void commentLikeShouldRequireLogin() throws Exception {
+        mockMvc.perform(post("/api/v1/comments/{commentId}/like", COMMENT_ID))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(101001));
+    }
+
+    @Test
+    void commentLikeShouldPassCurrentUser() throws Exception {
+        when(commentService.likeComment(COMMENT_ID, USER_ID))
+                .thenReturn(CommentLikeMutationVO.builder().liked(true).likeCount(3).build());
+
+        mockMvc.perform(post("/api/v1/comments/{commentId}/like", COMMENT_ID)
+                        .header("Authorization", "Bearer " + accessToken(USER_ID, UserRole.USER)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.liked").value(true))
+                .andExpect(jsonPath("$.data.likeCount").value(3));
+
+        verify(commentService).likeComment(COMMENT_ID, USER_ID);
+    }
+
+    @Test
+    void unlikeCommentShouldPassCurrentUser() throws Exception {
+        when(commentService.unlikeComment(COMMENT_ID, USER_ID))
+                .thenReturn(CommentLikeMutationVO.builder().liked(false).likeCount(2).build());
+
+        mockMvc.perform(delete("/api/v1/comments/{commentId}/like", COMMENT_ID)
+                        .header("Authorization", "Bearer " + accessToken(USER_ID, UserRole.USER)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.liked").value(false))
+                .andExpect(jsonPath("$.data.likeCount").value(2));
+
+        verify(commentService).unlikeComment(COMMENT_ID, USER_ID);
     }
 
     private String accessToken(Long userId, UserRole role) {
