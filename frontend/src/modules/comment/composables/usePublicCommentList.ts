@@ -1,7 +1,14 @@
 import { ElMessage, ElMessageBox } from 'element-plus';
 import 'element-plus/es/components/message/style/css';
 import 'element-plus/es/components/message-box/style/css';
-import { createComment, deleteComment, listComments, listReplies } from '../api/commentApi';
+import {
+	createComment,
+	deleteComment,
+	likeComment,
+	listComments,
+	listReplies,
+	unlikeComment,
+} from '../api/commentApi';
 import {
 	COMMENT_STATUS,
 	type CommentDeleteData,
@@ -36,6 +43,9 @@ export function usePublicCommentList() {
 
 	// 每条顶层评论自己的回复状态
 	const replyStateMap = reactive<Record<number, CommentReplyState>>({});
+
+	// 每条评论自己的点赞请求状态
+	const commentLikeLoadingMap = reactive<Record<number, boolean>>({});
 
 	// 获取指定顶层评论的回复状态
 	function getReplyState(commentId: number) {
@@ -201,6 +211,24 @@ export function usePublicCommentList() {
 		return data;
 	}
 
+	// 切换评论点赞状态
+	async function toggleCommentLike(comment: PublicCommentItem | CommentReplyItem) {
+		if (commentLikeLoadingMap[comment.id]) return;
+
+		commentLikeLoadingMap[comment.id] = true;
+		try {
+			const data = await (comment.liked
+				? unlikeComment(comment.id)
+				: likeComment(comment.id));
+			comment.liked = data.liked;
+			comment.likeCount = data.likeCount;
+		} catch {
+			// 错误提示已经由 request 响应拦截器统一处理
+		} finally {
+			delete commentLikeLoadingMap[comment.id];
+		}
+	}
+
 	// 删除顶层评论后，同步本地列表
 	async function removeTopLevelComment(articleId: number, comment: PublicCommentItem) {
 		commentList.value = commentList.value.filter((item) => item.id !== comment.id);
@@ -292,6 +320,8 @@ export function usePublicCommentList() {
 			replyCount: 0,
 			hasVisibleReplies: false,
 			isMine: true,
+			likeCount: 0,
+			liked: false,
 			createdAt: data.createdAt,
 		};
 	}
@@ -325,5 +355,6 @@ export function usePublicCommentList() {
 		deleteOwnComment,
 		removeTopLevelComment,
 		removeReply,
+		toggleCommentLike,
 	};
 }

@@ -4,6 +4,7 @@ import com.ccsanjuu.blog.common.api.Result;
 import com.ccsanjuu.blog.modules.auth.model.security.JwtPrincipal;
 import com.ccsanjuu.blog.modules.comment.model.dto.CommentReplyQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentDeleteVO;
+import com.ccsanjuu.blog.modules.comment.model.vo.CommentLikeMutationVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentReplyPageVO;
 import com.ccsanjuu.blog.modules.comment.service.CommentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -57,5 +58,37 @@ public class CommentController {
             @AuthenticationPrincipal JwtPrincipal jwtPrincipal
     ){
         return Result.success(commentService.deleteOwnComment(commentId, jwtPrincipal.userId()));
+    }
+
+    /**
+     * 点赞评论。
+     *
+     * @param commentId 评论 ID
+     * @param jwtPrincipal 当前登录用户
+     * @return 点赞状态和最新点赞数
+     */
+    @PostMapping("/{commentId}/like")
+    @Operation(description = "点赞评论")
+    public Result<CommentLikeMutationVO> likeComment(
+            @PathVariable @Positive Long commentId,
+            @AuthenticationPrincipal JwtPrincipal jwtPrincipal
+    ) {
+        return Result.success(commentService.likeComment(commentId, jwtPrincipal.userId()));
+    }
+
+    /**
+     * 取消评论点赞。
+     *
+     * @param commentId 评论 ID
+     * @param jwtPrincipal 当前登录用户
+     * @return 点赞状态和最新点赞数
+     */
+    @DeleteMapping("/{commentId}/like")
+    @Operation(description = "取消评论点赞")
+    public Result<CommentLikeMutationVO> unlikeComment(
+            @PathVariable @Positive Long commentId,
+            @AuthenticationPrincipal JwtPrincipal jwtPrincipal
+    ) {
+        return Result.success(commentService.unlikeComment(commentId, jwtPrincipal.userId()));
     }
 }

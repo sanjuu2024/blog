@@ -8,6 +8,7 @@ import com.ccsanjuu.blog.modules.comment.model.dto.CreateCommentRequestDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.PublicCommentQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.vo.AdminCommentItemVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentDeleteVO;
+import com.ccsanjuu.blog.modules.comment.model.vo.CommentLikeMutationVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentMutationVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentReplyPageVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.PublicCommentItemVO;
@@ -64,4 +65,22 @@ public interface CommentService {
      * @param userId
      */
     CommentDeleteVO deleteOwnComment(@Positive Long commentId, Long userId);
+
+    /**
+     * 点赞评论。
+     *
+     * @param commentId 评论 ID
+     * @param userId 当前用户 ID
+     * @return 点赞状态和最新点赞数
+     */
+    CommentLikeMutationVO likeComment(@Positive Long commentId, Long userId);
+
+    /**
+     * 取消评论点赞。
+     *
+     * @param commentId 评论 ID
+     * @param userId 当前用户 ID
+     * @return 点赞状态和最新点赞数
+     */
+    CommentLikeMutationVO unlikeComment(@Positive Long commentId, Long userId);
 }

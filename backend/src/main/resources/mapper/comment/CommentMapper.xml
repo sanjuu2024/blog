@@ -69,4 +69,17 @@
         GROUP BY root_id
     </select>
 
+    <update id="incrementLikeCount">
+        UPDATE blog_comment
+        SET like_count = like_count + 1
+        WHERE id = #{commentId}
+    </update>
+
+    <update id="decrementLikeCount">
+        UPDATE blog_comment
+        SET like_count = GREATEST(like_count - 1, 0)
+        WHERE id = #{commentId}
+          AND like_count > 0
+    </update>
+
 </mapper>

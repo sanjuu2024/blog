@@ -27,6 +27,8 @@ export interface PublicCommentItem {
 	replyCount: number;
 	hasVisibleReplies: boolean;
 	isMine: boolean;
+	likeCount: number;
+	liked: boolean;
 	createdAt: string;
 }
 
@@ -73,6 +75,11 @@ export interface CommentDeleteData {
 	deletedApprovedCount: number;
 }
 
+export interface CommentLikeData {
+	liked: boolean;
+	likeCount: number;
+}
+
 export interface CommentReplyState {
 	records: CommentReplyItem[];
 	nextCursor: string | null;
@@ -91,3 +98,5 @@ export type CommentReplyPageResponse = ApiResult<CommentReplyPageData>;
 export type CommentMutationResponse = ApiResult<CommentMutationData>;
 
 export type DeleteCommentResponse = ApiResult<CommentDeleteData>;
+
+export type CommentLikeResponse = ApiResult<CommentLikeData>;

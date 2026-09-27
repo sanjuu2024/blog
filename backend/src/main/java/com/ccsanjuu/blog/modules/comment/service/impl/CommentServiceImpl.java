@@ -12,6 +12,7 @@ import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
 import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
 import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
+import com.ccsanjuu.blog.modules.comment.mapper.CommentLikeMapper;
 import com.ccsanjuu.blog.modules.comment.model.bo.CommentReplyCountBO;
 import com.ccsanjuu.blog.modules.comment.model.bo.CommentReplyCursorBO;
 import com.ccsanjuu.blog.modules.comment.model.dto.AdminCommentQueryDTO;
@@ -20,6 +21,7 @@ import com.ccsanjuu.blog.modules.comment.model.dto.CommentReplyQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.CreateCommentRequestDTO;
 import com.ccsanjuu.blog.modules.comment.model.dto.PublicCommentQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.entity.Comment;
+import com.ccsanjuu.blog.modules.comment.model.entity.CommentLike;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentModerationAction;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentStatus;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentType;
@@ -62,6 +64,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
 
     private final ArticleMapper articleMapper;
     private final CommentMapper commentMapper;
+    private final CommentLikeMapper commentLikeMapper;
     private final UserMapper userMapper;
     private final StringRedisTemplate stringRedisTemplate;
 
@@ -417,6 +420,50 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
     }
 
     /**
+     * 点赞评论。
+     *
+     * @param commentId 评论 ID
+     * @param userId 当前用户 ID
+     * @return 点赞状态和最新点赞数
+     */
+    @Override
+    @Transactional
+    public CommentLikeMutationVO likeComment(Long commentId, Long userId) {
+        Comment comment = requireCommentForLike(commentId);
+        checkPublishedArticle(comment.getArticleId());
+        if (comment.getStatus() != CommentStatus.APPROVED) {
+            throw new BizException(ResultCode.COMMENT_NOT_FOUND);
+        }
+
+        CommentLike existingLike = commentLikeMapper.selectByCommentAndUser(commentId, userId);
+        if (existingLike == null
+                && commentLikeMapper.insertIgnore(CommentLike.builder()
+                .commentId(commentId)
+                .userId(userId)
+                .build()) > 0) {
+            commentMapper.incrementLikeCount(commentId);
+        }
+        return buildLikeMutation(commentId, true);
+    }
+
+    /**
+     * 取消评论点赞。
+     *
+     * @param commentId 评论 ID
+     * @param userId 当前用户 ID
+     * @return 点赞状态和最新点赞数
+     */
+    @Override
+    @Transactional
+    public CommentLikeMutationVO unlikeComment(Long commentId, Long userId) {
+        requireCommentForLike(commentId);
+        if (commentLikeMapper.deleteByCommentAndUser(commentId, userId) > 0) {
+            commentMapper.decrementLikeCount(commentId);
+        }
+        return buildLikeMutation(commentId, false);
+    }
+
+    /**
      * 锁定评论所属的顶层评论，并返回加锁后重新读取的目标评论。
      *
      * @param comment 初步查询到的评论
@@ -572,6 +619,22 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
     }
 
     /**
+     * 批量查询当前用户已点赞的评论，避免评论列表按条查询点赞明细。
+     *
+     * @param comments 评论列表
+     * @param currentUserId 当前用户 ID；游客为 {@code null}
+     * @return 已点赞的评论 ID 集合
+     */
+    private Set<Long> getLikedCommentIds(List<Comment> comments, Long currentUserId) {
+        if (currentUserId == null || comments.isEmpty()) {
+            return Set.of();
+        }
+        List<Long> commentIds = comments.stream().map(Comment::getId).toList();
+        List<Long> likedCommentIds = commentLikeMapper.selectLikedCommentIds(commentIds, currentUserId);
+        return likedCommentIds == null ? Set.of() : new HashSet<>(likedCommentIds);
+    }
+
+    /**
      * 封装顶层评论 VO 列表。
      *
      * @param comments 评论列表
@@ -582,6 +645,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
         List<Long> userIds = comments.stream().map(Comment::getUserId).toList();
         Map<Long, User> userMap = getUserMap(userIds);
         Map<Long, CommentReplyCountBO> replyCountMap = getReplyCountMap(comments, currentUserId);
+        Set<Long> likedCommentIds = getLikedCommentIds(comments, currentUserId);
 
         List<PublicCommentItemVO> res = new ArrayList<>();
         comments.forEach(c -> {
@@ -594,6 +658,8 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
             vo.setReplyCount(replyCount == null ? 0L : replyCount.getReplyCount());
             vo.setHasVisibleReplies(replyCount != null && replyCount.getVisibleReplyCount() > 0);
             vo.setIsMine(isMine);
+            vo.setLikeCount(c.getLikeCount() == null ? 0 : c.getLikeCount());
+            vo.setLiked(likedCommentIds.contains(c.getId()));
             vo.setModerationReason(isMine && c.getStatus() == CommentStatus.REJECTED ? c.getModerationReason() : null);
             res.add(vo);
         });
@@ -619,6 +685,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
                 : commentMapper.selectByIds(parentIds).stream().collect(Collectors.toMap(Comment::getId, c -> c));
         userIds.addAll(parentMap.values().stream().map(Comment::getUserId).toList());
         Map<Long, User> userMap = getUserMap(userIds);
+        Set<Long> likedCommentIds = getLikedCommentIds(comments, currentUserId);
 
         List<CommentReplyItemVO> res = new ArrayList<>();
         comments.forEach(c -> {
@@ -633,10 +700,41 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
             vo.setReplyCount(0L);
             vo.setHasVisibleReplies(false);
             vo.setIsMine(isMine);
+            vo.setLikeCount(c.getLikeCount() == null ? 0 : c.getLikeCount());
+            vo.setLiked(likedCommentIds.contains(c.getId()));
             vo.setModerationReason(isMine && c.getStatus() == CommentStatus.REJECTED ? c.getModerationReason() : null);
             res.add(vo);
         });
         return res;
+    }
+
+    /**
+     * 查询并锁定评论，保证点赞明细和冗余计数在并发请求下保持一致。
+     *
+     * @param commentId 评论 ID
+     * @return 已锁定的评论
+     */
+    private Comment requireCommentForLike(Long commentId) {
+        Comment comment = commentMapper.selectByIdForUpdate(commentId);
+        if (comment == null) {
+            throw new BizException(ResultCode.COMMENT_NOT_FOUND);
+        }
+        return comment;
+    }
+
+    /**
+     * 组装评论点赞操作响应。
+     *
+     * @param commentId 评论 ID
+     * @param liked 当前用户是否已点赞
+     * @return 点赞操作响应
+     */
+    private CommentLikeMutationVO buildLikeMutation(Long commentId, boolean liked) {
+        Comment comment = commentMapper.selectById(commentId);
+        return CommentLikeMutationVO.builder()
+                .liked(liked)
+                .likeCount(comment.getLikeCount() == null ? 0 : comment.getLikeCount())
+                .build();
     }
 
     /**

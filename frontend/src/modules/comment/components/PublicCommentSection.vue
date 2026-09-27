@@ -96,7 +96,9 @@
 						<PublicCommentContent
 							:comment-id="comment.id"
 							:content="comment.content"
-							:show-actions="canReply(comment) || comment.isMine"
+							:show-actions="
+								comment.status === COMMENT_STATUS.APPROVED || comment.isMine
+							"
 						>
 							<template #reason>
 								<p
@@ -110,25 +112,35 @@
 								</p>
 							</template>
 							<template #actions>
-								<el-button
+								<button
+									v-if="comment.status === COMMENT_STATUS.APPROVED"
+									class="comment-action-button"
+									:aria-label="comment.liked ? '取消评论点赞' : '点赞评论'"
+									@click="clickToggleLike(comment)"
+								>
+									<i-lucide-thumbs-up
+										class="mr-1"
+										:class="{ 'text-[var(--app-main)]': comment.liked }"
+									/>
+									{{ comment.likeCount }}
+								</button>
+								<button
 									v-if="canReply(comment)"
-									link
-									type="primary"
+									class="comment-action-button"
 									@click="openReplyEditor(comment, comment.author)"
 								>
 									<i-lucide-message-circle-reply class="mr-1" />
 									回复
-								</el-button>
+								</button>
 
-								<el-button
+								<button
 									v-if="comment.isMine"
-									link
-									type="danger"
+									class="comment-action-button comment-delete-button"
 									@click="clickDeleteTopLevelComment(comment)"
 								>
 									<i-lucide-trash-2 class="mr-1" />
 									删除
-								</el-button>
+								</button>
 							</template>
 						</PublicCommentContent>
 
@@ -147,14 +159,13 @@
 							v-if="comment.hasVisibleReplies"
 							class="reply-toggle"
 						>
-							<el-button
-								link
-								type="primary"
+							<button
 								@click="clickToggleReplies(comment)"
+								class="comment-action-button"
 							>
-								<i-lucide-chevron-down
+								<i-lucide-chevron-right
 									class="mr-1 transition-transform duration-100 ease-in-out"
-									:class="{ '-rotate-180': getReplyState(comment.id).expanded }"
+									:class="{ 'rotate-90': getReplyState(comment.id).expanded }"
 								/>
 								{{
 									getReplyState(comment.id).expanded
@@ -163,7 +174,7 @@
 											? `共 ${comment.replyCount} 条回复，点击查看`
 											: '查看仅自己可见的回复'
 								}}
-							</el-button>
+							</button>
 						</div>
 
 						<!-- 评论的回复列表 -->
@@ -185,7 +196,7 @@
 										:avatar-url="reply.author.avatarUrl"
 										:name="reply.author.nickname || reply.author.username"
 										:user-id="reply.author.id"
-										:size="28"
+										:size="36"
 										class="mr-3 shrink-0 self-start"
 									/>
 								</PublicUserProfilePopover>
@@ -220,7 +231,9 @@
 									<PublicCommentContent
 										:comment-id="reply.id"
 										:content="reply.content"
-										:show-actions="canReply(reply) || reply.isMine"
+										:show-actions="
+											reply.status === COMMENT_STATUS.APPROVED || reply.isMine
+										"
 									>
 										<template #reason>
 											<p
@@ -234,25 +247,41 @@
 											</p>
 										</template>
 										<template #actions>
-											<el-button
+											<button
+												v-if="reply.status === COMMENT_STATUS.APPROVED"
+												:aria-label="
+													reply.liked ? '取消评论点赞' : '点赞评论'
+												"
+												class="comment-action-button"
+												@click="clickToggleLike(reply)"
+											>
+												<i-lucide-thumbs-up
+													class="mr-1"
+													:class="{
+														'text-[var(--app-main)]': reply.liked,
+													}"
+												/>
+												{{ reply.likeCount }}
+											</button>
+											<button
 												v-if="canReply(reply)"
-												link
-												type="primary"
+												class="comment-action-button"
 												@click="
 													openReplyEditor(comment, reply.author, reply.id)
 												"
 											>
+												<i-lucide-message-circle-reply class="mr-1" />
 												回复
-											</el-button>
+											</button>
 
-											<el-button
+											<button
 												v-if="reply.isMine"
-												link
-												type="danger"
+												class="comment-action-button comment-delete-button"
 												@click="clickDeleteReply(comment, reply)"
 											>
+												<i-lucide-trash-2 class="mr-1" />
 												删除
-											</el-button>
+											</button>
 										</template>
 									</PublicCommentContent>
 
@@ -354,6 +383,7 @@ const {
 	deleteOwnComment,
 	removeTopLevelComment,
 	removeReply,
+	toggleCommentLike,
 } = usePublicCommentList();
 
 // 顶层评论输入框内容
@@ -392,6 +422,16 @@ function goLogin() {
 			redirect: route.fullPath,
 		},
 	});
+}
+
+// 切换评论点赞状态
+function clickToggleLike(comment: PublicCommentItem | CommentReplyItem) {
+	if (!authStore.isLogin) {
+		goLogin();
+		return;
+	}
+
+	toggleCommentLike(comment);
 }
 
 // 判断是否可以回复评论
@@ -671,5 +711,25 @@ function getCommentStatusTagType(status: CommentStatus) {
 	padding: 2rem;
 	text-align: center;
 	color: var(--app-text-muted);
+}
+
+.comment-action-button {
+	display: flex;
+	align-items: center;
+	font-size: 0.9rem;
+	color: var(--app-text-muted);
+	margin-right: 1rem;
+
+	&:hover,
+	&:focus-visible {
+		color: var(--app-main);
+	}
+}
+
+.comment-delete-button {
+	&:hover,
+	&:focus-visible {
+		color: var(--el-color-danger-dark-2);
+	}
 }
 </style>

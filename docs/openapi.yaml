@@ -17,12 +17,6 @@ x-p2-planned-operations:
     - method: POST
       path: /api/v1/auth/register
       summary: P2 注册增加验证码和隐私政策版本
-    - method: POST
-      path: /api/v1/comments/{commentId}/like
-      summary: 登录用户点赞评论
-    - method: DELETE
-      path: /api/v1/comments/{commentId}/like
-      summary: 登录用户取消评论点赞
     - method: GET
       path: /api/v1/admin/dashboard
       summary: 获取总览、7/30 天趋势和文章 Top 10
@@ -438,9 +432,9 @@ paths:
                       coverUrl: https://cdn.example.com/cover/token.png
                       isTop: true
                       publishedAt: '2026-04-22T23:00:00+08:00'
-                       viewCount: 128
-                       likeCount: 35
-                       category:
+                      viewCount: 128
+                      likeCount: 35
+                      category:
                         id: 21001
                         name: Java
                         level: 2
@@ -662,6 +656,49 @@ paths:
           $ref: '#/components/responses/UnauthorizedResponse'
         '403':
           $ref: '#/components/responses/CommentForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/CommentNotFoundResponse'
+  /api/v1/comments/{commentId}/like:
+    post:
+      tags:
+        - Public Comments
+      summary: 点赞评论
+      description: 权限级别 `LOGIN`。仅当前可见的 APPROVED 评论允许新增点赞；重复点赞幂等。
+      operationId: likeComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      responses:
+        '200':
+          description: 点赞成功或已点赞
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentLikeResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '404':
+          $ref: '#/components/responses/CommentNotFoundResponse'
+    delete:
+      tags:
+        - Public Comments
+      summary: 取消评论点赞
+      description: 权限级别 `LOGIN`。取消当前用户的评论点赞，操作幂等；评论隐藏或删除后仍允许取消历史点赞。
+      operationId: unlikeComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      responses:
+        '200':
+          description: 取消点赞成功或本来未点赞
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentLikeResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
         '404':
           $ref: '#/components/responses/CommentNotFoundResponse'
   /api/v1/categories:
@@ -2843,6 +2880,25 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/ArticleLikeData'
+    CommentLikeData:
+      type: object
+      required:
+        - liked
+        - likeCount
+      properties:
+        liked:
+          type: boolean
+          example: true
+        likeCount:
+          type: integer
+          example: 3
+    CommentLikeResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CommentLikeData'
     PublicCategoryItem:
       type: object
       required:
@@ -3886,7 +3942,7 @@ components:
       enum: [PENDING, APPROVED, REJECTED, HIDDEN, DELETED]
     PublicCommentItem:
       type: object
-      required: [id, articleId, content, status, moderationReason, author, replyCount, hasVisibleReplies, isMine, createdAt]
+      required: [id, articleId, content, status, moderationReason, author, replyCount, hasVisibleReplies, isMine, likeCount, liked, createdAt]
       properties:
         id:
           type: integer
@@ -3913,6 +3969,14 @@ components:
           description: 当前请求者是否至少可以看到一条回复，用于保留仅本人可见回复的展开入口
         isMine:
           type: boolean
+        likeCount:
+          type: integer
+          description: 评论点赞总数
+          example: 3
+        liked:
+          type: boolean
+          description: 当前登录用户是否已点赞；游客固定为 false
+          example: false
         createdAt:
           type: string
           format: date-time

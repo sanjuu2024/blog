@@ -32,5 +32,9 @@ public class PublicCommentItemVO {
 
     private Boolean isMine;
 
+    private Integer likeCount;
+
+    private Boolean liked;
+
     private OffsetDateTime createdAt;
 }

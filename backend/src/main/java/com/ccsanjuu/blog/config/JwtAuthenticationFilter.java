@@ -50,6 +50,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final Pattern ARTICLE_DETAIL_API_PATTERN = Pattern.compile("^" + API_PREFIX + "/articles/[^/]+$");
     private static final Pattern ARTICLE_LIKE_API_PATTERN = Pattern.compile("^" + API_PREFIX + "/articles/[^/]+/like$");
     private static final Pattern COMMENT_DETAIL_API_PATTERN = Pattern.compile("^" + API_PREFIX + "/comments/[^/]+$");
+    private static final Pattern COMMENT_LIKE_API_PATTERN = Pattern.compile("^" + API_PREFIX + "/comments/[^/]+/like$");
     private static final Pattern COMMENT_REPLIES_API_PATTERN = Pattern.compile("^" + API_PREFIX + "/comments/[^/]+/replies$");
     private static final Pattern MESSAGE_DETAIL_API_PATTERN = Pattern.compile("^" + MESSAGE_API + "/[^/]+$");
 
@@ -235,6 +236,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 || path.startsWith(CURRENT_USER_API_PREFIX)
                 || ("GET".equals(request.getMethod()) && ARTICLE_DETAIL_API_PATTERN.matcher(path).matches())
                 || (isLikeMutationRequest(request) && ARTICLE_LIKE_API_PATTERN.matcher(path).matches())
+                || (isLikeMutationRequest(request) && COMMENT_LIKE_API_PATTERN.matcher(path).matches())
                 || isIdentitySensitiveCommentApi(request, path)
                 || isIdentitySensitiveMessageApi(request, path);
     }
