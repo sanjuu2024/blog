@@ -7,11 +7,14 @@ import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
 import com.ccsanjuu.blog.modules.audit.mapper.AdminAuditLogMapper;
 import com.ccsanjuu.blog.modules.article.model.bo.ArticleViewIdentity;
+import com.ccsanjuu.blog.modules.article.model.bo.ArticleLikeIdentity;
 import com.ccsanjuu.blog.modules.article.model.dto.PublicArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.enums.PublicArticleSort;
 import com.ccsanjuu.blog.modules.article.model.vo.PublicArticleDetailVO;
 import com.ccsanjuu.blog.modules.article.model.vo.PublicArticleListItemVO;
+import com.ccsanjuu.blog.modules.article.model.vo.ArticleLikeMutationVO;
 import com.ccsanjuu.blog.modules.article.service.ArticleService;
+import com.ccsanjuu.blog.modules.article.service.ArticleLikeService;
 import com.ccsanjuu.blog.modules.article.support.VisitorIdCookieManager;
 import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
@@ -58,6 +61,9 @@ class ArticleControllerTest {
 
     @MockitoBean
     private ArticleService articleService;
+
+    @MockitoBean
+    private ArticleLikeService articleLikeService;
 
     @MockitoBean
     private AuthMapper authMapper;
@@ -147,7 +153,11 @@ class ArticleControllerTest {
     @Test
     void getPublicArticleDetailShouldCallService() throws Exception {
         when(visitorIdCookieManager.resolve(any(), any())).thenReturn("visitor-token");
-        when(articleService.getPublicArticleDetail(eq(ARTICLE_ID), any(ArticleViewIdentity.class)))
+        when(articleService.getPublicArticleDetail(
+                eq(ARTICLE_ID),
+                any(ArticleViewIdentity.class),
+                any(ArticleLikeIdentity.class)
+        ))
                 .thenReturn(PublicArticleDetailVO.builder()
                         .id(ARTICLE_ID)
                         .title("Spring Boot notes")
@@ -158,6 +168,40 @@ class ArticleControllerTest {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.id").value(ARTICLE_ID));
 
-        verify(articleService).getPublicArticleDetail(eq(ARTICLE_ID), any(ArticleViewIdentity.class));
+        verify(articleService).getPublicArticleDetail(
+                eq(ARTICLE_ID),
+                any(ArticleViewIdentity.class),
+                any(ArticleLikeIdentity.class)
+        );
+    }
+
+    @Test
+    void likeArticleShouldResolveVisitorIdentityAndCallService() throws Exception {
+        when(visitorIdCookieManager.resolve(any(), any())).thenReturn("visitor-token");
+        when(articleLikeService.likeArticle(eq(ARTICLE_ID), any(ArticleLikeIdentity.class)))
+                .thenReturn(ArticleLikeMutationVO.builder().liked(true).likeCount(1).build());
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/v1/articles/{articleId}/like", ARTICLE_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.liked").value(true))
+                .andExpect(jsonPath("$.data.likeCount").value(1));
+
+        verify(articleLikeService).likeArticle(eq(ARTICLE_ID), any(ArticleLikeIdentity.class));
+    }
+
+    @Test
+    void unlikeArticleShouldResolveVisitorIdentityAndCallService() throws Exception {
+        when(visitorIdCookieManager.resolve(any(), any())).thenReturn("visitor-token");
+        when(articleLikeService.unlikeArticle(eq(ARTICLE_ID), any(ArticleLikeIdentity.class)))
+                .thenReturn(ArticleLikeMutationVO.builder().liked(false).likeCount(0).build());
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .delete("/api/v1/articles/{articleId}/like", ARTICLE_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.liked").value(false))
+                .andExpect(jsonPath("$.data.likeCount").value(0));
+
+        verify(articleLikeService).unlikeArticle(eq(ARTICLE_ID), any(ArticleLikeIdentity.class));
     }
 }

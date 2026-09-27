@@ -12,6 +12,7 @@ import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
 import com.ccsanjuu.blog.modules.article.model.bo.PublicArticleSearchBO;
 import com.ccsanjuu.blog.modules.article.model.bo.ArticleViewIdentity;
+import com.ccsanjuu.blog.modules.article.model.bo.ArticleLikeIdentity;
 import com.ccsanjuu.blog.modules.article.model.dto.AdminArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.PublicArticleQueryDTO;
@@ -29,6 +30,7 @@ import com.ccsanjuu.blog.modules.article.model.vo.UpdatedArticleStatusVO;
 import com.ccsanjuu.blog.modules.article.model.vo.UpdatedArticleVO;
 import com.ccsanjuu.blog.modules.article.support.ArticleContentRenderer;
 import com.ccsanjuu.blog.modules.article.service.ArticleViewService;
+import com.ccsanjuu.blog.modules.article.service.ArticleLikeService;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.category.model.entity.Category;
 import com.ccsanjuu.blog.modules.category.model.enums.CategoryStatus;
@@ -103,6 +105,9 @@ class ArticleServiceImplTest {
     @Mock
     private ArticleViewService articleViewService;
 
+    @Mock
+    private ArticleLikeService articleLikeService;
+
     private ArticleServiceImpl articleService;
 
     @BeforeAll
@@ -122,7 +127,8 @@ class ArticleServiceImplTest {
                 articleMapper,
                 tagMapper,
                 userMapper,
-                articleViewService
+                articleViewService,
+                articleLikeService
         );
         ReflectionTestUtils.setField(articleService, "baseMapper", articleMapper);
         ReflectionTestUtils.setField(articleService, "entityClass", Article.class);
@@ -636,10 +642,13 @@ class ArticleServiceImplTest {
         when(userMapper.selectById(USER_ID)).thenReturn(author());
         when(articleViewService.recordView(ARTICLE_ID, new ArticleViewIdentity(USER_ID, null)))
                 .thenReturn(129);
+        when(articleLikeService.isLiked(ARTICLE_ID, new ArticleLikeIdentity(USER_ID, null)))
+                .thenReturn(true);
 
         PublicArticleDetailVO result = articleService.getPublicArticleDetail(
                 ARTICLE_ID,
-                new ArticleViewIdentity(USER_ID, null)
+                new ArticleViewIdentity(USER_ID, null),
+                new ArticleLikeIdentity(USER_ID, null)
         );
 
         assertEquals(ARTICLE_ID, result.getId());
@@ -664,7 +673,8 @@ class ArticleServiceImplTest {
         BizException exception = assertThrows(BizException.class,
                 () -> articleService.getPublicArticleDetail(
                         ARTICLE_ID,
-                        new ArticleViewIdentity(USER_ID, null)
+                        new ArticleViewIdentity(USER_ID, null),
+                        new ArticleLikeIdentity(USER_ID, null)
                 ));
 
         assertEquals(ResultCode.ARTICLE_AUTHOR_NOT_FOUND, exception.getResultCode());
@@ -678,7 +688,8 @@ class ArticleServiceImplTest {
         BizException exception = assertThrows(BizException.class,
                 () -> articleService.getPublicArticleDetail(
                         ARTICLE_ID,
-                        new ArticleViewIdentity(USER_ID, null)
+                        new ArticleViewIdentity(USER_ID, null),
+                        new ArticleLikeIdentity(USER_ID, null)
                 ));
 
         assertEquals(ResultCode.ARTICLE_NOT_VISIBLE, exception.getResultCode());
@@ -694,7 +705,8 @@ class ArticleServiceImplTest {
         BizException exception = assertThrows(BizException.class,
                 () -> articleService.getPublicArticleDetail(
                         ARTICLE_ID,
-                        new ArticleViewIdentity(USER_ID, null)
+                        new ArticleViewIdentity(USER_ID, null),
+                        new ArticleLikeIdentity(USER_ID, null)
                 ));
 
         assertEquals(ResultCode.ARTICLE_CATEGORY_DISABLED, exception.getResultCode());

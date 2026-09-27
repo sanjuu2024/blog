@@ -11,6 +11,7 @@ import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
 import com.ccsanjuu.blog.modules.article.model.bo.ArticleViewIdentity;
+import com.ccsanjuu.blog.modules.article.model.bo.ArticleLikeIdentity;
 import com.ccsanjuu.blog.modules.article.model.bo.PublicArticleSearchBO;
 import com.ccsanjuu.blog.modules.article.model.dto.AdminArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
@@ -23,6 +24,7 @@ import com.ccsanjuu.blog.modules.article.model.enums.PublicArticleSort;
 import com.ccsanjuu.blog.modules.article.model.vo.*;
 import com.ccsanjuu.blog.modules.article.service.ArticleService;
 import com.ccsanjuu.blog.modules.article.service.ArticleViewService;
+import com.ccsanjuu.blog.modules.article.service.ArticleLikeService;
 import com.ccsanjuu.blog.modules.article.support.ArticleContentRenderer;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.category.model.entity.Category;
@@ -57,6 +59,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     private final TagMapper tagMapper;
     private final UserMapper userMapper;
     private final ArticleViewService articleViewService;
+    private final ArticleLikeService articleLikeService;
 
     /**
      * 获取后台文章分页列表
@@ -496,7 +499,8 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     @Override
     public PublicArticleDetailVO getPublicArticleDetail(
             Long articleId,
-            ArticleViewIdentity viewIdentity
+            ArticleViewIdentity viewIdentity,
+            ArticleLikeIdentity likeIdentity
     ) {
         Article article = articleMapper.selectById(articleId);
         if (article == null){
@@ -566,6 +570,9 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         // 4. 返回
         if (viewIdentity != null) {
             vo.setViewCount(articleViewService.recordView(articleId, viewIdentity));
+        }
+        if (likeIdentity != null) {
+            vo.setLiked(articleLikeService.isLiked(articleId, likeIdentity));
         }
 
         return vo;

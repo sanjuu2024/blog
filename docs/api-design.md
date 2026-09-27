@@ -2541,8 +2541,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 | 模块 | 路由 | 路径 | 版本规划 |
 | --- | --- | --- | --- |
-| 点赞 | `POST` | `/api/v1/articles/{articleId}/like` | P2 |
-| 取消点赞 | `DELETE` | `/api/v1/articles/{articleId}/like` | P2 |
 | 留言 | `GET` | `/api/v1/messages` | P1 |
 | 留言 | `POST` | `/api/v1/messages` | P1 |
 | 评论批量通过 | `PATCH` | `/api/v1/admin/comments/batch-approval` | 待实际审核量评估 |
@@ -2598,6 +2596,8 @@ Dashboard Query：`range=7D|30D`，默认 `7D`。响应至少包含：
 - `topByViews`、`topByLikes`、`topByComments`，各最多 10 篇已发布文章
 
 ### 16.4 文章与评论点赞
+
+文章点赞接口已实现；评论点赞仍为后续 P2 功能。
 
 | 方法 | 路径 | 权限 | 说明 |
 | --- | --- | --- | --- |

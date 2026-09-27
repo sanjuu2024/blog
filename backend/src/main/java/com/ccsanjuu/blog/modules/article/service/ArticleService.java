@@ -7,6 +7,7 @@ import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.PublicArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.UpdateArticleStatusRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.bo.ArticleViewIdentity;
+import com.ccsanjuu.blog.modules.article.model.bo.ArticleLikeIdentity;
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
 import com.ccsanjuu.blog.modules.article.model.vo.*;
 import jakarta.validation.Valid;
@@ -80,5 +81,6 @@ public interface ArticleService extends IService<Article> {
      * @param articleId
      * @return
      */
-    PublicArticleDetailVO getPublicArticleDetail(Long articleId, ArticleViewIdentity viewIdentity);
+    PublicArticleDetailVO getPublicArticleDetail(Long articleId, ArticleViewIdentity viewIdentity,
+                                                 ArticleLikeIdentity likeIdentity);
 }

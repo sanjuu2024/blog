@@ -172,6 +172,23 @@ class JwtAuthenticationFilterTest {
     }
 
     @Test
+    void articleLikeMutationShouldRejectInvalidAccessToken() throws Exception {
+        MockHttpServletResponse postResponse = performRequest(
+                "POST",
+                "/api/v1/articles/40001/like",
+                "not-a-valid-jwt"
+        );
+        MockHttpServletResponse deleteResponse = performRequest(
+                "DELETE",
+                "/api/v1/articles/40001/like",
+                "not-a-valid-jwt"
+        );
+
+        assertEquals(401, postResponse.getStatus());
+        assertEquals(401, deleteResponse.getStatus());
+    }
+
+    @Test
     void identitySensitiveMessageRequestShouldRejectInvalidAccessToken() throws Exception {
         String invalidToken = "not-a-valid-jwt";
 
