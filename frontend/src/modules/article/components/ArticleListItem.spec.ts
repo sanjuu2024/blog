@@ -22,6 +22,7 @@ function article(overrides: Partial<PublicArticleListItem> = {}): PublicArticleL
 		isTop: false,
 		publishedAt: '2026-04-22T23:00:00+08:00',
 		viewCount: 128,
+		likeCount: 0,
 		category: {
 			id: 21001,
 			name: 'Java',

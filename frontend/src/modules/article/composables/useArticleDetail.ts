@@ -1,6 +1,6 @@
 import { ElMessage } from 'element-plus';
 import type { PublicArticleDetailData } from '../types/article';
-import { getArticleDetails } from '../api/articleApi';
+import { getArticleDetails, likeArticle, unlikeArticle } from '../api/articleApi';
 import { isAxiosError } from 'axios';
 import type { ApiResult } from '@/types/api';
 
@@ -13,6 +13,7 @@ export function useArticleDetail() {
 
 	// 文章详情请求失败的错误信息
 	const errorMessage = ref('');
+	const updatingLike = ref(false);
 
 	// 发送 获取文章详情 请求
 	async function getArticleDetail(articleId: string | string[] | number) {
@@ -45,10 +46,32 @@ export function useArticleDetail() {
 		}
 	}
 
+	// 点赞请求完成后再更新页面状态，避免失败时按钮和计数与服务端不一致
+	async function toggleArticleLike() {
+		if (!article.value || updatingLike.value) return;
+
+		const articleId = article.value.id;
+		updatingLike.value = true;
+		try {
+			const result = await (article.value.liked
+				? unlikeArticle(articleId)
+				: likeArticle(articleId));
+			if (article.value?.id === articleId) {
+				article.value.liked = result.liked;
+				article.value.likeCount = result.likeCount;
+			}
+		} catch {
+			// 错误提示已经由 request 响应拦截器统一处理
+		} finally {
+			updatingLike.value = false;
+		}
+	}
+
 	return {
 		article,
 		isLoading,
 		errorMessage,
 		getArticleDetail,
+		toggleArticleLike,
 	};
 }

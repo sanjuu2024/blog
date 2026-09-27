@@ -3,6 +3,7 @@ import { defineComponent } from 'vue';
 import { describe, expect, it, vi } from 'vitest';
 import type { PublicArticleDetailData } from '../types/article';
 import ArticleContent from './ArticleContent.vue';
+import ArticleLikeButton from './ArticleLikeButton.vue';
 
 const refreshCatalog = vi.hoisted(() => vi.fn());
 
@@ -67,6 +68,7 @@ function article(): PublicArticleDetailData {
 		viewCount: 10,
 		commentCount: 2,
 		likeCount: 1,
+		liked: false,
 		publishedAt: '2026-09-01T10:00:00+08:00',
 		updatedAt: '2026-09-01T10:00:00+08:00',
 		category: {
@@ -87,6 +89,30 @@ function article(): PublicArticleDetailData {
 }
 
 describe('ArticleContent', () => {
+	it('forwards the like button click without changing article state locally', async () => {
+		const currentArticle = article();
+		const wrapper = mount(ArticleContent, {
+			props: { article: currentArticle, isLoading: false },
+			global: {
+				stubs: {
+					RouterLink: RouterLinkStub,
+					ArticleCatalogSidebar: ArticleCatalogSidebarStub,
+					AppImage: true,
+					AppTagCapsule: true,
+					AppUserAvatar: AppUserAvatarStub,
+					PublicUserProfilePopover: PublicUserProfilePopoverStub,
+					ILucideThumbsUp: true,
+				},
+			},
+		});
+
+		await wrapper.get('.article-like-button').trigger('click');
+
+		expect(wrapper.emitted('toggle-like')).toHaveLength(1);
+		expect(wrapper.getComponent(ArticleLikeButton).props('isLiked')).toBe(false);
+		expect(currentArticle.likeCount).toBe(1);
+	});
+
 	it('closes the catalog when the article content area is clicked', async () => {
 		const wrapper = mount(ArticleContent, {
 			props: {

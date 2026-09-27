@@ -31,16 +31,16 @@ function scrollToTop() {
 	width: 44px;
 	height: 44px;
 	border-radius: 9999px;
-	background-color: var(--app-button-bg);
-	color: white;
+	background-color: var(--app-surface);
+	color: var(--app-text-muted);
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	box-shadow: 0 2px 4px rgb(0 0 0 / 20%);
+	box-shadow: 0 0 4px rgb(0 0 0 / 20%);
 	transition: background-color 0.1s ease;
 
 	&:hover {
-		background-color: var(--app-button-hover);
+		color: var(--app-main);
 	}
 
 	&:focus-visible {

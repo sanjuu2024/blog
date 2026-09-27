@@ -4,6 +4,7 @@
 			:article="article"
 			:is-loading="isLoading"
 			:error-message="errorMessage"
+			@toggle-like="toggleArticleLike"
 		/>
 
 		<PublicCommentSection
@@ -25,7 +26,8 @@ import { useRoute } from 'vue-router';
 
 const route = useRoute();
 
-const { article, isLoading, errorMessage, getArticleDetail } = useArticleDetail();
+const { article, isLoading, errorMessage, getArticleDetail, toggleArticleLike } =
+	useArticleDetail();
 
 defineOptions({
 	name: 'ArticleDetail',

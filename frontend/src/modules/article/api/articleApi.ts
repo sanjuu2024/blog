@@ -5,12 +5,15 @@ import type {
 	PublicArticleListQuery,
 	PublicArticlePageResponse,
 	PublicArticleDetailResponse,
+	ArticleLikeData,
+	ArticleLikeResponse,
 } from '../types/article';
 import type { AxiosRequestConfig } from 'axios';
 
 const ARTICLE_API = {
 	listArticles: 'articles',
 	getArticleDetails: (articleId: number) => `articles/${articleId}`,
+	likeArticle: (articleId: number) => `articles/${articleId}/like`,
 } as const;
 
 // 获取已发布文章分页列表接口
@@ -32,5 +35,17 @@ export const getArticleDetails = (articleId: number): Promise<PublicArticleDetai
 	// 🔺request.post<后端原始响应, 拦截器最终返回值, 请求体类型>(url, data)
 	return request.get<PublicArticleDetailResponse, PublicArticleDetailData, null>(
 		ARTICLE_API.getArticleDetails(articleId),
+	);
+};
+
+// 点赞文章接口
+export const likeArticle = (articleId: number): Promise<ArticleLikeData> => {
+	return request.post<ArticleLikeResponse, ArticleLikeData>(ARTICLE_API.likeArticle(articleId));
+};
+
+// 取消文章点赞接口
+export const unlikeArticle = (articleId: number): Promise<ArticleLikeData> => {
+	return request.delete<ArticleLikeResponse, ArticleLikeData, null>(
+		ARTICLE_API.likeArticle(articleId),
 	);
 };

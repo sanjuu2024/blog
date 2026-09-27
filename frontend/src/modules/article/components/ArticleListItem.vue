@@ -112,12 +112,22 @@
 							<p>{{ formatDateTime(article.publishedAt) }}</p>
 						</div>
 
-						<span class="mx-3">·</span>
-
-						<!-- 阅读数 -->
-						<div class="article-list-item-view-count flex items-center">
-							<i-solar-eye-outline class="mr-2" />
+						<!-- 浏览数 -->
+						<div class="article-statis-item">
+							<component
+								:is="getRouteIcon('view')"
+								class="mr-2"
+							/>
 							<span>{{ article.viewCount }}</span>
+						</div>
+
+						<!-- 点赞数 -->
+						<div class="article-statis-item">
+							<component
+								:is="getRouteIcon('like')"
+								class="mr-2"
+							/>
+							<span>{{ article.likeCount }}</span>
 						</div>
 					</div>
 				</div>
@@ -202,6 +212,18 @@ const coverHovered = ref(false);
 	background-color: yellow;
 	color: inherit;
 	font-weight: 700;
+}
+
+.right__inner-footer {
+	.article-statis-item {
+		display: flex;
+		align-items: center;
+	}
+
+	& > :not(:first-child)::before {
+		content: '·';
+		margin-inline: 0.5rem;
+	}
 }
 
 @media (width < 600px) {
