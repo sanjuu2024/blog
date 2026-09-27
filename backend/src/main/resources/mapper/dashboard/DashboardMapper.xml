@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ccsanjuu.blog.modules.dashboard.mapper.DashboardMapper">
+
+    <select id="selectSummary"
+            resultType="com.ccsanjuu.blog.modules.dashboard.model.vo.DashboardSummaryVO">
+        SELECT
+            (SELECT COUNT(*) FROM blog_user WHERE deleted_at IS NULL) AS user_count,
+            (SELECT COUNT(*) FROM blog_article WHERE status = 'PUBLISHED') AS article_count,
+            (SELECT COALESCE(SUM(view_count), 0) FROM blog_article) AS view_count,
+            (SELECT COALESCE(SUM(like_count), 0) FROM blog_article) AS like_count,
+            (SELECT COUNT(*) FROM blog_comment WHERE status = 'APPROVED') AS comment_count,
+            (SELECT COUNT(*) FROM blog_message_board WHERE status = 'APPROVED') AS message_count
+    </select>
+
+    <select id="selectTrendEvents"
+            resultType="com.ccsanjuu.blog.modules.dashboard.model.bo.DashboardTrendEventBO">
+        SELECT (created_at AT TIME ZONE 'Asia/Shanghai')::date AS event_date,
+               'users' AS metric,
+               COUNT(*) AS amount
+        FROM blog_user
+        WHERE deleted_at IS NULL
+          AND (created_at AT TIME ZONE 'Asia/Shanghai')::date &gt;= #{startDate}
+          AND (created_at AT TIME ZONE 'Asia/Shanghai')::date &lt; #{endDateExclusive}
+        GROUP BY event_date
+
+        UNION ALL
+
+        SELECT (published_at AT TIME ZONE 'Asia/Shanghai')::date AS event_date,
+               'publishedArticles' AS metric,
+               COUNT(*) AS amount
+        FROM blog_article
+        WHERE published_at IS NOT NULL
+          AND (published_at AT TIME ZONE 'Asia/Shanghai')::date &gt;= #{startDate}
+          AND (published_at AT TIME ZONE 'Asia/Shanghai')::date &lt; #{endDateExclusive}
+        GROUP BY event_date
+
+        UNION ALL
+
+        SELECT (created_at AT TIME ZONE 'Asia/Shanghai')::date AS event_date,
+               'comments' AS metric,
+               COUNT(*) AS amount
+        FROM blog_comment
+        WHERE status = 'APPROVED'
+          AND (created_at AT TIME ZONE 'Asia/Shanghai')::date &gt;= #{startDate}
+          AND (created_at AT TIME ZONE 'Asia/Shanghai')::date &lt; #{endDateExclusive}
+        GROUP BY event_date
+
+        UNION ALL
+
+        SELECT (created_at AT TIME ZONE 'Asia/Shanghai')::date AS event_date,
+               'messages' AS metric,
+               COUNT(*) AS amount
+        FROM blog_message_board
+        WHERE status = 'APPROVED'
+          AND (created_at AT TIME ZONE 'Asia/Shanghai')::date &gt;= #{startDate}
+          AND (created_at AT TIME ZONE 'Asia/Shanghai')::date &lt; #{endDateExclusive}
+        GROUP BY event_date
+
+        UNION ALL
+
+        SELECT (created_at AT TIME ZONE 'Asia/Shanghai')::date AS event_date,
+               'likes' AS metric,
+               COUNT(*) AS amount
+        FROM blog_article_like
+        WHERE (created_at AT TIME ZONE 'Asia/Shanghai')::date &gt;= #{startDate}
+          AND (created_at AT TIME ZONE 'Asia/Shanghai')::date &lt; #{endDateExclusive}
+        GROUP BY event_date
+
+        UNION ALL
+
+        SELECT stat_date AS event_date,
+               'views' AS metric,
+               SUM(view_count) AS amount
+        FROM blog_article_daily_stat
+        WHERE stat_date &gt;= #{startDate}
+          AND stat_date &lt; #{endDateExclusive}
+        GROUP BY stat_date
+
+        ORDER BY event_date ASC, metric ASC
+    </select>
+
+    <select id="selectTrendBaselines"
+            resultType="com.ccsanjuu.blog.modules.dashboard.model.bo.DashboardTrendEventBO">
+        SELECT NULL::date AS event_date,
+               'users' AS metric,
+               COUNT(*) AS amount
+        FROM blog_user
+        WHERE deleted_at IS NULL
+          AND (created_at AT TIME ZONE 'Asia/Shanghai')::date &lt; #{startDate}
+
+        UNION ALL
+
+        SELECT NULL::date AS event_date,
+               'publishedArticles' AS metric,
+               COUNT(*) AS amount
+        FROM blog_article
+        WHERE published_at IS NOT NULL
+          AND (published_at AT TIME ZONE 'Asia/Shanghai')::date &lt; #{startDate}
+
+        UNION ALL
+
+        SELECT NULL::date AS event_date,
+               'comments' AS metric,
+               COUNT(*) AS amount
+        FROM blog_comment
+        WHERE status = 'APPROVED'
+          AND (created_at AT TIME ZONE 'Asia/Shanghai')::date &lt; #{startDate}
+
+        UNION ALL
+
+        SELECT NULL::date AS event_date,
+               'messages' AS metric,
+               COUNT(*) AS amount
+        FROM blog_message_board
+        WHERE status = 'APPROVED'
+          AND (created_at AT TIME ZONE 'Asia/Shanghai')::date &lt; #{startDate}
+
+        UNION ALL
+
+        SELECT NULL::date AS event_date,
+               'likes' AS metric,
+               COUNT(*) AS amount
+        FROM blog_article_like
+        WHERE (created_at AT TIME ZONE 'Asia/Shanghai')::date &lt; #{startDate}
+
+        UNION ALL
+
+        SELECT NULL::date AS event_date,
+               'views' AS metric,
+               COALESCE(SUM(view_count), 0) AS amount
+        FROM blog_article_daily_stat
+        WHERE stat_date &lt; #{startDate}
+    </select>
+
+    <select id="selectTopByViews"
+            resultType="com.ccsanjuu.blog.modules.dashboard.model.bo.DashboardArticleRankBO">
+        SELECT id, title, view_count, like_count, comment_count
+        FROM blog_article
+        WHERE status = 'PUBLISHED'
+        ORDER BY view_count DESC, id DESC
+        LIMIT 10
+    </select>
+
+    <select id="selectTopByLikes"
+            resultType="com.ccsanjuu.blog.modules.dashboard.model.bo.DashboardArticleRankBO">
+        SELECT id, title, view_count, like_count, comment_count
+        FROM blog_article
+        WHERE status = 'PUBLISHED'
+        ORDER BY like_count DESC, id DESC
+        LIMIT 10
+    </select>
+
+    <select id="selectTopByComments"
+            resultType="com.ccsanjuu.blog.modules.dashboard.model.bo.DashboardArticleRankBO">
+        SELECT id, title, view_count, like_count, comment_count
+        FROM blog_article
+        WHERE status = 'PUBLISHED'
+        ORDER BY comment_count DESC, id DESC
+        LIMIT 10
+    </select>
+
+    <select id="selectArticleCategoryDistribution"
+            resultType="com.ccsanjuu.blog.modules.dashboard.model.bo.DashboardBreakdownBO">
+        SELECT COALESCE(parent_category.id::text, 'OTHER') AS key,
+               COALESCE(parent_category.name, '其他') AS label,
+               COUNT(*) AS value
+        FROM blog_article article
+        LEFT JOIN blog_category child_category
+            ON child_category.id = article.category_id
+           AND child_category.level = 2
+        LEFT JOIN blog_category parent_category
+            ON parent_category.id = child_category.parent_id
+           AND parent_category.level = 1
+        WHERE article.status = 'PUBLISHED'
+        GROUP BY parent_category.id, parent_category.name
+        ORDER BY value DESC, key ASC
+    </select>
+
+    <select id="selectArticleStatusDistribution"
+            resultType="com.ccsanjuu.blog.modules.dashboard.model.bo.DashboardBreakdownBO">
+        SELECT status AS key, status AS label, COUNT(*) AS value
+        FROM blog_article
+        GROUP BY status
+        ORDER BY status ASC
+    </select>
+
+    <select id="selectArticleLikeActorDistribution"
+            resultType="com.ccsanjuu.blog.modules.dashboard.model.bo.DashboardBreakdownBO">
+        SELECT CASE WHEN user_id IS NULL THEN 'VISITOR' ELSE 'USER' END AS key,
+               CASE WHEN user_id IS NULL THEN '游客' ELSE '登录用户' END AS label,
+               COUNT(*) AS value
+        FROM blog_article_like
+        GROUP BY CASE WHEN user_id IS NULL THEN 'VISITOR' ELSE 'USER' END,
+                 CASE WHEN user_id IS NULL THEN '游客' ELSE '登录用户' END
+        ORDER BY key ASC
+    </select>
+
+    <select id="selectCommentStatusDistribution"
+            resultType="com.ccsanjuu.blog.modules.dashboard.model.bo.DashboardBreakdownBO">
+        SELECT status AS key, status AS label, COUNT(*) AS value
+        FROM blog_comment
+        GROUP BY status
+        ORDER BY status ASC
+    </select>
+
+    <select id="selectMessageStatusDistribution"
+            resultType="com.ccsanjuu.blog.modules.dashboard.model.bo.DashboardBreakdownBO">
+        SELECT status AS key, status AS label, COUNT(*) AS value
+        FROM blog_message_board
+        GROUP BY status
+        ORDER BY status ASC
+    </select>
+</mapper>

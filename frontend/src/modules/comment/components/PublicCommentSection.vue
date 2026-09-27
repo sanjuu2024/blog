@@ -120,7 +120,7 @@
 								>
 									<i-lucide-thumbs-up
 										class="mr-1"
-										:class="{ 'text-[var(--app-main)]': comment.liked }"
+										:class="{ 'text-(--app-main)': comment.liked }"
 									/>
 									{{ comment.likeCount }}
 								</button>
@@ -258,7 +258,7 @@
 												<i-lucide-thumbs-up
 													class="mr-1"
 													:class="{
-														'text-[var(--app-main)]': reply.liked,
+														'text-(--app-main)': reply.liked,
 													}"
 												/>
 												{{ reply.likeCount }}
