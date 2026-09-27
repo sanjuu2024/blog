@@ -1,12 +1,14 @@
 package com.ccsanjuu.blog.modules.article.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.ccsanjuu.blog.common.api.PageQuery;
 import com.ccsanjuu.blog.common.api.PageResult;
 import com.ccsanjuu.blog.modules.article.model.dto.AdminArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.PublicArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.UpdateArticleStatusRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.bo.ArticleViewIdentity;
+import com.ccsanjuu.blog.modules.article.model.bo.ArticleLikeIdentity;
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
 import com.ccsanjuu.blog.modules.article.model.vo.*;
 import jakarta.validation.Valid;
@@ -75,10 +77,20 @@ public interface ArticleService extends IService<Article> {
     PageResult<PublicArticleListItemVO> getPublicArticleList(@Valid PublicArticleQueryDTO queryDTO);
 
     /**
+     * 获取当前用户点赞过且仍公开可见的文章。
+     *
+     * @param userId 用户 ID
+     * @param pageQuery 分页参数
+     * @return 点赞文章分页结果
+     */
+    PageResult<PublicArticleListItemVO> getLikedArticleList(Long userId, @Valid PageQuery pageQuery);
+
+    /**
      * 获取前台文章详情
      *
      * @param articleId
      * @return
      */
-    PublicArticleDetailVO getPublicArticleDetail(Long articleId, ArticleViewIdentity viewIdentity);
+    PublicArticleDetailVO getPublicArticleDetail(Long articleId, ArticleViewIdentity viewIdentity,
+                                                 ArticleLikeIdentity likeIdentity);
 }

@@ -6,11 +6,13 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ccsanjuu.blog.common.api.PageResult;
+import com.ccsanjuu.blog.common.api.PageQuery;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
 import com.ccsanjuu.blog.modules.article.model.bo.ArticleViewIdentity;
+import com.ccsanjuu.blog.modules.article.model.bo.ArticleLikeIdentity;
 import com.ccsanjuu.blog.modules.article.model.bo.PublicArticleSearchBO;
 import com.ccsanjuu.blog.modules.article.model.dto.AdminArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
@@ -23,6 +25,8 @@ import com.ccsanjuu.blog.modules.article.model.enums.PublicArticleSort;
 import com.ccsanjuu.blog.modules.article.model.vo.*;
 import com.ccsanjuu.blog.modules.article.service.ArticleService;
 import com.ccsanjuu.blog.modules.article.service.ArticleViewService;
+import com.ccsanjuu.blog.modules.article.service.ArticleLikeService;
+import com.ccsanjuu.blog.modules.article.mapper.ArticleLikeMapper;
 import com.ccsanjuu.blog.modules.article.support.ArticleContentRenderer;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.category.model.entity.Category;
@@ -57,6 +61,8 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     private final TagMapper tagMapper;
     private final UserMapper userMapper;
     private final ArticleViewService articleViewService;
+    private final ArticleLikeService articleLikeService;
+    private final ArticleLikeMapper articleLikeMapper;
 
     /**
      * 获取后台文章分页列表
@@ -486,6 +492,13 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         return PageResult.of(page.getTotal(), page.getCurrent(), page.getSize(), res);
     }
 
+    @Override
+    public PageResult<PublicArticleListItemVO> getLikedArticleList(Long userId, PageQuery pageQuery) {
+        Page<Article> page = Page.of(pageQuery.getPageNum(), pageQuery.getPageSize());
+        articleLikeMapper.selectLikedArticlePage(page, userId);
+        return toPublicArticleListPage(page);
+    }
+
 
     /**
      * 获取前台文章详情
@@ -496,7 +509,8 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     @Override
     public PublicArticleDetailVO getPublicArticleDetail(
             Long articleId,
-            ArticleViewIdentity viewIdentity
+            ArticleViewIdentity viewIdentity,
+            ArticleLikeIdentity likeIdentity
     ) {
         Article article = articleMapper.selectById(articleId);
         if (article == null){
@@ -567,6 +581,9 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         if (viewIdentity != null) {
             vo.setViewCount(articleViewService.recordView(articleId, viewIdentity));
         }
+        if (likeIdentity != null) {
+            vo.setLiked(articleLikeService.isLiked(articleId, likeIdentity));
+        }
 
         return vo;
     }
@@ -589,6 +606,40 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         return HtmlUtils.htmlEscape(headline)
                 .replace(SEARCH_HIGHLIGHT_START, SEARCH_HIGHLIGHT_MARK)
                 .replace(SEARCH_HIGHLIGHT_END, "</mark>");
+    }
+
+    private PageResult<PublicArticleListItemVO> toPublicArticleListPage(Page<Article> page) {
+        List<Article> records = page.getRecords();
+        if (CollectionUtil.isEmpty(records)) {
+            return PageResult.of(page.getTotal(), page.getCurrent(), page.getSize(), List.of());
+        }
+
+        List<Long> articleIds = records.stream().map(Article::getId).toList();
+        List<Long> categoryIds = records.stream().map(Article::getCategoryId).distinct().toList();
+        List<Long> tagIds = articleTagMapper.selectList(
+                new LambdaQueryWrapper<ArticleTag>()
+                        .select(ArticleTag::getTagId)
+                        .in(ArticleTag::getArticleId, articleIds)
+        ).stream().map(ArticleTag::getTagId).distinct().toList();
+        Map<Long, ArticleCategoryVO> categoryVoMap = getCategoryVoMap(categoryIds);
+        Map<Long, ArticleTagVO> tagVoMap = getTagVoMap(tagIds);
+        Map<Long, List<Long>> articleTagIdsMap = articleTagMapper.selectList(
+                new LambdaQueryWrapper<ArticleTag>().in(ArticleTag::getArticleId, articleIds)
+        ).stream().collect(Collectors.groupingBy(
+                ArticleTag::getArticleId,
+                Collectors.mapping(ArticleTag::getTagId, Collectors.toList())
+        ));
+
+        List<PublicArticleListItemVO> result = records.stream().map(article -> {
+            PublicArticleListItemVO vo = BeanUtil.copyProperties(article, PublicArticleListItemVO.class);
+            vo.setCategory(categoryVoMap.get(article.getCategoryId()));
+            vo.setTags(articleTagIdsMap.getOrDefault(article.getId(), List.of()).stream()
+                    .map(tagVoMap::get)
+                    .filter(Objects::nonNull)
+                    .toList());
+            return vo;
+        }).toList();
+        return PageResult.of(page.getTotal(), page.getCurrent(), page.getSize(), result);
     }
 
 

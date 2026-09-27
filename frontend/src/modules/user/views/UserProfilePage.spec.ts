@@ -5,11 +5,13 @@ import UserProfilePage from './UserProfilePage.vue';
 
 const mocks = vi.hoisted(() => ({
 	getCurrentUserProfile: vi.fn(),
+	getLikedArticles: vi.fn(),
 	resizeObserverCallback: undefined as (() => void) | undefined,
 }));
 
 vi.mock('../api/userApi', () => ({
 	getCurrentUserProfile: mocks.getCurrentUserProfile,
+	getLikedArticles: mocks.getLikedArticles,
 }));
 
 vi.mock('@vueuse/core', () => ({
@@ -57,6 +59,14 @@ describe('UserProfilePage bio', () => {
 			bio: '这是一段用于测试个人简介折叠状态的文字。'.repeat(5),
 			lastLoginAt: null,
 			createdAt: '2026-09-19T09:00:00+08:00',
+		});
+		mocks.getLikedArticles.mockResolvedValue({
+			records: [],
+			pageNum: 1,
+			pageSize: 10,
+			total: 0,
+			totalPages: 0,
+			hasNext: false,
 		});
 	});
 

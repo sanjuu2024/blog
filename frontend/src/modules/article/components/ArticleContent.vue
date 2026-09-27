@@ -149,6 +149,14 @@
 			<p>{{ errorMessage || '文章不存在或已被删除' }}</p>
 		</div>
 	</div>
+
+	<ArticleLikeButton
+		v-if="article"
+		v-model:expanded="expanded"
+		:hasCatalog="catalogList.length > 0"
+		:is-liked="article.liked"
+		@toggle="emit('toggle-like')"
+	/>
 </template>
 
 <script setup lang="ts">
@@ -163,6 +171,7 @@ import ArticleCatalogSidebar from './ArticleCatalogSidebar.vue';
 import { useArticleCatalog } from '../composables/useArticleCatalog';
 // 语法高亮渲染器
 import { highlightCodeUnder } from '@/utils/prism';
+import ArticleLikeButton from './ArticleLikeButton.vue';
 
 // import { useTheme } from '@/composables/useTheme';
 // const { resolvedTheme: ResolvedThemeName } = useTheme();
@@ -176,6 +185,8 @@ const props = defineProps<{
 	isLoading: boolean;
 	errorMessage?: string;
 }>();
+
+const emit = defineEmits<{ 'toggle-like': [] }>();
 
 // 控制目录侧栏是否展开
 const expanded = ref(false);

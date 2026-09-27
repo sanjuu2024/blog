@@ -2,6 +2,7 @@ package com.ccsanjuu.blog.modules.article;
 
 import com.ccsanjuu.blog.common.util.TokenHashUtil;
 import com.ccsanjuu.blog.modules.article.model.bo.ArticleViewIdentity;
+import com.ccsanjuu.blog.modules.article.model.bo.ArticleLikeIdentity;
 import com.ccsanjuu.blog.modules.article.model.vo.PublicArticleDetailVO;
 import com.ccsanjuu.blog.modules.article.service.ArticleService;
 import org.junit.jupiter.api.AfterEach;
@@ -75,11 +76,13 @@ class ArticleViewIntegrationTest {
 
         PublicArticleDetailVO firstRead = articleService.getPublicArticleDetail(
                 articleId,
-                new ArticleViewIdentity(null, visitorToken)
+                new ArticleViewIdentity(null, visitorToken),
+                new ArticleLikeIdentity(null, visitorToken)
         );
         PublicArticleDetailVO duplicateRead = articleService.getPublicArticleDetail(
                 articleId,
-                new ArticleViewIdentity(null, visitorToken)
+                new ArticleViewIdentity(null, visitorToken),
+                new ArticleLikeIdentity(null, visitorToken)
         );
 
         assertEquals(initialViewCount + 1, firstRead.getViewCount());

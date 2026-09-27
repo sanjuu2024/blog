@@ -63,6 +63,7 @@ export interface PublicArticleListItem {
 	isTop: boolean;
 	publishedAt: string;
 	viewCount: number;
+	likeCount: number;
 	category: PublicArticleCategory;
 	tags: PublicArticleTag[];
 }
@@ -82,6 +83,7 @@ export interface PublicArticleDetailData {
 	viewCount: number;
 	commentCount: number;
 	likeCount: number;
+	liked: boolean;
 	publishedAt: string;
 	updatedAt: string;
 	category: PublicArticleCategory;
@@ -90,3 +92,10 @@ export interface PublicArticleDetailData {
 }
 
 export type PublicArticleDetailResponse = ApiResult<PublicArticleDetailData>;
+
+export interface ArticleLikeData {
+	liked: boolean;
+	likeCount: number;
+}
+
+export type ArticleLikeResponse = ApiResult<ArticleLikeData>;

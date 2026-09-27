@@ -1,4 +1,6 @@
 import type { ApiResult } from '@/types/api';
+import type { PageResult } from '@/types/api';
+import type { PublicArticleListItem } from '@/modules/article/types/article';
 
 export const USER_STATUS = {
 	ACTIVE: 'ACTIVE',
@@ -43,6 +45,15 @@ export type PublicUserProfileResponse = ApiResult<PublicUserProfileData>;
 export type CurrentUserProfileData = CurrentUserInfo;
 
 export type CurrentUserProfileResponse = ApiResult<CurrentUserProfileData>;
+
+export type LikedArticlePageData = PageResult<PublicArticleListItem>;
+
+export type LikedArticlePageResponse = ApiResult<LikedArticlePageData>;
+
+export interface LikedArticleListQuery {
+	pageNum?: number;
+	pageSize?: number;
+}
 
 export interface UpdateCurrentUserProfileRequest {
 	nickname?: string;

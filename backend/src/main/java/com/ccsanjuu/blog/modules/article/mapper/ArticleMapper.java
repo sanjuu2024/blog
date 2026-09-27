@@ -22,6 +22,22 @@ public interface ArticleMapper extends BaseMapper<Article> {
     int incrementViewCount(@Param("articleId") Long articleId);
 
     /**
+     * 原子递增已发布文章的点赞数。
+     *
+     * @param articleId 文章 ID
+     * @return 更新行数
+     */
+    int incrementLikeCount(@Param("articleId") Long articleId);
+
+    /**
+     * 原子递减文章点赞数，并防止冗余计数变为负数。
+     *
+     * @param articleId 文章 ID
+     * @return 更新行数
+     */
+    int decrementLikeCount(@Param("articleId") Long articleId);
+
+    /**
      * 根据所给的二级分类 id 列表，给出其中每一个二级分类对应的文章数
      *
      * @param categoryIds 保证非空
