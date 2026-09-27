@@ -220,6 +220,7 @@ Authorization: Bearer <access_token>
 | 前台标签 | `GET` | `/api/v1/tags` | `PUBLIC` | 获取启用标签列表 |
 | 前台用户 | `GET` | `/api/v1/users/{userId}/public-profile` | `PUBLIC` | 获取用户公开资料卡 |
 | 个人中心 | `GET` | `/api/v1/users/me` | `LOGIN` | 获取当前登录用户信息 |
+| 个人中心 | `GET` | `/api/v1/users/me/liked-articles` | `LOGIN` | 分页获取当前用户点赞过且仍公开可见的文章 |
 | 个人中心 | `PUT` | `/api/v1/users/me/profile` | `LOGIN` | 更新个人资料 |
 | 个人中心 | `PUT` | `/api/v1/users/me/password` | `LOGIN` | 修改密码 |
 | 个人中心 | `PUT` | `/api/v1/users/me/avatar` | `LOGIN` | 上传并更新当前用户头像 |
@@ -925,6 +926,15 @@ GET /api/v1/users/10001/public-profile
 ```
 
 ## 6. 个人中心接口
+
+### 6.1 获取当前用户点赞过的文章
+
+- 路由：`GET`
+- 路径：`/api/v1/users/me/liked-articles`
+- 权限：`LOGIN`
+
+返回当前登录用户点赞过且仍为 `PUBLISHED`、所属二级分类及其一级父分类均启用的文章，按点赞时间倒序分页。
+文章下线或所属分类不可见后不再出现在列表中；取消点赞后也不再出现在列表中。响应复用公开文章列表的分页结构。
 
 ## 6.1 获取当前登录用户信息
 

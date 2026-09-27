@@ -12,11 +12,15 @@ import type {
 	UpdatedCurrentUserAvatarData,
 	UpdatedCurrentUserAvatarResponse,
 	UpdatedCurrentUserProfileResponse,
+	LikedArticlePageData,
+	LikedArticlePageResponse,
+	LikedArticleListQuery,
 } from '../types/user';
 
 const USER_API = {
 	publicProfile: (userId: number) => `users/${userId}/public-profile`,
 	currentProfile: 'users/me',
+	likedArticles: 'users/me/liked-articles',
 	updateCurrentProfile: 'users/me/profile',
 	updateCurrentAvatar: 'users/me/avatar',
 	changeCurrentPassword: 'users/me/password',
@@ -30,6 +34,13 @@ export const getCurrentUserProfile = (
 		USER_API.currentProfile,
 		config,
 	);
+};
+
+// 获取当前用户点赞过的文章
+export const getLikedArticles = (params?: LikedArticleListQuery): Promise<LikedArticlePageData> => {
+	return request.get<LikedArticlePageResponse, LikedArticlePageData>(USER_API.likedArticles, {
+		params,
+	});
 };
 
 // 获取用户公开资料接口

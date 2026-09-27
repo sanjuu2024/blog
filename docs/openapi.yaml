@@ -789,6 +789,27 @@ paths:
                   createdAt: '2026-04-22T22:20:00+08:00'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+  /api/v1/users/me/liked-articles:
+    get:
+      tags:
+        - Profile
+      summary: 获取当前用户点赞过的文章
+      description: 权限级别 `LOGIN`。按点赞时间倒序返回当前用户点赞过且仍公开可见的文章，复用公开文章列表分页结构。
+      operationId: getLikedArticles
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicArticlePageResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
   /api/v1/users/me/profile:
     put:
       tags:

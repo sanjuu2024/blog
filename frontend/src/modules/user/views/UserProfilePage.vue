@@ -63,11 +63,58 @@
 					:is="getRouteIcon('like')"
 					class="article-list-wrapper-title__icon"
 				/>
-				<span>点赞的文章</span>
+				<span>点赞过的文章</span>
 			</div>
-			<div class="article-list-empty">
+			<div
+				v-if="likedArticlesLoading"
+				class="article-list-empty"
+			>
+				<p class="article-list-empty__title">正在加载点赞文章</p>
+			</div>
+			<div
+				v-else-if="likedArticlesLoadFailed"
+				class="article-list-empty"
+			>
+				<p class="article-list-empty__title">点赞文章加载失败</p>
+				<el-button
+					type="primary"
+					@click="getUserLikedArticles(likedArticlesPage)"
+				>
+					重新加载
+				</el-button>
+			</div>
+			<div
+				v-else-if="likedArticles.length"
+				class="liked-article-list"
+			>
+				<div class="divide-y divide-(--app-border)">
+					<ArticleListItem
+						v-for="article in likedArticles"
+						:key="article.id"
+						:article="article"
+					/>
+				</div>
+				<el-pagination
+					v-if="likedArticlesTotalPages > 1"
+					v-model:current-page="likedArticlesPage"
+					:page-size="pageSize"
+					:page-count="likedArticlesTotalPages"
+					:layout="
+						isLt768
+							? 'prev, next, jumper, total'
+							: 'prev, pager, next, jumper, ->, sizes, total'
+					"
+					@current-change="getUserLikedArticles"
+					@size-change="getUserLikedArticles"
+					:background="true"
+				/>
+			</div>
+			<div
+				v-else
+				class="article-list-empty"
+			>
 				<p class="article-list-empty__title">暂无点赞的文章</p>
-				<p class="article-list-empty__description">以后点赞过的文章会展示在这里。</p>
+				<p class="article-list-empty__description">点赞过的公开文章会展示在这里。</p>
 			</div>
 		</div>
 	</div>
@@ -80,14 +127,26 @@ import { useMediaQuery, useResizeObserver } from '@vueuse/core';
 import getRouteIcon from '@/utils/getRouteIcon';
 import { useUserProfile } from '../composables/useUserProfile';
 import { USER_ROLE } from '../types/user';
+import ArticleListItem from '@/modules/article/components/ArticleListItem.vue';
 
 const isMobile = useMediaQuery('(width < 400px)');
+const isLt768 = useMediaQuery('(width < 768px)');
 const bioRef = ref<HTMLElement | null>(null);
 const bioExpanded = ref(false);
 const bioOverflows = ref(false);
 const OVERFLOW_TOLERANCE_PX = 1;
 
-const { userProfile, getUserProfile } = useUserProfile();
+const {
+	pageSize,
+	userProfile,
+	likedArticles,
+	likedArticlesLoading,
+	likedArticlesLoadFailed,
+	likedArticlesPage,
+	likedArticlesTotalPages,
+	getUserProfile,
+	getUserLikedArticles,
+} = useUserProfile();
 const router = useRouter();
 
 function updateBioOverflow() {
@@ -121,6 +180,7 @@ defineOptions({
 
 onMounted(() => {
 	getUserProfile();
+	getUserLikedArticles();
 });
 </script>
 
@@ -221,6 +281,12 @@ onMounted(() => {
 .edit-button {
 	margin-top: auto;
 	margin-left: auto;
+}
+
+.liked-article-list {
+	border: 1px dashed var(--app-border);
+	border-radius: 0.75rem;
+	padding: 0.5rem 1.5rem;
 }
 
 @media (width < 400px) {

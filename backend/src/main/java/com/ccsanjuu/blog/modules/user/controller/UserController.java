@@ -1,6 +1,10 @@
 package com.ccsanjuu.blog.modules.user.controller;
 
 import com.ccsanjuu.blog.common.api.Result;
+import com.ccsanjuu.blog.common.api.PageQuery;
+import com.ccsanjuu.blog.common.api.PageResult;
+import com.ccsanjuu.blog.modules.article.service.ArticleService;
+import com.ccsanjuu.blog.modules.article.model.vo.PublicArticleListItemVO;
 import com.ccsanjuu.blog.modules.auth.model.security.JwtPrincipal;
 import com.ccsanjuu.blog.modules.user.model.dto.ChangePasswordRequestDTO;
 import com.ccsanjuu.blog.modules.user.model.dto.UpdateProfileRequestDTO;
@@ -29,6 +33,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class UserController {
 
     private final UserService userService;
+    private final ArticleService articleService;
 
     /**
      * 获取用户公开资料卡
@@ -52,6 +57,22 @@ public class UserController {
             @AuthenticationPrincipal JwtPrincipal jwtPrincipal   // 🔺🔺🔺获取 jwt 拦截器拦截解析 token 后放入的用户信息，注意是作为方法的参数传递进来的
     ){
         return Result.success(userService.getCurrentUserProfile(jwtPrincipal.userId()));
+    }
+
+    /**
+     * 获取当前用户点赞过的文章。
+     *
+     * @param pageQuery 分页参数
+     * @param jwtPrincipal 当前登录用户
+     * @return 点赞文章分页结果
+     */
+    @GetMapping("/me/liked-articles")
+    @Operation(description = "获取当前用户点赞过的文章")
+    public Result<PageResult<PublicArticleListItemVO>> getLikedArticles(
+            @Valid @ModelAttribute PageQuery pageQuery,
+            @AuthenticationPrincipal JwtPrincipal jwtPrincipal
+    ) {
+        return Result.success(articleService.getLikedArticleList(jwtPrincipal.userId(), pageQuery));
     }
 
     /**

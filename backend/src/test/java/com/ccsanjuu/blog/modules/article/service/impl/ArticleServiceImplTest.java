@@ -10,6 +10,7 @@ import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
+import com.ccsanjuu.blog.modules.article.mapper.ArticleLikeMapper;
 import com.ccsanjuu.blog.modules.article.model.bo.PublicArticleSearchBO;
 import com.ccsanjuu.blog.modules.article.model.bo.ArticleViewIdentity;
 import com.ccsanjuu.blog.modules.article.model.bo.ArticleLikeIdentity;
@@ -91,6 +92,9 @@ class ArticleServiceImplTest {
     private ArticleTagMapper articleTagMapper;
 
     @Mock
+    private ArticleLikeMapper articleLikeMapper;
+
+    @Mock
     private ArticleContentRenderer articleContentRenderer;
 
     @Mock
@@ -128,7 +132,8 @@ class ArticleServiceImplTest {
                 tagMapper,
                 userMapper,
                 articleViewService,
-                articleLikeService
+                articleLikeService,
+                articleLikeMapper
         );
         ReflectionTestUtils.setField(articleService, "baseMapper", articleMapper);
         ReflectionTestUtils.setField(articleService, "entityClass", Article.class);

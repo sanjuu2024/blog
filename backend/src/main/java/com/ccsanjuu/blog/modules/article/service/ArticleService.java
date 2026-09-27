@@ -1,6 +1,7 @@
 package com.ccsanjuu.blog.modules.article.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.ccsanjuu.blog.common.api.PageQuery;
 import com.ccsanjuu.blog.common.api.PageResult;
 import com.ccsanjuu.blog.modules.article.model.dto.AdminArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
@@ -74,6 +75,15 @@ public interface ArticleService extends IService<Article> {
      * @return
      */
     PageResult<PublicArticleListItemVO> getPublicArticleList(@Valid PublicArticleQueryDTO queryDTO);
+
+    /**
+     * 获取当前用户点赞过且仍公开可见的文章。
+     *
+     * @param userId 用户 ID
+     * @param pageQuery 分页参数
+     * @return 点赞文章分页结果
+     */
+    PageResult<PublicArticleListItemVO> getLikedArticleList(Long userId, @Valid PageQuery pageQuery);
 
     /**
      * 获取前台文章详情

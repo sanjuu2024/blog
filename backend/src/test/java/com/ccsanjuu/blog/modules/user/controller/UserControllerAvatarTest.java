@@ -6,6 +6,7 @@ import com.ccsanjuu.blog.config.SecurityConfig;
 import com.ccsanjuu.blog.config.WebMvcConfig;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
+import com.ccsanjuu.blog.modules.article.service.ArticleService;
 import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
@@ -60,6 +61,9 @@ class UserControllerAvatarTest {
 
     @MockitoBean
     private UserService userService;
+
+    @MockitoBean
+    private ArticleService articleService;
 
     @MockitoBean
     private TokenVersionService tokenVersionService;
