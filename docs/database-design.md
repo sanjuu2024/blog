@@ -1024,6 +1024,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 - `V1.2.1` migration 新增 `blog_article_daily_stat`，保存文章有效浏览每日聚合；文章总浏览数继续保存在 `blog_article.view_count`
 - `V1.2.2` migration 扩展 `blog_article_like`，支持登录用户和游客匿名哈希主体，并通过部分唯一索引保证幂等
 - `V1.2.3` migration 新增 `blog_comment_like`，并为 `blog_comment` 增加点赞冗余计数及非负约束
+- Dashboard 直接聚合现有业务表和 `blog_article_daily_stat`，不新增历史点赞事件表；文章点赞历史趋势只统计当前仍存在的点赞明细
 - P2 所有新表、字段、约束和索引都必须使用新的 Flyway migration；本节目标 SQL 不能用于修改已执行的历史 migration
 - 文章/评论点赞明细与冗余计数必须事务一致；游客点赞不与登录账号自动合并
 - 浏览去重 key 只保存在 Redis 一小时，PostgreSQL 保存文章总量和每日聚合

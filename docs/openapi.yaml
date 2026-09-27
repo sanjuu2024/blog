@@ -18,9 +18,6 @@ x-p2-planned-operations:
       path: /api/v1/auth/register
       summary: P2 注册增加验证码和隐私政策版本
     - method: GET
-      path: /api/v1/admin/dashboard
-      summary: 获取总览、7/30 天趋势和文章 Top 10
-    - method: GET
       path: /api/v1/notifications
       summary: 查询当前用户通知
     - method: GET
@@ -110,7 +107,29 @@ tags:
     description: 后台操作审计日志接口
   - name: Admin Site Content
     description: 后台关于页内容管理
+  - name: Admin Dashboard
+    description: 后台 Dashboard 统计接口
 paths:
+  /api/v1/admin/dashboard:
+    get:
+      tags:
+        - Admin Dashboard
+      summary: 获取管理员 Dashboard
+      description: 权限级别 `ADMIN`。返回用户、文章、有效浏览、文章点赞、可见评论和可见留言总量；每个指标提供最近 30 天、12 周、12 个月和 5 年的累计趋势，并返回三类已发布文章 Top 10 及分布统计。文章点赞主体分布只统计当前仍保留的点赞明细，不代表历史全部点赞。
+      operationId: getAdminDashboard
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDashboardResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
   /api/v1/about:
     get:
       tags:
@@ -2406,6 +2425,157 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/AdminAboutPageData'
+    DashboardSummary:
+      type: object
+      required: [userCount, articleCount, viewCount, likeCount, commentCount, messageCount]
+      properties:
+        userCount:
+          type: integer
+          format: int64
+        articleCount:
+          type: integer
+          format: int64
+        viewCount:
+          type: integer
+          format: int64
+        likeCount:
+          type: integer
+          format: int64
+        commentCount:
+          type: integer
+          format: int64
+        messageCount:
+          type: integer
+          format: int64
+    DashboardTrendPoint:
+      type: object
+      required: [period, value]
+      properties:
+        period:
+          type: string
+          description: 周期起点，使用 Asia/Shanghai 自然日
+        value:
+          type: integer
+          format: int64
+          description: 截至该周期的累计总数
+    DashboardMetricTrend:
+      type: object
+      required: [day, week, month, year]
+      properties:
+        day:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardTrendPoint'
+          description: 最近 30 天
+        week:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardTrendPoint'
+          description: 最近 12 周
+        month:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardTrendPoint'
+          description: 最近 12 个月
+        year:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardTrendPoint'
+          description: 最近 5 年
+    DashboardTrends:
+      type: object
+      required: [users, publishedArticles, views, likes, comments, messages]
+      properties:
+        users:
+          $ref: '#/components/schemas/DashboardMetricTrend'
+        publishedArticles:
+          $ref: '#/components/schemas/DashboardMetricTrend'
+        views:
+          $ref: '#/components/schemas/DashboardMetricTrend'
+        likes:
+          $ref: '#/components/schemas/DashboardMetricTrend'
+        comments:
+          $ref: '#/components/schemas/DashboardMetricTrend'
+        messages:
+          $ref: '#/components/schemas/DashboardMetricTrend'
+    DashboardArticleRank:
+      type: object
+      required: [id, title, viewCount, likeCount, commentCount]
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        viewCount:
+          type: integer
+        likeCount:
+          type: integer
+        commentCount:
+          type: integer
+    AdminDashboardData:
+      type: object
+      required: [summary, trends, topByViews, topByLikes, topByComments, articleCategoryDistribution, articleStatusDistribution, articleLikeActorDistribution, commentStatusDistribution, messageStatusDistribution]
+      properties:
+        summary:
+          $ref: '#/components/schemas/DashboardSummary'
+        trends:
+          $ref: '#/components/schemas/DashboardTrends'
+        topByViews:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/DashboardArticleRank'
+        topByLikes:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/DashboardArticleRank'
+        topByComments:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/DashboardArticleRank'
+        articleCategoryDistribution:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownItem'
+        articleStatusDistribution:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownItem'
+        articleLikeActorDistribution:
+          type: array
+          description: 当前仍保留的文章点赞主体分布，不代表历史全部点赞
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownItem'
+        commentStatusDistribution:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownItem'
+        messageStatusDistribution:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownItem'
+    DashboardBreakdownItem:
+      type: object
+      required: [key, label, value]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        value:
+          type: integer
+          format: int64
+    AdminDashboardResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/AdminDashboardData'
     UpdateAboutPageRequest:
       type: object
       required: [contentMd]

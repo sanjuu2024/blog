@@ -1,4 +1,7 @@
 import { createApp } from 'vue';
+import { registerTheme } from 'echarts/core';
+import darkTheme from '@/modules/admin/dashboard/theme/dark.json';
+import vintageTheme from '@/modules/admin/dashboard/theme/vintage.json';
 import App from './App.vue';
 import '@/assets/styles/tailwind.css';
 import '@/assets/styles/index.scss';
@@ -17,6 +20,10 @@ import 'prismjs/plugins/toolbar/prism-toolbar.css';
 import 'prismjs/plugins/line-numbers/prism-line-numbers.css';
 
 import '@/assets/styles/markdown.scss';
+
+// ECharts 主题需要在应用初始化时注册，所有图表组件才能通过主题名称复用。
+registerTheme('vintage', vintageTheme);
+registerTheme('dark', darkTheme);
 
 const app = createApp(App);
 
