@@ -46,6 +46,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String CURRENT_USER_API = API_PREFIX + "/users/me";
     private static final String CURRENT_USER_API_PREFIX = CURRENT_USER_API + "/";
     private static final String MESSAGE_API = API_PREFIX + "/messages";
+    private static final String NOTIFICATION_API = API_PREFIX + "/notifications";
     private static final Pattern ARTICLE_COMMENT_API_PATTERN = Pattern.compile("^" + API_PREFIX + "/articles/[^/]+/comments$");
     private static final Pattern ARTICLE_DETAIL_API_PATTERN = Pattern.compile("^" + API_PREFIX + "/articles/[^/]+$");
     private static final Pattern ARTICLE_LIKE_API_PATTERN = Pattern.compile("^" + API_PREFIX + "/articles/[^/]+/like$");
@@ -234,6 +235,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return path.startsWith(ADMIN_API_PREFIX)
                 || path.equals(CURRENT_USER_API)
                 || path.startsWith(CURRENT_USER_API_PREFIX)
+                || path.equals(NOTIFICATION_API)
+                || path.startsWith(NOTIFICATION_API + "/")
                 || ("GET".equals(request.getMethod()) && ARTICLE_DETAIL_API_PATTERN.matcher(path).matches())
                 || (isLikeMutationRequest(request) && ARTICLE_LIKE_API_PATTERN.matcher(path).matches())
                 || (isLikeMutationRequest(request) && COMMENT_LIKE_API_PATTERN.matcher(path).matches())

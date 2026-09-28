@@ -4,6 +4,7 @@ import type {
 	AdminMessagePageData,
 	AdminMessagePageResponse,
 	CreateMessageReplyRequest,
+	CreateAnnouncementRequest,
 	MessageBatchApprovalRequest,
 	MessageModerationRequest,
 	MessageMutationData,
@@ -15,6 +16,7 @@ const ADMIN_MESSAGE_API = {
 	moderateMessage: (messageId: number) => `admin/messages/${messageId}/moderation`,
 	replyMessage: (messageId: number) => `admin/messages/${messageId}/replies`,
 	approveMessages: 'admin/messages/batch-approval',
+	createAnnouncement: 'admin/messages/announcements',
 } as const;
 
 // 获取后台留言分页列表接口
@@ -51,6 +53,16 @@ export const replyMessage = (
 export const approveMessages = (data: MessageBatchApprovalRequest): Promise<null> => {
 	return request.patch<{ data: null }, null, MessageBatchApprovalRequest>(
 		ADMIN_MESSAGE_API.approveMessages,
+		data,
+	);
+};
+
+// 发布并置顶公告留言接口
+export const createAnnouncement = (
+	data: CreateAnnouncementRequest,
+): Promise<MessageMutationData> => {
+	return request.post<MessageMutationResponse, MessageMutationData, CreateAnnouncementRequest>(
+		ADMIN_MESSAGE_API.createAnnouncement,
 		data,
 	);
 };

@@ -6,6 +6,7 @@ describe('P0 route contract', () => {
 		const publicNames = publicRoutes.map((route) => route.name);
 		const adminNames = adminRoutes.map((route) => route.name);
 		const rootNames = routes.map((route) => route.name);
+		expect(publicNames).not.toContain('Notifications');
 		const authLayout = routes.find((route) => route.name === 'AuthLayout');
 		const authNames = authLayout?.children?.map((route) => route.name) ?? [];
 		const categoryRoute = publicRoutes.find((route) => route.name === 'Category');

@@ -6,10 +6,7 @@ import com.ccsanjuu.blog.modules.audit.annotation.AdminAudit;
 import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditAction;
 import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditResourceType;
 import com.ccsanjuu.blog.modules.auth.model.security.JwtPrincipal;
-import com.ccsanjuu.blog.modules.message.model.dto.CreateMessageReplyRequestDTO;
-import com.ccsanjuu.blog.modules.message.model.dto.MessageBatchApprovalRequestDTO;
-import com.ccsanjuu.blog.modules.message.model.dto.MessageModerationRequestDTO;
-import com.ccsanjuu.blog.modules.message.model.dto.MessagePageQueryDTO;
+import com.ccsanjuu.blog.modules.message.model.dto.*;
 import com.ccsanjuu.blog.modules.message.model.vo.AdminMessageItemVO;
 import com.ccsanjuu.blog.modules.message.model.vo.MessageMutationVO;
 import com.ccsanjuu.blog.modules.message.service.MessageService;
@@ -117,5 +114,23 @@ public class AdminMessageController {
     ) {
         messageService.approveMessages(principal.userId(), requestDTO);
         return Result.success(null);
+    }
+
+    /**
+     * 创建并置顶管理员公告留言。
+     *
+     * @param requestDTO 公告内容
+     * @param principal 当前管理员
+     * @return 公告留言
+     */
+    @PostMapping("/announcements")
+    @Operation(description = "创建管理员公告留言")
+    @AdminAudit(resourceType = AdminAuditResourceType.MESSAGE, action = AdminAuditAction.CREATE,
+            resourceId = "#result.data.id")
+    public Result<MessageMutationVO> createAnnouncement(
+            @Valid @RequestBody CreateMessageRequestDTO requestDTO,
+            @AuthenticationPrincipal JwtPrincipal principal
+    ) {
+        return Result.success(messageService.createAnnouncement(principal.userId(), requestDTO));
     }
 }

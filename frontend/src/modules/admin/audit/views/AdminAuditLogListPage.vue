@@ -320,6 +320,7 @@ function getResourceTypeLabel(resourceType: AuditResourceType) {
 		[AUDIT_RESOURCE_TYPE.TAG]: '标签',
 		[AUDIT_RESOURCE_TYPE.COMMENT]: '评论',
 		[AUDIT_RESOURCE_TYPE.MESSAGE]: '留言',
+		[AUDIT_RESOURCE_TYPE.NOTIFICATION]: '管理员消息',
 		[AUDIT_RESOURCE_TYPE.FILE]: '文件',
 		[AUDIT_RESOURCE_TYPE.ABOUT_PAGE]: '关于页面',
 	}[resourceType];

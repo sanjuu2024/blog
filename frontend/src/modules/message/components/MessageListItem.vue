@@ -36,6 +36,13 @@
 				</GuestUserPopover>
 				<strong>{{ item.author?.nickname || item.nickname }}</strong>
 				<el-tag
+					v-if="item.isAnnouncement"
+					type="warning"
+					size="small"
+				>
+					公告
+				</el-tag>
+				<el-tag
 					v-if="item.status !== MESSAGE_STATUS.APPROVED"
 					:size="'small'"
 					:type="statusTagType(item.status)"

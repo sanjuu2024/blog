@@ -30,6 +30,8 @@ export interface PublicMessageItem {
 	id: number;
 	nickname: string;
 	content: string;
+	isAnnouncement?: boolean;
+	isPinned?: boolean;
 	status: MessageStatus;
 	moderationReason: string | null;
 	author: MessageAuthor | null;
@@ -55,6 +57,8 @@ export interface MessageMutationData {
 	parentId: number | null;
 	nickname: string;
 	content: string;
+	isAnnouncement?: boolean;
+	isPinned?: boolean;
 	status: MessageStatus;
 	moderationReason: string | null;
 	author: MessageAuthor | null;

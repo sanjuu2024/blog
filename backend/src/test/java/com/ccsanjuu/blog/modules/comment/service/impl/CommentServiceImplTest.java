@@ -29,6 +29,7 @@ import com.ccsanjuu.blog.modules.comment.model.vo.CommentLikeMutationVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentMutationVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.PublicCommentItemVO;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
+import com.ccsanjuu.blog.modules.notification.service.NotificationService;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
 import com.ccsanjuu.blog.modules.user.model.enums.UserStatus;
@@ -91,6 +92,9 @@ class CommentServiceImplTest {
     private StringRedisTemplate stringRedisTemplate;
 
     @Mock
+    private NotificationService notificationService;
+
+    @Mock
     private ValueOperations<String, String> valueOperations;
 
     private CommentServiceImpl commentService;
@@ -102,7 +106,7 @@ class CommentServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        commentService = new CommentServiceImpl(articleMapper, commentMapper, commentLikeMapper, userMapper, stringRedisTemplate);
+        commentService = new CommentServiceImpl(articleMapper, commentMapper, commentLikeMapper, userMapper, stringRedisTemplate, notificationService);
         ReflectionTestUtils.setField(commentService, "baseMapper", commentMapper);
         ReflectionTestUtils.setField(commentService, "entityClass", Comment.class);
         ReflectionTestUtils.setField(commentService, "mapperClass", CommentMapper.class);

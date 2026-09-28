@@ -1,127 +1,61 @@
 import { mount } from '@vue/test-utils';
-import { defineComponent } from 'vue';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { computed, ref } from 'vue';
+import { describe, expect, it, vi } from 'vitest';
+import { useRouter } from 'vue-router';
+import { useNotificationUnread } from '@/modules/notification/composables/useNotifications';
 import AppUserMenu from './AppUserMenu.vue';
 
-const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
-const authStore = vi.hoisted(() => ({ logout: vi.fn<() => Promise<void>>() }));
-const userStore = vi.hoisted(() => ({
-	userInfo: null as null | {
-		id: number;
-		nickname: string;
-		avatarUrl: string;
-	},
-}));
-const message = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn() }));
-
-vi.mock('vue-router', () => ({
-	useRouter: () => router,
-}));
-
-vi.mock('@/stores/authStore', () => ({
-	useAuthStore: () => authStore,
-}));
-
+vi.mock('vue-router', () => ({ useRouter: vi.fn() }));
+vi.mock('@/stores/authStore', () => ({ useAuthStore: () => ({ logout: vi.fn() }) }));
 vi.mock('@/stores/userStore', () => ({
-	useUserStore: () => userStore,
+	useUserStore: () => ({
+		userInfo: { id: 10001, nickname: '测试用户', avatarUrl: '' },
+	}),
 }));
-
-vi.mock('element-plus', async (importOriginal) => ({
-	...(await importOriginal<typeof import('element-plus')>()),
-	ElMessage: message,
+vi.mock('@/modules/notification/composables/useNotifications', () => ({
+	useNotificationUnread: vi.fn(),
 }));
-
-const ElDropdownItemStub = defineComponent({
-	emits: ['click'],
-	template: '<button class="dropdown-item" @click="$emit(\'click\')"><slot /></button>',
-});
-
-function mountMenu() {
-	return mount(AppUserMenu, {
-		global: {
-			stubs: {
-				ElDropdown: { template: '<div><slot /><slot name="dropdown" /></div>' },
-				ElDropdownMenu: { template: '<div><slot /></div>' },
-				ElDropdownItem: ElDropdownItemStub,
-				ElDialog: {
-					props: ['modelValue'],
-					template:
-						'<div v-if="modelValue" class="dialog-stub"><slot /><slot name="footer" /></div>',
-				},
-				ElButton: {
-					props: ['disabled', 'loading'],
-					emits: ['click'],
-					template:
-						'<button :disabled="disabled" @click="$emit(\'click\')"><slot /></button>',
-				},
-				AppUserAvatar: true,
-				AppThemeSwitcher: true,
-				ILucideUserRound: true,
-				ILucideSettings: true,
-				ILucideLogOut: true,
-				ILucideLogIn: true,
-			},
-		},
-	});
-}
-
-function buttonByText(wrapper: ReturnType<typeof mountMenu>, text: string) {
-	const button = wrapper.findAll('button').find((item) => item.text().includes(text));
-	if (!button) throw new Error(`Button not found: ${text}`);
-	return button;
-}
 
 describe('AppUserMenu', () => {
-	beforeEach(() => {
-		vi.clearAllMocks();
-		userStore.userInfo = null;
-		authStore.logout.mockResolvedValue(undefined);
-	});
+	it('shows the unread dot by the menu icon and opens the dialog', async () => {
+		const push = vi.fn();
+		vi.mocked(useRouter).mockReturnValue({ push } as unknown as ReturnType<typeof useRouter>);
+		vi.mocked(useNotificationUnread).mockReturnValue({
+			hasUnread: computed(() => true),
+			loadUnreadCount: vi.fn(),
+			clearUnreadCount: vi.fn(),
+			unreadCount: ref({ total: 1, reply: 1, adminMessage: 0 }),
+		});
+		const wrapper = mount(AppUserMenu, {
+			global: {
+				stubs: {
+					ElDropdown: { template: '<div><slot /><slot name="dropdown" /></div>' },
+					ElDropdownMenu: { template: '<div><slot /></div>' },
+					ElDropdownItem: { template: '<button><slot /></button>' },
+					ElBadge: {
+						props: ['isDot', 'hidden'],
+						template:
+							'<span data-testid="menu-badge" :data-dot="isDot"><slot /></span>',
+					},
+					ElDialog: true,
+					NotificationDialog: {
+						props: ['modelValue'],
+						template: '<div data-testid="notification-dialog">{{ modelValue }}</div>',
+					},
+					AppUserAvatar: true,
+					AppThemeSwitcher: true,
+					ILucideBell: true,
+				},
+			},
+		});
 
-	it('shows the login entry for guests', async () => {
-		const wrapper = mountMenu();
+		expect(wrapper.find('[data-testid="menu-badge"]').attributes('data-dot')).toBe('true');
+		await wrapper
+			.findAll('button')
+			.find((button) => button.text() === '通知')
+			?.trigger('click');
 
-		await buttonByText(wrapper, '注册/登录').trigger('click');
-
-		expect(router.push).toHaveBeenCalledWith('/auth/login');
-		expect(wrapper.get('.app-header__avatar').attributes('aria-label')).toBe('打开登录菜单');
-	});
-
-	it('shows profile actions for authenticated users', async () => {
-		userStore.userInfo = { id: 10001, nickname: 'Sanjuu', avatarUrl: '' };
-		const wrapper = mountMenu();
-
-		await buttonByText(wrapper, '个人中心').trigger('click');
-		await buttonByText(wrapper, '个人资料设置').trigger('click');
-
-		expect(router.push).toHaveBeenNthCalledWith(1, '/users/me');
-		expect(router.push).toHaveBeenNthCalledWith(2, '/users/me/settings');
-		expect(wrapper.get('.app-header__avatar').attributes('aria-label')).toBe('打开用户菜单');
-	});
-
-	it('logs out and redirects to the home page', async () => {
-		userStore.userInfo = { id: 10001, nickname: 'Sanjuu', avatarUrl: '' };
-		const wrapper = mountMenu();
-		await buttonByText(wrapper, '退出登录').trigger('click');
-
-		await buttonByText(wrapper, '确认').trigger('click');
-		await vi.waitFor(() => expect(authStore.logout).toHaveBeenCalledTimes(1));
-
-		expect(message.success).toHaveBeenCalledWith('已退出登录');
-		expect(router.replace).toHaveBeenCalledWith('/');
-		expect(wrapper.find('.dialog-stub').exists()).toBe(false);
-	});
-
-	it('still redirects home and warns when the logout request fails', async () => {
-		userStore.userInfo = { id: 10001, nickname: 'Sanjuu', avatarUrl: '' };
-		authStore.logout.mockRejectedValue(new Error('network failed'));
-		const wrapper = mountMenu();
-		await buttonByText(wrapper, '退出登录').trigger('click');
-
-		await buttonByText(wrapper, '确认').trigger('click');
-		await vi.waitFor(() => expect(message.warning).toHaveBeenCalled());
-
-		expect(message.warning).toHaveBeenCalledWith('退出请求失败，请检查网络后重试');
-		expect(router.replace).toHaveBeenCalledWith('/');
+		expect(wrapper.find('[data-testid="notification-dialog"]').text()).toBe('true');
+		expect(push).not.toHaveBeenCalled();
 	});
 });

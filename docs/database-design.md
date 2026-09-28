@@ -37,7 +37,7 @@
 | P2 使用 | `blog_comment_like` | 评论点赞明细，仅支持登录用户 |
 | P2 使用 | `blog_about_page` | 后台可编辑的单例关于页 Markdown 内容 |
 | P2 使用 | `blog_article_daily_stat` | 文章有效浏览每日聚合 |
-| P2 使用 | `blog_notification` | 回复通知、管理员消息和公告内容 |
+| P2 使用 | `blog_notification` | 回复通知和管理员消息内容 |
 | P2 使用 | `blog_notification_recipient` | 登录用户通知收件与已读状态 |
 | P2 使用 | `blog_mail_delivery` | 回复通知邮件投递状态与重试记录 |
 | P2 使用 | `blog_user_recovery_code` | 管理员 TOTP 一次性恢复码哈希 |
@@ -61,7 +61,7 @@
 - 统计字段如 `comment_count`、`like_count` 放在主表冗余，行为明细拆分到独立表
 - P2 浏览去重使用 Redis 一小时 key，PostgreSQL 只保存文章总量和每日聚合，不保存完整访问轨迹
 - 匿名访客 token 只保存在 HttpOnly Cookie；数据库和 Redis 只保存不可逆哈希
-- 站内通知内容与用户收件状态分表；游客公告不创建收件记录，也不保存已读状态
+- 站内通知内容与用户收件状态分表；留言板公告不创建通知收件记录，也不保存已读状态
 - `blog_article.comment_count` 统计文章下全部 `APPROVED` 评论，包括顶层评论和回复
 - 分类采用树形结构建模，当前业务约束为两级分类
 - 数据库不创建业务表之间的物理外键，统一使用逻辑外键；关联完整性、删除校验和级联清理由应用层负责
@@ -90,7 +90,7 @@
 | `blog_comment_like` | `user_id` | `blog_user.id` | 评论点赞只允许未禁用登录用户 |
 | `blog_about_page` | `updated_by` | `blog_user.id` | 只有管理员可以保存关于页 |
 | `blog_article_daily_stat` | `article_id` | `blog_article.id` | 只聚合公开已发布文章的有效浏览 |
-| `blog_notification` | `created_by` | `blog_user.id` | 自动通知可为空；管理员消息和公告必须记录创建管理员 |
+| `blog_notification` | `created_by` | `blog_user.id` | 自动通知可为空；管理员消息必须记录创建管理员 |
 | `blog_notification_recipient` | `notification_id` | `blog_notification.id` | 创建收件记录前必须确认通知已发布或正在同一事务发布 |
 | `blog_notification_recipient` | `user_id` | `blog_user.id` | 只为存在的登录用户创建收件和已读状态 |
 | `blog_user_recovery_code` | `user_id` | `blog_user.id` | 仅为已启用 TOTP 的管理员生成恢复码 |
@@ -675,9 +675,9 @@ CREATE INDEX idx_blog_article_daily_stat_date
 CREATE TABLE blog_notification (
     id BIGSERIAL PRIMARY KEY,
     type VARCHAR(30) NOT NULL
-        CHECK (type IN ('COMMENT_REPLY', 'MESSAGE_REPLY', 'ADMIN_MESSAGE', 'ANNOUNCEMENT')),
+        CHECK (type IN ('COMMENT_REPLY', 'MESSAGE_REPLY', 'ADMIN_MESSAGE')),
     target_scope VARCHAR(30) NOT NULL
-        CHECK (target_scope IN ('SELECTED_USERS', 'ALL_USERS', 'ALL_VISITORS')),
+        CHECK (target_scope IN ('SELECTED_USERS', 'ALL_USERS')),
     title VARCHAR(100) NOT NULL,
     content TEXT NOT NULL CHECK (char_length(content) BETWEEN 1 AND 2000),
     status VARCHAR(20) NOT NULL DEFAULT 'PUBLISHED'
@@ -691,15 +691,18 @@ CREATE TABLE blog_notification (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_blog_notification_public
-    ON blog_notification (target_scope, status, published_at DESC, id DESC);
+CREATE INDEX idx_blog_notification_created
+    ON blog_notification (created_at DESC, id DESC);
+
+CREATE INDEX idx_blog_notification_status_created
+    ON blog_notification (status, created_at DESC, id DESC);
 ```
 
 - 自动回复通知使用 `SELECTED_USERS`；管理员消息使用 `SELECTED_USERS` 或 `ALL_USERS`
-- 公告使用 `ALL_USERS` 或 `ALL_VISITORS`，支持草稿、发布和下线；`ALL_VISITORS` 表示公开给站点所有访问者，也包含登录用户
-- 管理员消息和公告第一版只保存并按纯文本展示；`title` 最长 100 个字符，`content` 最长 2000 个字符
-- 发布 `ALL_VISITORS` 公告时仍为当前启用用户生成收件记录，使登录用户具有未读红点；未登录游客只查询公开公告，不产生已读记录
-- 新用户注册时为仍处于发布状态的 `ALL_VISITORS` 公告补收件记录；历史 `ALL_USERS` 消息不补发给注册后的新用户
+- 管理员消息使用 `SELECTED_USERS` 或 `ALL_USERS`，只生成登录用户收件记录
+- 公告不使用 `blog_notification`，而是作为 `blog_message_board` 的管理员顶层留言保存
+- 管理员消息第一版只保存并按纯文本展示；`title` 最长 100 个字符，`content` 最长 2000 个字符
+- 指定用户草稿的收件人保存在 `blog_notification_recipient`，但草稿不对用户可见；全部用户草稿在首次发布时才生成收件记录
 
 ## 4.7 P2 使用表：`blog_notification_recipient`
 
@@ -789,6 +792,8 @@ CREATE TABLE IF NOT EXISTS blog_message_board (
     nickname VARCHAR(50) NOT NULL DEFAULT '',
     email VARCHAR(255) NOT NULL DEFAULT '',
     content TEXT NOT NULL,
+    is_announcement BOOLEAN NOT NULL DEFAULT FALSE,
+    is_pinned BOOLEAN NOT NULL DEFAULT FALSE,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
         CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'HIDDEN', 'DELETED')),
     notify_on_reply BOOLEAN NOT NULL DEFAULT FALSE,
@@ -811,6 +816,9 @@ CREATE INDEX IF NOT EXISTS idx_blog_message_board_user_id
 CREATE INDEX IF NOT EXISTS idx_blog_message_board_parent_status_created
     ON blog_message_board (parent_id, status, created_at, id);
 
+CREATE INDEX IF NOT EXISTS idx_blog_message_board_public_sort
+    ON blog_message_board (parent_id, status, is_pinned DESC, created_at DESC, id DESC);
+
 CREATE UNIQUE INDEX IF NOT EXISTS uq_blog_message_board_unsubscribe_token
     ON blog_message_board (unsubscribe_token)
     WHERE unsubscribe_token IS NOT NULL;
@@ -826,6 +834,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_blog_message_board_unsubscribe_token
 | `nickname` | `VARCHAR(50)` | 留言昵称；登录用户保存当前昵称快照，游客必填 | `路人甲` |
 | `email` | `VARCHAR(255)` | 私有联系邮箱，游客可选；管理员可查看，前台不返回 | `guest@example.com` |
 | `content` | `TEXT` | 留言内容 | `博客很清爽，期待评论功能上线` |
+| `is_announcement` | `BOOLEAN` | 是否为管理员公告顶层留言 | `true` |
+| `is_pinned` | `BOOLEAN` | 是否置顶；同一时间只允许一条置顶公告 | `true` |
 | `status` | `VARCHAR(20)` | 留言状态 | `PENDING`、`APPROVED`、`REJECTED`、`HIDDEN`、`DELETED` |
 | `notify_on_reply` | `BOOLEAN` | 是否接收该顶层留言的后续回复通知 | `TRUE` |
 | `unsubscribe_token` | `VARCHAR(128)` | 随机退订令牌，仅用于该顶层留言通知退订 | `随机不透明字符串` |
@@ -880,7 +890,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_admin_audit_log_action_result_created
 | `id` | `BIGSERIAL` | 审计日志主键和稳定排序标识 |
 | `operator_id` | `BIGINT` | 操作管理员用户 ID |
 | `operator_username` | `VARCHAR(20)` | 操作时的用户名快照 |
-| `resource_type` | `VARCHAR(30)` | 目标资源类型，如 `ARTICLE`、`COMMENT`、`MESSAGE` |
+| `resource_type` | `VARCHAR(30)` | 目标资源类型，如 `ARTICLE`、`COMMENT`、`MESSAGE`、`NOTIFICATION` |
 | `resource_id` | `TEXT` | 目标 ID、批量 ID 列表或 OSS 公开 URL；无结果时为空 |
 | `action` | `VARCHAR(30)` | 操作类型，如 `CREATE`、`MODERATE`、`UPLOAD` |
 | `action_detail` | `VARCHAR(255)` | 状态、审核动作或上传场景等非敏感明细 |
@@ -1028,5 +1038,5 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 - P2 所有新表、字段、约束和索引都必须使用新的 Flyway migration；本节目标 SQL 不能用于修改已执行的历史 migration
 - 文章/评论点赞明细与冗余计数必须事务一致；游客点赞不与登录账号自动合并
 - 浏览去重 key 只保存在 Redis 一小时，PostgreSQL 保存文章总量和每日聚合
-- 通知收件记录只面向登录用户；游客公告不保存已读状态
+- 通知收件记录只面向登录用户；留言板公告不保存通知已读状态
 - 邮件投递失败原因只能保存安全摘要，手动重试根据业务关联重新生成正文

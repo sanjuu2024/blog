@@ -68,6 +68,19 @@ describe('usePublicMessageList', () => {
 		expect(listMessages).not.toHaveBeenCalled();
 	});
 
+	it('inserts a new message after the pinned announcement', async () => {
+		vi.mocked(createMessage).mockResolvedValue({ ...mutation(), id: 90003, isMine: true });
+		const { messageList, submitMessage } = usePublicMessageList();
+		messageList.value = [
+			{ ...mutation(), id: 90002, isAnnouncement: true, isPinned: true },
+			{ ...mutation(), id: 90001, isAnnouncement: true, isPinned: false },
+		];
+
+		await submitMessage({ content: '留言内容' });
+
+		expect(messageList.value.map((item) => item.id)).toEqual([90002, 90003, 90001]);
+	});
+
 	it('appends the next page when loading more', async () => {
 		vi.mocked(listMessages)
 			.mockResolvedValueOnce(

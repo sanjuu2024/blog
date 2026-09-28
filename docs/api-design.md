@@ -2325,7 +2325,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 路由：`GET /api/v1/messages`
 - 权限：`PUBLIC`，可选携带 Access Token
 - 只分页返回顶层留言；每条顶层留言携带其管理员回复。游客只能看到 `APPROVED`，登录用户还可看到自己 `PENDING`、`REJECTED` 的顶层留言。
-- 顶层留言按 `created_at DESC, id DESC` 排序，回复按 `created_at ASC, id ASC` 排序；不返回邮箱。
+- 顶层留言仅当前 `is_pinned=true` 的公告优先，其余公告和普通留言统一按 `created_at DESC, id DESC` 排序；回复按 `created_at ASC, id ASC` 排序，不返回邮箱。
+- 公告是管理员发表的留言板顶层内容，不单独提供公告页，不进入站内通知中心，也不生成用户收件记录。
 - 不携带 Access Token 时按游客身份处理；请求一旦携带 Token，Token 无效或过期必须返回 HTTP `401`，不能静默降级为游客，否则会隐藏当前用户自己的非公开留言。
 
 ### 12.2 发表留言
@@ -2396,7 +2397,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | Query | `pageNum` | `Integer` | 否 | 页码，默认 `1` |
 | Query | `pageSize` | `Integer` | 否 | 每页条数，默认 `10` |
 | Query | `operatorId` | `Long` | 否 | 操作者用户 ID |
-| Query | `resourceType` | `String` | 否 | `USER`、`ARTICLE`、`CATEGORY`、`TAG`、`COMMENT`、`MESSAGE`、`FILE` 或 `ABOUT_PAGE` |
+| Query | `resourceType` | `String` | 否 | `USER`、`ARTICLE`、`CATEGORY`、`TAG`、`COMMENT`、`MESSAGE`、`NOTIFICATION`、`FILE` 或 `ABOUT_PAGE` |
 | Query | `resourceId` | `String` | 否 | 目标资源 ID、批量 ID 列表或对象 URL，支持模糊匹配 |
 | Query | `action` | `String` | 否 | 操作类型 |
 | Query | `result` | `String` | 否 | `SUCCESS` 或 `FAILURE` |
@@ -2542,7 +2543,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - P1 阶段补充后台管理操作审计日志，记录操作者用户 ID、用户名快照、目标资源类型与标识、操作类型、操作结果、失败业务码、请求方法、请求路径和操作时间
 - 审计日志只允许追加和查询；成功日志与业务操作同事务提交，失败日志在业务事务回滚后以独立事务提交
 - 审计日志不记录请求体、查询参数、密码、Token、邮箱、评论或留言正文、文件原名等敏感值
-- P2 站点页面保存、管理员消息/公告创建与状态变更、邮件投递手动重试必须写入后台审计日志
+- P2 站点页面保存、管理员消息创建与状态变更、公告留言发布、邮件投递手动重试必须写入后台审计日志
 - 邮箱验证码、TOTP 启停、TOTP 登录挑战和恢复码使用写入脱敏安全日志，不记录验证码、secret、恢复码或完整邮箱
 
 ## 15. 后续版本预留接口
@@ -2630,7 +2631,7 @@ Dashboard 不再接收全局 `range` 参数。接口一次返回六个指标的�
 文章列表、文章详情和评论响应增加 `likeCount`；文章响应增加当前访问主体的 `liked`，评论响应
 为登录用户返回 `liked`。未携带登录态时评论 `liked=false`。
 
-### 16.5 站内通知、管理员消息与公告
+### 16.5 站内通知与管理员消息
 
 | 方法 | 路径 | 权限 | 说明 |
 | --- | --- | --- | --- |
@@ -2638,21 +2639,20 @@ Dashboard 不再接收全局 `range` 参数。接口一次返回六个指标的�
 | `GET` | `/api/v1/notifications/unread-count` | `LOGIN` | 获取未读总数和分类数量 |
 | `PATCH` | `/api/v1/notifications/{notificationId}/read` | `LOGIN` | 幂等标记单条已读 |
 | `PATCH` | `/api/v1/notifications/read-all` | `LOGIN` | 幂等标记全部或指定分类已读 |
-| `GET` | `/api/v1/announcements` | `PUBLIC` | 获取当前有效的访客公告，无已读状态 |
-| `GET` | `/api/v1/admin/notifications` | `ADMIN` | 查询管理员消息与公告 |
-| `POST` | `/api/v1/admin/notifications` | `ADMIN` | 创建管理员消息或公告 |
+| `GET` | `/api/v1/admin/notifications` | `ADMIN` | 查询管理员消息 |
+| `POST` | `/api/v1/admin/notifications` | `ADMIN` | 创建管理员消息 |
 | `PUT` | `/api/v1/admin/notifications/{notificationId}` | `ADMIN` | 更新草稿内容或目标范围 |
-| `PATCH` | `/api/v1/admin/notifications/{notificationId}/status` | `ADMIN` | 发布或下线公告 |
+| `PATCH` | `/api/v1/admin/notifications/{notificationId}/status` | `ADMIN` | 发布或下线管理员消息 |
+| `POST` | `/api/v1/admin/messages/announcements` | `ADMIN` | 发布并置顶留言板公告 |
 
-用户端分类固定为 `ALL`、`REPLY`、`ADMIN_MESSAGE`、`ANNOUNCEMENT`；`REPLY` 合并数据库中的
-`COMMENT_REPLY` 与 `MESSAGE_REPLY`。管理员创建的类型只允许 `ADMIN_MESSAGE`、`ANNOUNCEMENT`。
-目标范围只允许指定用户、全部启用用户和全部访客；全部访客只适用于公告。`ALL_VISITORS`
-表示公开给站点所有访问者，也包含登录用户；发布时为当前启用用户生成收件记录，使其具有未读红点，
-未登录游客只通过公开接口读取且不保存已读状态。新用户注册时补入仍有效公开公告的收件记录，
-不补发历史 `ALL_USERS` 管理员消息。
+用户端分类固定为 `ALL`、`REPLY`、`ADMIN_MESSAGE`；`REPLY` 合并数据库中的
+`COMMENT_REPLY` 与 `MESSAGE_REPLY`。管理员创建的类型只允许 `ADMIN_MESSAGE`。
+前端通知由头像菜单中的弹窗展示，没有独立路由；每条通知可展开或收起，展开时标记已读。
+目标范围只允许指定用户和全部启用用户。公告不使用通知收件模型，而是通过留言板公开展示。
+创建管理员消息可指定 `DRAFT` 或 `PUBLISHED`，默认直接发布；草稿可修改标题、正文与收件范围。首次发布草稿时生成全部用户的收件记录；指定用户必须全部存在且启用。已发布消息只能下线，下线后可重新发布，不能退回草稿。
 
 评论直接回复审核通过后创建 `COMMENT_REPLY`；管理员回复登录用户留言后创建 `MESSAGE_REPLY`。
-站内通知不依赖邮件订阅，邮件失败也不回滚通知。游客公告没有已读状态和未读红点。
+站内通知不依赖邮件订阅，邮件失败也不回滚通知。公告通过留言板展示，不生成通知收件记录和未读红点。
 
 ### 16.6 邮件投递管理
 

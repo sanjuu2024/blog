@@ -24,10 +24,24 @@
 				v-else
 				class="app-header__guest-icon"
 			/>
+			<span
+				v-if="userStore.userInfo && hasUnread"
+				class="app-header__notification-dot"
+				aria-label="有未读通知"
+			/>
 		</button>
 		<template #dropdown>
 			<el-dropdown-menu>
 				<template v-if="userStore.userInfo">
+					<el-dropdown-item @click="notificationDialogVisible = true">
+						<el-badge
+							:is-dot="hasUnread"
+							:hidden="!hasUnread"
+						>
+							<i-lucide-bell />
+						</el-badge>
+						<span>通知</span>
+					</el-dropdown-item>
 					<el-dropdown-item @click="router.push('/users/me')">
 						<i-lucide-user-round />
 						<span>个人中心</span>
@@ -58,6 +72,8 @@
 		</template>
 	</el-dropdown>
 
+	<NotificationDialog v-model="notificationDialogVisible" />
+
 	<el-dialog
 		v-model="logoutDialogVisible"
 		title="退出登录"
@@ -85,18 +101,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserStore } from '@/stores/userStore';
+import { useNotificationUnread } from '@/modules/notification/composables/useNotifications';
+import NotificationDialog from '@/modules/notification/components/NotificationDialog.vue';
 
 const authStore = useAuthStore();
 const userStore = useUserStore();
 const router = useRouter();
+const { hasUnread, loadUnreadCount, clearUnreadCount } = useNotificationUnread();
 
 const logoutDialogVisible = ref(false);
 const logoutSubmitting = ref(false);
+const notificationDialogVisible = ref(false);
+
+watch(
+	() => userStore.userInfo?.id,
+	(userId) => {
+		clearUnreadCount();
+		if (!userId) notificationDialogVisible.value = false;
+		if (userId) loadUnreadCount();
+	},
+	{ immediate: true },
+);
 function openLogoutDialog() {
 	logoutDialogVisible.value = true;
 }
@@ -112,6 +142,7 @@ withDefaults(
 
 function handleAvatarPointerEnter(event: PointerEvent) {
 	const trigger = event.currentTarget;
+	if (userStore.userInfo) loadUnreadCount();
 
 	// Element Plus Dropdown 会在 hover 打开时主动 focus trigger。
 	// 鼠标悬浮不应该留下键盘焦点，所以等框架完成 focus 后再清掉。
@@ -147,6 +178,18 @@ async function handleLogout() {
 	display: flex;
 	align-items: center;
 	height: var(--app-header-height);
+	position: relative;
+}
+
+.app-header__notification-dot {
+	position: absolute;
+	top: 0.4rem;
+	right: 0.6rem;
+	width: 0.5rem;
+	height: 0.5rem;
+	border: 2px solid var(--app-surface);
+	border-radius: 50%;
+	background: var(--el-color-danger);
 }
 
 .app-header__avatar {
