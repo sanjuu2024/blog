@@ -64,7 +64,7 @@ class NotificationIntegrationTest {
     void draftShouldBecomeVisibleOnlyAfterPublishingAndSupportReadState() {
         User admin = createUser("notification_admin", UserRole.ADMIN);
         User recipient = createUser("notify_recipient", UserRole.USER);
-        User disabledRecipient = createUser("notify_disabled_recipient", UserRole.USER);
+        User disabledRecipient = createUser("notify_disabled", UserRole.USER);
         disabledRecipient.setStatus(UserStatus.DISABLED);
         userMapper.updateById(disabledRecipient);
         CreateAdminNotificationRequestDTO request = new CreateAdminNotificationRequestDTO();
@@ -97,8 +97,8 @@ class NotificationIntegrationTest {
 
     @Test
     void disabledSelectedUserShouldReadNotificationAfterReactivation() {
-        User admin = createUser("selected_notification_admin", UserRole.ADMIN);
-        User recipient = createUser("selected_disabled_recipient", UserRole.USER);
+        User admin = createUser("selected_notif_admin", UserRole.ADMIN);
+        User recipient = createUser("selected_disabled", UserRole.USER);
         recipient.setStatus(UserStatus.DISABLED);
         userMapper.updateById(recipient);
 
@@ -120,7 +120,7 @@ class NotificationIntegrationTest {
     @Test
     void selectedDraftShouldCreateRecipientOnlyWhenPublished() {
         User admin = createUser("selected_draft_admin", UserRole.ADMIN);
-        User recipient = createUser("selected_draft_recipient", UserRole.USER);
+        User recipient = createUser("selected_draft_user", UserRole.USER);
         CreateAdminNotificationRequestDTO request = new CreateAdminNotificationRequestDTO();
         request.setTargetScope(NotificationTargetScope.SELECTED_USERS);
         request.setUserId(recipient.getId());
