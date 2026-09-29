@@ -361,4 +361,5 @@ class MessageServiceImplTest {
         assertEquals(MessageStatus.APPROVED, status);
         verify(notificationService).sendAfterCommit(eq(root), any(Message.class));
     }
+
 }

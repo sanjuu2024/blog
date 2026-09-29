@@ -106,7 +106,7 @@
 
 				<el-form-item
 					prop="createdAtRange"
-					label="创建时间"
+					label="留言时间"
 				>
 					<el-date-picker
 						v-model="filterForm.createdAtRange"
@@ -201,6 +201,15 @@
 						</template>
 					</el-table-column>
 					<el-table-column
+						label="留言时间"
+						align="center"
+						width="180"
+					>
+						<template #default="{ row }: { row: AdminMessageItem }">
+							{{ formatDateTime(row.createdAt) }}
+						</template>
+					</el-table-column>
+					<el-table-column
 						label="父留言 ID"
 						align="center"
 						width="110"
@@ -266,15 +275,6 @@
 					>
 						<template #default="{ row }: { row: AdminMessageItem }">
 							{{ row.moderationReason || '-' }}
-						</template>
-					</el-table-column>
-					<el-table-column
-						label="创建时间"
-						align="center"
-						width="180"
-					>
-						<template #default="{ row }: { row: AdminMessageItem }">
-							{{ formatDateTime(row.createdAt) }}
 						</template>
 					</el-table-column>
 					<el-table-column

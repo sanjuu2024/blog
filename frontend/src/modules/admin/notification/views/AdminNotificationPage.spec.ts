@@ -40,7 +40,7 @@ describe('AdminNotificationPage', () => {
 			title: '标题',
 			content: '正文',
 			targetScope: 'ALL_USERS',
-			userIds: [],
+			userId: null,
 			status: 'DRAFT',
 			createdAt: '2026-09-28T00:00:00Z',
 			publishedAt: null,
@@ -79,7 +79,7 @@ describe('AdminNotificationPage', () => {
 			title: '标题',
 			content: '正文',
 			status: 'DRAFT',
-			userIds: undefined,
+			userId: undefined,
 		});
 	});
 });

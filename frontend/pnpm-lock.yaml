@@ -67,8 +67,8 @@ importers:
         specifier: ^1.2.2
         version: 1.2.2
       '@iconify-json/lucide':
-        specifier: ^1.2.110
-        version: 1.2.110
+        specifier: ^1.2.137
+        version: 1.2.137
       '@iconify-json/material-symbols':
         specifier: ^1.2.73
         version: 1.2.73
@@ -518,8 +518,8 @@ packages:
   '@iconify-json/lets-icons@1.2.2':
     resolution: {integrity: sha512-GBCeFoWNLA5v1ZRIM54cZGpE/lHtFcSJjxXXCi2W5SxkJoPDonNoLGf61/z8eNxiBkegynClvEgCAs0YjLeZkA==}
 
-  '@iconify-json/lucide@1.2.110':
-    resolution: {integrity: sha512-rLeHqnZZBxZbprbVwf6uY7HB5GkGVgvT9VujhjvaUEqFDLKZON6zR8K1f8uD1brBwf5TJ0TIvvW8mz5u2XJU+w==}
+  '@iconify-json/lucide@1.2.137':
+    resolution: {integrity: sha512-uKz1+tFbv1RFX/mJQNksdnyKJijNfRGSNnxfiyKtr+dLNfA3ERph+IgpXClKGOlV/5GsZwLv2jgJXQ/bjF/JAg==}
 
   '@iconify-json/material-symbols@1.2.73':
     resolution: {integrity: sha512-XCZ9PiO47hofN9p8VTfLyCCJXd95OH4gIkkplkBfeZpz3K6cWYDj7oCy+rnc1AVMmoFyDEyjdEVvr+Oqz9yVTA==}
@@ -2523,6 +2523,11 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
+  semver@7.8.5:
+    resolution: {integrity: sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==}
+    engines: {node: '>=10'}
+    hasBin: true
+
   shebang-command@2.0.0:
     resolution: {integrity: sha512-kHxr2zZpYtdmrN1qDjrrX/Z1rR1kG8Dx+gkpK1G4eXmvXswmcE1hTWBWYUzlraYw1/yZp6YuDY77YtvbN0dmDA==}
     engines: {node: '>=8'}
@@ -3546,7 +3551,7 @@ snapshots:
     dependencies:
       '@iconify/types': 2.0.0
 
-  '@iconify-json/lucide@1.2.110':
+  '@iconify-json/lucide@1.2.137':
     dependencies:
       '@iconify/types': 2.0.0
 
@@ -5502,6 +5507,8 @@ snapshots:
 
   semver@7.7.4: {}
 
+  semver@7.8.5: {}
+
   shebang-command@2.0.0:
     dependencies:
       shebang-regex: 3.0.0
@@ -5921,7 +5928,7 @@ snapshots:
       eslint-visitor-keys: 5.0.1
       espree: 11.2.0
       esquery: 1.7.0
-      semver: 7.7.4
+      semver: 7.8.5
     transitivePeerDependencies:
       - supports-color
 

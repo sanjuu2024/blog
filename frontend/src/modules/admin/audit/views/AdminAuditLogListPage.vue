@@ -147,6 +147,15 @@
 						</template>
 					</el-table-column>
 					<el-table-column
+						label="操作时间"
+						align="center"
+						width="180"
+					>
+						<template #default="{ row }: { row: AdminAuditLogItem }">
+							{{ formatDateTime(row.createdAt) }}
+						</template>
+					</el-table-column>
+					<el-table-column
 						label="目标资源"
 						align="center"
 						min-width="190"
@@ -223,6 +232,7 @@
 					<el-table-column
 						label="请求"
 						min-width="250"
+						:fixed="isMobile ? false : 'right'"
 					>
 						<template #default="{ row }: { row: AdminAuditLogItem }">
 							<el-tag
@@ -237,16 +247,6 @@
 							>
 								{{ row.requestPath }}
 							</p>
-						</template>
-					</el-table-column>
-					<el-table-column
-						label="操作时间"
-						align="center"
-						width="180"
-						:fixed="isMobile ? false : 'right'"
-					>
-						<template #default="{ row }: { row: AdminAuditLogItem }">
-							{{ formatDateTime(row.createdAt) }}
 						</template>
 					</el-table-column>
 				</el-table>

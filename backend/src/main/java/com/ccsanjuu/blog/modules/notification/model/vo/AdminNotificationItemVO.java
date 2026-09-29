@@ -23,7 +23,7 @@ public class AdminNotificationItemVO {
 
     private NotificationTargetScope targetScope;
 
-    private List<Long> userIds;
+    private Long userId;
 
     private String title;
 

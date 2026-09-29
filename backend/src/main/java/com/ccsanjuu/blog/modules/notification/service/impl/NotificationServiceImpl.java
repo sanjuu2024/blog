@@ -18,6 +18,8 @@ import com.ccsanjuu.blog.modules.notification.model.vo.AdminNotificationItemVO;
 import com.ccsanjuu.blog.modules.notification.model.vo.NotificationItemVO;
 import com.ccsanjuu.blog.modules.notification.model.vo.NotificationUnreadCountVO;
 import com.ccsanjuu.blog.modules.notification.service.NotificationService;
+import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
+import com.ccsanjuu.blog.modules.user.model.entity.User;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -34,16 +36,23 @@ import java.util.List;
 public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationMapper notificationMapper;
+    private final UserMapper userMapper;
     private final TransactionTemplate replyNotificationTransaction;
 
     /**
      * 初始化回复通知独立事务。
      *
      * @param notificationMapper 通知持久层
+     * @param userMapper 用户持久层
      * @param transactionManager 事务管理器
      */
-    public NotificationServiceImpl(NotificationMapper notificationMapper, PlatformTransactionManager transactionManager) {
+    public NotificationServiceImpl(
+            NotificationMapper notificationMapper,
+            UserMapper userMapper,
+            PlatformTransactionManager transactionManager
+    ) {
         this.notificationMapper = notificationMapper;
+        this.userMapper = userMapper;
         this.replyNotificationTransaction = new TransactionTemplate(transactionManager);
         this.replyNotificationTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
@@ -68,6 +77,14 @@ public class NotificationServiceImpl implements NotificationService {
                         .type(item.getType())
                         .title(item.getTitle())
                         .content(item.getContent())
+                        .sourceId(item.getSourceId())
+                        .authorName(item.getAuthorName())
+                        .originalContent(item.getOriginalContent())
+                        .articleId(item.getArticleId())
+                        .parentId(item.getParentId())
+                        .likeCount(item.getLikeCount())
+                        .liked(item.getLiked())
+                        .canInteract(item.getCanInteract())
                         .read(Boolean.TRUE.equals(item.getRead()))
                         .createdAt(item.getCreatedAt())
                         .build())
@@ -127,7 +144,8 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public AdminNotificationItemVO createAdminMessage(Long adminId, CreateAdminNotificationRequestDTO requestDTO) {
-        List<Long> userIds = validateTargetScope(requestDTO.getTargetScope(), requestDTO.getUserIds());
+        Long userId = validateTargetScope(requestDTO.getTargetScope(), requestDTO.getUserId());
+        validateSelectedUser(userId);
         NotificationStatus status = requestDTO.getStatus() == null ? NotificationStatus.PUBLISHED : requestDTO.getStatus();
         if (status == NotificationStatus.OFFLINE) {
             throw new BizException(ResultCode.PARAM_INVALID);
@@ -135,6 +153,7 @@ public class NotificationServiceImpl implements NotificationService {
         Notification notification = Notification.builder()
                 .type(NotificationType.ADMIN_MESSAGE)
                 .targetScope(requestDTO.getTargetScope())
+                .selectedUserId(userId)
                 .title(requestDTO.getTitle().trim())
                 .content(requestDTO.getContent().trim())
                 .status(status)
@@ -143,10 +162,10 @@ public class NotificationServiceImpl implements NotificationService {
         notificationMapper.insertNotification(notification);
         if (requestDTO.getTargetScope() == NotificationTargetScope.ALL_USERS) {
             if (status == NotificationStatus.PUBLISHED) {
-                notificationMapper.insertRecipientsForAllUsers(notification.getId());
+                notificationMapper.insertRecipientsForAllUsers(notification.getId(), adminId);
             }
-        } else {
-            insertSelectedRecipients(notification.getId(), userIds);
+        } else if (status == NotificationStatus.PUBLISHED) {
+            insertSelectedRecipient(notification.getId(), userId, adminId);
         }
         return toAdminVO(notificationMapper.selectNotificationByIdForUpdate(notification.getId()));
     }
@@ -176,16 +195,14 @@ public class NotificationServiceImpl implements NotificationService {
         if (current.getStatus() != NotificationStatus.DRAFT) {
             throw new BizException(ResultCode.PARAM_INVALID);
         }
-        List<Long> userIds = validateTargetScope(requestDTO.getTargetScope(), requestDTO.getUserIds());
+        Long userId = validateTargetScope(requestDTO.getTargetScope(), requestDTO.getUserId());
+        validateSelectedUser(userId);
         current.setTargetScope(requestDTO.getTargetScope());
+        current.setSelectedUserId(userId);
         current.setTitle(requestDTO.getTitle().trim());
         current.setContent(requestDTO.getContent().trim());
         if (notificationMapper.updateNotification(current) != 1) {
             throw new BizException(ResultCode.RESOURCE_NOT_FOUND);
-        }
-        notificationMapper.deleteRecipients(notificationId);
-        if (current.getTargetScope() == NotificationTargetScope.SELECTED_USERS) {
-            insertSelectedRecipients(notificationId, userIds);
         }
         return toAdminVO(current);
     }
@@ -211,9 +228,12 @@ public class NotificationServiceImpl implements NotificationService {
                 || (current.getStatus() == NotificationStatus.DRAFT && target == NotificationStatus.OFFLINE)) {
             throw new BizException(ResultCode.PARAM_INVALID);
         }
-        if (current.getStatus() == NotificationStatus.DRAFT
-                && current.getTargetScope() == NotificationTargetScope.ALL_USERS) {
-            notificationMapper.insertRecipientsForAllUsers(notificationId);
+        if (current.getStatus() == NotificationStatus.DRAFT) {
+            if (current.getTargetScope() == NotificationTargetScope.ALL_USERS) {
+                notificationMapper.insertRecipientsForAllUsers(notificationId, current.getCreatedBy());
+            } else {
+                insertSelectedRecipient(notificationId, current.getSelectedUserId(), current.getCreatedBy());
+            }
         }
         current.setStatus(target);
         current.setPublishedAt(target == NotificationStatus.PUBLISHED && current.getPublishedAt() == null
@@ -327,35 +347,49 @@ public class NotificationServiceImpl implements NotificationService {
                 .sourceId(sourceId)
                 .build();
         notificationMapper.insertNotification(notification);
-        notificationMapper.insertRecipientsForUsers(notification.getId(), List.of(recipientUserId));
+        notificationMapper.insertRecipientsForUsers(notification.getId(), recipientUserId, null);
     }
 
     /**
-     * 校验消息收件范围并去重用户 ID。
+     * 校验消息收件范围并返回指定用户 ID。
      *
      * @param scope 收件范围
-     * @param userIds 指定用户 ID
-     * @return 去重后的用户 ID
+     * @param userId 指定用户 ID
+     * @return 校验后的指定用户 ID
      */
-    private List<Long> validateTargetScope(NotificationTargetScope scope, List<Long> userIds) {
-        if (scope == NotificationTargetScope.SELECTED_USERS && (userIds == null || userIds.isEmpty()
-                || userIds.stream().anyMatch(id -> id == null || id <= 0))) {
+    private Long validateTargetScope(NotificationTargetScope scope, Long userId) {
+        if (scope == NotificationTargetScope.SELECTED_USERS && (userId == null || userId <= 0)) {
             throw new BizException(ResultCode.PARAM_INVALID);
         }
-        if (scope == NotificationTargetScope.ALL_USERS && userIds != null && !userIds.isEmpty()) {
+        if (scope == NotificationTargetScope.ALL_USERS && userId != null) {
             throw new BizException(ResultCode.PARAM_INVALID);
         }
-        return userIds == null ? List.of() : userIds.stream().distinct().toList();
+        return userId;
     }
 
     /**
-     * 所有指定用户均须处于启用状态，避免消息成功但部分用户未收到。
+     * 校验指定用户仍可作为管理员消息收件人。
+     *
+     * @param userId 指定用户 ID
+     */
+    private void validateSelectedUser(Long userId) {
+        if (userId != null) {
+            User user = userMapper.selectById(userId);
+            if (user == null || user.getDeletedAt() != null) {
+                throw new BizException(ResultCode.PARAM_INVALID);
+            }
+        }
+    }
+
+    /**
+     * 所有指定用户均须存在且未被逻辑删除，避免消息成功但部分用户未收到。
      *
      * @param notificationId 通知 ID
-     * @param userIds 去重后的用户 ID
+     * @param userId 指定用户 ID
      */
-    private void insertSelectedRecipients(Long notificationId, List<Long> userIds) {
-        if (notificationMapper.insertRecipientsForUsers(notificationId, userIds) != userIds.size()) {
+    private void insertSelectedRecipient(Long notificationId, Long userId, Long excludedUserId) {
+        int expectedRows = userId.equals(excludedUserId) ? 0 : 1;
+        if (notificationMapper.insertRecipientsForUsers(notificationId, userId, excludedUserId) != expectedRows) {
             throw new BizException(ResultCode.PARAM_INVALID);
         }
     }
@@ -396,8 +430,8 @@ public class NotificationServiceImpl implements NotificationService {
                 .id(notification.getId())
                 .type(notification.getType())
                 .targetScope(notification.getTargetScope())
-                .userIds(notification.getTargetScope() == NotificationTargetScope.SELECTED_USERS
-                        ? notificationMapper.selectRecipientUserIds(notification.getId()) : List.of())
+                .userId(notification.getTargetScope() == NotificationTargetScope.SELECTED_USERS
+                        ? notification.getSelectedUserId() : null)
                 .title(notification.getTitle())
                 .content(notification.getContent())
                 .status(notification.getStatus())

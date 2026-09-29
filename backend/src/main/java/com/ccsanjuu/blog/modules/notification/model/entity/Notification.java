@@ -24,6 +24,8 @@ public class Notification {
 
     private NotificationTargetScope targetScope;
 
+    private Long selectedUserId;
+
     private String title;
 
     private String content;

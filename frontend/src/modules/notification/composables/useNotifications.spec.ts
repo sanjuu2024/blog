@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getUnreadCount, listNotifications, markNotificationRead } from '../api/notificationApi';
+import { likeComment } from '@/modules/comment/api/commentApi';
 import { useNotificationUnread, useNotifications } from './useNotifications';
 
 vi.mock('../api/notificationApi', () => ({
@@ -7,6 +8,10 @@ vi.mock('../api/notificationApi', () => ({
 	listNotifications: vi.fn(),
 	markAllNotificationsRead: vi.fn(),
 	markNotificationRead: vi.fn(),
+}));
+vi.mock('@/modules/comment/api/commentApi', () => ({
+	likeComment: vi.fn(),
+	unlikeComment: vi.fn(),
 }));
 
 describe('useNotifications', () => {
@@ -30,6 +35,14 @@ describe('useNotifications', () => {
 			type: 'COMMENT_REPLY',
 			title: '回复',
 			content: '内容',
+			sourceId: 30001,
+			authorName: '回复者',
+			originalContent: '原评论',
+			articleId: 40001,
+			parentId: 30000,
+			likeCount: 0,
+			liked: false,
+			canInteract: true,
 			read: false,
 			createdAt: '2026-09-28T00:00:00Z',
 		});
@@ -70,6 +83,14 @@ describe('useNotifications', () => {
 						type: 'ADMIN_MESSAGE',
 						title: '管理员消息',
 						content: '内容',
+						sourceId: null,
+						authorName: null,
+						originalContent: null,
+						articleId: null,
+						parentId: null,
+						likeCount: 0,
+						liked: false,
+						canInteract: false,
 						read: false,
 						createdAt: '',
 					},
@@ -91,6 +112,14 @@ describe('useNotifications', () => {
 					type: 'COMMENT_REPLY',
 					title: '回复',
 					content: '旧结果',
+					sourceId: 30001,
+					authorName: '回复者',
+					originalContent: '原评论',
+					articleId: 40001,
+					parentId: 30000,
+					likeCount: 0,
+					liked: false,
+					canInteract: true,
 					read: false,
 					createdAt: '',
 				},
@@ -99,5 +128,30 @@ describe('useNotifications', () => {
 		await firstRequest;
 
 		expect(center.notifications.value.map((item) => item.id)).toEqual([2]);
+	});
+
+	it('updates reply like count from the existing comment API', async () => {
+		vi.mocked(likeComment).mockResolvedValue({ liked: true, likeCount: 2 });
+		const center = useNotifications();
+		const comment = {
+			id: 1,
+			type: 'COMMENT_REPLY' as const,
+			title: '回复',
+			content: '内容',
+			sourceId: 30001,
+			authorName: '用户',
+			originalContent: '原文',
+			articleId: 40001,
+			parentId: 30000,
+			likeCount: 1,
+			liked: false,
+			canInteract: true,
+			read: false,
+			createdAt: '',
+		};
+		await center.toggleLike(comment);
+
+		expect(likeComment).toHaveBeenCalledWith(30001);
+		expect(comment.likeCount).toBe(2);
 	});
 });

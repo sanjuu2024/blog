@@ -5,11 +5,31 @@
 <mapper namespace="com.ccsanjuu.blog.modules.notification.mapper.NotificationMapper">
     <select id="selectUserPage"
             resultType="com.ccsanjuu.blog.modules.notification.model.bo.NotificationItemBO">
-        SELECT n.id, n.type, n.title, n.content,
+        SELECT n.id, n.type, n.title, n.content, n.source_id,
+               COALESCE(reply_user.nickname, reply_message.nickname) AS author_name,
+               COALESCE(parent_comment.content, parent_message.content) AS original_content,
+               reply_comment.article_id,
+               COALESCE(reply_comment.parent_id, reply_message.parent_id) AS parent_id,
+               CASE WHEN n.type = 'COMMENT_REPLY' THEN reply_comment.like_count ELSE NULL END AS like_count,
+               CASE WHEN n.type = 'COMMENT_REPLY' THEN comment_like.id IS NOT NULL ELSE NULL END AS liked,
+               CASE WHEN n.type = 'COMMENT_REPLY' THEN
+                   reply_comment.status = 'APPROVED' AND parent_comment.status = 'APPROVED'
+                       AND article.status = 'PUBLISHED'
+                     ELSE NULL END AS can_interact,
                (r.read_at IS NOT NULL) AS read,
                n.created_at
         FROM blog_notification_recipient r
         INNER JOIN blog_notification n ON n.id = r.notification_id
+        LEFT JOIN blog_comment reply_comment
+            ON n.type = 'COMMENT_REPLY' AND reply_comment.id = n.source_id
+        LEFT JOIN blog_comment parent_comment ON parent_comment.id = reply_comment.parent_id
+        LEFT JOIN blog_article article ON article.id = reply_comment.article_id
+        LEFT JOIN blog_comment_like comment_like
+            ON comment_like.comment_id = reply_comment.id AND comment_like.user_id = #{userId}
+        LEFT JOIN blog_user reply_user ON reply_user.id = reply_comment.user_id
+        LEFT JOIN blog_message_board reply_message
+            ON n.type = 'MESSAGE_REPLY' AND reply_message.id = n.source_id
+        LEFT JOIN blog_message_board parent_message ON parent_message.id = reply_message.parent_id
         WHERE r.user_id = #{userId}
           AND n.status = 'PUBLISHED'
           <if test="category == 'REPLY'">
@@ -70,10 +90,10 @@
 
     <insert id="insertNotification" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO blog_notification (
-            type, target_scope, title, content, status, source_type, source_id,
+            type, target_scope, selected_user_id, title, content, status, source_type, source_id,
             created_by, published_at, created_at, updated_at
         ) VALUES (
-            #{type}, #{targetScope}, #{title}, #{content}, #{status}, #{sourceType}, #{sourceId}, #{createdBy},
+            #{type}, #{targetScope}, #{selectedUserId}, #{title}, #{content}, #{status}, #{sourceType}, #{sourceId}, #{createdBy},
             CASE WHEN #{status} = 'PUBLISHED' THEN NOW() ELSE NULL END, NOW(), NOW()
         )
     </insert>
@@ -82,12 +102,9 @@
         INSERT INTO blog_notification_recipient (notification_id, user_id)
         SELECT #{notificationId}, id
         FROM blog_user
-        WHERE id IN
-        <foreach collection="userIds" item="userId" open="(" separator="," close=")">
-            #{userId}
-        </foreach>
-          AND status = 'ACTIVE'
+        WHERE id = #{userId}
           AND deleted_at IS NULL
+          AND (CAST(#{excludedUserId} AS BIGINT) IS NULL OR id &lt;&gt; #{excludedUserId})
         ON CONFLICT DO NOTHING
     </insert>
 
@@ -95,29 +112,20 @@
         INSERT INTO blog_notification_recipient (notification_id, user_id)
         SELECT #{notificationId}, id
         FROM blog_user
-        WHERE status = 'ACTIVE'
-          AND deleted_at IS NULL
+        WHERE deleted_at IS NULL
+          AND (CAST(#{excludedUserId} AS BIGINT) IS NULL OR id &lt;&gt; #{excludedUserId})
         ON CONFLICT DO NOTHING
     </insert>
-
-    <select id="selectRecipientUserIds" resultType="java.lang.Long">
-        SELECT user_id FROM blog_notification_recipient
-        WHERE notification_id = #{notificationId}
-        ORDER BY user_id
-    </select>
 
     <select id="selectNotificationByIdForUpdate"
             resultType="com.ccsanjuu.blog.modules.notification.model.entity.Notification">
         SELECT * FROM blog_notification WHERE id = #{notificationId} FOR UPDATE
     </select>
 
-    <delete id="deleteRecipients">
-        DELETE FROM blog_notification_recipient WHERE notification_id = #{notificationId}
-    </delete>
-
     <update id="updateNotification">
         UPDATE blog_notification
-        SET target_scope = #{targetScope}, title = #{title}, content = #{content}, updated_at = NOW()
+        SET target_scope = #{targetScope}, selected_user_id = #{selectedUserId},
+            title = #{title}, content = #{content}, updated_at = NOW()
         WHERE id = #{id}
           AND type = 'ADMIN_MESSAGE'
           AND status = 'DRAFT'

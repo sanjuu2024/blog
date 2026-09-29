@@ -6,6 +6,9 @@ import com.ccsanjuu.blog.modules.message.model.dto.MessagePageQueryDTO;
 import com.ccsanjuu.blog.modules.message.model.entity.Message;
 import com.ccsanjuu.blog.modules.message.model.enums.MessageStatus;
 import com.ccsanjuu.blog.modules.message.service.MessageService;
+import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
+import com.ccsanjuu.blog.modules.comment.model.entity.Comment;
+import com.ccsanjuu.blog.modules.comment.model.enums.CommentStatus;
 import com.ccsanjuu.blog.modules.notification.mapper.NotificationMapper;
 import com.ccsanjuu.blog.modules.notification.model.dto.CreateAdminNotificationRequestDTO;
 import com.ccsanjuu.blog.modules.notification.model.dto.NotificationQueryDTO;
@@ -49,6 +52,9 @@ class NotificationIntegrationTest {
     private MessageMapper messageMapper;
 
     @Autowired
+    private CommentMapper commentMapper;
+
+    @Autowired
     private UserMapper userMapper;
 
     @Autowired
@@ -58,6 +64,9 @@ class NotificationIntegrationTest {
     void draftShouldBecomeVisibleOnlyAfterPublishingAndSupportReadState() {
         User admin = createUser("notification_admin", UserRole.ADMIN);
         User recipient = createUser("notify_recipient", UserRole.USER);
+        User disabledRecipient = createUser("notify_disabled_recipient", UserRole.USER);
+        disabledRecipient.setStatus(UserStatus.DISABLED);
+        userMapper.updateById(disabledRecipient);
         CreateAdminNotificationRequestDTO request = new CreateAdminNotificationRequestDTO();
         request.setTargetScope(NotificationTargetScope.ALL_USERS);
         request.setTitle("系统消息");
@@ -65,19 +74,65 @@ class NotificationIntegrationTest {
         request.setStatus(NotificationStatus.DRAFT);
 
         var draft = notificationService.createAdminMessage(admin.getId(), request);
-        assertTrue(notificationMapper.selectRecipientUserIds(draft.getId()).isEmpty());
+        assertTrue(recipientUserIds(draft.getId()).isEmpty());
         assertEquals(0L, notificationService.getUnreadCount(recipient.getId()).getTotal());
 
         notificationService.updateAdminMessageStatus(draft.getId(), "PUBLISHED");
-        assertTrue(notificationMapper.selectRecipientUserIds(draft.getId()).contains(recipient.getId()));
+        assertTrue(recipientUserIds(draft.getId()).contains(recipient.getId()));
+        assertTrue(recipientUserIds(draft.getId()).contains(disabledRecipient.getId()));
+        assertFalse(recipientUserIds(draft.getId()).contains(admin.getId()));
         assertEquals(1L, notificationService.getUnreadCount(recipient.getId()).getTotal());
         notificationService.markAllRead(recipient.getId(), "ADMIN_MESSAGE");
         assertEquals(0L, notificationService.getUnreadCount(recipient.getId()).getTotal());
         NotificationQueryDTO query = new NotificationQueryDTO();
         assertTrue(notificationService.getUserNotifications(recipient.getId(), query).getRecords().getFirst().getRead());
 
+        disabledRecipient.setStatus(UserStatus.ACTIVE);
+        userMapper.updateById(disabledRecipient);
+        assertEquals(1, notificationService.getUserNotifications(disabledRecipient.getId(), query).getRecords().size());
+
         notificationService.updateAdminMessageStatus(draft.getId(), "OFFLINE");
         assertTrue(notificationService.getUserNotifications(recipient.getId(), query).getRecords().isEmpty());
+    }
+
+    @Test
+    void disabledSelectedUserShouldReadNotificationAfterReactivation() {
+        User admin = createUser("selected_notification_admin", UserRole.ADMIN);
+        User recipient = createUser("selected_disabled_recipient", UserRole.USER);
+        recipient.setStatus(UserStatus.DISABLED);
+        userMapper.updateById(recipient);
+
+        CreateAdminNotificationRequestDTO request = new CreateAdminNotificationRequestDTO();
+        request.setTargetScope(NotificationTargetScope.SELECTED_USERS);
+        request.setUserId(recipient.getId());
+        request.setTitle("指定消息");
+        request.setContent("禁用期间创建的通知");
+
+        var notification = notificationService.createAdminMessage(admin.getId(), request);
+        assertTrue(recipientUserIds(notification.getId()).contains(recipient.getId()));
+
+        recipient.setStatus(UserStatus.ACTIVE);
+        userMapper.updateById(recipient);
+        assertEquals(1, notificationService.getUserNotifications(recipient.getId(), new NotificationQueryDTO())
+                .getRecords().size());
+    }
+
+    @Test
+    void selectedDraftShouldCreateRecipientOnlyWhenPublished() {
+        User admin = createUser("selected_draft_admin", UserRole.ADMIN);
+        User recipient = createUser("selected_draft_recipient", UserRole.USER);
+        CreateAdminNotificationRequestDTO request = new CreateAdminNotificationRequestDTO();
+        request.setTargetScope(NotificationTargetScope.SELECTED_USERS);
+        request.setUserId(recipient.getId());
+        request.setStatus(NotificationStatus.DRAFT);
+        request.setTitle("指定用户草稿");
+        request.setContent("草稿正文");
+
+        var draft = notificationService.createAdminMessage(admin.getId(), request);
+        assertTrue(recipientUserIds(draft.getId()).isEmpty());
+
+        notificationService.updateAdminMessageStatus(draft.getId(), "PUBLISHED");
+        assertTrue(recipientUserIds(draft.getId()).contains(recipient.getId()));
     }
 
     @Test
@@ -97,6 +152,78 @@ class NotificationIntegrationTest {
                 "SELECT source_id FROM blog_notification WHERE id = ?", Long.class, notification.getId()));
         assertEquals("COMMENT", jdbcTemplate.queryForObject(
                 "SELECT source_type FROM blog_notification WHERE id = ?", String.class, notification.getId()));
+    }
+
+    @Test
+    void replyNotificationsShouldIncludeAuthorOriginalContentAndDestination() {
+        User recipient = createUser("notify_reader", UserRole.USER);
+        User author = createUser("notify_writer", UserRole.ADMIN);
+        Comment originalComment = Comment.builder()
+                .articleId(40001L)
+                .userId(recipient.getId())
+                .content("我的原评论")
+                .status(CommentStatus.APPROVED)
+                .build();
+        commentMapper.insert(originalComment);
+        Comment replyComment = Comment.builder()
+                .articleId(40001L)
+                .userId(author.getId())
+                .parentId(originalComment.getId())
+                .rootId(originalComment.getId())
+                .content("评论回复")
+                .status(CommentStatus.APPROVED)
+                .build();
+        commentMapper.insert(replyComment);
+
+        Message originalMessage = Message.builder()
+                .userId(recipient.getId())
+                .nickname(recipient.getNickname())
+                .email("")
+                .content("我的原留言")
+                .status(MessageStatus.APPROVED)
+                .notifyOnReply(false)
+                .build();
+        messageMapper.insert(originalMessage);
+        Message replyMessage = Message.builder()
+                .userId(author.getId())
+                .parentId(originalMessage.getId())
+                .nickname(author.getNickname())
+                .email("")
+                .content("留言回复")
+                .status(MessageStatus.APPROVED)
+                .notifyOnReply(false)
+                .build();
+        messageMapper.insert(replyMessage);
+
+        for (var source : List.of(
+                Notification.builder().type(NotificationType.COMMENT_REPLY)
+                        .sourceType("COMMENT").sourceId(replyComment.getId())
+                        .title("评论回复").content("评论回复").build(),
+                Notification.builder().type(NotificationType.MESSAGE_REPLY)
+                        .sourceType("MESSAGE").sourceId(replyMessage.getId())
+                        .title("留言回复").content("留言回复").build())) {
+            source.setTargetScope(NotificationTargetScope.SELECTED_USERS);
+            source.setStatus(NotificationStatus.PUBLISHED);
+            notificationMapper.insertNotification(source);
+            notificationMapper.insertRecipientsForUsers(source.getId(), recipient.getId(), null);
+        }
+
+        NotificationQueryDTO query = new NotificationQueryDTO();
+        var records = notificationService.getUserNotifications(recipient.getId(), query).getRecords();
+        var commentNotification = records.stream().filter(item -> item.getType() == NotificationType.COMMENT_REPLY)
+                .findFirst().orElseThrow();
+        assertEquals(author.getNickname(), commentNotification.getAuthorName());
+        assertEquals("我的原评论", commentNotification.getOriginalContent());
+        assertEquals(40001L, commentNotification.getArticleId());
+        assertEquals(originalComment.getId(), commentNotification.getParentId());
+        var messageNotification = records.stream().filter(item -> item.getType() == NotificationType.MESSAGE_REPLY)
+                .findFirst().orElseThrow();
+        assertEquals(author.getNickname(), messageNotification.getAuthorName());
+        assertEquals("我的原留言", messageNotification.getOriginalContent());
+        assertEquals(originalMessage.getId(), messageNotification.getParentId());
+        assertEquals(null, messageNotification.getLiked());
+        assertEquals(null, messageNotification.getCanLike());
+        assertEquals(null, messageNotification.getLikeCount());
     }
 
     @Test
@@ -145,5 +272,13 @@ class NotificationIntegrationTest {
                 .build();
         userMapper.insert(user);
         return user;
+    }
+
+    private List<Long> recipientUserIds(Long notificationId) {
+        return jdbcTemplate.queryForList(
+                "SELECT user_id FROM blog_notification_recipient WHERE notification_id = ? ORDER BY user_id",
+                Long.class,
+                notificationId
+        );
     }
 }

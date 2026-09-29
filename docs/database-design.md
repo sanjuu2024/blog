@@ -42,7 +42,7 @@
 | P2 使用 | `blog_mail_delivery` | 回复通知邮件投递状态与重试记录 |
 | P2 使用 | `blog_user_recovery_code` | 管理员 TOTP 一次性恢复码哈希 |
 | 历史保留 | `blog_article_favorite` | `V1.0.0` 已创建但当前产品暂不排期，应用不读写 |
-| P1 使用 | `blog_message_board` | 留言表，支持游客留言、审核、管理员回复和通知退订 |
+| P1 使用 | `blog_message_board` | 留言表，支持游客留言、审核、登录用户和管理员回复及通知退订 |
 | P1 使用 | `blog_admin_audit_log` | 后台管理操作追加式审计日志 |
 | 预留表 | `blog_project` | 项目作品表，待有实际作品后再评估使用 |
 | 上线后迭代 | `blog_friend_link` | 友链表，P2 不启用 |
@@ -95,7 +95,7 @@
 | `blog_notification_recipient` | `user_id` | `blog_user.id` | 只为存在的登录用户创建收件和已读状态 |
 | `blog_user_recovery_code` | `user_id` | `blog_user.id` | 仅为已启用 TOTP 的管理员生成恢复码 |
 | `blog_message_board` | `user_id` | `blog_user.id` | 登录用户留言时记录用户 ID；游客留言时允许为空，历史游客留言不自动关联后注册用户 |
-| `blog_message_board` | `parent_id` | `blog_message_board.id` | 管理员回复时必须确认父留言是已通过的顶层留言 |
+| `blog_message_board` | `parent_id` | `blog_message_board.id` | 登录用户或管理员回复时必须确认父留言是已通过的留言 |
 
 删除或下线数据时，不能依赖数据库级联删除。当前建议默认避免物理删除核心数据；确需删除时，由 service 在同一事务中按业务规则清理子表或拒绝删除，例如删除分类前校验关联文章、删除文章时清理文章标签关联。
 
@@ -678,6 +678,7 @@ CREATE TABLE blog_notification (
         CHECK (type IN ('COMMENT_REPLY', 'MESSAGE_REPLY', 'ADMIN_MESSAGE')),
     target_scope VARCHAR(30) NOT NULL
         CHECK (target_scope IN ('SELECTED_USERS', 'ALL_USERS')),
+    selected_user_id BIGINT,
     title VARCHAR(100) NOT NULL,
     content TEXT NOT NULL CHECK (char_length(content) BETWEEN 1 AND 2000),
     status VARCHAR(20) NOT NULL DEFAULT 'PUBLISHED'
@@ -699,10 +700,11 @@ CREATE INDEX idx_blog_notification_status_created
 ```
 
 - 自动回复通知使用 `SELECTED_USERS`；管理员消息使用 `SELECTED_USERS` 或 `ALL_USERS`
-- 管理员消息使用 `SELECTED_USERS` 或 `ALL_USERS`，只生成登录用户收件记录
+- 管理员消息使用 `SELECTED_USERS` 或 `ALL_USERS`；管理员消息的 `SELECTED_USERS` 只保存一个 `selected_user_id`
+- 草稿只保存目标用户配置，不生成 `blog_notification_recipient`；发布时才为目标用户生成正式收件记录
 - 公告不使用 `blog_notification`，而是作为 `blog_message_board` 的管理员顶层留言保存
 - 管理员消息第一版只保存并按纯文本展示；`title` 最长 100 个字符，`content` 最长 2000 个字符
-- 指定用户草稿的收件人保存在 `blog_notification_recipient`，但草稿不对用户可见；全部用户草稿在首次发布时才生成收件记录
+- `ALL_USERS` 草稿不保存用户 ID；指定用户草稿将目标 ID 保存在 `blog_notification.selected_user_id`
 
 ## 4.7 P2 使用表：`blog_notification_recipient`
 
@@ -720,7 +722,7 @@ CREATE INDEX idx_blog_notification_recipient_unread
     WHERE read_at IS NULL;
 ```
 
-发布给全部启用用户时在事务中生成收件记录。用户禁用后接口拒绝读取通知，但不删除历史记录。
+发布给全部未逻辑删除用户时在事务中生成收件记录。用户禁用后接口拒绝读取通知，但不删除历史记录；用户恢复后可以继续读取禁用期间收到的通知。
 
 ## 4.8 P2 使用表：`blog_mail_delivery`
 
@@ -792,6 +794,7 @@ CREATE TABLE IF NOT EXISTS blog_message_board (
     nickname VARCHAR(50) NOT NULL DEFAULT '',
     email VARCHAR(255) NOT NULL DEFAULT '',
     content TEXT NOT NULL,
+    like_count INTEGER NOT NULL DEFAULT 0 CHECK (like_count >= 0),
     is_announcement BOOLEAN NOT NULL DEFAULT FALSE,
     is_pinned BOOLEAN NOT NULL DEFAULT FALSE,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
@@ -1015,9 +1018,9 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 15. `blog_user_recovery_code`
 16. `blog_article_favorite`（历史保留，当前不启用）
 17. `blog_message_board`
-18. `blog_admin_audit_log`
-19. `blog_project`
-20. `blog_friend_link`（上线后迭代）
+19. `blog_admin_audit_log`
+20. `blog_project`
+21. `blog_friend_link`（上线后迭代）
 
 ## 6. 落地建议
 
@@ -1034,6 +1037,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 - `V1.2.1` migration 新增 `blog_article_daily_stat`，保存文章有效浏览每日聚合；文章总浏览数继续保存在 `blog_article.view_count`
 - `V1.2.2` migration 扩展 `blog_article_like`，支持登录用户和游客匿名哈希主体，并通过部分唯一索引保证幂等
 - `V1.2.3` migration 新增 `blog_comment_like`，并为 `blog_comment` 增加点赞冗余计数及非负约束
+- `V1.2.6` migration 为 `blog_notification` 增加管理员消息草稿的单个指定用户字段
 - Dashboard 直接聚合现有业务表和 `blog_article_daily_stat`，不新增历史点赞事件表；文章点赞历史趋势只统计当前仍存在的点赞明细
 - P2 所有新表、字段、约束和索引都必须使用新的 Flyway migration；本节目标 SQL 不能用于修改已执行的历史 migration
 - 文章/评论点赞明细与冗余计数必须事务一致；游客点赞不与登录账号自动合并

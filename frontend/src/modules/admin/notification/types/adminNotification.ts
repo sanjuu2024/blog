@@ -8,7 +8,7 @@ export interface AdminNotificationItem {
 	title: string;
 	content: string;
 	targetScope: NotificationTargetScope;
-	userIds: number[];
+	userId: number | null;
 	status: NotificationStatus;
 	createdAt: string;
 	publishedAt: string | null;
@@ -18,7 +18,7 @@ export interface CreateAdminNotificationRequest {
 	targetScope: NotificationTargetScope;
 	title: string;
 	content: string;
-	userIds?: number[];
+	userId?: number;
 	status?: 'DRAFT' | 'PUBLISHED';
 }
 

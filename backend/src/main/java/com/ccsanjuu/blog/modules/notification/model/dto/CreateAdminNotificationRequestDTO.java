@@ -4,10 +4,9 @@ import com.ccsanjuu.blog.modules.notification.model.enums.NotificationTargetScop
 import com.ccsanjuu.blog.modules.notification.model.enums.NotificationStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
-
-import java.util.List;
 
 @Data
 public class CreateAdminNotificationRequestDTO {
@@ -23,7 +22,8 @@ public class CreateAdminNotificationRequestDTO {
     @Size(max = 2000)
     private String content;
 
-    private List<Long> userIds;
+    @Positive
+    private Long userId;
 
     private NotificationStatus status = NotificationStatus.PUBLISHED;
 }

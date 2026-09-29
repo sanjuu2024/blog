@@ -1,5 +1,6 @@
 import { computed, reactive, ref } from 'vue';
 import { createGlobalState } from '@vueuse/core';
+import { likeComment, unlikeComment } from '@/modules/comment/api/commentApi';
 import {
 	getUnreadCount,
 	listNotifications,
@@ -39,6 +40,7 @@ export const useNotificationUnread = createGlobalState(() => {
 export function useNotifications() {
 	const notifications = ref<NotificationItem[]>([]);
 	const loading = ref(false);
+	const updatingLikes = ref(new Set<number>());
 	const page = reactive({ pageNum: 1, pageSize: 20, hasNext: false });
 	const category = ref<NotificationCategory>(NOTIFICATION_CATEGORY.ALL);
 	const { unreadCount, hasUnread, loadUnreadCount } = useNotificationUnread();
@@ -95,6 +97,32 @@ export function useNotifications() {
 		await loadUnreadCount();
 	}
 
+	async function toggleLike(notification: NotificationItem) {
+		if (
+			!notification.canInteract ||
+			!notification.sourceId ||
+			updatingLikes.value.has(notification.id)
+		)
+			return;
+		const next = new Set(updatingLikes.value);
+		next.add(notification.id);
+		updatingLikes.value = next;
+		try {
+			if (notification.type !== 'COMMENT_REPLY') return;
+			const result = notification.liked
+				? await unlikeComment(notification.sourceId)
+				: await likeComment(notification.sourceId);
+			notification.liked = result.liked;
+			notification.likeCount = result.likeCount;
+		} catch {
+			// 请求错误由统一响应拦截器提示。
+		} finally {
+			const remaining = new Set(updatingLikes.value);
+			remaining.delete(notification.id);
+			updatingLikes.value = remaining;
+		}
+	}
+
 	return {
 		notifications,
 		page,
@@ -103,10 +131,12 @@ export function useNotifications() {
 		hasUnread,
 		hasUnreadInCategory,
 		loading,
+		updatingLikes,
 		loadUnreadCount,
 		loadNotifications,
 		changeCategory,
 		markRead,
 		markAllRead,
+		toggleLike,
 	};
 }

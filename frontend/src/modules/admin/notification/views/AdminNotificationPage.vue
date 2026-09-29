@@ -24,18 +24,16 @@
 			<el-table-column
 				label="目标"
 				width="140"
+				align="center"
 			>
 				<template #default="{ row }">
-					{{
-						row.targetScope === 'ALL_USERS'
-							? '全部启用用户'
-							: `指定 ${row.userIds.length} 人`
-					}}
+					{{ row.targetScope === 'ALL_USERS' ? '全部用户' : `指定用户 ${row.userId}` }}
 				</template>
 			</el-table-column>
 			<el-table-column
 				label="状态"
 				width="110"
+				align="center"
 			>
 				<template #default="{ row }">{{ statusLabel(row.status) }}</template>
 			</el-table-column>
@@ -43,46 +41,45 @@
 				prop="createdAt"
 				label="创建时间"
 				width="180"
+				align="center"
 			>
 				<template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
 			</el-table-column>
 			<el-table-column
 				label="操作"
 				width="150"
+				align="center"
 			>
 				<template #default="{ row }">
-					<el-button
-						v-if="row.status === 'DRAFT'"
-						link
-						type="primary"
-						@click="openEdit(row)"
-					>
-						编辑
-					</el-button>
-					<el-button
-						v-if="row.status === 'DRAFT'"
-						link
-						type="success"
-						@click="changeStatus(row.id, 'PUBLISHED')"
-					>
-						发布
-					</el-button>
-					<el-button
-						v-if="row.status === 'PUBLISHED'"
-						link
-						type="warning"
-						@click="changeStatus(row.id, 'OFFLINE')"
-					>
-						下线
-					</el-button>
-					<el-button
-						v-else-if="row.status === 'OFFLINE'"
-						link
-						type="success"
-						@click="changeStatus(row.id, 'PUBLISHED')"
-					>
-						发布
-					</el-button>
+					<div class="admin-notification__actions flex items-center justify-center gap-2">
+						<el-button
+							v-if="row.status === 'DRAFT'"
+							type="primary"
+							@click="openEdit(row)"
+						>
+							编辑
+						</el-button>
+
+						<el-popconfirm
+							:title="`确认发布消息 ${row.title} 吗？`"
+							v-if="row.status === 'DRAFT' || row.status === 'OFFLINE'"
+							@confirm="changeStatus(row.id, 'PUBLISHED')"
+						>
+							<template #reference>
+								<el-button type="success"> 发布 </el-button>
+							</template>
+						</el-popconfirm>
+
+						<el-popconfirm
+							:title="`确认下线消息 ${row.title} 吗？`"
+							v-if="row.status === 'PUBLISHED'"
+							@confirm="changeStatus(row.id, 'OFFLINE')"
+						>
+							<template #reference>
+								<el-button type="warning"> 下线 </el-button>
+							</template>
+						</el-popconfirm>
+					</div>
 				</template>
 			</el-table-column>
 		</el-table>
@@ -101,7 +98,7 @@
 				</el-form-item>
 				<el-form-item label="目标范围">
 					<el-radio-group v-model="form.targetScope">
-						<el-radio value="ALL_USERS">全部启用用户</el-radio>
+						<el-radio value="ALL_USERS">全部用户</el-radio>
 						<el-radio value="SELECTED_USERS">指定用户</el-radio>
 					</el-radio-group>
 				</el-form-item>
@@ -110,8 +107,8 @@
 					v-if="form.targetScope === 'SELECTED_USERS'"
 				>
 					<el-input
-						v-model="userIdsText"
-						placeholder="多个 ID 用逗号分隔"
+						v-model="userIdText"
+						placeholder="请输入用户 ID"
 					/>
 				</el-form-item>
 				<el-form-item label="内容">
@@ -167,7 +164,7 @@ const loading = ref(false);
 const submitting = ref(false);
 const dialogVisible = ref(false);
 const editingId = ref<number | null>(null);
-const userIdsText = ref('');
+const userIdText = ref('');
 const form = reactive<CreateAdminNotificationRequest>({
 	targetScope: 'ALL_USERS',
 	title: '',
@@ -192,7 +189,7 @@ function openCreate() {
 	form.targetScope = 'ALL_USERS';
 	form.title = '';
 	form.content = '';
-	userIdsText.value = '';
+	userIdText.value = '';
 	dialogVisible.value = true;
 }
 
@@ -201,16 +198,15 @@ function openEdit(item: AdminNotificationItem) {
 	form.targetScope = item.targetScope;
 	form.title = item.title;
 	form.content = item.content;
-	userIdsText.value = item.userIds.join(', ');
+	userIdText.value = item.userId === null ? '' : String(item.userId);
 	dialogVisible.value = true;
 }
 
 async function submit(status: 'DRAFT' | 'PUBLISHED') {
-	const rawUserIds = userIdsText.value.split(',').map((value) => value.trim());
+	const rawUserId = userIdText.value.trim();
 	if (
 		form.targetScope === 'SELECTED_USERS' &&
-		(rawUserIds.some((value) => !/^[1-9]\d*$/.test(value)) ||
-			rawUserIds.some((value) => !Number.isSafeInteger(Number(value))))
+		(!/^[1-9]\d*$/.test(rawUserId) || !Number.isSafeInteger(Number(rawUserId)))
 	) {
 		ElMessage.warning('请填写有效的用户 ID');
 		return;
@@ -218,7 +214,7 @@ async function submit(status: 'DRAFT' | 'PUBLISHED') {
 	const data: CreateAdminNotificationRequest = {
 		...form,
 		status,
-		userIds: form.targetScope === 'SELECTED_USERS' ? rawUserIds.map(Number) : undefined,
+		userId: form.targetScope === 'SELECTED_USERS' ? Number(rawUserId) : undefined,
 	};
 	if (!data.title || !data.content) {
 		ElMessage.warning('请填写标题和内容');
@@ -273,5 +269,11 @@ onMounted(load);
 
 .admin-notification__table {
 	width: 100%;
+}
+
+.admin-notification__actions {
+	:deep(.el-button) {
+		margin-left: 0;
+	}
 }
 </style>

@@ -145,7 +145,7 @@ Authorization: Bearer <access_token>
 | `107004` | `502` | `图片上传失败，请稍后重试` | 后端调用对象存储上传失败 |
 | `107005` | `429` | `头像上传过于频繁，请稍后再试` | 同一用户每分钟超过 1 次，或每 24 小时超过 10 次头像上传 |
 | `108001` | `404` | `留言不存在` | 指定留言不存在、已删除或当前用户不可见 |
-| `108003` | `409` | `留言回复目标不可用` | 回复目标不是已通过的顶层留言 |
+| `108003` | `409` | `留言回复目标不可用` | 回复目标不是已通过的留言或回复 |
 | `108004` | `429` | `留言过于频繁，请稍后再试` | 同一游客 IP 或登录用户超过留言频率限制 |
 | `108005` | `403` | `无权操作该留言` | 登录用户删除不属于自己的顶层留言 |
 | `108006` | `409` | `留言状态流转不合法` | 后台处理动作与留言当前状态不匹配 |
@@ -252,7 +252,7 @@ Authorization: Bearer <access_token>
 | 前台留言 | `POST` | `/api/v1/messages/notifications/unsubscribe` | `PUBLIC` | 幂等关闭单条留言后续回复通知 |
 | 后台留言 | `GET` | `/api/v1/admin/messages` | `ADMIN` | 获取留言审核分页列表 |
 | 后台留言 | `PATCH` | `/api/v1/admin/messages/{messageId}/moderation` | `ADMIN` | 审核、隐藏或删除留言 |
-| 后台留言 | `POST` | `/api/v1/admin/messages/{messageId}/replies` | `ADMIN` | 对已通过顶层留言回复 |
+| 后台留言 | `POST` | `/api/v1/admin/messages/{messageId}/replies` | `ADMIN` | 对已通过顶层留言进行回复 |
 | 后台留言 | `PATCH` | `/api/v1/admin/messages/batch-approval` | `ADMIN` | 批量通过待审核顶层留言，最多 100 条 |
 | 后台文件 | `POST` | `/api/v1/admin/files/images` | `ADMIN` | 上传文章封面、正文图片或项目封面 |
 
@@ -2313,7 +2313,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 - P1 评论接口和 OpenAPI 保持不变；P2 实现时再为创建评论请求增加可选的 `notifyOnReply` 字段，并补充退订接口
 - `notifyOnReply=true` 表示当前登录用户订阅这条新评论未来的直接回复，收件地址使用账号邮箱
-- 只有其他用户创建的直接回复变为 `APPROVED` 后才触发通知；普通用户回复处于 `PENDING` 时不发送，自己回复自己不发送
+- 只有其他用户创建的直接回复变为 `APPROVED` 后才触发通知；自己回复自己不发送
 - 退订操作以单条评论为范围且保持幂等，不影响其他评论订阅
 - P2 评论通知和留言通知均发送 `multipart/alternative`：`text/plain` 与 `text/html` 内容语义一致，客户端自行选择可渲染版本
 - HTML 正文中的昵称、文章标题、评论及回复必须转义；链接使用绝对 HTTPS 地址，不依赖 JavaScript、外部 CSS 或表单
@@ -2324,8 +2324,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 - 路由：`GET /api/v1/messages`
 - 权限：`PUBLIC`，可选携带 Access Token
-- 只分页返回顶层留言；每条顶层留言携带其管理员回复。游客只能看到 `APPROVED`，登录用户还可看到自己 `PENDING`、`REJECTED` 的顶层留言。
-- 顶层留言仅当前 `is_pinned=true` 的公告优先，其余公告和普通留言统一按 `created_at DESC, id DESC` 排序；回复按 `created_at ASC, id ASC` 排序，不返回邮箱。
+- 只分页返回顶层留言；每条顶层留言携带已通过的管理员回复。游客只能看到 `APPROVED`，登录用户还可看到自己 `PENDING`、`REJECTED` 的顶层留言。
+- 顶层留言仅当前 `is_pinned=true` 的公告优先，其余公告和普通留言统一按 `created_at DESC, id DESC` 排序；同一父留言下的回复按 `created_at ASC, id ASC` 排序，不返回邮箱。
 - 公告是管理员发表的留言板顶层内容，不单独提供公告页，不进入站内通知中心，也不生成用户收件记录。
 - 不携带 Access Token 时按游客身份处理；请求一旦携带 Token，Token 无效或过期必须返回 HTTP `401`，不能静默降级为游客，否则会隐藏当前用户自己的非公开留言。
 
@@ -2648,10 +2648,11 @@ Dashboard 不再接收全局 `range` 参数。接口一次返回六个指标的�
 用户端分类固定为 `ALL`、`REPLY`、`ADMIN_MESSAGE`；`REPLY` 合并数据库中的
 `COMMENT_REPLY` 与 `MESSAGE_REPLY`。管理员创建的类型只允许 `ADMIN_MESSAGE`。
 前端通知由头像菜单中的弹窗展示，没有独立路由；每条通知可展开或收起，展开时标记已读。
-目标范围只允许指定用户和全部启用用户。公告不使用通知收件模型，而是通过留言板公开展示。
-创建管理员消息可指定 `DRAFT` 或 `PUBLISHED`，默认直接发布；草稿可修改标题、正文与收件范围。首次发布草稿时生成全部用户的收件记录；指定用户必须全部存在且启用。已发布消息只能下线，下线后可重新发布，不能退回草稿。
+目标范围只允许单个指定用户和全部未逻辑删除用户。公告不使用通知收件模型，而是通过留言板公开展示。
+创建管理员消息可指定 `DRAFT` 或 `PUBLISHED`，默认直接发布；草稿可修改标题、正文与收件范围。草稿只保存单个指定用户 ID，不生成正式收件记录；首次发布草稿时才生成收件记录。指定用户必须存在且未逻辑删除。已发布消息只能下线，下线后可重新发布，不能退回草稿。用户禁用期间不能读取通知，恢复后可以看到禁用期间收到的通知。
 
-评论直接回复审核通过后创建 `COMMENT_REPLY`；管理员回复登录用户留言后创建 `MESSAGE_REPLY`。
+评论直接回复审核通过后创建 `COMMENT_REPLY`；登录用户或管理员回复登录用户留言后创建 `MESSAGE_REPLY`。
+回复通知列表同时返回回复来源 ID、回复作者昵称、被回复的原文、评论所属文章 ID、直接父评论或留言 ID。`COMMENT_REPLY` 额外返回 `liked`、`likeCount` 和 `canInteract`；`canInteract` 表示当前评论回复是否仍允许点赞或快捷回复。`MESSAGE_REPLY` 和管理员消息不返回这些评论互动字段。
 站内通知不依赖邮件订阅，邮件失败也不回滚通知。公告通过留言板展示，不生成通知收件记录和未读红点。
 
 ### 16.6 邮件投递管理

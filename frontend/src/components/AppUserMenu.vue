@@ -13,21 +13,22 @@
 			:aria-label="userStore.userInfo ? '打开用户菜单' : '打开登录菜单'"
 			@pointerenter="handleAvatarPointerEnter"
 		>
-			<AppUserAvatar
+			<el-badge
 				v-if="userStore.userInfo"
-				:avatar-url="userStore.userInfo?.avatarUrl"
-				:name="userStore.userInfo?.nickname"
-				:user-id="userStore.userInfo?.id"
-				:size="40"
-			/>
+				:is-dot="hasUnread"
+				:hidden="!hasUnread"
+				class="app-header__avatar-badge"
+			>
+				<AppUserAvatar
+					:avatar-url="userStore.userInfo?.avatarUrl"
+					:name="userStore.userInfo?.nickname"
+					:user-id="userStore.userInfo?.id"
+					:size="40"
+				/>
+			</el-badge>
 			<i-lucide-user-round
 				v-else
 				class="app-header__guest-icon"
-			/>
-			<span
-				v-if="userStore.userInfo && hasUnread"
-				class="app-header__notification-dot"
-				aria-label="有未读通知"
 			/>
 		</button>
 		<template #dropdown>
@@ -190,6 +191,11 @@ async function handleLogout() {
 	border: 2px solid var(--app-surface);
 	border-radius: 50%;
 	background: var(--el-color-danger);
+}
+
+.app-header__avatar-badge :deep(.el-badge__content.is-dot) {
+	top: 0.25rem;
+	right: 0.1rem;
 }
 
 .app-header__avatar {

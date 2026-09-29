@@ -1,5 +1,8 @@
 <template>
-	<section class="article-comment-section">
+	<section
+		id="article-comments"
+		class="article-comment-section"
+	>
 		<div class="comment-section-header">
 			<h2 class="comment-section-title">评论</h2>
 			<span class="comment-section-count">{{ article.commentCount }}</span>
@@ -412,6 +415,26 @@ watch(
 	() => {
 		resetCommentList(props.article.id);
 	},
+);
+
+watch(
+	[() => route.query.replyId, () => commentList.value.length],
+	async ([replyId]) => {
+		const targetId = Number(replyId);
+		if (!targetId) return;
+		for (const comment of commentList.value) {
+			const state = getReplyState(comment.id);
+			if (!state.loaded) await getReplyList(comment.id, true);
+			const target = state.records.find((reply) => reply.id === targetId);
+			if (!target) continue;
+			openReplyEditor(comment, target.author, target.id);
+			document
+				.getElementById(`comment-content-${target.id}`)
+				?.scrollIntoView({ block: 'center' });
+			return;
+		}
+	},
+	{ flush: 'post' },
 );
 
 // 跳转到登录页

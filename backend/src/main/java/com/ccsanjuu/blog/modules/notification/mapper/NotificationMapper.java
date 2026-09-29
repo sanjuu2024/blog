@@ -70,32 +70,30 @@ public interface NotificationMapper {
     int insertNotification(Notification notification);
 
     /**
-     * 向指定的启用用户生成收件记录。
+     * 向指定的未逻辑删除用户生成收件记录。
      *
      * @param notificationId 通知 ID
-     * @param userIds 用户 ID 列表
+     * @param userId 指定用户 ID
+     * @param excludedUserId 不生成收件记录的用户 ID
      * @return 插入数量
      */
     int insertRecipientsForUsers(
             @Param("notificationId") Long notificationId,
-            @Param("userIds") List<Long> userIds
+            @Param("userId") Long userId,
+            @Param("excludedUserId") Long excludedUserId
     );
 
     /**
-     * 向当前全部启用用户生成收件记录。
+     * 向当前全部未逻辑删除用户生成收件记录。
      *
      * @param notificationId 通知 ID
+     * @param excludedUserId 不生成收件记录的用户 ID
      * @return 插入数量
      */
-    int insertRecipientsForAllUsers(@Param("notificationId") Long notificationId);
-
-    /**
-     * 查询通知的指定收件用户。
-     *
-     * @param notificationId 通知 ID
-     * @return 用户 ID 列表
-     */
-    List<Long> selectRecipientUserIds(@Param("notificationId") Long notificationId);
+    int insertRecipientsForAllUsers(
+            @Param("notificationId") Long notificationId,
+            @Param("excludedUserId") Long excludedUserId
+    );
 
     /**
      * 锁定管理员消息，串行化草稿编辑和状态变更。
@@ -104,14 +102,6 @@ public interface NotificationMapper {
      * @return 通知数据
      */
     Notification selectNotificationByIdForUpdate(@Param("notificationId") Long notificationId);
-
-    /**
-     * 清除草稿的指定收件用户。
-     *
-     * @param notificationId 通知 ID
-     * @return 删除数量
-     */
-    int deleteRecipients(@Param("notificationId") Long notificationId);
 
     /**
      * 更新管理员消息草稿。

@@ -293,7 +293,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             );
         }
         notificationService.sendAfterCommit(root, reply);
-        return buildMutation(messageMapper.selectById(reply.getId()), admin, admin.getId());
+        return buildMutation(messageMapper.selectById(reply.getId()), admin, adminId);
     }
 
     /**

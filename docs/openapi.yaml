@@ -2536,6 +2536,23 @@ components:
           enum: [COMMENT_REPLY, MESSAGE_REPLY, ADMIN_MESSAGE]
         title: { type: string }
         content: { type: string }
+        sourceId: { type: integer, format: int64, nullable: true }
+        authorName: { type: string, nullable: true }
+        originalContent: { type: string, nullable: true }
+        articleId: { type: integer, format: int64, nullable: true }
+        parentId: { type: integer, format: int64, nullable: true }
+        likeCount:
+          type: integer
+          nullable: true
+          description: 仅 COMMENT_REPLY 返回
+        liked:
+          type: boolean
+          nullable: true
+          description: 仅 COMMENT_REPLY 返回
+        canInteract:
+          type: boolean
+          nullable: true
+          description: 仅 COMMENT_REPLY 返回，表示当前评论回复是否允许点赞或快捷回复
         read: { type: boolean }
         createdAt: { type: string, format: date-time }
     NotificationPageData:
@@ -2580,9 +2597,8 @@ components:
         targetScope:
           type: string
           enum: [SELECTED_USERS, ALL_USERS]
-        userIds:
-          type: array
-          items: { type: integer, format: int64 }
+          description: SELECTED_USERS 表示单个指定的未逻辑删除用户，ALL_USERS 表示全部未逻辑删除用户
+        userId: { type: integer, format: int64, nullable: true, description: SELECTED_USERS 时的指定用户 ID }
         title: { type: string }
         content: { type: string }
         status:
@@ -2607,11 +2623,10 @@ components:
         targetScope:
           type: string
           enum: [SELECTED_USERS, ALL_USERS]
+          description: SELECTED_USERS 表示单个指定的未逻辑删除用户，ALL_USERS 表示全部未逻辑删除用户
         title: { type: string, maxLength: 100 }
         content: { type: string, maxLength: 2000 }
-        userIds:
-          type: array
-          items: { type: integer, format: int64 }
+        userId: { type: integer, format: int64, description: SELECTED_USERS 时必填 }
         status:
           type: string
           enum: [DRAFT, PUBLISHED]
@@ -2623,11 +2638,10 @@ components:
         targetScope:
           type: string
           enum: [SELECTED_USERS, ALL_USERS]
+          description: SELECTED_USERS 表示单个指定的未逻辑删除用户，ALL_USERS 表示全部未逻辑删除用户
         title: { type: string, maxLength: 100 }
         content: { type: string, maxLength: 2000 }
-        userIds:
-          type: array
-          items: { type: integer, format: int64 }
+        userId: { type: integer, format: int64, description: SELECTED_USERS 时必填 }
     AdminNotificationResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'

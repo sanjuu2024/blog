@@ -98,7 +98,7 @@ export const adminRoutes = [
 		name: 'AdminNotificationList',
 		component: () => import('@/modules/admin/notification/views/AdminNotificationPage.vue'),
 		meta: {
-			icon: 'adminMsg',
+			icon: 'adminNotif',
 			title: '管理员消息',
 		},
 	},

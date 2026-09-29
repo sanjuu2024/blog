@@ -13,7 +13,7 @@ import IconView from '~icons/lucide/eye';
 import IconComment from '~icons/lucide/message-circle-more';
 import IconLike from '~icons/lucide/thumbs-up';
 import IconMessage from '~icons/lucide/messages-square';
-import IconAdminMsg from '~icons/lucide/message-square-more';
+import IconAdminNotif from '~icons/lucide/bell';
 import IconAbout from '~icons/lucide/info';
 import IconAudit from '~icons/lucide/scroll-text';
 
@@ -29,7 +29,7 @@ const iconMap = {
 	message: IconMessage,
 	about: IconAbout,
 	audit: IconAudit,
-	adminMsg: IconAdminMsg,
+	adminNotif: IconAdminNotif,
 };
 
 type AdminMenuIcon = keyof typeof iconMap;

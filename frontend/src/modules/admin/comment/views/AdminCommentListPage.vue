@@ -192,6 +192,16 @@
 						</el-table-column>
 
 						<el-table-column
+							label="评论时间"
+							align="center"
+							width="180"
+						>
+							<template #default="{ row }: { row: AdminCommentItem }">
+								{{ formatDateTime(row.createdAt) }}
+							</template>
+						</el-table-column>
+
+						<el-table-column
 							label="层级"
 							align="center"
 							width="100"
@@ -233,16 +243,6 @@
 						>
 							<template #default="{ row }: { row: AdminCommentItem }">
 								{{ row.moderationReason || '-' }}
-							</template>
-						</el-table-column>
-
-						<el-table-column
-							label="创建时间"
-							align="center"
-							width="180"
-						>
-							<template #default="{ row }: { row: AdminCommentItem }">
-								{{ formatDateTime(row.createdAt) }}
 							</template>
 						</el-table-column>
 
