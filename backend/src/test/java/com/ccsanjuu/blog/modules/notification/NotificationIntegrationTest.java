@@ -222,7 +222,7 @@ class NotificationIntegrationTest {
         assertEquals("我的原留言", messageNotification.getOriginalContent());
         assertEquals(originalMessage.getId(), messageNotification.getParentId());
         assertEquals(null, messageNotification.getLiked());
-        assertEquals(null, messageNotification.getCanLike());
+        assertEquals(null, messageNotification.getCanInteract());
         assertEquals(null, messageNotification.getLikeCount());
     }
 

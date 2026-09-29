@@ -5,7 +5,10 @@ import { useRouter } from 'vue-router';
 import { useNotificationUnread } from '@/modules/notification/composables/useNotifications';
 import AppUserMenu from './AppUserMenu.vue';
 
-vi.mock('vue-router', () => ({ useRouter: vi.fn() }));
+vi.mock('vue-router', async (importOriginal) => ({
+	...(await importOriginal<typeof import('vue-router')>()),
+	useRouter: vi.fn(),
+}));
 vi.mock('@/stores/authStore', () => ({ useAuthStore: () => ({ logout: vi.fn() }) }));
 vi.mock('@/stores/userStore', () => ({
 	useUserStore: () => ({
