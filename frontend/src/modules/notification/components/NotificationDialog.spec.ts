@@ -1,7 +1,9 @@
 import { flushPromises, mount } from '@vue/test-utils';
+import { defineComponent, h } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRouter } from 'vue-router';
 import { getUnreadCount, listNotifications, markNotificationRead } from '../api/notificationApi';
+import { createComment } from '@/modules/comment/api/commentApi';
 import { useNotificationUnread } from '../composables/useNotifications';
 import NotificationDialog from './NotificationDialog.vue';
 
@@ -16,6 +18,33 @@ vi.mock('../api/notificationApi', () => ({
 	markAllNotificationsRead: vi.fn(),
 	markNotificationRead: vi.fn(),
 }));
+vi.mock('@/modules/comment/api/commentApi', () => ({
+	createComment: vi.fn(),
+}));
+vi.mock('@/stores/userStore', () => ({
+	useUserStore: vi.fn(() => ({ userInfo: null })),
+}));
+
+const ReplyEditorStub = defineComponent({
+	props: { modelValue: { type: String, default: '' } },
+	emits: ['update:modelValue', 'cancel', 'submit'],
+	setup(props, { emit }) {
+		return () =>
+			h('div', { 'data-testid': 'reply-editor' }, [
+				h('input', {
+					'data-testid': 'reply-editor-input',
+					value: props.modelValue,
+					onInput: (event: Event) =>
+						emit('update:modelValue', (event.target as HTMLInputElement).value),
+				}),
+				h(
+					'button',
+					{ 'data-testid': 'reply-editor-submit', onClick: () => emit('submit') },
+					'提交回复',
+				),
+			]);
+	},
+});
 
 const stubs = {
 	ElDialog: {
@@ -27,6 +56,7 @@ const stubs = {
 	ElRadioButton: { template: '<span><slot /></span>' },
 	ElEmpty: true,
 	ILucideChevronRight: true,
+	PublicCommentReplyEditor: ReplyEditorStub,
 };
 
 describe('NotificationDialog', () => {
@@ -65,7 +95,7 @@ describe('NotificationDialog', () => {
 		vi.mocked(markNotificationRead).mockResolvedValue(null);
 	});
 
-	it('loads notifications when opened and marks an expanded item read', async () => {
+	it('loads notifications with the message content visible', async () => {
 		const wrapper = mount(NotificationDialog, {
 			props: { modelValue: false },
 			global: { stubs },
@@ -75,26 +105,10 @@ describe('NotificationDialog', () => {
 		await wrapper.setProps({ modelValue: true });
 		await flushPromises();
 		expect(listNotifications).toHaveBeenCalledOnce();
-		expect(wrapper.text()).toContain('回复者 回复了我的评论');
-		expect(wrapper.text()).not.toContain('回复内容');
-
-		const toggle = wrapper.find('.notification-item__toggle');
-		await toggle.trigger('click');
-		await flushPromises();
+		expect(wrapper.text()).toContain('@回复者回复了我的评论');
 		expect(wrapper.text()).toContain('回复内容');
 		expect(wrapper.text()).toContain('我的评论');
-		expect(toggle.attributes('aria-expanded')).toBe('true');
-		expect(wrapper.find('.notification-item').classes()).toContain(
-			'notification-item--expanded',
-		);
-		expect(markNotificationRead).toHaveBeenCalledWith(1);
-
-		await toggle.trigger('click');
-		expect(wrapper.text()).not.toContain('回复内容');
-		expect(toggle.attributes('aria-expanded')).toBe('false');
-		expect(wrapper.find('.notification-item').classes()).not.toContain(
-			'notification-item--expanded',
-		);
+		expect(wrapper.text()).toContain('2026-09-28');
 	});
 
 	it('navigates to the article comment section from a reply notification', async () => {
@@ -103,7 +117,7 @@ describe('NotificationDialog', () => {
 			global: { stubs },
 		});
 		await flushPromises();
-		await wrapper.find('.notification-item__title').trigger('click');
+		await wrapper.find('.notification-item__content').trigger('click');
 
 		expect(push).toHaveBeenCalledWith({
 			name: 'ArticleDetail',
@@ -112,6 +126,26 @@ describe('NotificationDialog', () => {
 			query: { replyId: '30001' },
 		});
 		expect(wrapper.emitted('update:modelValue')).toEqual([[false]]);
+	});
+
+	it('opens and submits an inline comment reply editor', async () => {
+		vi.mocked(createComment).mockResolvedValue({ status: 'APPROVED' } as never);
+		const wrapper = mount(NotificationDialog, {
+			props: { modelValue: true },
+			global: { stubs },
+		});
+		await flushPromises();
+
+		await wrapper.find('button[aria-label="快捷回复"]').trigger('click');
+		const input = wrapper.find('[data-testid="reply-editor-input"]');
+		await input.setValue('通知内回复');
+		await wrapper.find('[data-testid="reply-editor-submit"]').trigger('click');
+		await flushPromises();
+
+		expect(createComment).toHaveBeenCalledWith(40001, {
+			content: '通知内回复',
+			parentId: 30001,
+		});
 	});
 
 	it('navigates to the original message from a message reply notification', async () => {
@@ -142,7 +176,7 @@ describe('NotificationDialog', () => {
 			global: { stubs },
 		});
 		await flushPromises();
-		await wrapper.find('.notification-item__title').trigger('click');
+		await wrapper.find('.notification-item__content').trigger('click');
 
 		expect(push).toHaveBeenCalledWith({
 			name: 'MessageBoard',

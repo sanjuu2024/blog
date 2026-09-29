@@ -9,6 +9,7 @@
 							type="primary"
 							@click="announcementDialogVisible = true"
 						>
+							<i-lucide-megaphone class="mr-1" />
 							发布公告
 						</el-button>
 						<el-button
@@ -17,7 +18,7 @@
 							:disabled="!selectedMessageIds.length || submitting"
 							@click="approveSelected"
 						>
-							<i-lets-icons-check-fill />
+							<i-lets-icons-check-fill class="mr-1" />
 							批量通过（{{ selectedMessageIds.length }}）
 						</el-button>
 					</div>

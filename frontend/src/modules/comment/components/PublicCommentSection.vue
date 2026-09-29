@@ -182,7 +182,7 @@
 
 						<!-- 评论的回复列表 -->
 						<div
-							v-if="getReplyState(comment.id).expanded"
+							v-if="shouldShowReplyList(comment.id)"
 							class="reply-list"
 						>
 							<div
@@ -423,10 +423,19 @@ watch(
 		const targetId = Number(replyId);
 		if (!targetId) return;
 		for (const comment of commentList.value) {
+			if (!comment.hasVisibleReplies && comment.replyCount === 0) continue;
 			const state = getReplyState(comment.id);
+			const wasExpanded = state.expanded;
 			if (!state.loaded) await getReplyList(comment.id, true);
-			const target = state.records.find((reply) => reply.id === targetId);
-			if (!target) continue;
+			let target = state.records.find((reply) => reply.id === targetId);
+			while (!target && state.hasNext && !state.loading) {
+				await getReplyList(comment.id);
+				target = state.records.find((reply) => reply.id === targetId);
+			}
+			if (!target) {
+				if (!wasExpanded) collapseReplies(comment.id);
+				continue;
+			}
 			openReplyEditor(comment, target.author, target.id);
 			document
 				.getElementById(`comment-content-${target.id}`)
@@ -436,6 +445,11 @@ watch(
 	},
 	{ flush: 'post' },
 );
+
+function shouldShowReplyList(commentId: number) {
+	const state = getReplyState(commentId);
+	return state.expanded && (state.records.length > 0 || state.loading);
+}
 
 // 跳转到登录页
 function goLogin() {
