@@ -253,6 +253,8 @@ backend/src/main/java/.../
 - 谨慎使用 `Hutool`，只在确实有价值时使用
 - 接口实现必须遵守 `docs/api-design.md` 和 `docs/openapi.yaml`
 - 文章保存或更新时，必须由后端根据 `content_md` 生成 `content_html` 和 `content_text`
+- 通用审计时间字段必须统一使用实体上的 `@TableField(fill = FieldFill.INSERT)` 或 `@TableField(fill = FieldFill.INSERT_UPDATE)`，交由已有 `MyBatisMetaObjectHandler` 填充；Mapper SQL 不得使用 `NOW()` 直接写入 `created_at` 或 `updated_at`
+- `publishedAt`、`offlineAt`、`revokedAt`、`readAt`、`reviewedAt`、`deletedAt`、`lastLoginAt` 等业务事件时间不属于通用审计字段，必须由 Service 在对应业务事件中显式设置，不能借助通用填充器或 Mapper SQL 隐式写入
 - 保留已有代码注释：除非注释与当前实现明显矛盾，否则不要为了改写代码风格、补充实现细节或格式化而修改注释；确需修改时，先说明原因和修改内容
 - 编写代码时应遵循相邻代码和同类模块已有的注释语言、格式与详略风格；后端函数说明统一使用 JavaDoc 格式，并按既有习惯补充参数和返回值说明
 - 已有注释除非与实际实现冲突，否则必须原样保留；需要补充说明时只增补必要内容，不得借机改写原注释或格式

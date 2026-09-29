@@ -3,6 +3,7 @@ package com.ccsanjuu.blog.modules.auth.service.impl;
 import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.ccsanjuu.blog.properties.JwtProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -72,7 +73,18 @@ public class TokenVersionServiceImpl implements TokenVersionService {
     @Override
     @Transactional
     public Long incrementVersion(Long userId) {
-        Long newVersion = userMapper.incrementTokenVersion(userId);
+        int rows = userMapper.update(
+                new User(),
+                new LambdaUpdateWrapper<User>()
+                        .eq(User::getId, userId)
+                        .setSql("token_version = token_version + 1")
+        );
+        if (rows != 1) {
+            return null;
+        }
+
+        User updatedUser = userMapper.selectByIdForUpdate(userId);
+        Long newVersion = updatedUser == null ? null : updatedUser.getTokenVersion();
         if (newVersion == null) {
             return null;
         }

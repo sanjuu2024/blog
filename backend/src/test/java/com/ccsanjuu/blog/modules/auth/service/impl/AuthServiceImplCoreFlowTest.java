@@ -257,7 +257,7 @@ class AuthServiceImplCoreFlowTest {
         assertNotNull(result.getRefreshToken());
         assertNotEquals(oldRefreshToken, result.getRefreshToken());
         verify(authMapper, org.mockito.Mockito.times(2)).selectOne(any());
-        verify(authMapper).revokeRefreshToken(oldJti, AuthSessionStatus.REVOKED.getValue());
+        verify(authMapper).update(any(AuthSession.class), any());
         verify(authMapper).insert(any(AuthSession.class));
         assertTrue(output.getOut().contains("security_event=TOKEN_REFRESH_SUCCESS"));
         assertTrue(output.getOut().contains("description=\"登录态刷新成功\""));
@@ -290,7 +290,7 @@ class AuthServiceImplCoreFlowTest {
         ));
 
         assertEquals(ResultCode.USER_DISABLED, exception.getResultCode());
-        verify(authMapper, never()).revokeRefreshToken(any(), any());
+        verify(authMapper, never()).update(any(AuthSession.class), any());
         verify(authMapper, never()).insert(any(AuthSession.class));
         assertTrue(output.getOut().contains("security_event=TOKEN_REFRESH_FAILED"));
         assertTrue(output.getOut().contains("reason=USER_DISABLED"));
@@ -324,7 +324,7 @@ class AuthServiceImplCoreFlowTest {
         ));
 
         assertEquals(ResultCode.REFRESH_TOKEN_INVALID_OR_EXPIRED, exception.getResultCode());
-        verify(authMapper, never()).revokeRefreshToken(any(), any());
+        verify(authMapper, never()).update(any(AuthSession.class), any());
         verify(authMapper, never()).insert(any(AuthSession.class));
         assertTrue(output.getOut().contains("reason=REVOKED_WHILE_WAITING"));
         assertFalse(output.getOut().contains(refreshToken));

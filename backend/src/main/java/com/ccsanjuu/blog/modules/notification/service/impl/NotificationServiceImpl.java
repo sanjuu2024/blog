@@ -1,16 +1,21 @@
 package com.ccsanjuu.blog.modules.notification.service.impl;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.ccsanjuu.blog.common.api.PageResult;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.notification.mapper.NotificationMapper;
+import com.ccsanjuu.blog.modules.notification.mapper.NotificationRecipientMapper;
 import com.ccsanjuu.blog.modules.notification.model.bo.NotificationItemBO;
 import com.ccsanjuu.blog.modules.notification.model.bo.NotificationUnreadCountBO;
 import com.ccsanjuu.blog.modules.notification.model.dto.CreateAdminNotificationRequestDTO;
 import com.ccsanjuu.blog.modules.notification.model.dto.NotificationQueryDTO;
 import com.ccsanjuu.blog.modules.notification.model.dto.UpdateAdminNotificationRequestDTO;
 import com.ccsanjuu.blog.modules.notification.model.entity.Notification;
+import com.ccsanjuu.blog.modules.notification.model.entity.NotificationRecipient;
 import com.ccsanjuu.blog.modules.notification.model.enums.NotificationStatus;
 import com.ccsanjuu.blog.modules.notification.model.enums.NotificationTargetScope;
 import com.ccsanjuu.blog.modules.notification.model.enums.NotificationType;
@@ -36,6 +41,7 @@ import java.util.List;
 public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationMapper notificationMapper;
+    private final NotificationRecipientMapper notificationRecipientMapper;
     private final UserMapper userMapper;
     private final TransactionTemplate replyNotificationTransaction;
 
@@ -48,10 +54,12 @@ public class NotificationServiceImpl implements NotificationService {
      */
     public NotificationServiceImpl(
             NotificationMapper notificationMapper,
+            NotificationRecipientMapper notificationRecipientMapper,
             UserMapper userMapper,
             PlatformTransactionManager transactionManager
     ) {
         this.notificationMapper = notificationMapper;
+        this.notificationRecipientMapper = notificationRecipientMapper;
         this.userMapper = userMapper;
         this.replyNotificationTransaction = new TransactionTemplate(transactionManager);
         this.replyNotificationTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -118,7 +126,17 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public void markRead(Long userId, Long notificationId) {
-        notificationMapper.markRead(notificationId, userId);
+        Notification notification = notificationMapper.selectById(notificationId);
+        if (notification == null || notification.getStatus() != NotificationStatus.PUBLISHED) {
+            return;
+        }
+        notificationRecipientMapper.update(
+                NotificationRecipient.builder().build(),
+                new LambdaUpdateWrapper<NotificationRecipient>()
+                        .eq(NotificationRecipient::getNotificationId, notificationId)
+                        .eq(NotificationRecipient::getUserId, userId)
+                        .isNull(NotificationRecipient::getReadAt)
+        );
     }
 
     /**
@@ -131,7 +149,15 @@ public class NotificationServiceImpl implements NotificationService {
     @Transactional
     public void markAllRead(Long userId, String category) {
         validateCategory(category);
-        notificationMapper.markAllRead(userId, category);
+        notificationRecipientMapper.selectIdsForRead(userId, category).forEach(notificationId ->
+                notificationRecipientMapper.update(
+                        NotificationRecipient.builder().build(),
+                        new LambdaUpdateWrapper<NotificationRecipient>()
+                                .eq(NotificationRecipient::getNotificationId, notificationId)
+                                .eq(NotificationRecipient::getUserId, userId)
+                                .isNull(NotificationRecipient::getReadAt)
+                )
+        );
     }
 
     /**
@@ -159,10 +185,10 @@ public class NotificationServiceImpl implements NotificationService {
                 .status(status)
                 .createdBy(adminId)
                 .build();
-        notificationMapper.insertNotification(notification);
+        notificationMapper.insert(notification);
         if (requestDTO.getTargetScope() == NotificationTargetScope.ALL_USERS) {
             if (status == NotificationStatus.PUBLISHED) {
-                notificationMapper.insertRecipientsForAllUsers(notification.getId(), adminId);
+                insertRecipientsForAllUsers(notification.getId(), adminId);
             }
         } else if (status == NotificationStatus.PUBLISHED) {
             insertSelectedRecipient(notification.getId(), userId, adminId);
@@ -201,7 +227,7 @@ public class NotificationServiceImpl implements NotificationService {
         current.setSelectedUserId(userId);
         current.setTitle(requestDTO.getTitle().trim());
         current.setContent(requestDTO.getContent().trim());
-        if (notificationMapper.updateNotification(current) != 1) {
+        if (notificationMapper.updateById(current) != 1) {
             throw new BizException(ResultCode.RESOURCE_NOT_FOUND);
         }
         return toAdminVO(current);
@@ -230,7 +256,7 @@ public class NotificationServiceImpl implements NotificationService {
         }
         if (current.getStatus() == NotificationStatus.DRAFT) {
             if (current.getTargetScope() == NotificationTargetScope.ALL_USERS) {
-                notificationMapper.insertRecipientsForAllUsers(notificationId, current.getCreatedBy());
+                insertRecipientsForAllUsers(notificationId, current.getCreatedBy());
             } else {
                 insertSelectedRecipient(notificationId, current.getSelectedUserId(), current.getCreatedBy());
             }
@@ -239,7 +265,7 @@ public class NotificationServiceImpl implements NotificationService {
         current.setPublishedAt(target == NotificationStatus.PUBLISHED && current.getPublishedAt() == null
                 ? java.time.OffsetDateTime.now() : current.getPublishedAt());
         current.setOfflineAt(target == NotificationStatus.OFFLINE ? java.time.OffsetDateTime.now() : current.getOfflineAt());
-        if (notificationMapper.updateNotificationStatus(current) != 1) {
+        if (notificationMapper.updateById(current) != 1) {
             throw new BizException(ResultCode.RESOURCE_NOT_FOUND);
         }
         return toAdminVO(current);
@@ -346,8 +372,8 @@ public class NotificationServiceImpl implements NotificationService {
                 .sourceType(type == NotificationType.COMMENT_REPLY ? "COMMENT" : "MESSAGE")
                 .sourceId(sourceId)
                 .build();
-        notificationMapper.insertNotification(notification);
-        notificationMapper.insertRecipientsForUsers(notification.getId(), recipientUserId, null);
+        notificationMapper.insert(notification);
+        insertRecipientsForUsers(notification.getId(), recipientUserId, null);
     }
 
     /**
@@ -389,9 +415,47 @@ public class NotificationServiceImpl implements NotificationService {
      */
     private void insertSelectedRecipient(Long notificationId, Long userId, Long excludedUserId) {
         int expectedRows = userId.equals(excludedUserId) ? 0 : 1;
-        if (notificationMapper.insertRecipientsForUsers(notificationId, userId, excludedUserId) != expectedRows) {
+        if (insertRecipientsForUsers(notificationId, userId, excludedUserId) != expectedRows) {
             throw new BizException(ResultCode.PARAM_INVALID);
         }
+    }
+
+    /**
+     * 向指定用户生成收件记录。
+     *
+     * @param notificationId 通知 ID
+     * @param userId 用户 ID
+     * @param excludedUserId 排除的用户 ID
+     * @return 插入数量
+     */
+    private int insertRecipientsForUsers(Long notificationId, Long userId, Long excludedUserId) {
+        if (userId.equals(excludedUserId) || userMapper.selectById(userId) == null) {
+            return 0;
+        }
+        return notificationRecipientMapper.insert(NotificationRecipient.builder()
+                .notificationId(notificationId)
+                .userId(userId)
+                .build());
+    }
+
+    /**
+     * 向全部未逻辑删除用户生成收件记录。
+     *
+     * @param notificationId 通知 ID
+     * @param excludedUserId 排除的用户 ID
+     */
+    private void insertRecipientsForAllUsers(Long notificationId, Long excludedUserId) {
+        List<?> userIds = userMapper.selectObjs(new QueryWrapper<User>()
+                .select("id")
+                .isNull("deleted_at")
+                .ne(excludedUserId != null, "id", excludedUserId));
+        if (userIds == null) {
+            return;
+        }
+        userIds.forEach(userId -> notificationRecipientMapper.insert(NotificationRecipient.builder()
+                .notificationId(notificationId)
+                .userId(((Number) userId).longValue())
+                .build()));
     }
 
     /**

@@ -132,7 +132,8 @@ class TokenVersionServiceImplTest {
 
     @Test
     void incrementVersionShouldUpdateDatabaseAndRedis() {
-        when(userMapper.incrementTokenVersion(USER_ID)).thenReturn(5L);
+        when(userMapper.update(any(User.class), any())).thenReturn(1);
+        when(userMapper.selectByIdForUpdate(USER_ID)).thenReturn(User.builder().tokenVersion(5L).build());
 
         Long version = tokenVersionService.incrementVersion(USER_ID);
 
@@ -144,7 +145,8 @@ class TokenVersionServiceImplTest {
 
     @Test
     void incrementVersionShouldRestoreCacheWhenTransactionRollsBack() {
-        when(userMapper.incrementTokenVersion(USER_ID)).thenReturn(5L);
+        when(userMapper.update(any(User.class), any())).thenReturn(1);
+        when(userMapper.selectByIdForUpdate(USER_ID)).thenReturn(User.builder().tokenVersion(5L).build());
         TransactionSynchronizationManager.initSynchronization();
 
         tokenVersionService.incrementVersion(USER_ID);
@@ -165,7 +167,8 @@ class TokenVersionServiceImplTest {
 
     @Test
     void incrementVersionShouldRegisterRollbackBeforeWritingCache() {
-        when(userMapper.incrementTokenVersion(USER_ID)).thenReturn(5L);
+        when(userMapper.update(any(User.class), any())).thenReturn(1);
+        when(userMapper.selectByIdForUpdate(USER_ID)).thenReturn(User.builder().tokenVersion(5L).build());
         TransactionSynchronizationManager.initSynchronization();
         AtomicReference<String> cacheValue = new AtomicReference<>();
         doAnswer(invocation -> {

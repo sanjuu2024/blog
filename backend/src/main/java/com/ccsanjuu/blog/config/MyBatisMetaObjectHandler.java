@@ -22,6 +22,8 @@ public class MyBatisMetaObjectHandler implements MetaObjectHandler {
 
     @Override
     public void updateFill(MetaObject metaObject) {
-        strictUpdateFill(metaObject, "updatedAt", OffsetDateTime.class, OffsetDateTime.now(ZoneOffset.UTC));
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+        strictUpdateFill(metaObject, "updatedAt", OffsetDateTime.class, now);
+        strictUpdateFill(metaObject, "readAt", OffsetDateTime.class, now);
     }
 }

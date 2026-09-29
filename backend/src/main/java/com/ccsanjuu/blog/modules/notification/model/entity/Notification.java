@@ -1,5 +1,7 @@
 package com.ccsanjuu.blog.modules.notification.model.entity;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.ccsanjuu.blog.modules.notification.model.enums.NotificationStatus;
 import com.ccsanjuu.blog.modules.notification.model.enums.NotificationTargetScope;
@@ -42,7 +44,9 @@ public class Notification {
 
     private OffsetDateTime offlineAt;
 
+    @TableField(fill = FieldFill.INSERT)
     private OffsetDateTime createdAt;
 
+    @TableField(fill = FieldFill.INSERT_UPDATE)
     private OffsetDateTime updatedAt;
 }
