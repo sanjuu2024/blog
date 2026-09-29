@@ -94,12 +94,21 @@ export const adminRoutes = [
 		},
 	},
 	{
+		path: '/admin/notifications',
+		name: 'AdminNotificationList',
+		component: () => import('@/modules/admin/notification/views/AdminNotificationPage.vue'),
+		meta: {
+			icon: 'adminNotif',
+			title: '管理员消息',
+		},
+	},
+	{
 		path: '/admin/about',
 		name: 'AdminAbout',
 		component: () => import('@/modules/admin/about/views/AdminAboutPage.vue'),
 		meta: {
 			icon: 'about',
-			title: '关于内容',
+			title: '关于页编辑',
 		},
 	},
 	{

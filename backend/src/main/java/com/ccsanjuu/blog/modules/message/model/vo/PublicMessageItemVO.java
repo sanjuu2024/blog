@@ -21,6 +21,10 @@ public class PublicMessageItemVO {
 
     private String content;
 
+    private Boolean isAnnouncement;
+
+    private Boolean isPinned;
+
     private MessageStatus status;
 
     private String moderationReason;

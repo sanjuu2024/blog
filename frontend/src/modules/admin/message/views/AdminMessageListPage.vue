@@ -2,17 +2,26 @@
 	<div class="admin-message">
 		<el-card class="admin-message__card">
 			<template #header>
-				<div class="flex items-center justify-between">
+				<div class="flex flex-wrap items-center justify-between gap-2">
 					<span class="text-xl font-bold">留言管理</span>
-					<el-button
-						type="success"
-						:loading="submitting"
-						:disabled="!selectedMessageIds.length || submitting"
-						@click="approveSelected"
-					>
-						<i-lets-icons-check-fill />
-						批量通过（{{ selectedMessageIds.length }}）
-					</el-button>
+					<div class="flex flex-wrap items-center gap-2">
+						<el-button
+							type="primary"
+							@click="announcementDialogVisible = true"
+						>
+							<i-lucide-megaphone class="mr-1" />
+							发布公告
+						</el-button>
+						<el-button
+							type="success"
+							:loading="submitting"
+							:disabled="!selectedMessageIds.length || submitting"
+							@click="approveSelected"
+						>
+							<i-lets-icons-check-fill class="mr-1" />
+							批量通过（{{ selectedMessageIds.length }}）
+						</el-button>
+					</div>
 				</div>
 			</template>
 
@@ -98,7 +107,7 @@
 
 				<el-form-item
 					prop="createdAtRange"
-					label="创建时间"
+					label="留言时间"
 				>
 					<el-date-picker
 						v-model="filterForm.createdAtRange"
@@ -169,6 +178,14 @@
 						min-width="260"
 					>
 						<template #default="{ row }: { row: AdminMessageItem }">
+							<el-tag
+								v-if="row.isAnnouncement"
+								size="small"
+								type="warning"
+								class="mb-1"
+							>
+								{{ row.isPinned ? '置顶公告' : '公告' }}
+							</el-tag>
 							<p class="admin-message__content">{{ row.content }}</p>
 						</template>
 					</el-table-column>
@@ -182,6 +199,15 @@
 								{{ row.userId ? `用户 ID: ${row.userId}` : '游客' }}
 							</p>
 							<p class="admin-message__secondary">{{ row.email || '未填写邮箱' }}</p>
+						</template>
+					</el-table-column>
+					<el-table-column
+						label="留言时间"
+						align="center"
+						width="180"
+					>
+						<template #default="{ row }: { row: AdminMessageItem }">
+							{{ formatDateTime(row.createdAt) }}
 						</template>
 					</el-table-column>
 					<el-table-column
@@ -250,15 +276,6 @@
 					>
 						<template #default="{ row }: { row: AdminMessageItem }">
 							{{ row.moderationReason || '-' }}
-						</template>
-					</el-table-column>
-					<el-table-column
-						label="创建时间"
-						align="center"
-						width="180"
-					>
-						<template #default="{ row }: { row: AdminMessageItem }">
-							{{ formatDateTime(row.createdAt) }}
 						</template>
 					</el-table-column>
 					<el-table-column
@@ -356,6 +373,38 @@
 		</el-card>
 
 		<el-dialog
+			v-model="announcementDialogVisible"
+			title="发布公告"
+			width="min(32rem, calc(100vw - 2rem))"
+		>
+			<el-form
+				label-position="top"
+				@submit.prevent
+			>
+				<el-form-item label="公告内容">
+					<el-input
+						v-model="announcementContent"
+						type="textarea"
+						:rows="5"
+						maxlength="1000"
+						show-word-limit
+					/>
+				</el-form-item>
+			</el-form>
+			<template #footer>
+				<el-button @click="announcementDialogVisible = false">取消</el-button>
+				<el-button
+					type="primary"
+					:loading="announcementSubmitting"
+					:disabled="!announcementContent.trim()"
+					@click="submitAnnouncement"
+				>
+					发布并置顶
+				</el-button>
+			</template>
+		</el-dialog>
+
+		<el-dialog
 			v-model="replyDialogVisible"
 			title="回复留言"
 			width="min(32rem, calc(100vw - 2rem))"
@@ -393,7 +442,9 @@
 <script setup lang="ts">
 import { nextTick, onMounted, ref, watch } from 'vue';
 import type { TableInstance } from 'element-plus';
+import { ElMessage } from 'element-plus';
 import { formatDateTime } from '@/utils/datetime';
+import { createAnnouncement } from '../api/adminMessageApi';
 import { useAdminMessageList } from '../composables/useAdminMessageList';
 import {
 	MESSAGE_MODERATION_ACTION,
@@ -431,6 +482,9 @@ const tableRef = ref<TableInstance>();
 const replyDialogVisible = ref(false);
 const replyTarget = ref<AdminMessageItem | null>(null);
 const replyContent = ref('');
+const announcementDialogVisible = ref(false);
+const announcementSubmitting = ref(false);
+const announcementContent = ref('');
 
 onMounted(() => getMessageList());
 watch(messageList, async () => {
@@ -458,6 +512,20 @@ async function submitReply() {
 	if (!replyTarget.value || !replyContent.value.trim()) return;
 	const success = await reply(replyTarget.value, replyContent.value.trim());
 	if (success) replyDialogVisible.value = false;
+}
+
+async function submitAnnouncement() {
+	if (!announcementContent.value.trim()) return;
+	announcementSubmitting.value = true;
+	try {
+		await createAnnouncement({ content: announcementContent.value.trim() });
+		announcementDialogVisible.value = false;
+		announcementContent.value = '';
+		ElMessage.success('公告已发布');
+		await getMessageList(1);
+	} finally {
+		announcementSubmitting.value = false;
+	}
 }
 
 function getStatusLabel(status: MessageStatus) {

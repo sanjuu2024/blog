@@ -18,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-import { watch } from 'vue';
+import { nextTick, watch } from 'vue';
 import ArticleContent from '../components/ArticleContent.vue';
 import PublicCommentSection from '@/modules/comment/components/PublicCommentSection.vue';
 import { useArticleDetail } from '../composables/useArticleDetail';
@@ -51,6 +51,16 @@ watch(
 			document.title = `${title} - ${import.meta.env.VITE_APP_TITLE}`;
 		}
 	},
+);
+
+watch(
+	[() => route.hash, () => article.value?.id],
+	async ([hash, articleId]) => {
+		if (hash !== '#article-comments' || !articleId) return;
+		await nextTick();
+		document.getElementById('article-comments')?.scrollIntoView({ block: 'start' });
+	},
+	{ flush: 'post' },
 );
 
 // 评论创建或删除后，直接更新本地统计，避免重新拉取文章详情导致页面滚动回顶部

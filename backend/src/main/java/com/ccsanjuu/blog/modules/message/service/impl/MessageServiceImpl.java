@@ -26,6 +26,7 @@ import com.ccsanjuu.blog.modules.message.model.vo.MessageReplyVO;
 import com.ccsanjuu.blog.modules.message.model.vo.PublicMessageItemVO;
 import com.ccsanjuu.blog.modules.message.service.MessageReplyNotificationService;
 import com.ccsanjuu.blog.modules.message.service.MessageService;
+import com.ccsanjuu.blog.modules.notification.service.NotificationService;
 import com.ccsanjuu.blog.modules.message.support.MessageRateLimiter;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
@@ -54,6 +55,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     private final UserMapper userMapper;
     private final MessageRateLimiter messageRateLimiter;
     private final MessageReplyNotificationService notificationService;
+    private final NotificationService notificationCenterService;
 
     /**
      * 获取公开留言分页列表，并在每条顶层留言下附带管理员回复。
@@ -67,6 +69,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         Page<Message> page = Page.of(queryDTO.getPageNum(), queryDTO.getPageSize());
         LambdaQueryWrapper<Message> wrapper = new LambdaQueryWrapper<Message>()
                 .isNull(Message::getParentId)
+                .orderByDesc(Message::getIsPinned)
                 .orderByDesc(Message::getCreatedAt)
                 .orderByDesc(Message::getId);
         addPublicVisibility(wrapper, currentUserId);
@@ -133,6 +136,8 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
                 .nickname(nickname)
                 .email(email == null ? "" : email)
                 .content(content)
+                .isAnnouncement(false)
+                .isPinned(false)
                 .status(admin ? MessageStatus.APPROVED : MessageStatus.PENDING)
                 .notifyOnReply(notify && StringUtils.hasText(email))
                 .unsubscribeToken(notify && StringUtils.hasText(email) ? UUID.randomUUID().toString() : null)
@@ -273,12 +278,22 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
                 .nickname(admin.getNickname())
                 .email("")
                 .content(requestDTO.getContent().trim())
+                .isAnnouncement(false)
+                .isPinned(false)
                 .status(MessageStatus.APPROVED)
                 .notifyOnReply(false)
                 .build();
         messageMapper.insert(reply);
+        if (root.getUserId() != null && !root.getUserId().equals(adminId)) {
+            notificationCenterService.createMessageReplyNotification(
+                    root.getUserId(),
+                    reply.getId(),
+                    "留言收到管理员回复",
+                    reply.getContent()
+            );
+        }
         notificationService.sendAfterCommit(root, reply);
-        return buildMutation(messageMapper.selectById(reply.getId()), admin, admin.getId());
+        return buildMutation(messageMapper.selectById(reply.getId()), admin, adminId);
     }
 
     /**
@@ -339,6 +354,37 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         }
     }
 
+    /**
+     * 创建管理员公告留言；新公告发布时取消旧公告置顶状态。
+     *
+     * @param adminId 管理员 ID
+     * @param requestDTO 公告内容
+     * @return 公告留言
+     */
+    @Override
+    @Transactional
+    public MessageMutationVO createAnnouncement(Long adminId, CreateMessageRequestDTO requestDTO) {
+        User admin = getActiveAdmin(adminId);
+        messageMapper.lockAnnouncementPublishing();
+        messageMapper.update(null, new LambdaUpdateWrapper<Message>()
+                .eq(Message::getIsAnnouncement, true)
+                .eq(Message::getIsPinned, true)
+                .set(Message::getIsPinned, false));
+        Message announcement = Message.builder()
+                .userId(admin.getId())
+                .parentId(null)
+                .nickname(admin.getNickname())
+                .email("")
+                .content(requestDTO.getContent().trim())
+                .isAnnouncement(true)
+                .isPinned(true)
+                .status(MessageStatus.APPROVED)
+                .notifyOnReply(false)
+                .build();
+        messageMapper.insert(announcement);
+        return buildMutation(messageMapper.selectById(announcement.getId()), admin, admin.getId());
+    }
+
     private void addPublicVisibility(LambdaQueryWrapper<Message> wrapper, Long currentUserId) {
         wrapper.and(query -> query.eq(Message::getStatus, MessageStatus.APPROVED)
                 .or(currentUserId != null, mine -> mine.eq(Message::getUserId, currentUserId)
@@ -375,6 +421,8 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
                 .id(message.getId())
                 .nickname(message.getNickname())
                 .content(message.getContent())
+                .isAnnouncement(Boolean.TRUE.equals(message.getIsAnnouncement()))
+                .isPinned(Boolean.TRUE.equals(message.getIsPinned()))
                 .status(message.getStatus())
                 .moderationReason(mine && message.getStatus() == MessageStatus.REJECTED ? message.getModerationReason() : null)
                 .author(toAuthor(message.getUserId() == null ? null : users.get(message.getUserId())))
@@ -399,6 +447,8 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
                 .nickname(message.getNickname())
                 .email(message.getEmail())
                 .content(message.getContent())
+                .isAnnouncement(Boolean.TRUE.equals(message.getIsAnnouncement()))
+                .isPinned(Boolean.TRUE.equals(message.getIsPinned()))
                 .status(message.getStatus())
                 .type(message.getParentId() == null ? MessageType.TOP_LEVEL : MessageType.REPLY)
                 .notifyOnReply(Boolean.TRUE.equals(message.getNotifyOnReply()))
@@ -419,6 +469,8 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
                 .parentId(message.getParentId())
                 .nickname(message.getNickname())
                 .content(message.getContent())
+                .isAnnouncement(Boolean.TRUE.equals(message.getIsAnnouncement()))
+                .isPinned(Boolean.TRUE.equals(message.getIsPinned()))
                 .status(message.getStatus())
                 .moderationReason(mine && message.getStatus() == MessageStatus.REJECTED ? message.getModerationReason() : null)
                 .author(toAuthor(user))

@@ -18,33 +18,6 @@ x-p2-planned-operations:
       path: /api/v1/auth/register
       summary: P2 注册增加验证码和隐私政策版本
     - method: GET
-      path: /api/v1/notifications
-      summary: 查询当前用户通知
-    - method: GET
-      path: /api/v1/notifications/unread-count
-      summary: 获取通知未读数
-    - method: PATCH
-      path: /api/v1/notifications/{notificationId}/read
-      summary: 标记单条通知已读
-    - method: PATCH
-      path: /api/v1/notifications/read-all
-      summary: 标记全部或指定分类已读
-    - method: GET
-      path: /api/v1/announcements
-      summary: 获取当前有效游客公告
-    - method: GET
-      path: /api/v1/admin/notifications
-      summary: 查询管理员消息与公告
-    - method: POST
-      path: /api/v1/admin/notifications
-      summary: 创建管理员消息或公告
-    - method: PUT
-      path: /api/v1/admin/notifications/{notificationId}
-      summary: 更新通知草稿
-    - method: PATCH
-      path: /api/v1/admin/notifications/{notificationId}/status
-      summary: 发布或下线公告
-    - method: GET
       path: /api/v1/admin/mail-deliveries
       summary: 查询邮件投递记录
     - method: GET
@@ -107,6 +80,10 @@ tags:
     description: 后台操作审计日志接口
   - name: Admin Site Content
     description: 后台关于页内容管理
+  - name: Notifications
+    description: 用户站内通知接口
+  - name: Admin Notifications
+    description: 管理员消息接口
   - name: Admin Dashboard
     description: 后台 Dashboard 统计接口
 paths:
@@ -130,6 +107,142 @@ paths:
           $ref: '#/components/responses/UnauthorizedResponse'
         '403':
           $ref: '#/components/responses/ForbiddenResponse'
+  /api/v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: 获取当前用户通知
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [ALL, REPLY, ADMIN_MESSAGE]
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPageResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+  /api/v1/notifications/unread-count:
+    get:
+      tags: [Notifications]
+      summary: 获取通知未读数
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationUnreadCountResponse'
+  /api/v1/notifications/{notificationId}/read:
+    patch:
+      tags: [Notifications]
+      summary: 标记单条通知已读
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          $ref: '#/components/responses/NoDataResponse'
+  /api/v1/notifications/read-all:
+    patch:
+      tags: [Notifications]
+      summary: 标记全部或指定分类已读
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [ALL, REPLY, ADMIN_MESSAGE]
+      responses:
+        '200':
+          $ref: '#/components/responses/NoDataResponse'
+  /api/v1/admin/notifications:
+    get:
+      tags: [Admin Notifications]
+      summary: 查询管理员消息
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminNotificationListResponse'
+    post:
+      tags: [Admin Notifications]
+      summary: 创建管理员消息
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAdminNotificationRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminNotificationResponse'
+  /api/v1/admin/notifications/{notificationId}/status:
+    patch:
+      tags: [Admin Notifications]
+      summary: 发布或下线管理员消息
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: status
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [PUBLISHED, OFFLINE]
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminNotificationResponse'
+  /api/v1/admin/notifications/{notificationId}:
+    put:
+      tags: [Admin Notifications]
+      summary: 更新管理员消息草稿
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAdminNotificationRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminNotificationResponse'
   /api/v1/about:
     get:
       tags:
@@ -1918,7 +2031,7 @@ paths:
       tags:
         - Messages
       summary: 获取公开留言分页列表
-      description: 可选携带 Access Token；游客仅看到已通过留言，登录用户还可看到自己的待审核和已拒绝留言。未携带 Token 时按游客处理，已携带的 Token 无效或过期时返回 401，不降级为游客。
+      description: 可选携带 Access Token；游客仅看到已通过留言，登录用户还可看到自己的待审核和已拒绝留言。仅当前置顶公告排在最前，其余公告和普通留言按创建时间与 ID 倒序排列。未携带 Token 时按游客处理，已携带的 Token 无效或过期时返回 401，不降级为游客。
       operationId: listMessages
       security:
         - {}
@@ -1939,7 +2052,7 @@ paths:
       tags:
         - Messages
       summary: 发表留言
-      description: 游客和登录用户均可发表顶层留言；普通留言需要审核，管理员留言直接通过。登录用户的昵称和邮箱由服务端从当前账号读取。未携带 Token 时按游客校验，已携带的 Token 无效或过期时返回 401，不降级为游客。
+      description: 游客和登录用户均可发表顶层留言；普通留言需要审核，管理员留言或公告直接通过。登录用户的昵称和邮箱由服务端从当前账号读取。未携带 Token 时按游客校验，已携带的 Token 无效或过期时返回 401，不降级为游客。
       operationId: createMessage
       security:
         - {}
@@ -2158,6 +2271,27 @@ paths:
           $ref: '#/components/responses/MessageBadRequestResponse'
         '409':
           $ref: '#/components/responses/MessageConflictResponse'
+  /api/v1/admin/messages/announcements:
+    post:
+      tags: [Admin Messages]
+      summary: 发布并置顶公告留言
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: { type: string, minLength: 1, maxLength: 1000 }
+      responses:
+        '200':
+          description: 公告发布成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageMutationResponse'
   /api/v1/admin/tags/{tagId}:
     put:
       tags:
@@ -2392,6 +2526,129 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/PublicAboutPageData'
+    NotificationItem:
+      type: object
+      required: [id, type, title, content, read, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        type:
+          type: string
+          enum: [COMMENT_REPLY, MESSAGE_REPLY, ADMIN_MESSAGE]
+        title: { type: string }
+        content: { type: string }
+        sourceId: { type: integer, format: int64, nullable: true }
+        authorName: { type: string, nullable: true }
+        originalContent: { type: string, nullable: true }
+        articleId: { type: integer, format: int64, nullable: true }
+        parentId: { type: integer, format: int64, nullable: true }
+        likeCount:
+          type: integer
+          nullable: true
+          description: 仅 COMMENT_REPLY 返回
+        liked:
+          type: boolean
+          nullable: true
+          description: 仅 COMMENT_REPLY 返回
+        canInteract:
+          type: boolean
+          nullable: true
+          description: 仅 COMMENT_REPLY 返回，表示当前评论回复是否允许点赞或快捷回复
+        read: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    NotificationPageData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          required: [records]
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/NotificationItem'
+    NotificationPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/NotificationPageData'
+    NotificationUnreadCount:
+      type: object
+      required: [total, reply, adminMessage]
+      properties:
+        total: { type: integer, format: int64 }
+        reply: { type: integer, format: int64 }
+        adminMessage: { type: integer, format: int64 }
+    NotificationUnreadCountResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/NotificationUnreadCount'
+    AdminNotificationItem:
+      type: object
+      required: [id, type, targetScope, title, content, status, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        type:
+          type: string
+          enum: [ADMIN_MESSAGE]
+        targetScope:
+          type: string
+          enum: [SELECTED_USERS, ALL_USERS]
+          description: SELECTED_USERS 表示单个指定的未逻辑删除用户，ALL_USERS 表示全部未逻辑删除用户
+        userId: { type: integer, format: int64, nullable: true, description: SELECTED_USERS 时的指定用户 ID }
+        title: { type: string }
+        content: { type: string }
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, OFFLINE]
+        createdBy: { type: integer, format: int64, nullable: true }
+        publishedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+    AdminNotificationListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminNotificationItem'
+    CreateAdminNotificationRequest:
+      type: object
+      required: [targetScope, title, content]
+      properties:
+        targetScope:
+          type: string
+          enum: [SELECTED_USERS, ALL_USERS]
+          description: SELECTED_USERS 表示单个指定的未逻辑删除用户，ALL_USERS 表示全部未逻辑删除用户
+        title: { type: string, maxLength: 100 }
+        content: { type: string, maxLength: 2000 }
+        userId: { type: integer, format: int64, description: SELECTED_USERS 时必填 }
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED]
+          default: PUBLISHED
+    UpdateAdminNotificationRequest:
+      type: object
+      required: [targetScope, title, content]
+      properties:
+        targetScope:
+          type: string
+          enum: [SELECTED_USERS, ALL_USERS]
+          description: SELECTED_USERS 表示单个指定的未逻辑删除用户，ALL_USERS 表示全部未逻辑删除用户
+        title: { type: string, maxLength: 100 }
+        content: { type: string, maxLength: 2000 }
+        userId: { type: integer, format: int64, description: SELECTED_USERS 时必填 }
+    AdminNotificationResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AdminNotificationItem'
     AboutPageEditor:
       type: object
       required: [id, username]
@@ -4384,7 +4641,7 @@ components:
               $ref: '#/components/schemas/UploadedImageData'
     AdminAuditResourceType:
       type: string
-      enum: [USER, ARTICLE, CATEGORY, TAG, COMMENT, MESSAGE, FILE, ABOUT_PAGE]
+      enum: [USER, ARTICLE, CATEGORY, TAG, COMMENT, MESSAGE, NOTIFICATION, FILE, ABOUT_PAGE]
     AdminAuditAction:
       type: string
       enum: [CREATE, UPDATE, DELETE, CHANGE_STATUS, CHANGE_ROLE, MODERATE, REPLY, BATCH_APPROVE, UPLOAD]
@@ -4488,7 +4745,7 @@ components:
           format: date-time
     MessageItem:
       type: object
-      required: [id, nickname, content, status, moderationReason, author, isMine, replies, createdAt]
+      required: [id, nickname, content, status, moderationReason, author, isMine, isAnnouncement, isPinned, replies, createdAt]
       properties:
         id:
           type: integer
@@ -4497,6 +4754,12 @@ components:
           type: string
         content:
           type: string
+        isAnnouncement:
+          type: boolean
+          description: 是否为管理员公告
+        isPinned:
+          type: boolean
+          description: 是否置顶
         status:
           $ref: '#/components/schemas/MessageStatus'
         moderationReason:
@@ -4631,6 +4894,8 @@ components:
         - deletedAt
         - author
         - createdAt
+        - isAnnouncement
+        - isPinned
       properties:
         id:
           type: integer
@@ -4650,6 +4915,12 @@ components:
           description: 仅后台返回的私有联系邮箱
         content:
           type: string
+        isAnnouncement:
+          type: boolean
+          description: 是否为管理员公告
+        isPinned:
+          type: boolean
+          description: 是否置顶
         status:
           $ref: '#/components/schemas/MessageStatus'
         type:

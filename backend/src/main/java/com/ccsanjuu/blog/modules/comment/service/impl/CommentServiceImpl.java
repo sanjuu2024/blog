@@ -27,6 +27,7 @@ import com.ccsanjuu.blog.modules.comment.model.enums.CommentStatus;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentType;
 import com.ccsanjuu.blog.modules.comment.model.vo.*;
 import com.ccsanjuu.blog.modules.comment.service.CommentService;
+import com.ccsanjuu.blog.modules.notification.service.NotificationService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
@@ -67,6 +68,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
     private final CommentLikeMapper commentLikeMapper;
     private final UserMapper userMapper;
     private final StringRedisTemplate stringRedisTemplate;
+    private final NotificationService notificationService;
 
     /**
      * 获取后台评论分页列表
@@ -195,6 +197,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
                     throw new BizException(ResultCode.COMMENT_STATUS_TRANSITION_INVALID);
                 }
                 updateArticleCommentCount(comment.getArticleId(), calculateCommentCountDelta(status, targetStatus));
+                createReplyNotificationAfterApproval(comment, status, targetStatus);
             }
         }
 
@@ -213,6 +216,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
                 throw new BizException(ResultCode.COMMENT_STATUS_TRANSITION_INVALID);
             }
             updateArticleCommentCount(comment.getArticleId(), calculateCommentCountDelta(status, targetStatus));
+            createReplyNotificationAfterApproval(comment, status, targetStatus);
         }
 
         // 4. 查询返回
@@ -370,6 +374,16 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
                 .build();
 
         commentMapper.insert(comment);
+        // 管理员回复由于不经过审核，直接创建通知；普通用户回复需要审核通过后才创建通知
+        if (status == CommentStatus.APPROVED && parentComment != null
+                && !parentComment.getUserId().equals(userId)) {
+            notificationService.createCommentReplyNotification(
+                    parentComment.getUserId(),
+                    comment.getId(),
+                    "评论收到新的回复",
+                    comment.getContent()
+            );
+        }
         if (status == CommentStatus.APPROVED){
             updateArticleCommentCount(articleId, 1);
         }
@@ -735,6 +749,21 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
                 .liked(liked)
                 .likeCount(comment.getLikeCount() == null ? 0 : comment.getLikeCount())
                 .build();
+    }
+
+    private void createReplyNotificationAfterApproval(Comment comment, CommentStatus oldStatus, CommentStatus newStatus) {
+        if (oldStatus == CommentStatus.APPROVED || newStatus != CommentStatus.APPROVED || comment.getParentId() == null) {
+            return;
+        }
+        Comment parent = commentMapper.selectById(comment.getParentId());
+        if (parent != null && !parent.getUserId().equals(comment.getUserId())) {
+            notificationService.createCommentReplyNotification(
+                    parent.getUserId(),
+                    comment.getId(),
+                    "评论收到新的回复",
+                    comment.getContent()
+            );
+        }
     }
 
     /**

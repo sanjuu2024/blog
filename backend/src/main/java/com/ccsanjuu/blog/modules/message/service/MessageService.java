@@ -28,4 +28,6 @@ public interface MessageService {
     void approveMessages(Long adminId, MessageBatchApprovalRequestDTO requestDTO);
 
     void unsubscribe(MessageUnsubscribeRequestDTO requestDTO);
+
+    MessageMutationVO createAnnouncement(Long adminId, CreateMessageRequestDTO requestDTO);
 }

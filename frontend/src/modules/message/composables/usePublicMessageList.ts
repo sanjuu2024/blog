@@ -52,7 +52,12 @@ export function usePublicMessageList() {
 	async function submitMessage(form: CreateMessageRequest) {
 		const data = await createMessage(form);
 		if (data.isMine && data.status !== MESSAGE_STATUS.DELETED) {
-			messageList.value = [buildMessage(data), ...messageList.value];
+			const pinnedCount = messageList.value.findIndex((message) => !message.isPinned);
+			messageList.value.splice(
+				pinnedCount < 0 ? messageList.value.length : pinnedCount,
+				0,
+				buildMessage(data),
+			);
 		}
 		ElMessage.success(
 			data.status === MESSAGE_STATUS.APPROVED

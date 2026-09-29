@@ -5,6 +5,10 @@
 
 <mapper namespace="com.ccsanjuu.blog.modules.message.mapper.MessageMapper">
 
+    <select id="lockAnnouncementPublishing" resultType="java.lang.Integer">
+        SELECT 1 FROM pg_advisory_xact_lock(6197310468911752201)
+    </select>
+
     <select id="selectByIdForUpdate"
             resultType="com.ccsanjuu.blog.modules.message.model.entity.Message">
         SELECT *

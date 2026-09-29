@@ -37,7 +37,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { nextTick, onMounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserStore } from '@/stores/userStore';
 import MessageEditor from '../components/MessageEditor.vue';
@@ -50,6 +51,7 @@ defineOptions({
 });
 
 const authStore = useAuthStore();
+const route = useRoute();
 const userStore = useUserStore();
 const editorRef = ref<InstanceType<typeof MessageEditor> | null>(null);
 const submitting = ref(false);
@@ -74,6 +76,16 @@ watch(
 		messageList.value = [];
 		getMessageList(1);
 	},
+);
+
+watch(
+	[() => route?.query.messageId, () => messageList.value.length],
+	async ([messageId]) => {
+		if (!messageId) return;
+		await nextTick();
+		document.getElementById(`message-${messageId}`)?.scrollIntoView({ block: 'start' });
+	},
+	{ flush: 'post' },
 );
 
 async function handleSubmit(form: CreateMessageRequest) {

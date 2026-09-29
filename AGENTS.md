@@ -240,6 +240,7 @@ backend/src/main/java/.../
 - `service` 负责业务逻辑
 - `mapper` 负责持久化访问
 - 不要让 `controller` 直接调数据库
+- 跨模块的实体查询和业务校验必须通过被查询模块提供的 `Mapper` 或 `Service` 完成；禁止在当前业务模块的 `Mapper` 中重复声明其他模块的实体查询
 - 公共异常、响应、枚举、常量、工具统一收敛到 `common`
 - 安全、序列化、MyBatis、Knife4j 等配置统一收敛到 `config`
 

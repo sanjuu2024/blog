@@ -91,6 +91,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         // 个人中心相关接口要求普通登录态即可访问
                         .requestMatchers("/api/v1/users/me", "/api/v1/users/me/**").authenticated()
+                        .requestMatchers("/api/v1/notifications", "/api/v1/notifications/**").authenticated()
                         // 前台评论写入和删除要求登录
                         .requestMatchers(HttpMethod.POST, "/api/v1/articles/*/comments").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/v1/comments/*").authenticated()

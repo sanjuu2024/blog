@@ -69,6 +69,8 @@ export interface AdminMessageItem {
 	nickname: string;
 	email: string;
 	content: string;
+	isAnnouncement?: boolean;
+	isPinned?: boolean;
 	status: MessageStatus;
 	type: MessageType;
 	notifyOnReply: boolean;
@@ -90,6 +92,10 @@ export interface MessageModerationRequest {
 }
 
 export interface CreateMessageReplyRequest {
+	content: string;
+}
+
+export interface CreateAnnouncementRequest {
 	content: string;
 }
 

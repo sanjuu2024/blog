@@ -1,5 +1,8 @@
 <template>
-	<section class="article-comment-section">
+	<section
+		id="article-comments"
+		class="article-comment-section"
+	>
 		<div class="comment-section-header">
 			<h2 class="comment-section-title">评论</h2>
 			<span class="comment-section-count">{{ article.commentCount }}</span>
@@ -179,7 +182,7 @@
 
 						<!-- 评论的回复列表 -->
 						<div
-							v-if="getReplyState(comment.id).expanded"
+							v-if="shouldShowReplyList(comment.id)"
 							class="reply-list"
 						>
 							<div
@@ -413,6 +416,40 @@ watch(
 		resetCommentList(props.article.id);
 	},
 );
+
+watch(
+	[() => route.query.replyId, () => commentList.value.length],
+	async ([replyId]) => {
+		const targetId = Number(replyId);
+		if (!targetId) return;
+		for (const comment of commentList.value) {
+			if (!comment.hasVisibleReplies && comment.replyCount === 0) continue;
+			const state = getReplyState(comment.id);
+			const wasExpanded = state.expanded;
+			if (!state.loaded) await getReplyList(comment.id, true);
+			let target = state.records.find((reply) => reply.id === targetId);
+			while (!target && state.hasNext && !state.loading) {
+				await getReplyList(comment.id);
+				target = state.records.find((reply) => reply.id === targetId);
+			}
+			if (!target) {
+				if (!wasExpanded) collapseReplies(comment.id);
+				continue;
+			}
+			openReplyEditor(comment, target.author, target.id);
+			document
+				.getElementById(`comment-content-${target.id}`)
+				?.scrollIntoView({ block: 'center' });
+			return;
+		}
+	},
+	{ flush: 'post' },
+);
+
+function shouldShowReplyList(commentId: number) {
+	const state = getReplyState(commentId);
+	return state.expanded && (state.records.length > 0 || state.loading);
+}
 
 // 跳转到登录页
 function goLogin() {

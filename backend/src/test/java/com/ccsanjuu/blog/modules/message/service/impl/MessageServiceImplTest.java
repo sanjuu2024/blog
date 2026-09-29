@@ -13,6 +13,7 @@ import com.ccsanjuu.blog.modules.message.model.enums.MessageModerationAction;
 import com.ccsanjuu.blog.modules.message.model.enums.MessageStatus;
 import com.ccsanjuu.blog.modules.message.service.MessageReplyNotificationService;
 import com.ccsanjuu.blog.modules.message.support.MessageRateLimiter;
+import com.ccsanjuu.blog.modules.notification.service.NotificationService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
@@ -57,6 +58,9 @@ class MessageServiceImplTest {
     @Mock
     private MessageReplyNotificationService notificationService;
 
+    @Mock
+    private NotificationService notificationCenterService;
+
     private MessageServiceImpl messageService;
 
     @BeforeAll
@@ -70,7 +74,7 @@ class MessageServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        messageService = new MessageServiceImpl(messageMapper, userMapper, messageRateLimiter, notificationService);
+        messageService = new MessageServiceImpl(messageMapper, userMapper, messageRateLimiter, notificationService, notificationCenterService);
         ReflectionTestUtils.setField(messageService, "baseMapper", messageMapper);
         ReflectionTestUtils.setField(messageService, "entityClass", Message.class);
         ReflectionTestUtils.setField(messageService, "mapperClass", MessageMapper.class);
@@ -357,4 +361,5 @@ class MessageServiceImplTest {
         assertEquals(MessageStatus.APPROVED, status);
         verify(notificationService).sendAfterCommit(eq(root), any(Message.class));
     }
+
 }

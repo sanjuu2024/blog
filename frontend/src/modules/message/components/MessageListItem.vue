@@ -1,6 +1,7 @@
 <template>
 	<div
 		ref="itemRef"
+		:id="`message-${item.id}`"
 		class="message-item"
 		:class="{ 'message-item--muted': isMuted }"
 	>
@@ -35,6 +36,16 @@
 					/>
 				</GuestUserPopover>
 				<strong>{{ item.author?.nickname || item.nickname }}</strong>
+				<el-tag
+					v-if="item.isAnnouncement"
+					type="warning"
+					size="large"
+				>
+					<div class="flex items-center gap-1 text-[0.9rem]">
+						<i-lucide-megaphone />
+						公告
+					</div>
+				</el-tag>
 				<el-tag
 					v-if="item.status !== MESSAGE_STATUS.APPROVED"
 					:size="'small'"
