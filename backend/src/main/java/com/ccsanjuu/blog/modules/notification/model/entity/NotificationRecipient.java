@@ -1,4 +1,4 @@
-package com.ccsanjuu.blog.modules.comment.model.entity;
+package com.ccsanjuu.blog.modules.notification.model.entity;
 
 import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.annotation.TableField;
@@ -14,15 +14,17 @@ import java.time.OffsetDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@TableName("blog_comment_like")
-public class CommentLike {
+@TableName("blog_notification_recipient")
+public class NotificationRecipient {
 
-    private Long id;
-
-    private Long commentId;
+    private Long notificationId;
 
     private Long userId;
 
+    @TableField(fill = FieldFill.UPDATE)
+    private OffsetDateTime readAt;
+
     @TableField(fill = FieldFill.INSERT)
     private OffsetDateTime createdAt;
+
 }

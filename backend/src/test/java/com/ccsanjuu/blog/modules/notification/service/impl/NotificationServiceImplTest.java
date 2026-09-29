@@ -3,9 +3,11 @@ package com.ccsanjuu.blog.modules.notification.service.impl;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.notification.mapper.NotificationMapper;
+import com.ccsanjuu.blog.modules.notification.mapper.NotificationRecipientMapper;
 import com.ccsanjuu.blog.modules.notification.model.bo.NotificationUnreadCountBO;
 import com.ccsanjuu.blog.modules.notification.model.dto.CreateAdminNotificationRequestDTO;
 import com.ccsanjuu.blog.modules.notification.model.entity.Notification;
+import com.ccsanjuu.blog.modules.notification.model.entity.NotificationRecipient;
 import com.ccsanjuu.blog.modules.notification.model.enums.NotificationStatus;
 import com.ccsanjuu.blog.modules.notification.model.enums.NotificationTargetScope;
 import com.ccsanjuu.blog.modules.notification.model.enums.NotificationType;
@@ -20,11 +22,14 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -35,6 +40,9 @@ class NotificationServiceImplTest {
     private NotificationMapper notificationMapper;
 
     @Mock
+    private NotificationRecipientMapper notificationRecipientMapper;
+
+    @Mock
     private UserMapper userMapper;
 
     @Mock
@@ -42,15 +50,15 @@ class NotificationServiceImplTest {
 
     @Test
     void shouldCreateAdminMessageForAllUsers() {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, userMapper, transactionManager);
-        when(notificationMapper.insertNotification(any())).thenAnswer(invocation -> {
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
+        when(notificationMapper.insert(any(Notification.class))).thenAnswer(invocation -> {
             Notification notification = invocation.getArgument(0);
             notification.setId(70001L);
             return 1;
         });
         when(notificationMapper.selectNotificationByIdForUpdate(70001L)).thenAnswer(invocation -> {
             ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
-            verify(notificationMapper).insertNotification(captor.capture());
+            verify(notificationMapper).insert(captor.capture());
             return captor.getValue();
         });
 
@@ -58,16 +66,17 @@ class NotificationServiceImplTest {
         request.setTargetScope(NotificationTargetScope.ALL_USERS);
         request.setTitle("系统消息");
         request.setContent("内容");
+        when(userMapper.selectObjs(any())).thenReturn(List.of(10002L));
 
         var result = service.createAdminMessage(10001L, request);
 
         assertEquals(70001L, result.getId());
-        verify(notificationMapper).insertRecipientsForAllUsers(70001L, 10001L);
+        verify(notificationRecipientMapper, org.mockito.Mockito.atLeastOnce()).insert(any(NotificationRecipient.class));
     }
 
     @Test
     void shouldCreateDraftWithoutRecipientsAndSendWhenPublished() {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, userMapper, transactionManager);
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
         Notification draft = Notification.builder()
                 .id(70002L)
                 .type(NotificationType.ADMIN_MESSAGE)
@@ -75,36 +84,37 @@ class NotificationServiceImplTest {
                 .createdBy(10001L)
                 .status(NotificationStatus.DRAFT)
                 .build();
-        when(notificationMapper.insertNotification(any())).thenAnswer(invocation -> {
+        when(notificationMapper.insert(any(Notification.class))).thenAnswer(invocation -> {
             ((Notification) invocation.getArgument(0)).setId(70002L);
             return 1;
         });
         when(notificationMapper.selectNotificationByIdForUpdate(70002L)).thenReturn(draft);
-        when(notificationMapper.updateNotificationStatus(any())).thenReturn(1);
+        when(notificationMapper.updateById(any(Notification.class))).thenReturn(1);
 
         CreateAdminNotificationRequestDTO request = new CreateAdminNotificationRequestDTO();
         request.setTargetScope(NotificationTargetScope.ALL_USERS);
         request.setStatus(NotificationStatus.DRAFT);
         request.setTitle("草稿");
         request.setContent("正文");
+        when(userMapper.selectObjs(any())).thenReturn(List.of(10002L));
         service.createAdminMessage(10001L, request);
 
-        verify(notificationMapper, never()).insertRecipientsForAllUsers(70002L, 10001L);
+        verify(notificationRecipientMapper, never()).insert(any(NotificationRecipient.class));
         service.updateAdminMessageStatus(70002L, "PUBLISHED");
-        verify(notificationMapper).insertRecipientsForAllUsers(70002L, 10001L);
+        verify(notificationRecipientMapper, atLeastOnce()).insert(any(NotificationRecipient.class));
     }
 
     @Test
     void shouldCreateSelectedDraftWithoutRecipientsUntilPublished() {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, userMapper, transactionManager);
-        when(notificationMapper.insertNotification(any())).thenAnswer(invocation -> {
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
+        when(notificationMapper.insert(any(Notification.class))).thenAnswer(invocation -> {
             Notification notification = invocation.getArgument(0);
             notification.setId(70003L);
             return 1;
         });
         when(notificationMapper.selectNotificationByIdForUpdate(70003L)).thenAnswer(invocation -> {
             ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
-            verify(notificationMapper).insertNotification(captor.capture());
+            verify(notificationMapper).insert(captor.capture());
             return captor.getValue();
         });
 
@@ -119,17 +129,17 @@ class NotificationServiceImplTest {
         var result = service.createAdminMessage(10001L, request);
 
         assertEquals(10002L, result.getUserId());
-        verify(notificationMapper, never()).insertRecipientsForUsers(any(), any(), any());
+        verify(notificationRecipientMapper, never()).insert(any(NotificationRecipient.class));
     }
 
     @Test
     void shouldRejectSelectedUserWhenInsertDoesNotCreateRecipient() {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, userMapper, transactionManager);
-        when(notificationMapper.insertNotification(any())).thenAnswer(invocation -> {
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
+        when(notificationMapper.insert(any(Notification.class))).thenAnswer(invocation -> {
             ((Notification) invocation.getArgument(0)).setId(70003L);
             return 1;
         });
-        when(notificationMapper.insertRecipientsForUsers(70003L, 10002L, 10001L)).thenReturn(0);
+        when(notificationRecipientMapper.insert(any(NotificationRecipient.class))).thenReturn(0);
         CreateAdminNotificationRequestDTO request = new CreateAdminNotificationRequestDTO();
         request.setTargetScope(NotificationTargetScope.SELECTED_USERS);
         request.setUserId(10002L);
@@ -143,19 +153,19 @@ class NotificationServiceImplTest {
 
     @Test
     void shouldRejectUnknownReadCategory() {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, userMapper, transactionManager);
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
 
         BizException error = assertThrows(BizException.class, () -> service.markAllRead(10001L, "UNKNOWN"));
 
         assertEquals(ResultCode.PARAM_INVALID, error.getResultCode());
-        verify(notificationMapper, never()).markAllRead(any(), any());
+        verify(notificationRecipientMapper, never()).selectIdsForRead(any(), any());
     }
 
     @Test
     void shouldPersistReplySource() {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, userMapper, transactionManager);
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
         when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
-        when(notificationMapper.insertNotification(any())).thenAnswer(invocation -> {
+        when(notificationMapper.insert(any(Notification.class))).thenAnswer(invocation -> {
             ((Notification) invocation.getArgument(0)).setId(70004L);
             return 1;
         });
@@ -163,21 +173,21 @@ class NotificationServiceImplTest {
         TransactionSynchronizationManager.initSynchronization();
         try {
             service.createCommentReplyNotification(10002L, 30001L, "回复", "内容");
-            verify(notificationMapper, never()).insertNotification(any());
+            verify(notificationMapper, never()).insert(any(Notification.class));
             TransactionSynchronizationManager.getSynchronizations().forEach(synchronization -> synchronization.afterCommit());
         } finally {
             TransactionSynchronizationManager.clearSynchronization();
         }
 
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
-        verify(notificationMapper).insertNotification(captor.capture());
+        verify(notificationMapper).insert(captor.capture());
         assertEquals("COMMENT", captor.getValue().getSourceType());
         assertEquals(30001L, captor.getValue().getSourceId());
     }
 
     @Test
     void shouldNotPropagateReplyNotificationFailureAfterCommit() {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, userMapper, transactionManager);
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
         when(transactionManager.getTransaction(any())).thenThrow(new IllegalStateException("database unavailable"));
 
         TransactionSynchronizationManager.initSynchronization();
@@ -194,7 +204,7 @@ class NotificationServiceImplTest {
 
     @Test
     void shouldReturnUnreadCounts() {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, userMapper, transactionManager);
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
         NotificationUnreadCountBO count = new NotificationUnreadCountBO();
         count.setTotal(3L);
         count.setReply(2L);

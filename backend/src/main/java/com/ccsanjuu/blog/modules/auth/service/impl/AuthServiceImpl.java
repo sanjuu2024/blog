@@ -317,7 +317,14 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     public void revokeRefreshToken(String jti) {
-        authMapper.revokeRefreshToken(jti, AuthSessionStatus.REVOKED.getValue());
+        authMapper.update(
+                AuthSession.builder()
+                        .status(AuthSessionStatus.REVOKED)
+                        .revokedAt(OffsetDateTime.now(ZoneOffset.UTC))
+                        .build(),
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<AuthSession>()
+                        .eq(AuthSession::getTokenJti, jti)
+        );
     }
 
     /**
@@ -326,10 +333,15 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     public void revokeUserRefreshTokens(Long userId) {
-        authMapper.revokeActiveRefreshTokensByUserId(
-                userId,
-                AuthSessionStatus.ACTIVE.getValue(),
-                AuthSessionStatus.REVOKED.getValue()
+        authMapper.update(
+                AuthSession.builder()
+                        .status(AuthSessionStatus.REVOKED)
+                        .revokedAt(OffsetDateTime.now(ZoneOffset.UTC))
+                        .build(),
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<AuthSession>()
+                        .eq(AuthSession::getUserId, userId)
+                        .eq(AuthSession::getTokenType, AuthSessionTokenType.REFRESH)
+                        .eq(AuthSession::getStatus, AuthSessionStatus.ACTIVE)
         );
     }
 

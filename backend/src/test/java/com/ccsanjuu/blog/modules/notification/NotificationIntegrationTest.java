@@ -10,9 +10,11 @@ import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
 import com.ccsanjuu.blog.modules.comment.model.entity.Comment;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentStatus;
 import com.ccsanjuu.blog.modules.notification.mapper.NotificationMapper;
+import com.ccsanjuu.blog.modules.notification.mapper.NotificationRecipientMapper;
 import com.ccsanjuu.blog.modules.notification.model.dto.CreateAdminNotificationRequestDTO;
 import com.ccsanjuu.blog.modules.notification.model.dto.NotificationQueryDTO;
 import com.ccsanjuu.blog.modules.notification.model.entity.Notification;
+import com.ccsanjuu.blog.modules.notification.model.entity.NotificationRecipient;
 import com.ccsanjuu.blog.modules.notification.model.enums.NotificationStatus;
 import com.ccsanjuu.blog.modules.notification.model.enums.NotificationTargetScope;
 import com.ccsanjuu.blog.modules.notification.model.enums.NotificationType;
@@ -44,6 +46,9 @@ class NotificationIntegrationTest {
 
     @Autowired
     private NotificationMapper notificationMapper;
+
+    @Autowired
+    private NotificationRecipientMapper notificationRecipientMapper;
 
     @Autowired
     private MessageService messageService;
@@ -146,7 +151,7 @@ class NotificationIntegrationTest {
                 .sourceType("COMMENT")
                 .sourceId(321L)
                 .build();
-        notificationMapper.insertNotification(notification);
+        notificationMapper.insert(notification);
 
         assertEquals(321L, jdbcTemplate.queryForObject(
                 "SELECT source_id FROM blog_notification WHERE id = ?", Long.class, notification.getId()));
@@ -204,8 +209,11 @@ class NotificationIntegrationTest {
                         .title("留言回复").content("留言回复").build())) {
             source.setTargetScope(NotificationTargetScope.SELECTED_USERS);
             source.setStatus(NotificationStatus.PUBLISHED);
-            notificationMapper.insertNotification(source);
-            notificationMapper.insertRecipientsForUsers(source.getId(), recipient.getId(), null);
+            notificationMapper.insert(source);
+            notificationRecipientMapper.insert(NotificationRecipient.builder()
+                    .notificationId(source.getId())
+                    .userId(recipient.getId())
+                    .build());
         }
 
         NotificationQueryDTO query = new NotificationQueryDTO();
