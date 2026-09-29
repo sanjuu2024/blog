@@ -56,6 +56,7 @@ const stubs = {
 	ElRadioButton: { template: '<span><slot /></span>' },
 	ElEmpty: true,
 	ILucideChevronRight: true,
+	AppLoadMoreTrigger: true,
 	PublicCommentReplyEditor: ReplyEditorStub,
 };
 

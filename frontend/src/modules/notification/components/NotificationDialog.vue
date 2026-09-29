@@ -119,14 +119,12 @@
 					@submit="submitReply(notification)"
 				/>
 			</div>
-			<el-button
-				v-if="page.hasNext"
+			<AppLoadMoreTrigger
 				:loading="loading"
-				class="notification-dialog__more"
-				@click="loadNotifications(page.pageNum + 1)"
-			>
-				加载更多
-			</el-button>
+				:has-next="page.hasNext"
+				thing-str="通知"
+				@load-more="loadNotifications(page.pageNum + 1)"
+			/>
 		</div>
 	</el-dialog>
 </template>
@@ -135,6 +133,7 @@
 import { ElMessage } from 'element-plus';
 import { ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import AppLoadMoreTrigger from '@/components/AppLoadMoreTrigger.vue';
 import { createComment } from '@/modules/comment/api/commentApi';
 import PublicCommentReplyEditor from '@/modules/comment/components/PublicCommentReplyEditor.vue';
 import { formatDateTime } from '@/utils/datetime';
@@ -371,11 +370,6 @@ async function submitReply(notification: NotificationItem) {
 		cursor: default;
 		opacity: 0.5;
 	}
-}
-
-.notification-dialog__more {
-	display: block;
-	margin: 1rem auto 0;
 }
 
 @media (width < 480px) {
