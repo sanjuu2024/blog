@@ -12,5 +12,6 @@ public enum AdminAuditAction {
     MODERATE,
     REPLY,
     BATCH_APPROVE,
-    UPLOAD
+    UPLOAD,
+    RETRY
 }

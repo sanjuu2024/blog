@@ -14,6 +14,7 @@ import IconComment from '~icons/lucide/message-circle-more';
 import IconLike from '~icons/lucide/thumbs-up';
 import IconMessage from '~icons/lucide/messages-square';
 import IconAdminNotif from '~icons/lucide/bell';
+import IconMailDelivery from '~icons/lucide/mail';
 import IconAbout from '~icons/lucide/info';
 import IconAudit from '~icons/lucide/scroll-text';
 
@@ -30,6 +31,7 @@ const iconMap = {
 	about: IconAbout,
 	audit: IconAudit,
 	adminNotif: IconAdminNotif,
+	mailDelivery: IconMailDelivery,
 };
 
 type AdminMenuIcon = keyof typeof iconMap;

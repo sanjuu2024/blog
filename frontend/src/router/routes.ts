@@ -94,6 +94,12 @@ export const adminRoutes = [
 		},
 	},
 	{
+		path: '/admin/mail-deliveries',
+		name: 'AdminMailDeliveryList',
+		component: () => import('@/modules/admin/mail-delivery/views/AdminMailDeliveryPage.vue'),
+		meta: { icon: 'mailDelivery', title: '邮件管理' },
+	},
+	{
 		path: '/admin/notifications',
 		name: 'AdminNotificationList',
 		component: () => import('@/modules/admin/notification/views/AdminNotificationPage.vue'),

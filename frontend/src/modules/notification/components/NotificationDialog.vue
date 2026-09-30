@@ -183,6 +183,7 @@ function handleCategoryChange(value: string | number | boolean | undefined) {
 	}
 }
 
+// 点击回复正文跳转到具体评论或留言；通知标题和操作按钮不触发跳转。
 function openSource(notification: NotificationItem) {
 	if (notification.type === 'COMMENT_REPLY' && notification.articleId) {
 		void markRead(notification).catch(() => {});
@@ -205,10 +206,12 @@ function openSource(notification: NotificationItem) {
 	}
 }
 
+// 快捷回复编辑器只在当前通知项下展开，避免离开通知弹窗丢失上下文。
 function isReplyEditorVisible(notification: NotificationItem) {
 	return replyingNotificationId.value === notification.id;
 }
 
+// 快捷回复只支持评论回复，留言回复仍按当前留言板权限处理。
 function openReply(notification: NotificationItem) {
 	if (notification.type !== NOTIFICATION_TYPE.COMMENT_REPLY) return;
 	void markRead(notification).catch(() => {});
