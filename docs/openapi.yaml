@@ -17,15 +17,6 @@ x-p2-planned-operations:
     - method: POST
       path: /api/v1/auth/register
       summary: P2 注册增加验证码和隐私政策版本
-    - method: GET
-      path: /api/v1/admin/mail-deliveries
-      summary: 查询邮件投递记录
-    - method: GET
-      path: /api/v1/admin/mail-deliveries/{deliveryId}
-      summary: 获取邮件投递详情
-    - method: POST
-      path: /api/v1/admin/mail-deliveries/{deliveryId}/retry
-      summary: 手动重试失败的回复通知邮件
     - method: POST
       path: /api/v1/comments/notifications/unsubscribe
       summary: 退订单条评论的直接回复邮件
@@ -2349,6 +2340,59 @@ paths:
                 code: 0
                 message: 成功
                 data: null
+  /api/v1/admin/mail-deliveries:
+    get:
+      tags: [Admin Mail Deliveries]
+      summary: 查询邮件投递记录
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/PageNum' }
+        - { $ref: '#/components/parameters/PageSize' }
+        - name: mailType
+          in: query
+          schema: { type: string, enum: [COMMENT_REPLY, MESSAGE_REPLY] }
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, SENT, FAILED] }
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MailDeliveryPageResponse' }
+  /api/v1/admin/mail-deliveries/{deliveryId}:
+    get:
+      tags: [Admin Mail Deliveries]
+      summary: 获取邮件投递详情
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: deliveryId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MailDeliveryResponse' }
+  /api/v1/admin/mail-deliveries/{deliveryId}/retry:
+    post:
+      tags: [Admin Mail Deliveries]
+      summary: 手动重试失败的回复通知邮件
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: deliveryId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 重试已提交
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NoDataResponse' }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -2649,6 +2693,43 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/AdminNotificationItem'
+    MailDeliveryItem:
+      type: object
+      required: [id, mailType, sourceId, replyId, recipientMasked, status, attemptCount, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        mailType: { type: string, enum: [COMMENT_REPLY, MESSAGE_REPLY] }
+        sourceId: { type: integer, format: int64 }
+        replyId: { type: integer, format: int64 }
+        recipientMasked: { type: string }
+        status: { type: string, enum: [PENDING, SENT, FAILED] }
+        attemptCount: { type: integer }
+        lastErrorType: { type: string, nullable: true }
+        lastErrorMessage: { type: string, nullable: true }
+        sentAt: { type: string, format: date-time, nullable: true }
+        lastAttemptAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+    MailDeliveryPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/PagedMailDeliveryData'
+    PagedMailDeliveryData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          properties:
+            records:
+              type: array
+              items: { $ref: '#/components/schemas/MailDeliveryItem' }
+    MailDeliveryResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/MailDeliveryItem' }
     AboutPageEditor:
       type: object
       required: [id, username]

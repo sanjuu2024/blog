@@ -420,6 +420,7 @@ watch(
 watch(
 	[() => route.query.replyId, () => commentList.value.length],
 	async ([replyId]) => {
+		// 定位通知跳转的回复；未命中的评论必须收起，避免空回复列表占用间距。
 		const targetId = Number(replyId);
 		if (!targetId) return;
 		for (const comment of commentList.value) {
@@ -447,6 +448,7 @@ watch(
 );
 
 function shouldShowReplyList(commentId: number) {
+	// 空回复列表不渲染容器，避免其 padding 和 margin 产生额外留白。
 	const state = getReplyState(commentId);
 	return state.expanded && (state.records.length > 0 || state.loading);
 }

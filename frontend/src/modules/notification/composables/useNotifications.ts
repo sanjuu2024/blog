@@ -53,6 +53,7 @@ export function useNotifications() {
 	});
 
 	async function loadNotifications(pageNum = 1) {
+		// 忽略旧请求响应，避免切换分类或触底加载时覆盖最新列表。
 		if (pageNum > 1 && loading.value) return;
 		const currentRequestId = ++requestId;
 		loading.value = true;
@@ -75,6 +76,7 @@ export function useNotifications() {
 	}
 
 	async function changeCategory(nextCategory: NotificationCategory) {
+		// 切换分类时重置分页，避免把不同分类的记录拼接在一起。
 		category.value = nextCategory;
 		await loadNotifications(1);
 	}

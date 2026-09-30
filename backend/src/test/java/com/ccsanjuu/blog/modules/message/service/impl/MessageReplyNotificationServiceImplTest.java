@@ -1,6 +1,10 @@
 package com.ccsanjuu.blog.modules.message.service.impl;
 
 import com.ccsanjuu.blog.modules.message.model.entity.Message;
+import com.ccsanjuu.blog.modules.mail.service.MailDeliveryService;
+import com.ccsanjuu.blog.modules.mail.model.entity.MailDelivery;
+import com.ccsanjuu.blog.modules.mail.model.enums.MailDeliveryStatus;
+import com.ccsanjuu.blog.modules.message.mapper.MessageMapper;
 import com.ccsanjuu.blog.properties.BlogMailProperties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,6 +44,12 @@ class MessageReplyNotificationServiceImplTest {
     @Mock
     private JavaMailSender mailSender;
 
+    @Mock
+    private MailDeliveryService mailDeliveryService;
+
+    @Mock
+    private MessageMapper messageMapper;
+
     private BlogMailProperties mailProperties;
     private MessageReplyNotificationServiceImpl notificationService;
 
@@ -48,11 +59,15 @@ class MessageReplyNotificationServiceImplTest {
         mailProperties.setEnabled(true);
         mailProperties.setFrom("noreply@example.com");
         mailProperties.setFrontendBaseUrl("https://blog.example.com");
+        lenient().when(mailDeliveryService.createPending(any(), any(), any(), any()))
+                .thenReturn(MailDelivery.builder().id(1L).build());
         TaskExecutor directExecutor = Runnable::run;
         notificationService = new MessageReplyNotificationServiceImpl(
                 mailSenderProvider,
                 mailProperties,
-                directExecutor
+                directExecutor,
+                mailDeliveryService,
+                messageMapper
         );
     }
 
@@ -89,6 +104,8 @@ class MessageReplyNotificationServiceImplTest {
         notificationService.sendAfterCommit(rootMessage(), replyMessage());
 
         verify(mailSender).send(any(SimpleMailMessage.class));
+        verify(mailDeliveryService).markAttempt(
+                1L, MailDeliveryStatus.FAILED, "MailAuthenticationException", "SMTP 认证失败");
     }
 
     @Test
@@ -101,6 +118,21 @@ class MessageReplyNotificationServiceImplTest {
         notificationService.sendAfterCommit(rootMessage(), replyMessage());
 
         verify(mailSender, times(2)).send(any(SimpleMailMessage.class));
+        verify(mailDeliveryService).markAttempt(
+                1L, MailDeliveryStatus.PENDING, "MailSendException", "SMTP 发送失败");
+        verify(mailDeliveryService).markSent(1L);
+    }
+
+    @Test
+    void runtimeMailFailureShouldBeRecordedAsFailed() {
+        when(mailSenderProvider.getIfAvailable()).thenReturn(mailSender);
+        doThrow(new IllegalStateException("unexpected failure"))
+                .when(mailSender).send(any(SimpleMailMessage.class));
+
+        notificationService.sendAfterCommit(rootMessage(), replyMessage());
+
+        verify(mailDeliveryService).markAttempt(
+                1L, MailDeliveryStatus.FAILED, "IllegalStateException", "邮件发送过程中发生运行时错误");
     }
 
     @Test
@@ -136,7 +168,9 @@ class MessageReplyNotificationServiceImplTest {
         notificationService = new MessageReplyNotificationServiceImpl(
                 mailSenderProvider,
                 mailProperties,
-                rejectingExecutor
+                rejectingExecutor,
+                mailDeliveryService,
+                messageMapper
         );
 
         assertDoesNotThrow(() -> notificationService.sendAfterCommit(rootMessage(), replyMessage()));
@@ -151,11 +185,15 @@ class MessageReplyNotificationServiceImplTest {
         notificationService = new MessageReplyNotificationServiceImpl(
                 mailSenderProvider,
                 mailProperties,
-                rejectingExecutor
+                rejectingExecutor,
+                mailDeliveryService,
+                messageMapper
         );
 
         assertDoesNotThrow(() -> notificationService.sendAfterCommit(rootMessage(), replyMessage()));
         verify(mailSenderProvider, never()).getIfAvailable();
+        verify(mailDeliveryService).markAttempt(
+                1L, MailDeliveryStatus.FAILED, "IllegalStateException", "邮件发送任务提交失败");
     }
 
     private Message rootMessage() {

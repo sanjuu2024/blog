@@ -29,6 +29,7 @@ const contentRef = ref<HTMLElement | null>(null);
 const expanded = ref(false);
 const overflows = ref(false);
 
+// 折叠状态按实际渲染高度判断是否超过两行。
 function updateOverflow() {
 	if (!contentRef.value || expanded.value) return;
 	overflows.value = contentRef.value.scrollHeight - contentRef.value.clientHeight > 1;
@@ -40,6 +41,7 @@ watch(
 	() => nextTick(updateOverflow),
 );
 
+// 只展开当前通知正文，不改变通知项的整体布局。
 async function toggle() {
 	expanded.value = !expanded.value;
 	if (!expanded.value) {
