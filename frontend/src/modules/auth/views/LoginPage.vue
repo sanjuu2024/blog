@@ -41,7 +41,7 @@
 			<el-button
 				type="primary"
 				native-type="submit"
-				class="my-4 w-full"
+				class="mb-4 w-full"
 				:disabled="!validated"
 			>
 				登录
@@ -178,6 +178,10 @@ async function handlerLogin() {
 }
 
 .login-form {
+	:deep(.el-form-item) {
+		margin-bottom: 32px;
+	}
+
 	:deep(.el-form-item__label) {
 		font-weight: 500;
 	}

@@ -3,6 +3,7 @@
 		<h1 class="mt-2 mb-4 text-center text-2xl">注册</h1>
 		<hr class="mb-4 text-gray-300" />
 		<el-form
+			ref="registerFormRef"
 			class="register-form"
 			label-width="auto"
 			label-position="top"
@@ -86,10 +87,26 @@
 					</template>
 				</el-input>
 			</el-form-item>
+			<el-form-item
+				prop="confirmPassword"
+				label="确认密码"
+			>
+				<el-input
+					v-model="registerForm.confirmPassword"
+					maxlength="32"
+					placeholder="请再次输入密码"
+					type="password"
+					show-password
+				>
+					<template #prefix>
+						<i-lucide-lock-keyhole />
+					</template>
+				</el-input>
+			</el-form-item>
 			<el-button
 				type="primary"
 				native-type="submit"
-				class="my-4 w-full"
+				class="mb-4 w-full"
 				:disabled="!validated"
 			>
 				创建账号
@@ -146,7 +163,7 @@ import { isAxiosError } from 'axios';
 import type { ApiResult } from '@/types/api';
 import type { RegisterRequest } from '../types/auth';
 import { register, sendEmailVerificationCode } from '../api/authApi';
-import type { FormItemRule } from 'element-plus';
+import type { FormInstance, FormItemRule } from 'element-plus';
 import { ElMessage } from 'element-plus';
 import PrivacyPolicyDialog from '@/modules/privacy/components/PrivacyPolicyDialog.vue';
 import { getPrivacyPolicy } from '@/modules/privacy/api/privacyApi';
@@ -167,14 +184,20 @@ defineOptions({
 });
 
 const router = useRouter();
+const registerFormRef = ref<FormInstance>();
 const privacyPolicyVisible = ref(false);
 const privacyPolicyVersion = ref('');
 
+interface RegisterForm extends RegisterRequest {
+	confirmPassword: string;
+}
+
 // 注册表单数据
-let registerForm = reactive<RegisterRequest>({
+let registerForm = reactive<RegisterForm>({
 	username: '',
 	email: '',
 	password: '',
+	confirmPassword: '',
 	verificationCode: '',
 	privacyPolicyVersion: '',
 });
@@ -182,6 +205,7 @@ let registerForm = reactive<RegisterRequest>({
 let usernameAvailable = ref<boolean>(false);
 let emailAvailable = ref<boolean>(false);
 let passwordValid = ref<boolean>(false);
+let confirmPasswordValid = ref<boolean>(false);
 let verificationCodeValid = ref<boolean>(false);
 const checked = ref<boolean>(false);
 const sendingCode = ref(false);
@@ -246,6 +270,23 @@ const rules = {
 			},
 		},
 	],
+	confirmPassword: [
+		{
+			required: true,
+			trigger: 'change',
+			validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void) => {
+				confirmPasswordValid.value = false;
+				if (!value) {
+					callback(new Error('请再次输入密码。'));
+				} else if (value !== registerForm.password) {
+					callback(new Error('两次输入的密码不一致。'));
+				} else {
+					confirmPasswordValid.value = true;
+					callback();
+				}
+			},
+		},
+	],
 	verificationCode: [
 		{
 			required: true,
@@ -272,6 +313,7 @@ watch(
 		usernameAvailable.value,
 		emailAvailable.value,
 		passwordValid.value,
+		confirmPasswordValid.value,
 		verificationCodeValid.value,
 		checked.value,
 	],
@@ -280,8 +322,20 @@ watch(
 			usernameAvailable.value &&
 			emailAvailable.value &&
 			passwordValid.value &&
+			confirmPasswordValid.value &&
 			verificationCodeValid.value &&
 			checked.value;
+	},
+);
+
+// 密码变化后重新校验确认密码，避免已通过的确认值继续保持有效。
+watch(
+	() => registerForm.password,
+	() => {
+		confirmPasswordValid.value = false;
+		if (registerForm.confirmPassword) {
+			void registerFormRef.value?.validateField('confirmPassword').catch(() => undefined);
+		}
 	},
 );
 
@@ -323,7 +377,10 @@ async function handlerRegister() {
 		}
 
 		await register({
-			...registerForm,
+			username: registerForm.username,
+			email: registerForm.email,
+			password: registerForm.password,
+			verificationCode: registerForm.verificationCode,
 			privacyPolicyVersion: privacyPolicyVersion.value,
 		});
 		router.replace('/auth/login');
@@ -393,12 +450,16 @@ function handlePrivacyPolicyLoaded(policy: { version: string }) {
 .verification-code-button.is-disabled {
 	--el-button-disabled-bg-color: var(--app-surface-muted);
 	--el-button-disabled-border-color: var(--app-border);
-	--el-button-disabled-text-color: var(--app-text-muted);
+	--el-button-disabled-text-color: var(--app-text-disabled);
 
 	opacity: 1;
 }
 
 .register-form {
+	:deep(.el-form-item) {
+		margin-bottom: 32px;
+	}
+
 	:deep(.el-form-item__label) {
 		font-weight: 500;
 	}

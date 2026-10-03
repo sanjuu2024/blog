@@ -82,7 +82,8 @@ describe('RegisterPage', () => {
 		await inputs[1].setValue('demo@example.com');
 		await inputs[2].setValue('123456');
 		await inputs[3].setValue('Passw0rd!');
-		await inputs[4].setValue(true);
+		await inputs[4].setValue('Passw0rd!');
+		await inputs[5].setValue(true);
 		await flushPromises();
 		await wrapper.get('form').trigger('submit');
 		await flushPromises();
@@ -106,7 +107,8 @@ describe('RegisterPage', () => {
 		await inputs[1].setValue('demo@example.com');
 		await inputs[2].setValue('123456');
 		await inputs[3].setValue('Passw0rd!');
-		await inputs[4].setValue(true);
+		await inputs[4].setValue('Passw0rd!');
+		await inputs[5].setValue(true);
 		await flushPromises();
 		await wrapper.get('form').trigger('submit');
 		await flushPromises();
@@ -128,7 +130,8 @@ describe('RegisterPage', () => {
 		await inputs[1].setValue('demo@example.com');
 		await inputs[2].setValue('123456');
 		await inputs[3].setValue('Passw0rd!');
-		await inputs[4].setValue(true);
+		await inputs[4].setValue('Passw0rd!');
+		await inputs[5].setValue(true);
 		wrapper.findComponent(PrivacyPolicyDialog).vm.$emit('loaded', {
 			version: 'sha256:old',
 		});
@@ -154,7 +157,8 @@ describe('RegisterPage', () => {
 		await inputs[1].setValue('demo@example.com');
 		await inputs[2].setValue('123456');
 		await inputs[3].setValue('Passw0rd!');
-		await inputs[4].setValue(true);
+		await inputs[4].setValue('Passw0rd!');
+		await inputs[5].setValue(true);
 		vi.mocked(register).mockRejectedValueOnce({
 			isAxiosError: true,
 			response: { data: { code: 102011 } },
@@ -165,6 +169,43 @@ describe('RegisterPage', () => {
 		await flushPromises();
 
 		expect((inputs[2].element as HTMLInputElement).value).toBe('');
+	});
+
+	it('does not register when the confirmation password differs', async () => {
+		const wrapper = mountPage();
+		const inputs = wrapper.findAll('input');
+		await inputs[0].setValue('demo_user');
+		await inputs[1].setValue('demo@example.com');
+		await inputs[2].setValue('123456');
+		await inputs[3].setValue('Passw0rd!');
+		await inputs[4].setValue('Different1!');
+		await inputs[5].setValue(true);
+		await flushPromises();
+
+		expect(wrapper.get<HTMLButtonElement>('button[type="submit"]').element.disabled).toBe(true);
+		await wrapper.get('form').trigger('submit');
+
+		expect(register).not.toHaveBeenCalled();
+	});
+
+	it('revalidates the confirmation password when the password changes', async () => {
+		const wrapper = mountPage();
+		const inputs = wrapper.findAll('input');
+		await inputs[0].setValue('demo_user');
+		await inputs[1].setValue('demo@example.com');
+		await inputs[2].setValue('123456');
+		await inputs[3].setValue('Passw0rd!');
+		await inputs[4].setValue('Passw0rd!');
+		await inputs[5].setValue(true);
+		await flushPromises();
+		expect(wrapper.get<HTMLButtonElement>('button[type="submit"]').element.disabled).toBe(
+			false,
+		);
+
+		await inputs[3].setValue('Changed1!');
+		await flushPromises();
+
+		expect(wrapper.get<HTMLButtonElement>('button[type="submit"]').element.disabled).toBe(true);
 	});
 
 	it('loads the latest privacy policy whenever the dialog opens without submitting registration', async () => {
