@@ -25,6 +25,9 @@ public final class ValidationConstants {
     public static final String PRIVACY_POLICY_VERSION_PATTERN = "^sha256:[0-9a-f]{64}$";
     public static final String PRIVACY_POLICY_VERSION_MESSAGE = "隐私政策版本不合法";
 
+    public static final String EMAIL_VERIFICATION_CODE_PATTERN = "^[0-9]{6}$";
+    public static final String EMAIL_VERIFICATION_CODE_MESSAGE = "邮箱验证码必须是 6 位数字";
+
     private ValidationConstants() {
     }
 }

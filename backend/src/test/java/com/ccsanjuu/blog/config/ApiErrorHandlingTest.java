@@ -6,6 +6,7 @@ import com.ccsanjuu.blog.modules.audit.mapper.AdminAuditLogMapper;
 import com.ccsanjuu.blog.modules.auth.controller.AuthController;
 import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
+import com.ccsanjuu.blog.modules.auth.service.RegistrationEmailVerificationService;
 import com.ccsanjuu.blog.modules.auth.support.RefreshTokenCookieManager;
 import com.ccsanjuu.blog.modules.auth.service.AuthService;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
@@ -61,6 +62,9 @@ class ApiErrorHandlingTest {
 
     @MockitoBean
     private AuthService authService;
+
+    @MockitoBean
+    private RegistrationEmailVerificationService registrationEmailVerificationService;
 
     @MockitoBean
     private TokenVersionService tokenVersionService;

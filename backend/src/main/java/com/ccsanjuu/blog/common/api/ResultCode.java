@@ -26,6 +26,10 @@ public enum ResultCode {
     SELF_ROLE_CHANGE_NOT_ALLOWED(102007, "当前用户不允许修改自己的角色", 403),
     SELF_STATUS_CHANGE_NOT_ALLOWED(102008, "当前用户不允许修改自己的状态", 403),
     PRIVACY_POLICY_VERSION_MISMATCH(102009, "隐私政策已更新，请重新打开隐私政策页面", 409),
+    EMAIL_VERIFICATION_CODE_INVALID(102010, "邮箱验证码错误或已过期", 400),
+    EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED(102011, "验证码错误次数过多，请重新获取", 429),
+    EMAIL_VERIFICATION_RATE_LIMITED(102012, "验证码请求过于频繁，请稍后再试", 429),
+    EMAIL_VERIFICATION_SEND_FAILED(102013, "验证码发送失败，请稍后重试", 502),
 
     // article 模块 03xxxx
     ARTICLE_NOT_FOUND(103001, "文章不存在", 404),

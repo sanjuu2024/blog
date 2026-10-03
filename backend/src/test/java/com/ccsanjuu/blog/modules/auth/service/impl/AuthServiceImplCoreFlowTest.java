@@ -13,6 +13,7 @@ import com.ccsanjuu.blog.modules.auth.model.enums.AuthSessionStatus;
 import com.ccsanjuu.blog.modules.auth.model.enums.AuthSessionTokenType;
 import com.ccsanjuu.blog.modules.auth.model.vo.LoginVO;
 import com.ccsanjuu.blog.modules.auth.model.vo.RefreshTokenVO;
+import com.ccsanjuu.blog.modules.auth.service.RegistrationEmailVerificationService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
@@ -43,6 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -66,6 +68,9 @@ class AuthServiceImplCoreFlowTest {
     @Mock
     private PrivacyPolicyService privacyPolicyService;
 
+    @Mock
+    private RegistrationEmailVerificationService registrationEmailVerificationService;
+
     private AuthServiceImpl authService;
 
     @BeforeEach
@@ -82,7 +87,8 @@ class AuthServiceImplCoreFlowTest {
                 jwtProperties,
                 SIGNING_KEY,
                 authMapper,
-                privacyPolicyService
+                privacyPolicyService,
+                registrationEmailVerificationService
         );
         lenient().when(privacyPolicyService.compareTo(any())).thenReturn(true);
     }
@@ -95,6 +101,7 @@ class AuthServiceImplCoreFlowTest {
                 .username("Sanjuu")
                 .email("sanjuu@example.com")
                 .password(PASSWORD)
+                .verificationCode("123456")
                 .privacyPolicyVersion("sha256:" + "a".repeat(64))
                 .build());
 
@@ -108,6 +115,12 @@ class AuthServiceImplCoreFlowTest {
         assertEquals(UserRole.USER, user.getRole());
         assertEquals(UserStatus.ACTIVE, user.getStatus());
         assertEquals(0L, user.getTokenVersion());
+        assertTrue(user.getEmailVerified());
+        assertNotNull(user.getEmailVerifiedAt());
+        assertEquals("sha256:" + "a".repeat(64), user.getPrivacyPolicyVersion());
+        assertNotNull(user.getPrivacyPolicyAcceptedAt());
+        verify(registrationEmailVerificationService).verifyCode("sanjuu@example.com", "123456");
+        verify(registrationEmailVerificationService).clearCode("sanjuu@example.com");
     }
 
     @Test
@@ -142,6 +155,27 @@ class AuthServiceImplCoreFlowTest {
 
         assertEquals(ResultCode.PRIVACY_POLICY_VERSION_MISMATCH, exception.getResultCode());
         verify(userMapper, never()).insert(any(User.class));
+    }
+
+    @Test
+    void registerShouldRejectInvalidEmailVerificationCode() {
+        doThrow(new BizException(ResultCode.EMAIL_VERIFICATION_CODE_INVALID))
+                .when(registrationEmailVerificationService)
+                .verifyCode("sanjuu@example.com", "000000");
+
+        BizException exception = assertThrows(BizException.class, () -> authService.register(
+                RegisterRequestDTO.builder()
+                        .username("sanjuu")
+                        .email("sanjuu@example.com")
+                        .password(PASSWORD)
+                        .verificationCode("000000")
+                        .privacyPolicyVersion("sha256:" + "a".repeat(64))
+                        .build()
+        ));
+
+        assertEquals(ResultCode.EMAIL_VERIFICATION_CODE_INVALID, exception.getResultCode());
+        verify(userMapper, never()).insert(any(User.class));
+        verify(registrationEmailVerificationService, never()).clearCode(any());
     }
 
     @Test

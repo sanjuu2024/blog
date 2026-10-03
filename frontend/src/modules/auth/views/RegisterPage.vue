@@ -3,6 +3,7 @@
 		<h1 class="mt-2 mb-4 text-center text-2xl">注册</h1>
 		<hr class="mb-4 text-gray-300" />
 		<el-form
+			class="register-form"
 			label-width="auto"
 			label-position="top"
 			:model="registerForm"
@@ -19,7 +20,7 @@
 					placeholder="请输入用户名"
 				>
 					<template #prefix>
-						<i-ep-user />
+						<i-lucide-user />
 					</template>
 				</el-input>
 			</el-form-item>
@@ -29,12 +30,45 @@
 			>
 				<el-input
 					v-model="registerForm.email"
+					maxlength="255"
 					placeholder="请输入邮箱"
 				>
 					<template #prefix>
-						<i-ep-message />
+						<i-lucide-mail />
 					</template>
 				</el-input>
+			</el-form-item>
+			<el-form-item
+				prop="verificationCode"
+				label="邮箱验证码"
+			>
+				<div class="verification-code-field">
+					<el-input
+						v-model="registerForm.verificationCode"
+						maxlength="6"
+						placeholder="请输入 6 位验证码"
+						inputmode="numeric"
+						autocomplete="one-time-code"
+					>
+						<template #prefix>
+							<i-lucide-key-round />
+						</template>
+					</el-input>
+					<el-button
+						class="verification-code-button"
+						native-type="button"
+						:type="emailAvailable && remainingSeconds === 0 ? 'success' : 'info'"
+						:loading="sendingCode"
+						:disabled="!emailAvailable || sendingCode || remainingSeconds > 0"
+						@click="sendCode"
+					>
+						<i-lucide-send
+							v-if="!sendingCode && remainingSeconds === 0"
+							class="mr-1"
+						/>
+						{{ remainingSeconds > 0 ? `${remainingSeconds} 秒后重试` : '发送验证码' }}
+					</el-button>
+				</div>
 			</el-form-item>
 			<el-form-item
 				prop="password"
@@ -48,7 +82,7 @@
 					show-password
 				>
 					<template #prefix>
-						<i-ep-lock />
+						<i-lucide-lock-keyhole />
 					</template>
 				</el-input>
 			</el-form-item>
@@ -73,6 +107,7 @@
 				type="primary"
 				class="auth-footer-link"
 				@click="privacyPolicyVisible = true"
+				underline="always"
 			>
 				隐私政策
 			</el-link>
@@ -106,10 +141,11 @@
 <script setup lang="ts">
 import { nextTick, ref, reactive, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import { useIntervalFn } from '@vueuse/core';
 import { isAxiosError } from 'axios';
 import type { ApiResult } from '@/types/api';
 import type { RegisterRequest } from '../types/auth';
-import { register } from '../api/authApi';
+import { register, sendEmailVerificationCode } from '../api/authApi';
 import type { FormItemRule } from 'element-plus';
 import { ElMessage } from 'element-plus';
 import PrivacyPolicyDialog from '@/modules/privacy/components/PrivacyPolicyDialog.vue';
@@ -118,6 +154,8 @@ import { ApiCode } from '@/constants/apiCode';
 import {
 	EMAIL_FORMAT_MESSAGE,
 	EMAIL_FORMAT_PATTERN,
+	EMAIL_VERIFICATION_CODE_MESSAGE,
+	EMAIL_VERIFICATION_CODE_PATTERN,
 	PASSWORD_FORMAT_MESSAGE,
 	PASSWORD_FORMAT_PATTERN,
 	USERNAME_FORMAT_MESSAGE,
@@ -137,13 +175,29 @@ let registerForm = reactive<RegisterRequest>({
 	username: '',
 	email: '',
 	password: '',
+	verificationCode: '',
 	privacyPolicyVersion: '',
 });
 
 let usernameAvailable = ref<boolean>(false);
 let emailAvailable = ref<boolean>(false);
 let passwordValid = ref<boolean>(false);
+let verificationCodeValid = ref<boolean>(false);
 const checked = ref<boolean>(false);
+const sendingCode = ref(false);
+const remainingSeconds = ref(0);
+const { pause: pauseCountdown, resume: resumeCountdown } = useIntervalFn(
+	() => {
+		if (remainingSeconds.value <= 1) {
+			remainingSeconds.value = 0;
+			pauseCountdown();
+			return;
+		}
+		remainingSeconds.value -= 1;
+	},
+	1000,
+	{ immediate: false },
+);
 
 // 表单校验规则
 const rules = {
@@ -192,6 +246,21 @@ const rules = {
 			},
 		},
 	],
+	verificationCode: [
+		{
+			required: true,
+			trigger: 'change',
+			validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void) => {
+				verificationCodeValid.value = false;
+				if (!EMAIL_VERIFICATION_CODE_PATTERN.test(value)) {
+					callback(new Error(EMAIL_VERIFICATION_CODE_MESSAGE));
+				} else {
+					verificationCodeValid.value = true;
+					callback();
+				}
+			},
+		},
+	],
 };
 
 // 控制注册按钮是否可用
@@ -199,12 +268,49 @@ let validated = ref<boolean>(false);
 
 // 监听并更新按钮是否可用
 watch(
-	() => [usernameAvailable.value, emailAvailable.value, passwordValid.value, checked.value],
+	() => [
+		usernameAvailable.value,
+		emailAvailable.value,
+		passwordValid.value,
+		verificationCodeValid.value,
+		checked.value,
+	],
 	() => {
 		validated.value =
-			usernameAvailable.value && emailAvailable.value && passwordValid.value && checked.value;
+			usernameAvailable.value &&
+			emailAvailable.value &&
+			passwordValid.value &&
+			verificationCodeValid.value &&
+			checked.value;
 	},
 );
+
+// 邮箱改变后，旧邮箱收到的验证码不能继续用于当前表单。
+watch(
+	() => registerForm.email,
+	() => {
+		registerForm.verificationCode = '';
+		verificationCodeValid.value = false;
+		remainingSeconds.value = 0;
+		pauseCountdown();
+	},
+);
+
+// 发送注册邮箱验证码，服务端成功接收请求后开始本地倒计时。
+async function sendCode() {
+	if (!emailAvailable.value || sendingCode.value || remainingSeconds.value > 0) return;
+	sendingCode.value = true;
+	try {
+		await sendEmailVerificationCode({ email: registerForm.email });
+		remainingSeconds.value = 60;
+		resumeCountdown();
+		ElMessage.success('验证码已发送，请查收邮件');
+	} catch {
+		// 错误提示已经由 request 响应拦截器统一处理
+	} finally {
+		sendingCode.value = false;
+	}
+}
 
 // 注册
 async function handlerRegister() {
@@ -235,6 +341,13 @@ async function handlerRegister() {
 			privacyPolicyVisible.value = true;
 			return;
 		}
+		if (
+			isAxiosError<ApiResult>(error) &&
+			error.response?.data?.code === ApiCode.EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED
+		) {
+			registerForm.verificationCode = '';
+			verificationCodeValid.value = false;
+		}
 		// 错误提示已经由 request 响应拦截器统一处理
 	}
 }
@@ -263,5 +376,31 @@ function handlePrivacyPolicyLoaded(policy: { version: string }) {
 
 .auth-footer-link {
 	--el-link-font-size: 0.8rem;
+}
+
+.verification-code-field {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 8.5rem;
+	gap: 0.5rem;
+	width: 100%;
+}
+
+.verification-code-button {
+	width: 8.5rem;
+	margin-left: 0;
+}
+
+.verification-code-button.is-disabled {
+	--el-button-disabled-bg-color: var(--app-surface-muted);
+	--el-button-disabled-border-color: var(--app-border);
+	--el-button-disabled-text-color: var(--app-text-muted);
+
+	opacity: 1;
+}
+
+.register-form {
+	:deep(.el-form-item__label) {
+		font-weight: 500;
+	}
 }
 </style>

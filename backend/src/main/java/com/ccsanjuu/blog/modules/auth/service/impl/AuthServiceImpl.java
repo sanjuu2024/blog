@@ -21,6 +21,7 @@ import com.ccsanjuu.blog.modules.auth.model.enums.AuthSessionTokenType;
 import com.ccsanjuu.blog.modules.auth.model.vo.LoginUserVO;
 import com.ccsanjuu.blog.modules.auth.model.vo.LoginVO;
 import com.ccsanjuu.blog.modules.auth.model.vo.RefreshTokenVO;
+import com.ccsanjuu.blog.modules.auth.service.RegistrationEmailVerificationService;
 import com.ccsanjuu.blog.modules.auth.service.AuthService;
 import com.ccsanjuu.blog.modules.privacy.service.PrivacyPolicyService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
@@ -35,6 +36,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import javax.crypto.SecretKey;
 import java.time.OffsetDateTime;
@@ -51,12 +54,14 @@ public class AuthServiceImpl implements AuthService {
     private final SecretKey jwtSigningKey;
     private final AuthMapper authMapper;
     private final PrivacyPolicyService privacyPolicyService;
+    private final RegistrationEmailVerificationService registrationEmailVerificationService;
 
     /**
      * 用户注册
      * @param registerRequestDTO
      */
     @Override
+    @Transactional
     public void register(RegisterRequestDTO registerRequestDTO) {
         // 1. 验证隐私政策版本，版本不一致时不能创建账号。
         if (!privacyPolicyService.compareTo(registerRequestDTO.getPrivacyPolicyVersion())) {
@@ -75,7 +80,14 @@ public class AuthServiceImpl implements AuthService {
             throw new BizException(ResultCode.EMAIL_EXISTS);
         }
 
-        // 4. 密码加密，封装要插入的 User 对象
+        // 4. 验证注册邮箱验证码，验证码只在账号成功创建后清理。
+        registrationEmailVerificationService.verifyCode(
+                registerRequestDTO.getEmail(),
+                registerRequestDTO.getVerificationCode()
+        );
+
+        // 5. 密码加密，封装要插入的 User 对象
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         User newUser = User.builder()
                 .username(registerRequestDTO.getUsername())
                 .nickname(registerRequestDTO.getUsername())  // 初始昵称默认同用户名
@@ -85,10 +97,15 @@ public class AuthServiceImpl implements AuthService {
                 .status(UserStatus.ACTIVE)
                 .tokenVersion(0L)
                 .avatarUrl("")
+                .emailVerified(true)
+                .emailVerifiedAt(now)
+                .privacyPolicyVersion(registerRequestDTO.getPrivacyPolicyVersion())
+                .privacyPolicyAcceptedAt(now)
                 .build();
 
-        // 5，插入用户信息
+        // 6. 插入用户信息，提交成功后再使验证码失效。
         userMapper.insert(newUser);
+        clearVerificationCodeAfterCommit(registerRequestDTO.getEmail());
 
         log.info(
                 "security_event=REGISTER_SUCCESS description=\"用户注册成功\" outcome=SUCCESS userId={} username={}",
@@ -255,6 +272,28 @@ public class AuthServiceImpl implements AuthService {
             // 退出登录按幂等语义处理：RT 无效、过期、已撤销或找不到会话，都视为已经退出。
             log.debug("security_event=LOGOUT_SUCCESS description=\"退出登录幂等完成：会话已失效\" outcome=SUCCESS reason=SESSION_ALREADY_INVALID");
         }
+    }
+
+    /**
+     * 数据库提交成功后清理验证码，注册事务回滚时允许用户修正信息后再次提交。
+     *
+     * @param email 注册邮箱
+     */
+    private void clearVerificationCodeAfterCommit(String email) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            registrationEmailVerificationService.clearCode(email);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                try {
+                    registrationEmailVerificationService.clearCode(email);
+                } catch (RuntimeException exception) {
+                    log.warn("security_event=EMAIL_VERIFICATION_CLEANUP_FAILED outcome=FAIL", exception);
+                }
+            }
+        });
     }
 
     /**

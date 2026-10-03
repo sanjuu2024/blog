@@ -8,14 +8,29 @@ import type {
 	RefreshTokenResponse,
 	RegisterRequest,
 	RegisterResponse,
+	SendEmailVerificationCodeRequest,
+	SendEmailVerificationCodeResponse,
 } from '../types/auth';
 
 const AUTH_API = {
 	register: 'auth/register',
+	sendEmailVerificationCode: 'auth/email-verification-codes',
 	login: 'auth/login',
 	refreshToken: 'auth/refresh',
 	logout: 'auth/logout',
 } as const;
+
+// 发送注册邮箱验证码接口
+export const sendEmailVerificationCode = (
+	data: SendEmailVerificationCodeRequest,
+): Promise<null> => {
+	// 🔺request.post<后端原始响应, 拦截器最终返回值, 请求体类型>(url, data)
+	return request.post<SendEmailVerificationCodeResponse, null, SendEmailVerificationCodeRequest>(
+		AUTH_API.sendEmailVerificationCode,
+		data,
+		{ timeout: 30000 },
+	);
+};
 
 // 注册接口
 export const register = (data: RegisterRequest): Promise<null> => {

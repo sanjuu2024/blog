@@ -12,12 +12,6 @@ x-p2-planned-operations:
   description: 以下为已冻结但尚未实现的 P2 契约方向；实现时再加入 paths 和 schemas，当前不可调用。
   operations:
     - method: POST
-      path: /api/v1/auth/email-verification-codes
-      summary: 发送注册邮箱验证码
-    - method: POST
-      path: /api/v1/auth/register
-      summary: P2 注册增加验证码和隐私政策版本
-    - method: POST
       path: /api/v1/comments/notifications/unsubscribe
       summary: 退订单条评论的直接回复邮件
     - method: POST
@@ -328,12 +322,42 @@ paths:
           $ref: '#/components/responses/UnauthorizedResponse'
         '403':
           $ref: '#/components/responses/ForbiddenResponse'
+  /api/v1/auth/email-verification-codes:
+    post:
+      tags:
+        - Auth
+      summary: 发送注册邮箱验证码
+      description: 权限级别 `PUBLIC`。验证码有效期 10 分钟；同一邮箱 60 秒内最多发送一次、每小时最多 5 次，同一客户端 IP 每小时最多 20 次。邮箱已注册时返回邮箱已存在，不生成或发送验证码。
+      operationId: sendRegistrationEmailVerificationCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendEmailVerificationCodeRequest'
+            example:
+              email: alice@example.com
+      responses:
+        '200':
+          description: 请求已处理
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoDataResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '409':
+          $ref: '#/components/responses/UserConflictResponse'
+        '429':
+          $ref: '#/components/responses/EmailVerificationRateLimitedResponse'
+        '502':
+          $ref: '#/components/responses/EmailVerificationSendFailedResponse'
   /api/v1/auth/register:
     post:
       tags:
         - Auth
       summary: 用户注册
-      description: 权限级别 `PUBLIC`。用户通过用户名、邮箱、密码完成注册；服务端默认使用用户名初始化昵称；用户名注册后不可修改。用户名和邮箱唯一性均按大小写不敏感处理，但 username 保留注册时输入的原始大小写用于展示。例如允许用户注册展示名 `Sanjuu`，但不允许另一个人再注册 `sanjuu`；邮箱同理，`A@example.com` 和 `a@example.com` 会识别为同一个邮箱账号，不能重复注册。
+      description: 权限级别 `PUBLIC`。用户通过用户名、邮箱、密码、邮箱验证码和当前隐私政策版本完成注册；注册成功后邮箱标记为已验证，并记录接受的隐私政策版本和时间。服务端默认使用用户名初始化昵称；用户名注册后不可修改。用户名和邮箱唯一性均按大小写不敏感处理。
       operationId: registerUser
       requestBody:
         required: true
@@ -345,6 +369,7 @@ paths:
               username: alice_dev
               email: alice@example.com
               password: Passw0rd!
+              verificationCode: '123456'
               privacyPolicyVersion: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       responses:
         '200':
@@ -358,7 +383,9 @@ paths:
                 message: 成功
                 data: null
         '400':
-          $ref: '#/components/responses/CommentReasonRequiredResponse'
+          $ref: '#/components/responses/RegisterBadRequestResponse'
+        '429':
+          $ref: '#/components/responses/EmailVerificationAttemptsExceededResponse'
         '409':
           $ref: '#/components/responses/RegisterConflictResponse'
   /api/v1/auth/login:
@@ -3094,6 +3121,7 @@ components:
         - username
         - email
         - password
+        - verificationCode
         - privacyPolicyVersion
       properties:
         username:
@@ -3118,11 +3146,28 @@ components:
           pattern: '^[A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
           description: 登录密码，允许英文字母、数字、下划线、短横线和常用 ASCII 特殊字符，不允许中文或空白字符
           example: Passw0rd!
+        verificationCode:
+          type: string
+          pattern: '^[0-9]{6}$'
+          description: 发送到当前注册邮箱的 6 位数字验证码
+          example: '123456'
         privacyPolicyVersion:
           type: string
           pattern: '^sha256:[0-9a-f]{64}$'
           description: 当前隐私政策版本，必须来自 GET /api/v1/privacy-policy
           example: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    SendEmailVerificationCodeRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          pattern: '^[A-Za-z0-9](?:[A-Za-z0-9._%+\-]{0,62}[A-Za-z0-9])?@(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$'
+          description: 接收注册验证码的邮箱
+          example: alice@example.com
     LoginRequest:
       type: object
       required:
@@ -5136,6 +5181,55 @@ components:
                 code: 102009
                 message: 隐私政策已更新，请重新打开隐私政策页面
                 data: null
+    RegisterBadRequestResponse:
+      description: 注册参数或邮箱验证码不合法
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            invalidRequest:
+              summary: 请求参数不合法
+              value:
+                code: 199001
+                message: 请求参数不合法
+                data: null
+            invalidVerificationCode:
+              summary: 邮箱验证码错误或已过期
+              value:
+                code: 102010
+                message: 邮箱验证码错误或已过期
+                data: null
+    EmailVerificationAttemptsExceededResponse:
+      description: 验证码错误次数过多
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 102011
+            message: 验证码错误次数过多，请重新获取
+            data: null
+    EmailVerificationRateLimitedResponse:
+      description: 验证码请求过于频繁
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 102012
+            message: 验证码请求过于频繁，请稍后再试
+            data: null
+    EmailVerificationSendFailedResponse:
+      description: 验证码邮件发送失败
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 102013
+            message: 验证码发送失败，请稍后重试
+            data: null
     RefreshTokenInvalidResponse:
       description: Refresh Token 无效或已过期
       content:

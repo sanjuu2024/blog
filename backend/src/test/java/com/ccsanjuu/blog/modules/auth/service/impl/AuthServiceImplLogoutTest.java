@@ -3,6 +3,7 @@ package com.ccsanjuu.blog.modules.auth.service.impl;
 import com.ccsanjuu.blog.common.util.JwtUtil;
 import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.auth.model.dto.LogoutRequestDTO;
+import com.ccsanjuu.blog.modules.auth.service.RegistrationEmailVerificationService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.privacy.service.PrivacyPolicyService;
 import com.ccsanjuu.blog.properties.JwtProperties;
@@ -37,6 +38,9 @@ class AuthServiceImplLogoutTest {
     @Mock
     private PrivacyPolicyService privacyPolicyService;
 
+    @Mock
+    private RegistrationEmailVerificationService registrationEmailVerificationService;
+
     private AuthServiceImpl authService;
 
     @BeforeEach
@@ -53,7 +57,8 @@ class AuthServiceImplLogoutTest {
                 jwtProperties,
                 SIGNING_KEY,
                 authMapper,
-                privacyPolicyService
+                privacyPolicyService,
+                registrationEmailVerificationService
         );
     }
 

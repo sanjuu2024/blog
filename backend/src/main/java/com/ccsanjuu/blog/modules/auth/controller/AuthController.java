@@ -6,11 +6,14 @@ import com.ccsanjuu.blog.modules.auth.model.dto.LoginRequestDTO;
 import com.ccsanjuu.blog.modules.auth.model.dto.LogoutRequestDTO;
 import com.ccsanjuu.blog.modules.auth.model.dto.RefreshTokenRequestDTO;
 import com.ccsanjuu.blog.modules.auth.model.dto.RegisterRequestDTO;
+import com.ccsanjuu.blog.modules.auth.model.dto.SendEmailVerificationCodeRequestDTO;
 import com.ccsanjuu.blog.modules.auth.model.vo.LoginVO;
 import com.ccsanjuu.blog.modules.auth.model.vo.RefreshTokenVO;
 import com.ccsanjuu.blog.modules.auth.service.AuthService;
+import com.ccsanjuu.blog.modules.auth.service.RegistrationEmailVerificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +30,25 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final RegistrationEmailVerificationService registrationEmailVerificationService;
     private final RefreshTokenCookieManager refreshTokenCookieManager;
+
+    /**
+     * 发送注册邮箱验证码。
+     *
+     * @param requestDTO 邮箱参数
+     * @param request 当前 HTTP 请求
+     * @return 空响应
+     */
+    @PostMapping("/email-verification-codes")
+    @Operation(description = "发送注册邮箱验证码")
+    public Result<Void> sendEmailVerificationCode(
+            @Valid @RequestBody SendEmailVerificationCodeRequestDTO requestDTO,
+            HttpServletRequest request
+    ) {
+        registrationEmailVerificationService.sendCode(requestDTO.getEmail(), request.getRemoteAddr());
+        return Result.success(null);
+    }
 
     /**
      * 用户注册
