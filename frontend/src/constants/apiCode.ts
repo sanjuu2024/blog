@@ -4,4 +4,5 @@ export const ApiCode = {
 	ACCESS_TOKEN_EXPIRED: 101002, // HTTP 401，Access Token 已过期
 	USER_DISABLED: 102005, // HTTP 403，用户已被禁用
 	PRIVACY_POLICY_VERSION_MISMATCH: 102009, // HTTP 409，注册时提交的隐私政策版本已过期
+	EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED: 102011, // HTTP 429，邮箱验证码错误次数达到上限
 } as const;

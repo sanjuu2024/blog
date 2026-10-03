@@ -1,6 +1,8 @@
 package com.ccsanjuu.blog.modules.privacy.service.impl;
 
 import com.ccsanjuu.blog.modules.article.support.ArticleContentRenderer;
+import com.ccsanjuu.blog.modules.privacy.mapper.PrivacyPolicyVersionMapper;
+import com.ccsanjuu.blog.modules.privacy.model.entity.PrivacyPolicyVersion;
 import com.ccsanjuu.blog.modules.privacy.model.vo.PrivacyPolicyVO;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ByteArrayResource;
@@ -11,10 +13,15 @@ import java.nio.charset.StandardCharsets;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class PrivacyPolicyServiceImplTest {
 
     private final ArticleContentRenderer articleContentRenderer = new ArticleContentRenderer();
+    private final PrivacyPolicyVersionMapper privacyPolicyVersionMapper = mock(PrivacyPolicyVersionMapper.class);
 
     @Test
     void shouldLoadRenderAndVersionPrivacyPolicy() {
@@ -39,6 +46,7 @@ class PrivacyPolicyServiceImplTest {
                 IllegalStateException.class,
                 () -> new PrivacyPolicyServiceImpl(
                         articleContentRenderer,
+                        privacyPolicyVersionMapper,
                         new ClassPathResource("content/missing-privacy-policy.md")
                 )
         );
@@ -54,9 +62,19 @@ class PrivacyPolicyServiceImplTest {
         assertTrue(!service.compareTo(null));
     }
 
+    @Test
+    void shouldArchiveCurrentPrivacyPolicyVersion() {
+        PrivacyPolicyServiceImpl service = service("# 隐私政策\n\n正文");
+
+        verify(privacyPolicyVersionMapper).insert(any(PrivacyPolicyVersion.class));
+        assertTrue(service.getPrivacyPolicy().getVersion().startsWith("sha256:"));
+    }
+
     private PrivacyPolicyServiceImpl service(String markdown) {
+        when(privacyPolicyVersionMapper.selectById(any())).thenReturn(null);
         return new PrivacyPolicyServiceImpl(
                 articleContentRenderer,
+                privacyPolicyVersionMapper,
                 new ByteArrayResource(markdown.getBytes(StandardCharsets.UTF_8))
         );
     }

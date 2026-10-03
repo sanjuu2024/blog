@@ -7,10 +7,17 @@ export interface RegisterRequest {
 	username: string;
 	email: string;
 	password: string;
+	verificationCode: string;
 	privacyPolicyVersion: string;
 }
 
 export type RegisterResponse = ApiResult<null>;
+
+export interface SendEmailVerificationCodeRequest {
+	email: string;
+}
+
+export type SendEmailVerificationCodeResponse = ApiResult<null>;
 
 export interface LoginRequest {
 	account: string;

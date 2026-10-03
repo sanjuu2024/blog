@@ -3,6 +3,7 @@
 		<h1 class="mt-2 mb-4 text-center text-2xl">登录</h1>
 		<hr class="mb-4 text-gray-300" />
 		<el-form
+			class="login-form"
 			label-width="auto"
 			label-position="top"
 			:model="loginForm"
@@ -18,7 +19,7 @@
 					placeholder="请输入用户名 / 邮箱号"
 				>
 					<template #prefix>
-						<i-ep-user />
+						<i-lucide-user />
 					</template>
 				</el-input>
 			</el-form-item>
@@ -33,14 +34,14 @@
 					type="password"
 				>
 					<template #prefix>
-						<i-ep-lock />
+						<i-lucide-lock-keyhole />
 					</template>
 				</el-input>
 			</el-form-item>
 			<el-button
 				type="primary"
 				native-type="submit"
-				class="my-4 w-full"
+				class="mb-4 w-full"
 				:disabled="!validated"
 			>
 				登录
@@ -174,5 +175,15 @@ async function handlerLogin() {
 
 .auth-footer-link {
 	--el-link-font-size: 0.8rem;
+}
+
+.login-form {
+	:deep(.el-form-item) {
+		margin-bottom: 32px;
+	}
+
+	:deep(.el-form-item__label) {
+		font-weight: 500;
+	}
 }
 </style>

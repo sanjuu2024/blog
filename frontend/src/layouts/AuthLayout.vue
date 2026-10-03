@@ -3,7 +3,7 @@
 		<!-- 105 = 420px -->
 		<div class="w-full max-w-105">
 			<div class="mb-6 flex justify-center">
-				<AppLogo :size="70" />
+				<AppLogo :size="60" />
 			</div>
 			<RouterView></RouterView>
 		</div>

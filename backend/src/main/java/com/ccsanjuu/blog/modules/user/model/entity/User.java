@@ -43,6 +43,10 @@ public class User {
 
     private OffsetDateTime emailVerifiedAt;
 
+    private String privacyPolicyVersion;
+
+    private OffsetDateTime privacyPolicyAcceptedAt;
+
     private OffsetDateTime lastLoginAt;
 
     private OffsetDateTime deletedAt;

@@ -40,6 +40,7 @@
 | P2 使用 | `blog_notification` | 回复通知和管理员消息内容 |
 | P2 使用 | `blog_notification_recipient` | 登录用户通知收件与已读状态 |
 | P2 使用 | `blog_mail_delivery` | 回复通知邮件投递状态与重试记录 |
+| P2 使用 | `blog_privacy_policy_version` | 隐私政策不可变 Markdown 版本快照 |
 | P2 使用 | `blog_user_recovery_code` | 管理员 TOTP 一次性恢复码哈希 |
 | 历史保留 | `blog_article_favorite` | `V1.0.0` 已创建但当前产品暂不排期，应用不读写 |
 | P1 使用 | `blog_message_board` | 留言表，支持游客留言、审核、登录用户和管理员回复及通知退订 |
@@ -94,6 +95,7 @@
 | `blog_notification_recipient` | `notification_id` | `blog_notification.id` | 创建收件记录前必须确认通知已发布或正在同一事务发布 |
 | `blog_notification_recipient` | `user_id` | `blog_user.id` | 只为存在的登录用户创建收件和已读状态 |
 | `blog_user_recovery_code` | `user_id` | `blog_user.id` | 仅为已启用 TOTP 的管理员生成恢复码 |
+| `blog_user` | `privacy_policy_version` | `blog_privacy_policy_version.version` | 注册时必须保存当前已归档的政策版本 |
 | `blog_message_board` | `user_id` | `blog_user.id` | 登录用户留言时记录用户 ID；游客留言时允许为空，历史游客留言不自动关联后注册用户 |
 | `blog_message_board` | `parent_id` | `blog_message_board.id` | 登录用户或管理员回复时必须确认父留言是已通过的留言 |
 
@@ -122,6 +124,8 @@ CREATE TABLE IF NOT EXISTS blog_user (
     bio VARCHAR(100) NOT NULL DEFAULT '',
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     email_verified_at TIMESTAMPTZ,
+    privacy_policy_version VARCHAR(71),
+    privacy_policy_accepted_at TIMESTAMPTZ,
     last_login_at TIMESTAMPTZ,
     deleted_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -166,6 +170,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_user_role_status
 | `bio` | `VARCHAR(100)` | 用户个人简介，换行和空行均计入长度 | `专注后端和前端工程化` |
 | `email_verified` | `BOOLEAN` | 邮箱是否完成验证；P2 注册成功的账号固定为已验证 | `true` |
 | `email_verified_at` | `TIMESTAMPTZ` | 邮箱验证完成时间 | `2026-05-01 10:00:00+08` |
+| `privacy_policy_version` | `VARCHAR(71)` | 注册时接受的隐私政策内容哈希版本；历史用户可为空 | `sha256:012345...` |
+| `privacy_policy_accepted_at` | `TIMESTAMPTZ` | 注册时接受隐私政策的时间；历史用户可为空 | `2026-05-01 10:00:00+08` |
 | `last_login_at` | `TIMESTAMPTZ` | 最近一次登录时间 | `2026-04-22 22:10:00+08` |
 | `deleted_at` | `TIMESTAMPTZ` | 软删除时间，当前版本可不使用 | `NULL` |
 | `created_at` | `TIMESTAMPTZ` | 记录创建时间 | `2026-04-22 21:00:00+08` |
@@ -178,6 +184,20 @@ P2 通过新 migration 为 `blog_user` 增加：
 - `privacy_policy_version VARCHAR(71)`、`privacy_policy_accepted_at TIMESTAMPTZ`，记录注册时接受的 `sha256:` 内容哈希
 - `totp_secret_ciphertext TEXT`、`totp_enabled_at TIMESTAMPTZ`，仅管理员启用 2FA 时使用；TOTP secret 必须加密存储
 - 注册成功时直接写入 `email_verified=true` 和 `email_verified_at`；验证码只在 Redis 中保存哈希和失败次数，不落数据库
+
+隐私政策版本使用独立不可变快照表：
+
+```sql
+CREATE TABLE blog_privacy_policy_version (
+    version VARCHAR(71) PRIMARY KEY,
+    content_md TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL
+);
+```
+
+应用启动时读取并规范化 `privacy-policy.md`，计算内容哈希；数据库不存在该版本时插入快照，
+已存在时必须保证正文一致。当前产品只记录注册时的一次同意，不在登录或刷新时要求重新同意，
+因此不新增用户同意历史表。
 
 管理员恢复码使用独立表：
 
@@ -1038,6 +1058,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 - `V1.2.2` migration 扩展 `blog_article_like`，支持登录用户和游客匿名哈希主体，并通过部分唯一索引保证幂等
 - `V1.2.3` migration 新增 `blog_comment_like`，并为 `blog_comment` 增加点赞冗余计数及非负约束
 - `V1.2.6` migration 为 `blog_notification` 增加管理员消息草稿的单个指定用户字段
+- `V1.2.8` migration 新增隐私政策版本快照表，并为用户增加注册时接受的政策版本和时间
 - Dashboard 直接聚合现有业务表和 `blog_article_daily_stat`，不新增历史点赞事件表；文章点赞历史趋势只统计当前仍存在的点赞明细
 - P2 所有新表、字段、约束和索引都必须使用新的 Flyway migration；本节目标 SQL 不能用于修改已执行的历史 migration
 - 文章/评论点赞明细与冗余计数必须事务一致；游客点赞不与登录账号自动合并

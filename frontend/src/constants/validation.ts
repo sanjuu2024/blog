@@ -7,6 +7,10 @@ export const EMAIL_FORMAT_PATTERN =
 
 export const EMAIL_FORMAT_MESSAGE = '请输入有效的邮箱地址。';
 
+export const EMAIL_VERIFICATION_CODE_PATTERN = /^[0-9]{6}$/;
+
+export const EMAIL_VERIFICATION_CODE_MESSAGE = '请输入 6 位数字验证码。';
+
 export const ACCOUNT_FORMAT_PATTERN = new RegExp(
 	`(${USERNAME_FORMAT_PATTERN.source})|(${EMAIL_FORMAT_PATTERN.source})`,
 	'u',

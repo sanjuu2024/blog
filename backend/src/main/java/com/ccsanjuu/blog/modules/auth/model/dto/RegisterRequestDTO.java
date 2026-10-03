@@ -17,7 +17,7 @@ import lombok.NoArgsConstructor;
 public class RegisterRequestDTO {
 
     public RegisterRequestDTO(String username, String email, String password) {
-        this(username, email, password, null);
+        this(username, email, password, null, null);
     }
 
     @NotBlank(message = "用户名不能为空")
@@ -34,6 +34,13 @@ public class RegisterRequestDTO {
     @Size(min = 6, max = 32, message = "密码长度必须在 6 到 32 个字符之间")
     @Pattern(regexp = ValidationConstants.PASSWORD_PATTERN, message = ValidationConstants.PASSWORD_MESSAGE)
     private String password;
+
+    @NotBlank(message = "邮箱验证码不能为空")
+    @Pattern(
+            regexp = ValidationConstants.EMAIL_VERIFICATION_CODE_PATTERN,
+            message = ValidationConstants.EMAIL_VERIFICATION_CODE_MESSAGE
+    )
+    private String verificationCode;
 
     @NotBlank(message = "隐私政策版本不能为空")
     @Pattern(

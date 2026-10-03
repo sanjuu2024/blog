@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { nextTick } from 'vue';
 import { getPrivacyPolicy } from '@/modules/privacy/api/privacyApi';
 import PrivacyPolicyDialog from '@/modules/privacy/components/PrivacyPolicyDialog.vue';
-import { register } from '../api/authApi';
+import { register, sendEmailVerificationCode } from '../api/authApi';
 import RegisterPage from './RegisterPage.vue';
 
 const router = vi.hoisted(() => ({ replace: vi.fn() }));
@@ -16,6 +16,7 @@ vi.mock('vue-router', () => ({
 
 vi.mock('../api/authApi', () => ({
 	register: vi.fn(),
+	sendEmailVerificationCode: vi.fn(),
 }));
 
 vi.mock('@/modules/privacy/api/privacyApi', () => ({
@@ -48,6 +49,7 @@ describe('RegisterPage', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		vi.mocked(register).mockResolvedValue(null);
+		vi.mocked(sendEmailVerificationCode).mockResolvedValue(null);
 		vi.mocked(getPrivacyPolicy).mockResolvedValue({
 			version: 'sha256:first',
 			contentHtml: '<h1>隐私政策</h1><p>服务端政策正文</p>',
@@ -78,8 +80,10 @@ describe('RegisterPage', () => {
 
 		await inputs[0].setValue('demo_user');
 		await inputs[1].setValue('demo@example.com');
-		await inputs[2].setValue('Passw0rd!');
-		await inputs[3].setValue(true);
+		await inputs[2].setValue('123456');
+		await inputs[3].setValue('Passw0rd!');
+		await inputs[4].setValue('Passw0rd!');
+		await inputs[5].setValue(true);
 		await flushPromises();
 		await wrapper.get('form').trigger('submit');
 		await flushPromises();
@@ -89,6 +93,7 @@ describe('RegisterPage', () => {
 			username: 'demo_user',
 			email: 'demo@example.com',
 			password: 'Passw0rd!',
+			verificationCode: '123456',
 			privacyPolicyVersion: 'sha256:first',
 		});
 		expect(router.replace).toHaveBeenCalledWith('/auth/login');
@@ -100,8 +105,10 @@ describe('RegisterPage', () => {
 		const inputs = wrapper.findAll('input');
 		await inputs[0].setValue('demo_user');
 		await inputs[1].setValue('demo@example.com');
-		await inputs[2].setValue('Passw0rd!');
-		await inputs[3].setValue(true);
+		await inputs[2].setValue('123456');
+		await inputs[3].setValue('Passw0rd!');
+		await inputs[4].setValue('Passw0rd!');
+		await inputs[5].setValue(true);
 		await flushPromises();
 		await wrapper.get('form').trigger('submit');
 		await flushPromises();
@@ -111,6 +118,7 @@ describe('RegisterPage', () => {
 			username: 'demo_user',
 			email: 'demo@example.com',
 			password: 'Passw0rd!',
+			verificationCode: '123456',
 			privacyPolicyVersion: 'sha256:first',
 		});
 	});
@@ -120,8 +128,10 @@ describe('RegisterPage', () => {
 		const inputs = wrapper.findAll('input');
 		await inputs[0].setValue('demo_user');
 		await inputs[1].setValue('demo@example.com');
-		await inputs[2].setValue('Passw0rd!');
-		await inputs[3].setValue(true);
+		await inputs[2].setValue('123456');
+		await inputs[3].setValue('Passw0rd!');
+		await inputs[4].setValue('Passw0rd!');
+		await inputs[5].setValue(true);
 		wrapper.findComponent(PrivacyPolicyDialog).vm.$emit('loaded', {
 			version: 'sha256:old',
 		});
@@ -135,6 +145,67 @@ describe('RegisterPage', () => {
 
 		expect(showWarning).toHaveBeenCalledWith('隐私政策已更新，请重新打开隐私政策页面');
 		expect(getPrivacyPolicy).toHaveBeenCalled();
+	});
+
+	it('clears the verification code after too many failed attempts', async () => {
+		const wrapper = mountPage();
+		const inputs = wrapper.findAll('input');
+		wrapper.findComponent(PrivacyPolicyDialog).vm.$emit('loaded', {
+			version: 'sha256:first',
+		});
+		await inputs[0].setValue('demo_user');
+		await inputs[1].setValue('demo@example.com');
+		await inputs[2].setValue('123456');
+		await inputs[3].setValue('Passw0rd!');
+		await inputs[4].setValue('Passw0rd!');
+		await inputs[5].setValue(true);
+		vi.mocked(register).mockRejectedValueOnce({
+			isAxiosError: true,
+			response: { data: { code: 102011 } },
+		} as never);
+		await flushPromises();
+
+		await wrapper.get('form').trigger('submit');
+		await flushPromises();
+
+		expect((inputs[2].element as HTMLInputElement).value).toBe('');
+	});
+
+	it('does not register when the confirmation password differs', async () => {
+		const wrapper = mountPage();
+		const inputs = wrapper.findAll('input');
+		await inputs[0].setValue('demo_user');
+		await inputs[1].setValue('demo@example.com');
+		await inputs[2].setValue('123456');
+		await inputs[3].setValue('Passw0rd!');
+		await inputs[4].setValue('Different1!');
+		await inputs[5].setValue(true);
+		await flushPromises();
+
+		expect(wrapper.get<HTMLButtonElement>('button[type="submit"]').element.disabled).toBe(true);
+		await wrapper.get('form').trigger('submit');
+
+		expect(register).not.toHaveBeenCalled();
+	});
+
+	it('revalidates the confirmation password when the password changes', async () => {
+		const wrapper = mountPage();
+		const inputs = wrapper.findAll('input');
+		await inputs[0].setValue('demo_user');
+		await inputs[1].setValue('demo@example.com');
+		await inputs[2].setValue('123456');
+		await inputs[3].setValue('Passw0rd!');
+		await inputs[4].setValue('Passw0rd!');
+		await inputs[5].setValue(true);
+		await flushPromises();
+		expect(wrapper.get<HTMLButtonElement>('button[type="submit"]').element.disabled).toBe(
+			false,
+		);
+
+		await inputs[3].setValue('Changed1!');
+		await flushPromises();
+
+		expect(wrapper.get<HTMLButtonElement>('button[type="submit"]').element.disabled).toBe(true);
 	});
 
 	it('loads the latest privacy policy whenever the dialog opens without submitting registration', async () => {
@@ -177,5 +248,21 @@ describe('RegisterPage', () => {
 
 		expect(wrapper.get('[role="dialog"]').text()).toContain('服务端政策正文');
 		expect(getPrivacyPolicy).toHaveBeenCalledTimes(2);
+	});
+
+	it('sends an email verification code and starts the countdown', async () => {
+		const wrapper = mountPage();
+		const inputs = wrapper.findAll('input');
+		await inputs[1].setValue('demo@example.com');
+		await flushPromises();
+		expect(wrapper.get('.verification-code-button').classes()).toContain('el-button--success');
+
+		await wrapper.get('.verification-code-button').trigger('click');
+		await flushPromises();
+
+		expect(sendEmailVerificationCode).toHaveBeenCalledWith({ email: 'demo@example.com' });
+		expect(wrapper.get('.verification-code-button').classes()).toContain('el-button--info');
+		expect(wrapper.get('.verification-code-button').text()).toContain('60 秒后重试');
+		expect(showSuccess).toHaveBeenCalledWith('验证码已发送，请查收邮件');
 	});
 });
