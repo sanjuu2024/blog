@@ -27,6 +27,7 @@ import com.ccsanjuu.blog.modules.comment.model.vo.AdminCommentItemVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentDeleteVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentLikeMutationVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentMutationVO;
+import com.ccsanjuu.blog.modules.comment.model.vo.CommentReplyPageVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.PublicCommentItemVO;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.notification.service.NotificationService;
@@ -48,8 +49,10 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.Base64;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -367,7 +370,73 @@ class CommentServiceImplTest {
                 () -> commentService.getRepliesByRootId(COMMENT_ID, null, new CommentReplyQueryDTO()));
 
         assertEquals(ResultCode.COMMENT_NOT_FOUND, exception.getResultCode());
-        verify(commentMapper, never()).selectPage(any(Page.class), any());
+        verify(commentMapper, never()).selectReplyPage(any(Page.class), any(), any(), any());
+    }
+
+    @Test
+    void getRepliesShouldNotPrioritizeAdminReplyToAnotherReply() {
+        Long parentId = COMMENT_ID + 1;
+        Comment root = Comment.builder()
+                .id(COMMENT_ID)
+                .articleId(ARTICLE_ID)
+                .userId(USER_ID)
+                .status(CommentStatus.APPROVED)
+                .build();
+        Comment nestedAdminReply = Comment.builder()
+                .id(COMMENT_ID + 2)
+                .articleId(ARTICLE_ID)
+                .userId(ADMIN_ID)
+                .parentId(parentId)
+                .rootId(COMMENT_ID)
+                .status(CommentStatus.APPROVED)
+                .createdAt(CREATED_AT)
+                .build();
+        Comment nextReply = Comment.builder()
+                .id(COMMENT_ID + 3)
+                .articleId(ARTICLE_ID)
+                .userId(USER_ID)
+                .parentId(COMMENT_ID)
+                .rootId(COMMENT_ID)
+                .status(CommentStatus.APPROVED)
+                .createdAt(CREATED_AT.plusMinutes(1))
+                .build();
+        Comment parent = Comment.builder()
+                .id(parentId)
+                .userId(USER_ID)
+                .build();
+
+        when(commentMapper.selectById(COMMENT_ID)).thenReturn(root);
+        when(articleMapper.selectById(ARTICLE_ID)).thenReturn(Article.builder()
+                .id(ARTICLE_ID)
+                .status(ArticleStatus.PUBLISHED)
+                .build());
+        when(commentMapper.selectReplyPage(any(Page.class), eq(COMMENT_ID), eq(null), eq(null)))
+                .thenAnswer(invocation -> {
+                    Page<Comment> page = invocation.getArgument(0);
+                    page.setRecords(List.of(nestedAdminReply, nextReply));
+                    return page;
+                });
+        when(userMapper.selectByIds(List.of(ADMIN_ID))).thenReturn(List.of(User.builder()
+                .id(ADMIN_ID)
+                .role(UserRole.ADMIN)
+                .build()));
+        when(commentMapper.selectByIds(List.of(parentId))).thenReturn(List.of(parent));
+        when(userMapper.selectByIds(List.of(USER_ID))).thenReturn(List.of(User.builder()
+                .id(USER_ID)
+                .role(UserRole.USER)
+                .build()));
+
+        CommentReplyQueryDTO query = new CommentReplyQueryDTO();
+        query.setLimit(1);
+        CommentReplyPageVO result = commentService.getRepliesByRootId(COMMENT_ID, null, query);
+        String decodedCursor = new String(
+                Base64.getUrlDecoder().decode(result.getNextCursor()),
+                StandardCharsets.UTF_8
+        );
+
+        assertEquals(List.of(nestedAdminReply.getId()),
+                result.getRecords().stream().map(item -> item.getId()).toList());
+        assertTrue(decodedCursor.startsWith("1|"));
     }
 
     @Test

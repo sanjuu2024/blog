@@ -254,14 +254,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
         // 3. 查询回复列表
         // 游标分页不查总数。这里多取 1 条：如果查到 limit + 1 条，就说明后面还有数据。
         Page<Comment> page = new Page<>(1, dto.getLimit() + 1, false);
-        LambdaQueryWrapper<Comment> wrapper = new LambdaQueryWrapper<Comment>()
-                .eq(Comment::getRootId, commentId)
-                .orderByAsc(Comment::getCreatedAt)
-                .orderByAsc(Comment::getId);
-        addVisibleCommentCondition(wrapper, currentUserId);
-        addReplyCursorCondition(wrapper, cursor);
-
-        commentMapper.selectPage(page, wrapper);
+        commentMapper.selectReplyPage(page, commentId, currentUserId, cursor);
         List<Comment> comments = page.getRecords();
 
         boolean hasNext = comments.size() > dto.getLimit();
@@ -270,9 +263,12 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
         }
 
         // 4. 封装返回
-        List<CommentReplyItemVO> records = buildReplyItemVOList(comments, currentUserId);
-        // nextCursor 取当前页最后一条回复的位置，下一次查询从它后面继续
-        String nextCursor = hasNext ? buildReplyCursor(comments.getLast()) : null;
+        Map<Long, User> replyAuthorMap = getUserMap(comments.stream().map(Comment::getUserId).toList());
+        List<CommentReplyItemVO> records = buildReplyItemVOList(comments, currentUserId, replyAuthorMap);
+        // nextCursor 取当前页最后一条回复的位置和角色优先级，下一次查询从它后面继续。
+        String nextCursor = hasNext
+                ? buildReplyCursor(comments.getLast(), replyAuthorMap.get(comments.getLast().getUserId()))
+                : null;
 
         return CommentReplyPageVO.builder()
                 .records(records)
@@ -545,28 +541,6 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
     }
 
     /**
-     * 添加回复游标查询条件。
-     *
-     * @param wrapper 查询条件
-     * @param cursor 回复游标；首次请求为空
-     */
-    private void addReplyCursorCondition(LambdaQueryWrapper<Comment> wrapper, CommentReplyCursorBO cursor) {
-        if (cursor == null){
-            return;
-        }
-        // 回复按 createdAt ASC, id ASC 排序，所以“下一页”就是：
-        // 1. 创建时间更晚；或者
-        // 2. 创建时间相同，但 id 更大。
-        wrapper.and(q -> q
-                .gt(Comment::getCreatedAt, cursor.getCreatedAt())
-                .or(or -> or
-                        .eq(Comment::getCreatedAt, cursor.getCreatedAt())
-                        .gt(Comment::getId, cursor.getId())
-                )
-        );
-    }
-
-    /**
      * 解析回复分页游标。
      *
      * @param cursor 游标字符串
@@ -578,13 +552,14 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
         }
         try {
             String decoded = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
-            String[] parts = decoded.split("\\|", 2);
-            if (parts.length != 2){
+            String[] parts = decoded.split("\\|", 3);
+            if (parts.length != 3){
                 throw new IllegalArgumentException("invalid cursor");
             }
             return CommentReplyCursorBO.builder()
-                    .createdAt(OffsetDateTime.parse(parts[0]))
-                    .id(Long.valueOf(parts[1]))
+                    .directAdminReplyPriority(Integer.valueOf(parts[0]))
+                    .createdAt(OffsetDateTime.parse(parts[1]))
+                    .id(Long.valueOf(parts[2]))
                     .build();
         } catch (RuntimeException ex) {
             throw new BizException(ResultCode.PARAM_INVALID);
@@ -595,11 +570,15 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
      * 生成回复分页游标。
      *
      * @param comment 当前页最后一条评论
+     * @param author 回复作者的当前用户资料
      * @return 游标字符串
      */
-    private String buildReplyCursor(Comment comment) {
-        // createdAt 负责时间顺序，id 负责同一时间下的稳定顺序。
-        String raw = comment.getCreatedAt() + "|" + comment.getId();
+    private String buildReplyCursor(Comment comment, User author) {
+        int directAdminReplyPriority = author != null
+                && author.getRole() == UserRole.ADMIN
+                && comment.getParentId().equals(comment.getRootId()) ? 0 : 1;
+        // 管理员直接回复顶层评论时进入优先组，createdAt 和 id 负责组内稳定顺序。
+        String raw = directAdminReplyPriority + "|" + comment.getCreatedAt() + "|" + comment.getId();
         return Base64.getUrlEncoder()
                 .withoutPadding()
                 .encodeToString(raw.getBytes(StandardCharsets.UTF_8));
@@ -685,20 +664,24 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
      *
      * @param comments 回复列表
      * @param currentUserId 当前登录用户 ID；游客为空
+     * @param replyAuthorMap 回复作者 Map
      * @return 回复 VO 列表
      */
-    private List<CommentReplyItemVO> buildReplyItemVOList(List<Comment> comments, Long currentUserId) {
+    private List<CommentReplyItemVO> buildReplyItemVOList(
+            List<Comment> comments,
+            Long currentUserId,
+            Map<Long, User> replyAuthorMap
+    ) {
         if (comments.isEmpty()){
             return List.of();
         }
 
-        List<Long> userIds = new ArrayList<>(comments.stream().map(Comment::getUserId).toList());
         List<Long> parentIds = comments.stream().map(Comment::getParentId).filter(Objects::nonNull).distinct().toList();
         Map<Long, Comment> parentMap = parentIds.isEmpty()
                 ? Map.of()
                 : commentMapper.selectByIds(parentIds).stream().collect(Collectors.toMap(Comment::getId, c -> c));
-        userIds.addAll(parentMap.values().stream().map(Comment::getUserId).toList());
-        Map<Long, User> userMap = getUserMap(userIds);
+        Map<Long, User> userMap = new HashMap<>(replyAuthorMap);
+        userMap.putAll(getUserMap(parentMap.values().stream().map(Comment::getUserId).toList()));
         Set<Long> likedCommentIds = getLikedCommentIds(comments, currentUserId);
 
         List<CommentReplyItemVO> res = new ArrayList<>();

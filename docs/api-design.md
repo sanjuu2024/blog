@@ -2215,7 +2215,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 路径：`/api/v1/comments/{commentId}/replies`
 - 权限：`PUBLIC`，可选携带 Access Token
 
-`commentId` 必须指向顶层评论。接口返回该顶层评论下所有层级的可见回复，并平铺为一个列表；`parentId` 保留直接父评论关系，`replyToUser` 用于显示直接被回复的用户。回复按 `created_at ASC, id ASC` 排序。
+`commentId` 必须指向顶层评论。接口返回该顶层评论下所有层级的可见回复，并平铺为一个列表；`parentId` 保留直接父评论关系，`replyToUser` 用于显示直接被回复的用户。当前作者角色为管理员且直接回复该顶层评论的回复优先，其余回复统一按 `created_at ASC, id ASC` 排序。
 
 不携带 Access Token 时按游客身份处理；请求一旦携带 Token，Token 无效或过期必须返回 HTTP `401`，不能静默降级为游客，否则会隐藏当前用户自己的非公开回复。
 
@@ -2670,7 +2670,7 @@ Dashboard 不再接收全局 `range` 参数。接口一次返回六个指标的�
 
 - 创建评论请求 P2 增加可选 `notifyOnReply`；订阅使用账号验证邮箱
 - 评论退订接口：`POST /api/v1/comments/notifications/unsubscribe`，使用随机不透明 token 且幂等
-- 同一顶层评论下按“当前作者角色是否为管理员、创建时间、评论 ID”排序；管理员回复优先
+- 同一顶层评论下，当前作者角色为管理员且直接回复顶层评论的回复优先；其余回复统一按创建时间、评论 ID 正序排列
 - 管理员身份按查询时当前角色判断，不在评论记录中保存角色快照
 - 留言和评论通知均发送 `multipart/alternative`，用户内容必须在 HTML 中转义
 
