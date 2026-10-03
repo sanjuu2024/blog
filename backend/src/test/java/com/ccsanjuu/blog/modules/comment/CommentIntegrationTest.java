@@ -275,6 +275,44 @@ class CommentIntegrationTest {
         assertFalse(secondPage.isHasNext());
     }
 
+    @Test
+    void repliesShouldOnlyPrioritizeAdminRepliesDirectlyUnderRootAcrossCursorPages() {
+        Article article = findPublishedArticle();
+        User user = findActiveUser();
+        User admin = findAdminUser();
+        OffsetDateTime baseTime = OffsetDateTime.parse("2026-05-08T09:00:00Z");
+
+        Comment root = insertComment(article.getId(), user.getId(), null, null,
+                CommentStatus.APPROVED, baseTime);
+        Comment normalFirst = insertComment(article.getId(), user.getId(), root.getId(), root.getId(),
+                CommentStatus.APPROVED, baseTime.plusMinutes(1));
+        Comment nestedAdmin = insertComment(article.getId(), admin.getId(), normalFirst.getId(), root.getId(),
+                CommentStatus.APPROVED, baseTime.plusMinutes(2));
+        Comment adminFirst = insertComment(article.getId(), admin.getId(), root.getId(), root.getId(),
+                CommentStatus.APPROVED, baseTime.plusMinutes(3));
+        Comment adminSecond = insertComment(article.getId(), admin.getId(), root.getId(), root.getId(),
+                CommentStatus.APPROVED, baseTime.plusMinutes(4));
+        Comment normalSecond = insertComment(article.getId(), user.getId(), root.getId(), root.getId(),
+                CommentStatus.APPROVED, baseTime.plusMinutes(5));
+
+        CommentReplyQueryDTO firstQuery = new CommentReplyQueryDTO();
+        firstQuery.setLimit(2);
+        CommentReplyPageVO firstPage = commentService.getRepliesByRootId(root.getId(), null, firstQuery);
+
+        assertEquals(List.of(adminFirst.getId(), adminSecond.getId()),
+                firstPage.getRecords().stream().map(item -> item.getId()).toList());
+        assertTrue(firstPage.isHasNext());
+
+        CommentReplyQueryDTO secondQuery = new CommentReplyQueryDTO();
+        secondQuery.setLimit(3);
+        secondQuery.setCursor(firstPage.getNextCursor());
+        CommentReplyPageVO secondPage = commentService.getRepliesByRootId(root.getId(), null, secondQuery);
+
+        assertEquals(List.of(normalFirst.getId(), nestedAdmin.getId(), normalSecond.getId()),
+                secondPage.getRecords().stream().map(item -> item.getId()).toList());
+        assertFalse(secondPage.isHasNext());
+    }
+
     private Article findPublishedArticle() {
         Article article = articleMapper.selectOne(
                 new LambdaQueryWrapper<Article>()
@@ -312,7 +350,17 @@ class CommentIntegrationTest {
             Long rootId,
             CommentStatus status
     ) {
-        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+        return insertComment(articleId, userId, parentId, rootId, status, OffsetDateTime.now(ZoneOffset.UTC));
+    }
+
+    private Comment insertComment(
+            Long articleId,
+            Long userId,
+            Long parentId,
+            Long rootId,
+            CommentStatus status,
+            OffsetDateTime createdAt
+    ) {
         Comment comment = Comment.builder()
                 .articleId(articleId)
                 .userId(userId)
@@ -320,8 +368,8 @@ class CommentIntegrationTest {
                 .rootId(rootId)
                 .content("评论集成测试数据")
                 .status(status)
-                .createdAt(now)
-                .updatedAt(now)
+                .createdAt(createdAt)
+                .updatedAt(createdAt)
                 .build();
         commentMapper.insert(comment);
         return comment;

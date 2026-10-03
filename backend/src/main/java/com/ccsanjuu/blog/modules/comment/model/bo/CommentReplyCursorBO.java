@@ -13,6 +13,11 @@ import java.time.OffsetDateTime;
 @AllArgsConstructor
 public class CommentReplyCursorBO {
 
+    /**
+     * 管理员直接回复顶层评论的优先级，置顶回复为 0，其他回复为 1。
+     */
+    private Integer directAdminReplyPriority;
+
     private OffsetDateTime createdAt;
 
     private Long id;

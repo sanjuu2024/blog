@@ -5,6 +5,44 @@
 
 <mapper namespace="com.ccsanjuu.blog.modules.comment.mapper.CommentMapper">
 
+    <select id="selectReplyPage"
+            resultType="com.ccsanjuu.blog.modules.comment.model.entity.Comment">
+        SELECT c.*
+        FROM blog_comment c
+        LEFT JOIN blog_user u ON u.id = c.user_id
+        WHERE c.root_id = #{rootId}
+          AND (
+              c.status = 'APPROVED'
+              <if test="currentUserId != null">
+                  OR (
+                      c.user_id = #{currentUserId}
+                      AND c.status IN ('PENDING', 'REJECTED')
+                  )
+              </if>
+          )
+          <if test="cursor != null">
+              AND (
+                  CASE WHEN u.role = 'ADMIN' AND c.parent_id = c.root_id THEN 0 ELSE 1 END
+                      &gt; #{cursor.directAdminReplyPriority}
+                  OR (
+                      CASE WHEN u.role = 'ADMIN' AND c.parent_id = c.root_id THEN 0 ELSE 1 END
+                          = #{cursor.directAdminReplyPriority}
+                      AND (
+                          c.created_at &gt; #{cursor.createdAt}
+                          OR (
+                              c.created_at = #{cursor.createdAt}
+                              AND c.id &gt; #{cursor.id}
+                          )
+                      )
+                  )
+              )
+          </if>
+        ORDER BY
+            CASE WHEN u.role = 'ADMIN' AND c.parent_id = c.root_id THEN 0 ELSE 1 END ASC,
+            c.created_at ASC,
+            c.id ASC
+    </select>
+
     <select id="selectByIdForUpdate"
             resultType="com.ccsanjuu.blog.modules.comment.model.entity.Comment">
         SELECT *
