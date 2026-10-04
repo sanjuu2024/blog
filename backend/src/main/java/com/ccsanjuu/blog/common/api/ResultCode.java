@@ -85,7 +85,9 @@ public enum ResultCode {
     MESSAGE_UNSUBSCRIBE_TOKEN_INVALID(108010, "留言退订链接无效或已失效", 400),
     MESSAGE_BATCH_INVALID(108011, "批量通过的留言必须是待审核顶层留言", 409),
     MESSAGE_BATCH_TOO_LARGE(108012, "一次最多通过 100 条留言", 400),
-    MESSAGE_MAIL_CONFIG_INVALID(108013, "留言通知邮件配置不完整", 500);
+    MESSAGE_MAIL_CONFIG_INVALID(108013, "留言通知邮件配置不完整", 500),
+    TURNSTILE_VERIFICATION_FAILED(108014, "人机验证失败，请重试", 400),
+    TURNSTILE_SERVICE_UNAVAILABLE(108015, "人机验证服务暂不可用，请稍后重试", 503);
 
     private final int code;
     private final String message;

@@ -39,6 +39,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -113,11 +114,16 @@ class MessageControllerTest {
 
         mockMvc.perform(post("/api/v1/messages")
                         .contentType("application/json")
-                        .content("{\"nickname\":\"访客\",\"content\":\"留言\"}"))
+                        .content("{\"nickname\":\"访客\",\"content\":\"留言\","
+                                + "\"turnstileToken\":\"test-token\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(MESSAGE_ID));
 
-        verify(messageService).createMessage(eq(null), any(String.class), any());
+        verify(messageService).createMessage(
+                eq(null),
+                any(String.class),
+                argThat(request -> "test-token".equals(request.getTurnstileToken()))
+        );
     }
 
     @Test

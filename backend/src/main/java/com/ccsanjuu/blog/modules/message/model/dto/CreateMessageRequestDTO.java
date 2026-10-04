@@ -21,4 +21,7 @@ public class CreateMessageRequestDTO {
     private String content;
 
     private Boolean notifyOnReply = false;
+
+    @Size(max = 2048, message = "人机验证 token 长度不合法")
+    private String turnstileToken;
 }

@@ -18,9 +18,6 @@ x-p2-planned-operations:
       path: /api/v1/articles/{articleId}/comments
       summary: P2 创建评论增加直接回复邮件订阅开关
     - method: POST
-      path: /api/v1/messages
-      summary: P2 游客留言增加 Turnstile token
-    - method: POST
       path: /api/v1/users/me/totp/setup
       summary: 创建待确认的管理员 TOTP 配置
     - method: POST
@@ -2070,7 +2067,7 @@ paths:
       tags:
         - Messages
       summary: 发表留言
-      description: 游客和登录用户均可发表顶层留言；普通留言需要审核，管理员留言或公告直接通过。登录用户的昵称和邮箱由服务端从当前账号读取。未携带 Token 时按游客校验，已携带的 Token 无效或过期时返回 401，不降级为游客。
+      description: 游客和登录用户均可发表顶层留言；普通留言需要审核，管理员留言或公告直接通过。登录用户的昵称和邮箱由服务端从当前账号读取。游客必须提供 Cloudflare Turnstile token，服务端校验成功后才接受留言；登录用户和管理员不要求该字段。未携带 Token 时按游客校验，已携带的 Token 无效或过期时返回 401，不降级为游客。
       operationId: createMessage
       security:
         - {}
@@ -2094,6 +2091,8 @@ paths:
           $ref: '#/components/responses/UnauthorizedResponse'
         '429':
           $ref: '#/components/responses/MessageRateLimitedResponse'
+        '503':
+          $ref: '#/components/responses/TurnstileServiceUnavailableResponse'
   /api/v1/messages/{messageId}:
     delete:
       tags:
@@ -4945,6 +4944,11 @@ components:
           type: boolean
           default: false
           description: 是否接收该条留言后续管理员回复的邮件通知
+        turnstileToken:
+          type: string
+          maxLength: 2048
+          nullable: true
+          description: 游客必填的 Cloudflare Turnstile token；登录用户和管理员忽略
     MessageMutationResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
@@ -5441,6 +5445,11 @@ components:
                 code: 108012
                 message: 一次最多通过 100 条留言
                 data: null
+            turnstileVerificationFailed:
+              value:
+                code: 108014
+                message: 人机验证失败，请重试
+                data: null
     MessageConflictResponse:
       description: 留言状态或回复目标冲突
       content:
@@ -5482,6 +5491,16 @@ components:
           example:
             code: 108004
             message: 留言过于频繁，请稍后再试
+            data: null
+    TurnstileServiceUnavailableResponse:
+      description: Turnstile 验证服务暂不可用
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 108015
+            message: 人机验证服务暂不可用，请稍后重试
             data: null
     MessageUnsubscribeTokenResponse:
       description: 留言退订令牌无效

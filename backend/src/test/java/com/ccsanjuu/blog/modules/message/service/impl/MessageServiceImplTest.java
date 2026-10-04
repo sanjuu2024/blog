@@ -13,6 +13,7 @@ import com.ccsanjuu.blog.modules.message.model.enums.MessageModerationAction;
 import com.ccsanjuu.blog.modules.message.model.enums.MessageStatus;
 import com.ccsanjuu.blog.modules.message.service.MessageReplyNotificationService;
 import com.ccsanjuu.blog.modules.message.support.MessageRateLimiter;
+import com.ccsanjuu.blog.modules.message.support.TurnstileVerifier;
 import com.ccsanjuu.blog.modules.notification.service.NotificationService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
@@ -35,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -56,6 +58,9 @@ class MessageServiceImplTest {
     private MessageRateLimiter messageRateLimiter;
 
     @Mock
+    private TurnstileVerifier turnstileVerifier;
+
+    @Mock
     private MessageReplyNotificationService notificationService;
 
     @Mock
@@ -74,7 +79,14 @@ class MessageServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        messageService = new MessageServiceImpl(messageMapper, userMapper, messageRateLimiter, notificationService, notificationCenterService);
+        messageService = new MessageServiceImpl(
+                messageMapper,
+                userMapper,
+                messageRateLimiter,
+                turnstileVerifier,
+                notificationService,
+                notificationCenterService
+        );
         ReflectionTestUtils.setField(messageService, "baseMapper", messageMapper);
         ReflectionTestUtils.setField(messageService, "entityClass", Message.class);
         ReflectionTestUtils.setField(messageService, "mapperClass", MessageMapper.class);
@@ -102,9 +114,11 @@ class MessageServiceImplTest {
                 .email("guest@example.com")
                 .content("留言内容")
                 .notifyOnReply(true)
+                .turnstileToken("test-token")
                 .build());
 
         verify(messageRateLimiter).acquire("ip:127.0.0.1");
+        verify(turnstileVerifier).verify("test-token", "127.0.0.1");
         verify(messageMapper).insert(any(Message.class));
     }
 
@@ -150,6 +164,24 @@ class MessageServiceImplTest {
         assertEquals("user@example.com", captor.getValue().getEmail());
         assertEquals(true, captor.getValue().getNotifyOnReply());
         verify(messageRateLimiter).acquire("user:" + USER_ID);
+        verify(turnstileVerifier, never()).verify(any(), any());
+    }
+
+    @Test
+    void guestMessageShouldRejectMissingTurnstileToken() {
+        doThrow(new BizException(ResultCode.TURNSTILE_VERIFICATION_FAILED))
+                .when(turnstileVerifier).verify(null, "127.0.0.1");
+
+        BizException exception = assertThrows(BizException.class,
+                () -> messageService.createMessage(null, "127.0.0.1", CreateMessageRequestDTO.builder()
+                        .nickname("访客")
+                        .content("留言内容")
+                        .build()));
+
+        assertEquals(ResultCode.TURNSTILE_VERIFICATION_FAILED, exception.getResultCode());
+        verify(messageRateLimiter).acquire("ip:127.0.0.1");
+        verify(turnstileVerifier).verify(null, "127.0.0.1");
+        verify(messageMapper, never()).insert(any(Message.class));
     }
 
     @Test

@@ -8,3 +8,8 @@ blog:
   mail:
     enabled: ${BLOG_MAIL_ENABLED:true}
     frontend-base-url: ${BLOG_MAIL_FRONTEND_BASE_URL:}
+  turnstile:
+    enabled: ${BLOG_TURNSTILE_ENABLED:true}
+    secret-key: ${BLOG_TURNSTILE_SECRET_KEY:}
+    expected-hostname: ${BLOG_TURNSTILE_EXPECTED_HOSTNAME:}
+    expected-action: ${BLOG_TURNSTILE_EXPECTED_ACTION:guest_message}

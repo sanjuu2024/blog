@@ -77,3 +77,8 @@ blog:
     enabled: ${BLOG_MAIL_ENABLED:false}
     from: ${BLOG_MAIL_FROM:}
     frontend-base-url: ${BLOG_MAIL_FRONTEND_BASE_URL:http://localhost:5173}
+  turnstile:
+    enabled: ${BLOG_TURNSTILE_ENABLED:false}
+    secret-key: ${BLOG_TURNSTILE_SECRET_KEY:}
+    expected-hostname: ${BLOG_TURNSTILE_EXPECTED_HOSTNAME:}
+    expected-action: ${BLOG_TURNSTILE_EXPECTED_ACTION:guest_message}

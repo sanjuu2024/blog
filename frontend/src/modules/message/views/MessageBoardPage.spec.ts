@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { defineComponent, nextTick, reactive, ref } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -78,6 +78,51 @@ describe('MessageBoardPage', () => {
 
 		expect(messageList.value).toEqual([]);
 		expect(getMessageList).toHaveBeenLastCalledWith(1);
+	});
+
+	it('resets only the Turnstile challenge when submission fails', async () => {
+		const resetTurnstile = vi.fn();
+		const clear = vi.fn();
+		const submitMessage = vi.fn().mockRejectedValue(new Error('request failed'));
+		vi.mocked(usePublicMessageList).mockReturnValue({
+			messageList: ref([]),
+			loading: ref(false),
+			pageParams: reactive({ pageNum: 1, pageSize: 10, hasNext: false }),
+			getMessageList: vi.fn().mockResolvedValue(undefined),
+			loadMoreMessages: vi.fn(),
+			submitMessage,
+			removeMessage: vi.fn(),
+		});
+		const messageEditorStub = defineComponent({
+			emits: ['submit'],
+			setup(_props, { expose }) {
+				expose({ clear, resetTurnstile });
+			},
+			template:
+				"<button data-test=\"submit\" @click=\"$emit('submit', { nickname: '访客', content: '留言内容', turnstileToken: 'token' })\">提交</button>",
+		});
+
+		const wrapper = mount(MessageBoardPage, {
+			global: {
+				config: { errorHandler: () => undefined },
+				stubs: {
+					MessageEditor: messageEditorStub,
+					MessageListItem: true,
+					AppLoadMoreTrigger: true,
+					ILucideMessageCircleMore: true,
+				},
+			},
+		});
+		await wrapper.get('[data-test="submit"]').trigger('click');
+		await flushPromises();
+
+		expect(submitMessage).toHaveBeenCalledWith({
+			nickname: '访客',
+			content: '留言内容',
+			turnstileToken: 'token',
+		});
+		expect(resetTurnstile).toHaveBeenCalledOnce();
+		expect(clear).not.toHaveBeenCalled();
 	});
 
 	it('hides the end-of-list message when there are no messages', async () => {

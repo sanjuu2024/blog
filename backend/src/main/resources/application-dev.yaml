@@ -13,6 +13,12 @@ blog:
     access-ttl: 1d
   mail:
     enabled: false
+  turnstile:
+    enabled: ${BLOG_TURNSTILE_ENABLED:true}
+    secret-key: ${BLOG_TURNSTILE_SECRET_KEY:}
+    expected-hostname: ${BLOG_TURNSTILE_EXPECTED_HOSTNAME:}
+    # 官方测试密钥的验证响应不返回 action，开发环境不做上下文匹配。
+    expected-action: ${BLOG_TURNSTILE_EXPECTED_ACTION:}
 
 logging:
   level:

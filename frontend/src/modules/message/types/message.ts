@@ -50,6 +50,7 @@ export interface CreateMessageRequest {
 	email?: string;
 	content: string;
 	notifyOnReply?: boolean;
+	turnstileToken?: string;
 }
 
 export interface MessageMutationData {

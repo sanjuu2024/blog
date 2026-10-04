@@ -132,6 +132,11 @@ BLOG_OBJECT_STORAGE_BUCKET
 BLOG_OBJECT_STORAGE_ACCESS_KEY_ID
 BLOG_OBJECT_STORAGE_ACCESS_KEY_SECRET
 BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL
+BLOG_TURNSTILE_ENABLED
+BLOG_TURNSTILE_SECRET_KEY
+BLOG_TURNSTILE_EXPECTED_HOSTNAME
+BLOG_TURNSTILE_EXPECTED_ACTION
+VITE_TURNSTILE_SITE_KEY
 ```
 
 Spring Boot 配置按运行场景区分：
@@ -416,6 +421,7 @@ BLOG_VISITOR_COOKIE_SECURE=true
 ```
 
 Turnstile site key 可以进入前端构建配置，secret key 和 TOTP 加密密钥必须使用 Secret 注入。
+本地 `dev` profile 默认使用 Cloudflare 官方测试密钥；测试验证响应不携带 action，因此开发环境默认不校验 hostname 和 action，`prod` profile 则强制配置并校验两者。
 匿名访客 Cookie 在生产环境必须启用 `Secure`、`HttpOnly`、`SameSite=Lax`，并使用根路径 `/`。
 
 ### 9.2 上线后迭代

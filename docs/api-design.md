@@ -160,6 +160,8 @@ Authorization: Bearer <access_token>
 | `108011` | `409` | `批量通过的留言必须是待审核顶层留言` | 批量 ID 中包含不存在、非顶层或非待审核留言 |
 | `108012` | `400` | `一次最多通过 100 条留言` | 批量通过列表超过 100 条 |
 | `108013` | `500` | `留言通知邮件配置不完整` | 启用邮件通知时 SMTP 或发件配置不完整 |
+| `108014` | `400` | `人机验证失败，请重试` | 游客未提交有效 Turnstile token，或验证上下文不匹配 |
+| `108015` | `503` | `人机验证服务暂不可用，请稍后重试` | Cloudflare Siteverify 调用失败或服务不可用 |
 
 ### 2.7 分页结构
 
@@ -2356,6 +2358,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 游客必须填写 1-20 个字符昵称；邮箱可选，勾选 `notifyOnReply` 时必填且格式合法。登录用户忽略昵称和邮箱输入，使用当前账号资料快照；勾选 `notifyOnReply` 时使用账号邮箱接收通知。
 - 内容为 1-1000 个字符的纯文本；普通用户和游客为 `PENDING`，管理员为 `APPROVED`。
 - 游客按 IP 每 30 秒 1 条、每小时最多 10 条，登录用户按用户 ID执行相同 Redis 原子限流。
+- 游客还必须提交 `turnstileToken`，服务端向 Cloudflare Siteverify 校验 token、请求 IP、配置的 hostname 和 action；登录用户和管理员不要求该字段。验证失败返回统一业务错误，不保存 token，也不返回 Cloudflare 原始错误。
 - 不携带 Access Token 时按游客请求校验；请求一旦携带 Token，Token 无效或过期必须返回 HTTP `401`，由前端刷新登录态后重试，不能降级为游客后再校验游客昵称。
 
 ### 12.3 删除自己的留言
@@ -2580,8 +2583,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ## 16. P2 接口规划
 
-本节冻结 P2 契约方向，并在各小节标记当前实现状态。后续实现必须继续使用 `/api/v1/**`、
-统一响应结构、现有认证错误码和后台审计规则，并同步补入 `openapi.yaml`。
+本节冻结 P2 契约方向；已实现状态以各小节标注和 `openapi.yaml` 中的实际 paths 为准。后续实现必须继续使用 `/api/v1/**`、统一响应结构、现有认证错误码和后台审计规则，并同步补入 `openapi.yaml`。
 
 ### 16.1 注册邮箱验证码（已实现）
 
@@ -2694,10 +2696,10 @@ Dashboard 不再接收全局 `range` 参数。接口一次返回六个指标的�
 - 管理员身份按查询时当前角色判断，不在评论记录中保存角色快照
 - 留言和评论通知均发送 `multipart/alternative`，用户内容必须在 HTML 中转义
 
-### 16.8 Turnstile
+### 16.8 Turnstile（已实现）
 
-游客发表留言时请求增加 `turnstileToken`；后端向 Cloudflare 验证并结合 Redis/IP 限流处理。
-登录用户留言和评论暂不要求 Turnstile。验证失败使用统一业务错误，不返回 Cloudflare 原始响应。
+游客发表留言时请求增加 `turnstileToken`；后端先原子预占现有 Redis/IP 限流额度，再向 Cloudflare 验证。验证失败时事务回滚并归还本次预占额度。
+登录用户留言和评论暂不要求 Turnstile。验证失败使用统一业务错误，不返回 Cloudflare 原始响应；Cloudflare 服务不可用时返回 503。token 只用于本次请求，不落库、不写日志。
 
 ### 16.9 管理员 TOTP 2FA
 
