@@ -91,11 +91,15 @@ watch(
 async function handleSubmit(form: CreateMessageRequest) {
 	if (submitting.value) return;
 	submitting.value = true;
+	let submitted = false;
 	try {
 		await submitMessage(form);
+		submitted = true;
 		editorRef.value?.clear();
 	} finally {
 		submitting.value = false;
+		// Turnstile token 只能使用一次；失败时保留表单内容，仅重置挑战供用户重试。
+		if (!submitted) editorRef.value?.resetTurnstile();
 	}
 }
 </script>

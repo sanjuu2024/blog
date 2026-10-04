@@ -26,8 +26,9 @@ import com.ccsanjuu.blog.modules.message.model.vo.MessageReplyVO;
 import com.ccsanjuu.blog.modules.message.model.vo.PublicMessageItemVO;
 import com.ccsanjuu.blog.modules.message.service.MessageReplyNotificationService;
 import com.ccsanjuu.blog.modules.message.service.MessageService;
-import com.ccsanjuu.blog.modules.notification.service.NotificationService;
 import com.ccsanjuu.blog.modules.message.support.MessageRateLimiter;
+import com.ccsanjuu.blog.modules.message.support.TurnstileVerifier;
+import com.ccsanjuu.blog.modules.notification.service.NotificationService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
@@ -54,6 +55,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     private final MessageMapper messageMapper;
     private final UserMapper userMapper;
     private final MessageRateLimiter messageRateLimiter;
+    private final TurnstileVerifier turnstileVerifier;
     private final MessageReplyNotificationService notificationService;
     private final NotificationService notificationCenterService;
 
@@ -120,9 +122,8 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
             if (notify && !StringUtils.hasText(email)) {
                 throw new BizException(ResultCode.MESSAGE_EMAIL_REQUIRED);
             }
-            if (!admin) {
-                messageRateLimiter.acquire("ip:" + (StringUtils.hasText(clientIp) ? clientIp : "unknown"));
-            }
+            messageRateLimiter.acquire("ip:" + (StringUtils.hasText(clientIp) ? clientIp : "unknown"));
+            turnstileVerifier.verify(requestDTO.getTurnstileToken(), clientIp);   // 这里不需要直接 catch，该函数是事务，异常应该继续向外传播。
         } else {
             nickname = user.getNickname();
             email = trim(user.getEmail());

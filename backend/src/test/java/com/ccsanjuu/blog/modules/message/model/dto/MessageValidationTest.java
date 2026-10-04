@@ -40,6 +40,16 @@ class MessageValidationTest {
     }
 
     @Test
+    void createMessageRequestShouldRejectOversizedTurnstileToken() {
+        CreateMessageRequestDTO request = CreateMessageRequestDTO.builder()
+                .content("留言内容")
+                .turnstileToken("a".repeat(2049))
+                .build();
+
+        assertFalse(VALIDATOR.validate(request).isEmpty());
+    }
+
+    @Test
     void messagePageQueryShouldRejectInvalidPageAndIds() {
         MessagePageQueryDTO query = new MessagePageQueryDTO();
         query.setPageNum(0);

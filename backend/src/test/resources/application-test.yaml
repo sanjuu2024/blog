@@ -27,3 +27,5 @@ blog:
     public-base-url: https://img.test.example.com
   mail:
     enabled: false
+  turnstile:
+    enabled: false

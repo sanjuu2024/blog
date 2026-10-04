@@ -32,6 +32,7 @@
 			class="message-editor"
 			:model="form"
 			:rules="rules"
+			:disabled="interactionLocked"
 			label-position="right"
 			label-width="auto"
 			ref="formRef"
@@ -111,22 +112,50 @@
 				<el-button
 					type="primary"
 					:loading="props.loading"
-					:disabled="props.loading || !canSubmit"
+					:disabled="interactionLocked || !canSubmit"
 					native-type="submit"
 				>
-					<i-lucide-send class="mr-1" />
-					<span>发表留言</span>
+					<i-lucide-loader
+						v-if="awaitingTurnstile"
+						class="mr-1 animate-spin"
+						data-test="submit-verifying-icon"
+					/>
+					<i-lucide-send
+						v-else
+						class="mr-1"
+					/>
+					<span>{{ awaitingTurnstile ? '验证中' : '发表留言' }}</span>
 				</el-button>
 			</div>
 		</el-form>
+
+		<el-dialog
+			v-model="showTurnstile"
+			title="安全验证"
+			width="min(22rem, calc(100vw - 2rem))"
+			destroy-on-close
+			:close-on-click-modal="false"
+			@opened="renderTurnstile = true"
+			@closed="handleTurnstileClosed"
+		>
+			<div class="message-editor__turnstile">
+				<MessageTurnstile
+					v-if="renderTurnstile"
+					:site-key="turnstileSiteKey"
+					action="guest_message"
+					@verified="handleTurnstileVerified"
+				/>
+			</div>
+		</el-dialog>
 	</div>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import type { FormInstance, FormItemRule, FormRules } from 'element-plus';
 import { EMAIL_FORMAT_MESSAGE, EMAIL_FORMAT_PATTERN } from '@/constants/validation';
 import type { CreateMessageRequest } from '../types/message';
+import MessageTurnstile from './MessageTurnstile.vue';
 import { useMediaQuery } from '@vueuse/core';
 
 const isMobile = useMediaQuery('(width < 768px)');
@@ -159,6 +188,15 @@ const form = reactive({
 });
 
 const formRef = ref<FormInstance>();
+const showTurnstile = ref(false);
+const renderTurnstile = ref(false);
+const pendingRequest = ref<CreateMessageRequest | null>(null);
+const turnstileSubmitting = ref(false);
+const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY || '';
+const awaitingTurnstile = computed(() => pendingRequest.value !== null);
+const interactionLocked = computed(
+	() => props.loading || awaitingTurnstile.value || turnstileSubmitting.value,
+);
 const canSubmit = computed(() => {
 	if (!form.content.trim()) return false;
 	if (props.isLogin) return true;
@@ -219,7 +257,7 @@ const rules: FormRules = {
 };
 
 async function handleSubmit() {
-	if (props.loading) return;
+	if (interactionLocked.value) return;
 
 	try {
 		await formRef.value?.validate();
@@ -233,7 +271,29 @@ async function handleSubmit() {
 		content: form.content.trim(),
 		notifyOnReply: form.notifyOnReply,
 	};
-	emit('submit', data);
+	if (props.isLogin) {
+		emit('submit', data);
+		return;
+	}
+
+	// 游客先完成表单校验，再按需展示人机验证；验证成功后自动提交当前快照。
+	pendingRequest.value = data;
+	showTurnstile.value = true;
+}
+
+function handleTurnstileVerified(token: string) {
+	if (!pendingRequest.value) return;
+
+	const data = pendingRequest.value;
+	pendingRequest.value = null;
+	turnstileSubmitting.value = true;
+	showTurnstile.value = false;
+	emit('submit', { ...data, turnstileToken: token });
+}
+
+function handleTurnstileClosed() {
+	renderTurnstile.value = false;
+	if (!turnstileSubmitting.value) pendingRequest.value = null;
 }
 
 function handleNotifyChange() {
@@ -247,11 +307,21 @@ function clear() {
 	form.email = '';
 	form.content = '';
 	form.notifyOnReply = false;
+	resetTurnstile();
 	formRef.value?.clearValidate();
 	formRef.value?.resetFields();
 }
 
-defineExpose({ clear });
+function resetTurnstile() {
+	pendingRequest.value = null;
+	turnstileSubmitting.value = false;
+	showTurnstile.value = false;
+	renderTurnstile.value = false;
+}
+
+watch(() => props.isLogin, resetTurnstile);
+
+defineExpose({ clear, resetTurnstile });
 </script>
 
 <style scoped lang="scss">
@@ -307,6 +377,11 @@ defineExpose({ clear });
 	display: flex;
 	align-items: flex-end;
 	gap: 0.75rem;
+}
+
+.message-editor__turnstile {
+	display: flex;
+	justify-content: center;
 }
 
 .message-editor__body :deep(.el-textarea) {

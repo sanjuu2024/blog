@@ -16,6 +16,7 @@ import com.ccsanjuu.blog.modules.message.model.enums.MessageStatus;
 import com.ccsanjuu.blog.modules.message.model.vo.MessageMutationVO;
 import com.ccsanjuu.blog.modules.message.model.vo.PublicMessageItemVO;
 import com.ccsanjuu.blog.modules.message.service.MessageService;
+import com.ccsanjuu.blog.modules.message.support.TurnstileVerifier;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -35,6 +37,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -43,6 +47,9 @@ class MessageIntegrationTest {
 
     @Autowired
     private MessageService messageService;
+
+    @MockitoBean
+    private TurnstileVerifier turnstileVerifier;
 
     @Autowired
     private MessageMapper messageMapper;
@@ -61,11 +68,13 @@ class MessageIntegrationTest {
                         .email("guest@example.com")
                         .notifyOnReply(true)
                         .content("这是一条留言集成测试")
+                        .turnstileToken("test-token")
                         .build()
         );
 
         assertEquals(MessageStatus.PENDING, created.getStatus());
         assertTrue(messageMapper.selectById(created.getId()).getNotifyOnReply());
+        verify(turnstileVerifier).verify("test-token", clientIp);
 
         BizException exception = assertThrows(BizException.class, () -> messageService.createMessage(
                 null,
@@ -73,9 +82,31 @@ class MessageIntegrationTest {
                 CreateMessageRequestDTO.builder()
                         .nickname("测试访客")
                         .content("第二条留言")
+                        .turnstileToken("test-token")
                         .build()
         ));
         assertEquals(ResultCode.MESSAGE_RATE_LIMITED, exception.getResultCode());
+    }
+
+    @Test
+    void guestMessageShouldNotBePersistedWhenTurnstileFails() {
+        String clientIp = "integration-turnstile-" + System.nanoTime();
+        doThrow(new BizException(ResultCode.TURNSTILE_VERIFICATION_FAILED))
+                .when(turnstileVerifier).verify("invalid-token", clientIp);
+
+        BizException exception = assertThrows(BizException.class, () -> messageService.createMessage(
+                null,
+                clientIp,
+                CreateMessageRequestDTO.builder()
+                        .nickname("测试访客")
+                        .content("验证失败")
+                        .turnstileToken("invalid-token")
+                        .build()
+        ));
+
+        assertEquals(ResultCode.TURNSTILE_VERIFICATION_FAILED, exception.getResultCode());
+        assertEquals(0L, messageMapper.selectCount(new LambdaQueryWrapper<Message>()
+                .eq(Message::getContent, "验证失败")));
     }
 
     @Test
