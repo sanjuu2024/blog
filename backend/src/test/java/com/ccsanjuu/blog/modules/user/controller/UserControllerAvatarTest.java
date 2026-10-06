@@ -27,6 +27,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -35,10 +36,13 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -147,6 +151,43 @@ class UserControllerAvatarTest {
                         }))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(107001));
+    }
+
+    @Test
+    void emailChangeCodeEndpointShouldPassAuthenticatedUserAndClientIp() throws Exception {
+        mockMvc.perform(post("/api/v1/users/me/email-verification-codes")
+                        .header("Authorization", "Bearer " + accessToken())
+                        .with(request -> {
+                            request.setRemoteAddr("192.0.2.11");
+                            return request;
+                        })
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"new@example.com"}
+                                """))
+                .andExpect(status().isOk());
+
+        verify(userService).sendEmailChangeCode(USER_ID, "new@example.com", "192.0.2.11");
+    }
+
+    @Test
+    void changeEmailEndpointShouldPassAuthenticatedUserAndRequest() throws Exception {
+        when(userService.changeEmail(eq(USER_ID), any())).thenReturn(
+                com.ccsanjuu.blog.modules.user.model.vo.UpdatedUserProfileVO.builder()
+                        .id(USER_ID)
+                        .email("new@example.com")
+                        .build());
+
+        mockMvc.perform(put("/api/v1/users/me/email")
+                        .header("Authorization", "Bearer " + accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"currentPassword":"OldPassword_123","newEmail":"new@example.com","verificationCode":"123456"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.email").value("new@example.com"));
+
+        verify(userService).changeEmail(eq(USER_ID), any());
     }
 
     private MockMultipartFile imageFile() {

@@ -87,3 +87,17 @@ export interface ChangeCurrentUserPasswordRequest {
 }
 
 export type ChangeCurrentUserPasswordResponse = ApiResult<null>;
+
+export interface SendEmailChangeCodeRequest {
+	email: string;
+}
+
+export type SendEmailChangeCodeResponse = ApiResult<null>;
+
+export interface ChangeCurrentUserEmailRequest {
+	currentPassword: string;
+	newEmail: string;
+	verificationCode: string;
+}
+
+export type ChangeCurrentUserEmailResponse = ApiResult<UpdatedCurrentUserProfileData>;

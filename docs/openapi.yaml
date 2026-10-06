@@ -1052,6 +1052,62 @@ paths:
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+  /api/v1/users/me/email-verification-codes:
+    post:
+      tags:
+        - Profile
+      summary: 发送修改邮箱验证码
+      description: 权限级别 `LOGIN`。向未被占用的新邮箱发送 6 位验证码；验证码有效期 10 分钟，并与注册验证码用途隔离。
+      operationId: sendCurrentUserEmailChangeCode
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendEmailChangeCodeRequest'
+      responses:
+        '200':
+          description: 发送成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoDataResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+  /api/v1/users/me/email:
+    put:
+      tags:
+        - Profile
+      summary: 修改当前用户邮箱
+      description: 权限级别 `LOGIN`。校验当前密码、新邮箱验证码和邮箱唯一性；成功后撤销全部 Refresh Token 并递增 tokenVersion，前端需要重新登录。
+      operationId: changeCurrentUserEmail
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeEmailRequest'
+      responses:
+        '200':
+          description: 修改成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateProfileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
   /api/v1/users/me/password:
     put:
       tags:
@@ -3715,6 +3771,45 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/UpdateProfileData'
+    SendEmailChangeCodeRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          pattern: '^[A-Za-z0-9](?:[A-Za-z0-9._%+\-]{0,62}[A-Za-z0-9])?@(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$'
+          description: 未被占用的新邮箱
+          example: new-alice@example.com
+    ChangeEmailRequest:
+      type: object
+      required:
+        - currentPassword
+        - newEmail
+        - verificationCode
+      properties:
+        currentPassword:
+          type: string
+          format: password
+          minLength: 6
+          maxLength: 32
+          pattern: '^[A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
+          description: 当前登录密码
+          example: Passw0rd!
+        newEmail:
+          type: string
+          format: email
+          maxLength: 255
+          pattern: '^[A-Za-z0-9](?:[A-Za-z0-9._%+\-]{0,62}[A-Za-z0-9])?@(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$'
+          description: 新邮箱，必须唯一
+          example: new-alice@example.com
+        verificationCode:
+          type: string
+          pattern: '^[0-9]{6}$'
+          description: 发送到新邮箱的 6 位数字验证码
+          example: '123456'
     ChangePasswordRequest:
       type: object
       required:

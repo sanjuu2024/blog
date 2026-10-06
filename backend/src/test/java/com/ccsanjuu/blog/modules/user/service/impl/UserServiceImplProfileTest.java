@@ -3,6 +3,7 @@ package com.ccsanjuu.blog.modules.user.service.impl;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.auth.service.AuthService;
+import com.ccsanjuu.blog.modules.auth.service.RegistrationEmailVerificationService;
 import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
 import com.ccsanjuu.blog.modules.file.service.ImageUploadService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
@@ -54,6 +55,9 @@ class UserServiceImplProfileTest {
     @Mock
     private ImageUploadService imageUploadService;
 
+    @Mock
+    private RegistrationEmailVerificationService emailVerificationService;
+
     private UserServiceImpl userService;
 
     @BeforeEach
@@ -63,7 +67,8 @@ class UserServiceImplProfileTest {
                 userMapper,
                 authService,
                 tokenVersionService,
-                imageUploadService
+                imageUploadService,
+                emailVerificationService
         );
     }
 

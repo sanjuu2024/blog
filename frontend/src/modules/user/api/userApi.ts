@@ -3,6 +3,8 @@ import type { AxiosRequestConfig } from 'axios';
 import type {
 	ChangeCurrentUserPasswordRequest,
 	ChangeCurrentUserPasswordResponse,
+	ChangeCurrentUserEmailRequest,
+	ChangeCurrentUserEmailResponse,
 	CurrentUserProfileData,
 	CurrentUserProfileResponse,
 	PublicUserProfileData,
@@ -15,6 +17,8 @@ import type {
 	LikedArticlePageData,
 	LikedArticlePageResponse,
 	LikedArticleListQuery,
+	SendEmailChangeCodeRequest,
+	SendEmailChangeCodeResponse,
 } from '../types/user';
 
 const USER_API = {
@@ -24,6 +28,8 @@ const USER_API = {
 	updateCurrentProfile: 'users/me/profile',
 	updateCurrentAvatar: 'users/me/avatar',
 	changeCurrentPassword: 'users/me/password',
+	sendEmailChangeCode: 'users/me/email-verification-codes',
+	changeCurrentEmail: 'users/me/email',
 } as const;
 
 // 个人中心信息接口
@@ -85,4 +91,25 @@ export const changeCurrentUserPassword = (
 		USER_API.changeCurrentPassword,
 		data,
 	);
+};
+
+// 发送修改邮箱验证码接口
+export const sendEmailChangeCode = (data: SendEmailChangeCodeRequest): Promise<null> => {
+	// 🔺request.post<后端原始响应, 拦截器最终返回值, 请求体类型>(url, data)
+	return request.post<SendEmailChangeCodeResponse, null, SendEmailChangeCodeRequest>(
+		USER_API.sendEmailChangeCode,
+		data,
+		{ timeout: 30000 },
+	);
+};
+
+// 修改当前用户邮箱接口
+export const changeCurrentUserEmail = (
+	data: ChangeCurrentUserEmailRequest,
+): Promise<UpdatedCurrentUserProfileData> => {
+	return request.put<
+		ChangeCurrentUserEmailResponse,
+		UpdatedCurrentUserProfileData,
+		ChangeCurrentUserEmailRequest
+	>(USER_API.changeCurrentEmail, data);
 };

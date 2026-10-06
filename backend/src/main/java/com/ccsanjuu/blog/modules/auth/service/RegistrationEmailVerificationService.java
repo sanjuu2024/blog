@@ -1,6 +1,6 @@
 package com.ccsanjuu.blog.modules.auth.service;
 
-public interface RegistrationEmailVerificationService {
+public interface RegistrationEmailVerificationService extends EmailVerificationService {
 
     /**
      * 向注册邮箱发送验证码。
@@ -24,4 +24,5 @@ public interface RegistrationEmailVerificationService {
      * @param email 注册邮箱
      */
     void clearCode(String email);
+
 }

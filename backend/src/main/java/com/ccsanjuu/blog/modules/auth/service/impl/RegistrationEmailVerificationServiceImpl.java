@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.auth.service.RegistrationEmailVerificationService;
+import com.ccsanjuu.blog.modules.auth.model.enums.EmailVerificationPurpose;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.properties.BlogProperties;
@@ -114,6 +115,18 @@ public class RegistrationEmailVerificationServiceImpl implements RegistrationEma
      */
     @Override
     public void sendCode(String email, String clientIp) {
+        sendCode(email, clientIp, EmailVerificationPurpose.REGISTRATION);
+    }
+
+    /**
+     * 申请发送指定用途的邮箱验证码。
+     *
+     * @param email 收件邮箱
+     * @param clientIp 客户端 IP
+     * @param purpose 验证码用途
+     */
+    @Override
+    public void sendCode(String email, String clientIp, EmailVerificationPurpose purpose) {
         String normalizedEmail = normalizeEmail(email);
         if (emailExists(normalizedEmail)) {
             log.info("security_event=EMAIL_VERIFICATION_REQUEST_REJECTED outcome=FAIL reason=EMAIL_EXISTS recipient={}",
@@ -123,25 +136,25 @@ public class RegistrationEmailVerificationServiceImpl implements RegistrationEma
         SendQuotaReservation reservation = acquireSendQuota(normalizedEmail, clientIp);
 
         String code = "%06d".formatted(SECURE_RANDOM.nextInt(1_000_000));
-        String emailHash = hashIdentity(normalizedEmail);
+        String emailHash = hashIdentity(normalizedEmail, purpose);
         try {
             // 先保存摘要再发送，避免用户收到一封后端无法校验的验证码邮件。
             Long stored = stringRedisTemplate.execute(
                     STORE_CODE_SCRIPT,
-                    List.of(codeKey(emailHash), failureKey(emailHash)),
-                    hashVerificationCode(normalizedEmail, code),
+                    List.of(codeKey(emailHash, purpose), failureKey(emailHash, purpose)),
+                    hashVerificationCode(normalizedEmail, code, purpose),
                     String.valueOf(CODE_TTL.toMillis())
             );
             if (stored == null) {
                 throw new IllegalStateException("邮箱验证码保存失败");
             }
-            sendMail(normalizedEmail, code);
+            sendMail(normalizedEmail, code, purpose);
             log.info("security_event=EMAIL_VERIFICATION_SENT outcome=SUCCESS recipient={}",
                     maskEmail(normalizedEmail));
         } catch (RuntimeException exception) {
             // 两项补偿均为尽力执行，清理失败不能覆盖对外统一的邮件发送失败结果。
             try {
-                stringRedisTemplate.delete(List.of(codeKey(emailHash), failureKey(emailHash)));
+                stringRedisTemplate.delete(List.of(codeKey(emailHash, purpose), failureKey(emailHash, purpose)));
             } catch (RuntimeException cleanupException) {
                 log.warn("清理发送失败的邮箱验证码时 Redis 操作失败", cleanupException);
             }
@@ -164,12 +177,24 @@ public class RegistrationEmailVerificationServiceImpl implements RegistrationEma
      */
     @Override
     public void verifyCode(String email, String code) {
+        verifyCode(email, code, EmailVerificationPurpose.REGISTRATION);
+    }
+
+    /**
+     * 校验指定用途的邮箱验证码。
+     *
+     * @param email 收件邮箱
+     * @param code 验证码
+     * @param purpose 验证码用途
+     */
+    @Override
+    public void verifyCode(String email, String code, EmailVerificationPurpose purpose) {
         String normalizedEmail = normalizeEmail(email);
-        String emailHash = hashIdentity(normalizedEmail);
+        String emailHash = hashIdentity(normalizedEmail, purpose);
         Long result = stringRedisTemplate.execute(
                 VERIFY_CODE_SCRIPT,
-                List.of(codeKey(emailHash), failureKey(emailHash)),
-                hashVerificationCode(normalizedEmail, code),
+                List.of(codeKey(emailHash, purpose), failureKey(emailHash, purpose)),
+                hashVerificationCode(normalizedEmail, code, purpose),
                 String.valueOf(MAX_FAILURES)
         );
         if (result != null && result == -1L) {
@@ -188,8 +213,19 @@ public class RegistrationEmailVerificationServiceImpl implements RegistrationEma
      */
     @Override
     public void clearCode(String email) {
-        String emailHash = hashIdentity(normalizeEmail(email));
-        stringRedisTemplate.delete(List.of(codeKey(emailHash), failureKey(emailHash)));
+        clearCode(email, EmailVerificationPurpose.REGISTRATION);
+    }
+
+    /**
+     * 清理指定用途的邮箱验证码。
+     *
+     * @param email 收件邮箱
+     * @param purpose 验证码用途
+     */
+    @Override
+    public void clearCode(String email, EmailVerificationPurpose purpose) {
+        String emailHash = hashIdentity(normalizeEmail(email), purpose);
+        stringRedisTemplate.delete(List.of(codeKey(emailHash, purpose), failureKey(emailHash, purpose)));
     }
 
     /**
@@ -198,7 +234,7 @@ public class RegistrationEmailVerificationServiceImpl implements RegistrationEma
      * @param email 完整收件邮箱
      * @param code 6 位数字验证码
      */
-    private void sendMail(String email, String code) {
+    private void sendMail(String email, String code, EmailVerificationPurpose purpose) {
         JavaMailSender mailSender = mailProperties.isEnabled() ? mailSenderProvider.getIfAvailable() : null;
         if (mailSender == null || !StringUtils.hasText(mailProperties.getFrom())) {
             throw new IllegalStateException("邮件发送器不可用");
@@ -206,8 +242,9 @@ public class RegistrationEmailVerificationServiceImpl implements RegistrationEma
         SimpleMailMessage mail = new SimpleMailMessage();
         mail.setFrom(mailProperties.getFrom());
         mail.setTo(email);
-        mail.setSubject(blogProperties.getAppName() + " 注册邮箱验证码");
-        mail.setText("您的注册验证码是：" + code + "\n\n验证码 10 分钟内有效，请勿泄露给他人。");
+        String purposeLabel = purpose == EmailVerificationPurpose.EMAIL_CHANGE ? "修改邮箱" : "注册邮箱";
+        mail.setSubject(blogProperties.getAppName() + " " + purposeLabel + "验证码");
+        mail.setText("您的" + purposeLabel + "验证码是：" + code + "\n\n验证码 10 分钟内有效，请勿泄露给他人。");
         mailSender.send(mail);
     }
 
@@ -219,7 +256,7 @@ public class RegistrationEmailVerificationServiceImpl implements RegistrationEma
      * @return 本次额度预占信息，用于发送失败时补偿
      */
     private SendQuotaReservation acquireSendQuota(String email, String clientIp) {
-        String emailHash = hashIdentity(email);
+        String emailHash = hashIdentity(email, EmailVerificationPurpose.REGISTRATION);
         String ipHash = hashIdentity(StringUtils.hasText(clientIp) ? clientIp : "unknown");
         String marker = UUID.randomUUID().toString();
         SendQuotaReservation reservation = new SendQuotaReservation(
@@ -261,8 +298,8 @@ public class RegistrationEmailVerificationServiceImpl implements RegistrationEma
                 .apply("LOWER(email) = {0}", email)) > 0;
     }
 
-    private String hashVerificationCode(String email, String code) {
-        return hmac("registration-email-code:" + email + ":" + code);
+    private String hashVerificationCode(String email, String code, EmailVerificationPurpose purpose) {
+        return hmac("email-verification-code:" + purpose.name() + ":" + email + ":" + code);
     }
 
     /**
@@ -272,7 +309,11 @@ public class RegistrationEmailVerificationServiceImpl implements RegistrationEma
      * @return 十六进制 HMAC 摘要
      */
     private String hashIdentity(String identity) {
-        return hmac("registration-email-identity:" + identity);
+        return hashIdentity(identity, EmailVerificationPurpose.REGISTRATION);
+    }
+
+    private String hashIdentity(String identity, EmailVerificationPurpose purpose) {
+        return hmac("email-verification-identity:" + purpose.name() + ":" + identity);
     }
 
     private String hmac(String content) {
@@ -300,11 +341,19 @@ public class RegistrationEmailVerificationServiceImpl implements RegistrationEma
     }
 
     private String codeKey(String emailHash) {
-        return KEY_PREFIX + "email:" + emailHash + ":code";
+        return codeKey(emailHash, EmailVerificationPurpose.REGISTRATION);
+    }
+
+    private String codeKey(String emailHash, EmailVerificationPurpose purpose) {
+        return KEY_PREFIX + purpose.name().toLowerCase(Locale.ROOT) + ":email:" + emailHash + ":code";
     }
 
     private String failureKey(String emailHash) {
-        return KEY_PREFIX + "email:" + emailHash + ":failures";
+        return failureKey(emailHash, EmailVerificationPurpose.REGISTRATION);
+    }
+
+    private String failureKey(String emailHash, EmailVerificationPurpose purpose) {
+        return KEY_PREFIX + purpose.name().toLowerCase(Locale.ROOT) + ":email:" + emailHash + ":failures";
     }
 
     private record SendQuotaReservation(
