@@ -57,6 +57,11 @@ export interface CommentReplyPageData {
 export interface CreateCommentRequest {
 	content: string;
 	parentId?: number;
+	notifyOnReply?: boolean;
+}
+
+export interface CommentUnsubscribeRequest {
+	token: string;
 }
 
 export interface CommentMutationData {
@@ -100,3 +105,5 @@ export type CommentMutationResponse = ApiResult<CommentMutationData>;
 export type DeleteCommentResponse = ApiResult<CommentDeleteData>;
 
 export type CommentLikeResponse = ApiResult<CommentLikeData>;
+
+export type CommentUnsubscribeResponse = ApiResult<null>;

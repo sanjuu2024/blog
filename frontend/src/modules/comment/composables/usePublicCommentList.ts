@@ -142,8 +142,12 @@ export function usePublicCommentList() {
 	}
 
 	// 发表评论
-	async function submitTopLevelComment(articleId: number, content: string) {
-		const data = await createComment(articleId, { content });
+	async function submitTopLevelComment(
+		articleId: number,
+		content: string,
+		notifyOnReply = false,
+	) {
+		const data = await createComment(articleId, { content, notifyOnReply });
 		commentList.value = [buildTopLevelComment(data), ...commentList.value];
 		await getCommentList(articleId, 1);
 
@@ -163,10 +167,12 @@ export function usePublicCommentList() {
 		parentId: number,
 		replyToUser: CommentAuthor | null,
 		content: string,
+		notifyOnReply = false,
 	) {
 		const data = await createComment(articleId, {
 			content,
 			parentId,
+			notifyOnReply,
 		});
 
 		const state = getReplyState(rootComment.id);

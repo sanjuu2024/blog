@@ -5,6 +5,8 @@ import type {
 	CommentDeleteData,
 	CommentLikeData,
 	CommentLikeResponse,
+	CommentUnsubscribeRequest,
+	CommentUnsubscribeResponse,
 	CommentReplyListQuery,
 	CommentReplyPageData,
 	CommentReplyPageResponse,
@@ -21,6 +23,7 @@ const COMMENT_API = {
 	listReplies: (commentId: number) => `comments/${commentId}/replies`,
 	deleteComment: (commentId: number) => `comments/${commentId}`,
 	likeComment: (commentId: number) => `comments/${commentId}/like`,
+	unsubscribe: 'comments/notifications/unsubscribe',
 } as const;
 
 // 获取文章顶层评论分页列表接口
@@ -74,5 +77,13 @@ export const likeComment = (commentId: number): Promise<CommentLikeData> => {
 export const unlikeComment = (commentId: number): Promise<CommentLikeData> => {
 	return request.delete<CommentLikeResponse, CommentLikeData, null>(
 		COMMENT_API.likeComment(commentId),
+	);
+};
+
+// 退订评论直接回复通知接口
+export const unsubscribeComment = (data: CommentUnsubscribeRequest): Promise<null> => {
+	return request.post<CommentUnsubscribeResponse, null, CommentUnsubscribeRequest>(
+		COMMENT_API.unsubscribe,
+		data,
 	);
 };

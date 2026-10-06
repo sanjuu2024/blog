@@ -1,6 +1,14 @@
 <template>
 	<div class="reply-editor">
 		<p class="reply-editor-title">回复 {{ targetName }}：</p>
+		<el-checkbox
+			class="mb-2"
+			v-model="notifyOnReply"
+			:disabled="emailVerified === false"
+		>
+			<span>有新的回复时通过账号邮箱提醒我</span>
+			<span v-show="emailVerified === false">（邮箱未验证）</span>
+		</el-checkbox>
 		<el-input
 			v-model.trim="content"
 			type="textarea"
@@ -28,10 +36,12 @@ defineOptions({
 });
 
 const content = defineModel<string>({ required: true });
+const notifyOnReply = defineModel<boolean>('notifyOnReply', { default: false });
 
-defineProps<{
+const { emailVerified } = defineProps<{
 	targetName: string;
 	loading: boolean;
+	emailVerified?: boolean;
 }>();
 
 const emit = defineEmits<{

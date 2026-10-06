@@ -31,6 +31,7 @@ function comment(overrides: Partial<AdminCommentItem> = {}): AdminCommentItem {
 		content: '评论内容',
 		status: COMMENT_STATUS.PENDING,
 		moderationReason: null,
+		notifyOnReply: false,
 		author: null,
 		reviewedBy: null,
 		reviewedAt: null,

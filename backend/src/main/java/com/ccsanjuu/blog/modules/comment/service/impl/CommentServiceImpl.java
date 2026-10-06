@@ -27,6 +27,7 @@ import com.ccsanjuu.blog.modules.comment.model.enums.CommentStatus;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentType;
 import com.ccsanjuu.blog.modules.comment.model.vo.*;
 import com.ccsanjuu.blog.modules.comment.service.CommentService;
+import com.ccsanjuu.blog.modules.comment.service.CommentReplyNotificationService;
 import com.ccsanjuu.blog.modules.notification.service.NotificationService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
@@ -69,6 +70,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
     private final UserMapper userMapper;
     private final StringRedisTemplate stringRedisTemplate;
     private final NotificationService notificationService;
+    private final CommentReplyNotificationService commentReplyNotificationService;
 
     /**
      * 获取后台评论分页列表
@@ -337,6 +339,11 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
         if (user.getStatus() == UserStatus.DISABLED){
             throw new BizException(ResultCode.USER_DISABLED);
         }
+        boolean notifyOnReply = Boolean.TRUE.equals(createCommentRequestDTO.getNotifyOnReply());
+        if (notifyOnReply && (!Boolean.TRUE.equals(user.getEmailVerified())
+                || !StringUtils.hasText(user.getEmail()))) {
+            throw new BizException(ResultCode.COMMENT_EMAIL_NOT_VERIFIED);
+        }
 
         // 3. 校验父评论，锁定所属评论树并计算 rootId
         Comment parentComment = null;
@@ -366,6 +373,8 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
                 .parentId(createCommentRequestDTO.getParentId())
                 .rootId(rootId)
                 .content(createCommentRequestDTO.getContent().trim())
+                .notifyOnReply(notifyOnReply)
+                .unsubscribeToken(notifyOnReply ? UUID.randomUUID().toString() : null)
                 .status(status)
                 .build();
 
@@ -379,6 +388,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
                     "评论收到新的回复",
                     comment.getContent()
             );
+            commentReplyNotificationService.sendAfterCommit(parentComment, comment);
         }
         if (status == CommentStatus.APPROVED){
             updateArticleCommentCount(articleId, 1);
@@ -746,6 +756,27 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
                     "评论收到新的回复",
                     comment.getContent()
             );
+            commentReplyNotificationService.sendAfterCommit(parent, comment);
+        }
+    }
+
+    /**
+     * 关闭指定评论未来的直接回复邮件通知，重复提交保持幂等。
+     *
+     * @param token 评论退订令牌
+     */
+    @Override
+    @Transactional
+    public void unsubscribeReplyNotification(String token) {
+        Comment comment = commentMapper.selectOne(new LambdaQueryWrapper<Comment>()
+                .eq(Comment::getUnsubscribeToken, token));
+        if (comment == null) {
+            throw new BizException(ResultCode.COMMENT_UNSUBSCRIBE_TOKEN_INVALID);
+        }
+        if (Boolean.TRUE.equals(comment.getNotifyOnReply())) {
+            commentMapper.update(null, new LambdaUpdateWrapper<Comment>()
+                    .eq(Comment::getId, comment.getId())
+                    .set(Comment::getNotifyOnReply, false));
         }
     }
 

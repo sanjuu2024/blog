@@ -29,6 +29,8 @@ public class AdminCommentItemVO {
 
     private String moderationReason;
 
+    private Boolean notifyOnReply;
+
     private CommentAuthorVO author;
 
     private Long reviewedBy;

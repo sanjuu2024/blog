@@ -143,6 +143,8 @@ Authorization: Bearer <access_token>
 | `106005` | `403` | `无权操作该评论` | 普通用户删除不属于自己的评论 |
 | `106006` | `409` | `评论状态流转不合法` | 后台审核动作与评论当前状态不匹配 |
 | `106007` | `400` | `评论处理原因不能为空` | 后台拒绝、隐藏或删除评论时未填写处理原因 |
+| `106008` | `400` | `邮箱未验证，无法订阅评论回复通知` | 评论订阅请求使用了未验证邮箱 |
+| `106009` | `400` | `评论退订链接无效或已失效` | 评论退订令牌不存在或已失效 |
 | `107001` | `400` | `请选择需要上传的图片` | Multipart 图片为空或未携带文件 |
 | `107002` | `415` | `仅支持 JPG、JPEG、PNG、WebP 和 GIF 图片` | 图片真实文件类型不在允许范围内 |
 | `107003` | `413` | `图片大小超过限制` | 头像超过 2 MB，或其他图片超过 10 MB |
@@ -231,8 +233,10 @@ Authorization: Bearer <access_token>
 | 个人中心 | `PUT` | `/api/v1/users/me/profile` | `LOGIN` | 更新个人资料 |
 | 个人中心 | `PUT` | `/api/v1/users/me/password` | `LOGIN` | 修改密码 |
 | 个人中心 | `PUT` | `/api/v1/users/me/avatar` | `LOGIN` | 上传并更新当前用户头像 |
+| 个人中心 | `DELETE` | `/api/v1/users/me` | `LOGIN` | 使用当前密码确认后注销本人账号，仅逻辑处理 |
 | 后台用户 | `GET` | `/api/v1/admin/users` | `ADMIN` | 获取用户分页列表 |
 | 后台用户 | `PATCH` | `/api/v1/admin/users/{userId}/status` | `ADMIN` | 修改用户状态 |
+| 后台用户 | `DELETE` | `/api/v1/admin/users/{userId}` | `ADMIN` | 注销其他用户，仅逻辑处理 |
 | 后台用户 | `PATCH` | `/api/v1/admin/users/{userId}/role` | `ADMIN` | 修改用户角色 |
 | 后台文章 | `GET` | `/api/v1/admin/articles` | `ADMIN` | 获取后台文章分页列表 |
 | 后台文章 | `GET` | `/api/v1/admin/articles/{articleId}` | `ADMIN` | 获取后台文章详情 |
@@ -1131,9 +1135,33 @@ Content-Type: application/json
 }
 ```
 
+## 6.4 注销当前账号
+
+- 路由：`DELETE /api/v1/users/me`
+- 权限：`LOGIN`
+- Body：`{ "password": "当前密码" }`
+- 必须校验当前密码；不需要再次输入邮箱验证码，不设置注销冷静期。
+- 注销只更新 `deletedAt` 及账号匿名化字段，不物理删除用户或关联业务数据。
+- 成功后立即递增 `tokenVersion`、撤销全部 Refresh Token、清空密码哈希、头像 URL 和个人简介。
+- `username` 替换为 `deleted_<userId>`，`email` 替换为 `deleted_<userId>@deleted.invalid`，释放原用户名和邮箱。
+- 注册接口不得接受 `deleted_` 用户名前缀或 `.deleted.invalid` 邮箱域名，避免占位值冲突。
+
+## 6.5 注销作者的展示规则
+
+- `deletedAt != null` 的作者统一显示为“账号已注销”，不返回原用户名、昵称或头像。
+- 评论、留言、点赞、通知、邮件投递和审计日志保留；注销不影响历史统计和关联关系。
+
 ## 7. 后台用户管理接口
 
-## 7.1 获取用户分页列表
+## 7.1 注销其他用户
+
+- 路由：`DELETE /api/v1/admin/users/{userId}`
+- 权限：`ADMIN`
+- Body：`{ "reason": "账号注销申请" }`
+- 管理员不能注销自己，也不能注销最后一个仍可用的管理员。
+- 操作必须锁定用户记录，执行 token 撤销和账号匿名化，并写入后台审计日志。
+
+## 7.2 获取用户分页列表
 
 - 路由：`GET`
 - 路径：`/api/v1/admin/users`
@@ -1214,7 +1242,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 }
 ```
 
-## 7.2 修改用户状态
+## 7.3 修改用户状态
 
 - 路由：`PATCH`
 - 路径：`/api/v1/admin/users/{userId}/status`
@@ -1270,7 +1298,7 @@ Content-Type: application/json
 }
 ```
 
-## 7.3 修改用户角色
+## 7.4 修改用户角色
 
 - 路由：`PATCH`
 - 路径：`/api/v1/admin/users/{userId}/role`
@@ -2269,6 +2297,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | --- | --- | --- | --- |
 | `content` | `String` | 是 | 纯文本内容，去除首尾空白后长度 `1-1000` |
 | `parentId` | `Long` | 否 | 直接父评论 ID；不传表示顶层评论 |
+| `notifyOnReply` | `Boolean` | 否 | 是否订阅当前评论的直接回复邮件；仅当前账号邮箱已验证时允许为 `true` |
 
 ### 响应规则
 
@@ -2277,7 +2306,14 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 同一用户对同一文章 10 秒内只能成功创建一条评论或回复，超限返回 HTTP `429` 和业务码 `106004`。
 - `allowComment=false` 时返回 HTTP `409` 和业务码 `106002`，已有评论仍可读取和删除。
 
-## 11.4 删除自己的评论
+## 11.4 退订评论直接回复通知
+
+- 路由：`POST /api/v1/comments/notifications/unsubscribe`
+- 权限：`PUBLIC`
+- Body：`{ "token": "..." }`。令牌只对应一条评论，重复提交已退订令牌仍返回成功；令牌无效返回业务码 `106009`。
+- 退订只关闭该评论未来的直接回复邮件，不影响站内通知和其他评论订阅。
+
+## 11.5 删除自己的评论
 
 - 路由：`DELETE`
 - 路径：`/api/v1/comments/{commentId}`
@@ -2285,7 +2321,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 用户只能删除自己的评论。删除采用逻辑删除，并在同一事务中把目标评论及其全部后代标记为 `DELETED`；所有被删除且原为 `APPROVED` 的记录均从文章 `comment_count` 中扣除。成功时返回 `deletedApprovedCount`，表示本次实际扣减的已通过评论数量。
 
-## 11.5 获取后台评论分页列表
+## 11.6 获取后台评论分页列表
 
 - 路由：`GET`
 - 路径：`/api/v1/admin/comments`
@@ -2306,7 +2342,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | Query | `createdAtFrom` | `String` | 否 | 创建时间范围开始，ISO 8601 时间 |
 | Query | `createdAtTo` | `String` | 否 | 创建时间范围结束，ISO 8601 时间 |
 
-## 11.6 审核、隐藏或删除评论
+## 11.7 审核、隐藏或删除评论
 
 - 路由：`PATCH`
 - 路径：`/api/v1/admin/comments/{commentId}/moderation`
@@ -2331,13 +2367,13 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 通过、拒绝、隐藏成功后写入 `reviewedBy`、`reviewedAt`；拒绝、隐藏、删除保存 `moderationReason`，通过时清空该字段。管理员删除写入 `deletedBy`、`deletedAt`，不清空历史 `reviewedBy`、`reviewedAt`。状态变化、子树逻辑删除、`comment_count` 更新和后台操作审计日志必须保持事务一致性。管理员不能修改评论正文。
 
-## 11.7 P2 评论直接回复邮件通知预留
+## 11.8 P2 评论直接回复邮件通知（已实现）
 
-- P1 评论接口和 OpenAPI 保持不变；P2 实现时再为创建评论请求增加可选的 `notifyOnReply` 字段，并补充退订接口
+- 创建评论请求增加可选的 `notifyOnReply` 字段，并补充评论退订接口：`POST /api/v1/comments/notifications/unsubscribe`
 - `notifyOnReply=true` 表示当前登录用户订阅这条新评论未来的直接回复，收件地址使用账号邮箱
 - 只有其他用户创建的直接回复变为 `APPROVED` 后才触发通知；自己回复自己不发送
 - 退订操作以单条评论为范围且保持幂等，不影响其他评论订阅
-- P2 评论通知和留言通知均发送 `multipart/alternative`：`text/plain` 与 `text/html` 内容语义一致，客户端自行选择可渲染版本
+- 评论通知和留言通知均发送 `multipart/alternative`：`text/plain` 与 `text/html` 内容语义一致，客户端自行选择可渲染版本
 - HTML 正文中的昵称、文章标题、评论及回复必须转义；链接使用绝对 HTTPS 地址，不依赖 JavaScript、外部 CSS 或表单
 
 ## 12. 留言接口
@@ -2391,7 +2427,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 - 路由：`POST /api/v1/admin/messages/{messageId}/replies`
 - 权限：`ADMIN`
-- `messageId` 必须是已通过的顶层留言。管理员回复直接为 `APPROVED`，管理员可对同一留言发表多条回复。事务提交后按该留言的通知开关异步发送邮件；P1 使用纯文本，P2 升级为同时携带 `text/plain` 与 `text/html` 的 `multipart/alternative`。
+- `messageId` 必须是已通过的顶层留言。管理员回复直接为 `APPROVED`，管理员可对同一留言发表多条回复。事务提交后按该留言的通知开关异步发送 `multipart/alternative` 邮件，同时携带 `text/plain` 与 `text/html`。
 
 ### 12.8 批量通过留言
 

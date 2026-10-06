@@ -4,6 +4,7 @@ import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.common.util.JwtUtil;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
+import com.ccsanjuu.blog.properties.BlogProperties;
 import com.ccsanjuu.blog.properties.BlogMailProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,6 +64,7 @@ class RegistrationEmailVerificationServiceImplTest {
                 userMapper,
                 mailSenderProvider,
                 mailProperties,
+                new BlogProperties(),
                 SIGNING_KEY
         );
     }

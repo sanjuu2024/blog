@@ -29,6 +29,7 @@ import com.ccsanjuu.blog.modules.comment.model.vo.CommentLikeMutationVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentMutationVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentReplyPageVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.PublicCommentItemVO;
+import com.ccsanjuu.blog.modules.comment.service.CommentReplyNotificationService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.notification.service.NotificationService;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
@@ -98,6 +99,9 @@ class CommentServiceImplTest {
     private NotificationService notificationService;
 
     @Mock
+    private CommentReplyNotificationService commentReplyNotificationService;
+
+    @Mock
     private ValueOperations<String, String> valueOperations;
 
     private CommentServiceImpl commentService;
@@ -109,7 +113,8 @@ class CommentServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        commentService = new CommentServiceImpl(articleMapper, commentMapper, commentLikeMapper, userMapper, stringRedisTemplate, notificationService);
+        commentService = new CommentServiceImpl(articleMapper, commentMapper, commentLikeMapper,
+                userMapper, stringRedisTemplate, notificationService, commentReplyNotificationService);
         ReflectionTestUtils.setField(commentService, "baseMapper", commentMapper);
         ReflectionTestUtils.setField(commentService, "entityClass", Comment.class);
         ReflectionTestUtils.setField(commentService, "mapperClass", CommentMapper.class);
@@ -477,6 +482,58 @@ class CommentServiceImplTest {
         assertEquals("这篇文章不错", captor.getValue().getContent());
         assertEquals(CommentStatus.PENDING, captor.getValue().getStatus());
         verify(articleMapper, never()).update(any(), any(Wrapper.class));
+    }
+
+    @Test
+    void verifiedUserCanSubscribeToDirectReplyNotifications() {
+        when(articleMapper.selectById(ARTICLE_ID)).thenReturn(Article.builder()
+                .id(ARTICLE_ID).status(ArticleStatus.PUBLISHED).allowComment(true).build());
+        when(userMapper.selectById(USER_ID)).thenReturn(User.builder()
+                .id(USER_ID).username("alice").nickname("Alice").email("alice@example.com")
+                .emailVerified(true).role(UserRole.USER).status(UserStatus.ACTIVE).build());
+        when(commentMapper.insert(any(Comment.class))).thenAnswer(invocation -> {
+            Comment comment = invocation.getArgument(0);
+            comment.setId(COMMENT_ID);
+            return 1;
+        });
+        when(commentMapper.selectById(COMMENT_ID)).thenReturn(Comment.builder()
+                .id(COMMENT_ID).articleId(ARTICLE_ID).userId(USER_ID).content("评论")
+                .status(CommentStatus.PENDING).createdAt(CREATED_AT).build());
+
+        commentService.createComment(ARTICLE_ID, USER_ID, CreateCommentRequestDTO.builder()
+                .content("评论").notifyOnReply(true).build());
+
+        ArgumentCaptor<Comment> captor = ArgumentCaptor.forClass(Comment.class);
+        verify(commentMapper).insert(captor.capture());
+        assertTrue(captor.getValue().getNotifyOnReply());
+        assertTrue(captor.getValue().getUnsubscribeToken() != null);
+    }
+
+    @Test
+    void unverifiedUserCannotSubscribeToDirectReplyNotifications() {
+        when(articleMapper.selectById(ARTICLE_ID)).thenReturn(Article.builder()
+                .id(ARTICLE_ID).status(ArticleStatus.PUBLISHED).allowComment(true).build());
+        when(userMapper.selectById(USER_ID)).thenReturn(User.builder()
+                .id(USER_ID).email("alice@example.com").emailVerified(false)
+                .role(UserRole.USER).status(UserStatus.ACTIVE).build());
+
+        BizException exception = assertThrows(BizException.class, () -> commentService.createComment(
+                ARTICLE_ID, USER_ID, CreateCommentRequestDTO.builder()
+                        .content("评论").notifyOnReply(true).build()));
+
+        assertEquals(ResultCode.COMMENT_EMAIL_NOT_VERIFIED, exception.getResultCode());
+        verify(commentMapper, never()).insert(any(Comment.class));
+    }
+
+    @Test
+    void unsubscribeShouldDisableCommentReplyNotification() {
+        Comment comment = Comment.builder().id(COMMENT_ID).notifyOnReply(true)
+                .unsubscribeToken("comment-unsubscribe-token").build();
+        when(commentMapper.selectOne(any())).thenReturn(comment);
+
+        commentService.unsubscribeReplyNotification("comment-unsubscribe-token");
+
+        verify(commentMapper).update(eq(null), any(LambdaUpdateWrapper.class));
     }
 
     @Test

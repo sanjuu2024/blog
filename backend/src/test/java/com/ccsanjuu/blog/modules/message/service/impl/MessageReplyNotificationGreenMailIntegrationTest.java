@@ -109,15 +109,19 @@ class MessageReplyNotificationGreenMailIntegrationTest {
 
         assertTrue(GREEN_MAIL.waitForIncomingEmail(5000, 1));
         MimeMessage received = GREEN_MAIL.getReceivedMessages()[0];
-        String body = received.getContent().toString();
+        jakarta.mail.Multipart multipart = (jakarta.mail.Multipart) received.getContent();
+        String plainText = multipart.getBodyPart(0).getContent().toString();
+        String html = multipart.getBodyPart(1).getContent().toString();
 
         assertEquals("notifications@sanjuu.test", received.getFrom()[0].toString());
         assertEquals("guest@example.test", received.getAllRecipients()[0].toString());
-        assertEquals("您在 Sanjuu Blog 留言有了新的回复", received.getSubject());
-        assertTrue(body.contains("这是一条测试留言"));
-        assertTrue(body.contains("这是管理员的测试回复"));
-        assertTrue(body.contains("http://localhost:5173/messages"));
-        assertTrue(body.contains(
+        assertEquals("您在 青禾边 留言有了新的回复", received.getSubject());
+        assertTrue(plainText.contains("这是一条测试留言"));
+        assertTrue(plainText.contains("这是管理员的测试回复"));
+        assertTrue(plainText.contains("http://localhost:5173/messages"));
+        assertTrue(html.contains("这是一条测试留言"));
+        assertTrue(html.contains("这是管理员的测试回复"));
+        assertTrue(html.contains(
                 "http://localhost:5173/messages/unsubscribe?token=unsubscribe-token"
         ));
     }

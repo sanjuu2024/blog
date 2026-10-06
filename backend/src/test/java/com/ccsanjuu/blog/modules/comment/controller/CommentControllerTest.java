@@ -204,6 +204,17 @@ class CommentControllerTest {
         verify(commentService).unlikeComment(COMMENT_ID, USER_ID);
     }
 
+    @Test
+    void unsubscribeCommentNotificationShouldBePublic() throws Exception {
+        mockMvc.perform(post("/api/v1/comments/notifications/unsubscribe")
+                        .contentType("application/json")
+                        .content("{\"token\":\"comment-unsubscribe-token\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+
+        verify(commentService).unsubscribeReplyNotification("comment-unsubscribe-token");
+    }
+
     private String accessToken(Long userId, UserRole role) {
         return JwtUtil.generateAccessToken(
                 signingKey,

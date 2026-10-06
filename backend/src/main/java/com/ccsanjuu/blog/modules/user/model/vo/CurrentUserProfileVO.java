@@ -23,6 +23,8 @@ public class CurrentUserProfileVO {
 
     private String email;
 
+    private Boolean emailVerified;
+
     private UserRole role;
 
     private UserStatus status;

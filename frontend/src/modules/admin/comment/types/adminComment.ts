@@ -81,6 +81,7 @@ export interface AdminCommentItem {
 	content: string;
 	status: CommentStatus;
 	moderationReason: string | null;
+	notifyOnReply: boolean;
 	author: CommentAuthor | null;
 	reviewedBy: number | null;
 	reviewedAt: string | null;

@@ -6,6 +6,7 @@ import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.auth.service.RegistrationEmailVerificationService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
+import com.ccsanjuu.blog.properties.BlogProperties;
 import com.ccsanjuu.blog.properties.BlogMailProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -102,6 +103,7 @@ public class RegistrationEmailVerificationServiceImpl implements RegistrationEma
     private final UserMapper userMapper;
     private final ObjectProvider<JavaMailSender> mailSenderProvider;
     private final BlogMailProperties mailProperties;
+    private final BlogProperties blogProperties;
     private final SecretKey jwtSigningKey;
 
     /**
@@ -204,7 +206,7 @@ public class RegistrationEmailVerificationServiceImpl implements RegistrationEma
         SimpleMailMessage mail = new SimpleMailMessage();
         mail.setFrom(mailProperties.getFrom());
         mail.setTo(email);
-        mail.setSubject("Sanjuu Blog 注册邮箱验证码");
+        mail.setSubject(blogProperties.getAppName() + " 注册邮箱验证码");
         mail.setText("您的注册验证码是：" + code + "\n\n验证码 10 分钟内有效，请勿泄露给他人。");
         mailSender.send(mail);
     }

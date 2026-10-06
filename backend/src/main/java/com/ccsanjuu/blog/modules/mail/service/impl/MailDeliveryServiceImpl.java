@@ -17,6 +17,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.ccsanjuu.blog.modules.message.service.MessageReplyNotificationService;
+import com.ccsanjuu.blog.modules.comment.service.CommentReplyNotificationService;
 
 import java.util.Locale;
 import java.time.OffsetDateTime;
@@ -27,6 +28,7 @@ import java.time.ZoneOffset;
 public class MailDeliveryServiceImpl implements MailDeliveryService {
     private final MailDeliveryMapper mailDeliveryMapper;
     private final ObjectProvider<MessageReplyNotificationService> messageReplyNotificationService;
+    private final ObjectProvider<CommentReplyNotificationService> commentReplyNotificationService;
 
     /**
      * 查询邮件投递分页记录。
@@ -81,6 +83,8 @@ public class MailDeliveryServiceImpl implements MailDeliveryService {
         mailDeliveryMapper.updateById(delivery);
         if (delivery.getMailType() == MailType.MESSAGE_REPLY) {
             messageReplyNotificationService.getObject().retry(delivery);
+        } else if (delivery.getMailType() == MailType.COMMENT_REPLY) {
+            commentReplyNotificationService.getObject().retry(delivery);
         }
     }
 

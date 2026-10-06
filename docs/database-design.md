@@ -99,7 +99,7 @@
 | `blog_message_board` | `user_id` | `blog_user.id` | 登录用户留言时记录用户 ID；游客留言时允许为空，历史游客留言不自动关联后注册用户 |
 | `blog_message_board` | `parent_id` | `blog_message_board.id` | 登录用户或管理员回复时必须确认父留言是已通过的留言 |
 
-删除或下线数据时，不能依赖数据库级联删除。当前建议默认避免物理删除核心数据；确需删除时，由 service 在同一事务中按业务规则清理子表或拒绝删除，例如删除分类前校验关联文章、删除文章时清理文章标签关联。
+删除或下线数据时，不能依赖数据库级联删除。当前核心业务数据只允许逻辑处理，不提供用户可调用的物理删除。用户注销使用 `deleted_at IS NOT NULL` 判断，不新增 `DELETED` 用户状态；注销事务中递增 `token_version`、撤销 Refresh Token，并将 `username`、`email` 替换为基于用户 ID 的唯一占位值，以释放原用户名和邮箱。
 
 ## 3. P0 必建表
 
@@ -173,11 +173,20 @@ CREATE INDEX IF NOT EXISTS idx_blog_user_role_status
 | `privacy_policy_version` | `VARCHAR(71)` | 注册时接受的隐私政策内容哈希版本；历史用户可为空 | `sha256:012345...` |
 | `privacy_policy_accepted_at` | `TIMESTAMPTZ` | 注册时接受隐私政策的时间；历史用户可为空 | `2026-05-01 10:00:00+08` |
 | `last_login_at` | `TIMESTAMPTZ` | 最近一次登录时间 | `2026-04-22 22:10:00+08` |
-| `deleted_at` | `TIMESTAMPTZ` | 软删除时间，当前版本可不使用 | `NULL` |
+| `deleted_at` | `TIMESTAMPTZ` | 用户逻辑注销时间；非空即表示账号已注销 | `NULL` |
 | `created_at` | `TIMESTAMPTZ` | 记录创建时间 | `2026-04-22 21:00:00+08` |
 | `updated_at` | `TIMESTAMPTZ` | 记录更新时间 | `2026-04-22 22:10:00+08` |
 
-公开用户资料、文章作者资料卡等前台公开场景可以返回 `blog_user.id`，并可使用 `userId` 作为路径标识；`username` 主要作为展示字段和登录标识。
+公开用户资料、文章作者资料卡等前台公开场景可以返回 `blog_user.id`，并可使用 `userId` 作为路径标识。`deleted_at IS NOT NULL` 的作者统一展示为“账号已注销”，不再展示原用户名、昵称或头像。
+
+用户注销规则：
+
+- 用户本人注销必须确认当前密码，不需要再次输入邮箱验证码，也不设置冷静期
+- 管理员可以注销其他用户，但不能注销自己或最后一个仍可用的管理员；操作需要审计记录
+- 注销保留评论、留言、点赞、通知、邮件投递和审计日志等关联数据
+- `username` 使用 `deleted_<userId>` 形式的唯一占位值；`email` 使用 `deleted_<userId>@deleted.invalid` 形式的不可投递唯一占位值
+- 注册校验必须保留 `deleted_` 用户名前缀和 `.deleted.invalid` 邮箱域名，避免真实账号与注销占位值冲突
+- 注销清空 `password_hash`、`avatar_url` 和 `bio`；头像对应 OSS 对象不在注销事务中自动删除
 
 P2 通过新 migration 为 `blog_user` 增加：
 
@@ -520,6 +529,8 @@ CREATE TABLE IF NOT EXISTS blog_comment (
     parent_id BIGINT,
     root_id BIGINT,
     content TEXT NOT NULL,
+    notify_on_reply BOOLEAN NOT NULL DEFAULT FALSE,
+    unsubscribe_token VARCHAR(128),
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
         CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'HIDDEN', 'DELETED')),
     reviewed_by BIGINT,
@@ -530,6 +541,10 @@ CREATE TABLE IF NOT EXISTS blog_comment (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_blog_comment_unsubscribe_token
+    ON blog_comment (unsubscribe_token)
+    WHERE unsubscribe_token IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_blog_comment_article_status
     ON blog_comment (article_id, status);
@@ -561,6 +576,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_comment_user_article_created_at
 | `parent_id` | `BIGINT` | 父评论 ID，一级评论为空，回复评论时有值 | `60000` |
 | `root_id` | `BIGINT` | 所属顶层评论 ID；顶层评论为空，所有后代回复均指向同一顶层评论 | `60001` |
 | `content` | `TEXT` | 评论内容 | `这篇文章对双 Token 的解释很清楚` |
+| `notify_on_reply` | `BOOLEAN` | 是否订阅当前评论的直接回复邮件 | `TRUE` |
+| `unsubscribe_token` | `VARCHAR(128)` | 当前评论的随机退订令牌 | `随机不透明字符串` |
 | `status` | `VARCHAR(20)` | 评论状态 | `PENDING`、`APPROVED`、`REJECTED`、`HIDDEN`、`DELETED` |
 | `reviewed_by` | `BIGINT` | 最近一次审核、拒绝或隐藏操作的管理员用户 ID | `10001` |
 | `reviewed_at` | `TIMESTAMPTZ` | 最近一次审核、拒绝或隐藏时间 | `2026-05-01 10:30:00+08` |
@@ -587,11 +604,11 @@ CREATE INDEX IF NOT EXISTS idx_blog_comment_user_article_created_at
 ### P2 评论扩展目标
 
 - P2 为单条评论增加自愿订阅直接回复邮件的能力，订阅者固定为该评论作者，收件地址使用用户账号邮箱
-- 计划通过新的 Flyway migration 增加 `notify_on_reply` 和随机不透明 `unsubscribe_token`，不修改已经执行的 P1 migration
+- 已通过新的 Flyway migration 增加 `notify_on_reply` 和随机不透明 `unsubscribe_token`，不修改已经执行的 P1 migration
 - `unsubscribe_token` 仅能关闭对应评论未来的直接回复通知，并建立非空值唯一索引
 - P2 新增 `like_count INTEGER NOT NULL DEFAULT 0 CHECK (like_count >= 0)`，与 `blog_comment_like` 明细保持事务一致
 - 回复排序通过关联 `blog_user.role` 判断当前管理员身份，不在评论表冗余作者角色
-- 上述变更必须通过新的 P2 Flyway migration 落地，不修改现有 P1 migration
+- 上述变更通过新的 P2 Flyway migration 落地，不修改现有 P1 migration
 
 ## 4.2 P2 使用表：`blog_article_like`
 
@@ -870,7 +887,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_blog_message_board_unsubscribe_token
 | `created_at` | `TIMESTAMPTZ` | 创建时间 | `2026-05-10 14:00:00+08` |
 | `updated_at` | `TIMESTAMPTZ` | 更新时间 | `2026-05-10 14:10:00+08` |
 
-P1 留言邮件使用纯文本；P2 升级为 `multipart/alternative` 只改变邮件内容格式，不需要修改现有留言订阅字段。
+留言和评论回复邮件使用 `multipart/alternative`；这只改变邮件内容格式，不需要修改现有留言订阅字段。
 
 ## 4.11 P1 使用表：`blog_admin_audit_log`
 
@@ -1050,6 +1067,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 - 文章封面与头像上传虽然在 P1 实现，但建议 P0 先把 URL 字段建好
 - P1 图片二进制保存在阿里云 OSS，业务表和 Markdown 仅保存公开 URL；当前不新增通用文件资源表
 - P1 不维护图片引用关系，也不自动删除被替换或失去引用的 OSS 对象；后续确有统一资源管理需求时再设计 `blog_asset` 表
+- 用户注销或清空头像时只清空 `blog_user.avatar_url`，不自动调用 OSS 删除接口；OSS 对象清理属于后续独立的资源回收任务
 - 留言表的状态扩展、通知字段和索引通过 `V1.1.4` migration 落地，不修改已执行的初始 migration
 - 留言通知令牌使用随机不透明值；数据库泄露时不会暴露用户密码或登录 Token，令牌仅能关闭对应顶层留言的后续通知
 - 用户名长度和格式约束通过 `V1.1.6` migration 更新；升级前若存在不符合新规则的用户名，迁移会失败并要求先处理存量数据

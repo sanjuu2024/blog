@@ -20,4 +20,7 @@ public class CreateCommentRequestDTO {
 
     @Positive(message = "父评论 ID 必须大于 0")
     private Long parentId;
+
+    @Builder.Default
+    private Boolean notifyOnReply = false;
 }

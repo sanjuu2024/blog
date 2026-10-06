@@ -1,4 +1,4 @@
-<template>
+﻿<template>
 	<section
 		id="article-comments"
 		class="article-comment-section"
@@ -19,6 +19,14 @@
 		<!-- 发表评论 -->
 		<div class="comment-editor">
 			<template v-if="article.allowComment && authStore.isLogin">
+				<el-checkbox
+					class="mb-2"
+					v-model="notifyTopLevelReply"
+					:disabled="userStore.userInfo?.emailVerified === false"
+				>
+					<span>有新的回复时通过账号邮箱提醒我</span>
+					<span v-show="userStore.userInfo?.emailVerified === false">（邮箱未验证）</span>
+				</el-checkbox>
 				<el-input
 					v-model.trim="commentContent"
 					type="textarea"
@@ -152,6 +160,8 @@
 							v-if="isReplyEditorVisible(comment.id, comment.id)"
 							v-model="replyContentMap[comment.id]"
 							:target-name="replyTargetMap[comment.id]?.nickname || ''"
+							:email-verified="userStore.userInfo?.emailVerified"
+							v-model:notify-on-reply="notifyReplyMap[comment.id]"
 							:loading="submitting"
 							@cancel="closeReplyEditor(comment.id)"
 							@submit="submitCommentReply(comment)"
@@ -292,6 +302,8 @@
 										v-if="isReplyEditorVisible(comment.id, reply.id)"
 										v-model="replyContentMap[comment.id]"
 										:target-name="replyTargetMap[comment.id]?.nickname || ''"
+										:email-verified="userStore.userInfo?.emailVerified"
+										v-model:notify-on-reply="notifyReplyMap[comment.id]"
 										:loading="submitting"
 										@cancel="closeReplyEditor(comment.id)"
 										@submit="submitCommentReply(comment)"
@@ -299,7 +311,10 @@
 								</div>
 							</div>
 
-							<div class="reply-load-more">
+							<div
+								class="reply-load-more"
+								v-if="getReplyState(comment.id).hasNext"
+							>
 								<el-button
 									v-if="getReplyState(comment.id).hasNext"
 									link
@@ -344,6 +359,7 @@ import { formatDateTime } from '@/utils/datetime';
 import AppLoadMoreTrigger from '@/components/AppLoadMoreTrigger.vue';
 import AppUserAvatar from '@/components/AppUserAvatar.vue';
 import { useAuthStore } from '@/stores/authStore';
+import { useUserStore } from '@/stores/userStore';
 import type { PublicArticleDetailData } from '@/modules/article/types/article';
 import PublicCommentContent from './PublicCommentContent.vue';
 import PublicCommentReplyEditor from './PublicCommentReplyEditor.vue';
@@ -371,6 +387,7 @@ const emit = defineEmits<{
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
+const userStore = useUserStore();
 
 const {
 	commentList,
@@ -391,6 +408,7 @@ const {
 
 // 顶层评论输入框内容
 const commentContent = ref('');
+const notifyTopLevelReply = ref(false);
 
 // 评论 / 回复提交中
 const submitting = ref(false);
@@ -400,12 +418,15 @@ const replyTargetMap = reactive<Record<number, (CommentAuthor & { parentId: numb
 
 // 每条顶层评论下的回复输入框内容
 const replyContentMap = reactive<Record<number, string>>({});
+const notifyReplyMap = reactive<Record<number, boolean>>({});
 
 watch(
 	() => props.article.id,
 	(articleId) => {
 		resetCommentList(articleId);
 		commentContent.value = '';
+		notifyTopLevelReply.value = false;
+		Object.keys(notifyReplyMap).forEach((key) => delete notifyReplyMap[Number(key)]);
 	},
 	{ immediate: true },
 );
@@ -500,6 +521,7 @@ function openReplyEditor(rootComment: PublicCommentItem, user: CommentAuthor, pa
 function closeReplyEditor(rootCommentId: number) {
 	replyTargetMap[rootCommentId] = null;
 	replyContentMap[rootCommentId] = '';
+	notifyReplyMap[rootCommentId] = false;
 }
 
 // 判断回复输入框是否应该显示在当前评论 / 回复下方
@@ -539,8 +561,13 @@ async function submitComment() {
 	submitting.value = true;
 
 	try {
-		const data = await submitTopLevelComment(props.article.id, content);
+		const data = await submitTopLevelComment(
+			props.article.id,
+			content,
+			notifyTopLevelReply.value,
+		);
 		commentContent.value = '';
+		notifyTopLevelReply.value = false;
 
 		if (data.status === COMMENT_STATUS.APPROVED) {
 			emit('commentCountChange', 1);
@@ -568,8 +595,10 @@ async function submitCommentReply(rootComment: PublicCommentItem) {
 			target.parentId,
 			target,
 			content,
+			notifyReplyMap[rootComment.id] ?? false,
 		);
 		closeReplyEditor(rootComment.id);
+		notifyReplyMap[rootComment.id] = false;
 
 		if (data.status === COMMENT_STATUS.APPROVED) {
 			emit('commentCountChange', 1);
@@ -728,7 +757,7 @@ function getCommentStatusTagType(status: CommentStatus) {
 
 .reply-list {
 	margin-top: 0.75rem;
-	padding: 0.75rem;
+	padding-inline: 0.75rem;
 	border-radius: 0.75rem;
 }
 

@@ -237,6 +237,25 @@
 						</el-table-column>
 
 						<el-table-column
+							label="通知"
+							align="center"
+							width="90"
+						>
+							<template #default="{ row }: { row: AdminCommentItem }">
+								<div class="admin-comment__notify-icon">
+									<i-lucide-bell-check
+										v-if="row.notifyOnReply"
+										class="text-(--app-icon-green-color)"
+									/>
+									<i-lucide-bell-off
+										v-else
+										class="text-(--app-icon-gray-color)"
+									/>
+								</div>
+							</template>
+						</el-table-column>
+
+						<el-table-column
 							label="处理原因"
 							align="center"
 							min-width="160"
@@ -549,6 +568,13 @@ function getCommentRowClassName({ row }: { row: AdminCommentItem }) {
 	line-clamp: 2;
 	-webkit-box-orient: vertical;
 	line-height: 1.5;
+}
+
+.admin-comment__notify-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 1.25rem;
 }
 
 .admin-comment-pagination {

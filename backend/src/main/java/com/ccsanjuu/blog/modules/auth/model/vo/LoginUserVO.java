@@ -21,6 +21,8 @@ public class LoginUserVO {
 
     private String email;
 
+    private Boolean emailVerified;
+
     private UserRole role;
 
     private UserStatus status;

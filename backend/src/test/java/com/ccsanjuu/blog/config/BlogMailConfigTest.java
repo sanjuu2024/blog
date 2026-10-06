@@ -1,10 +1,12 @@
 package com.ccsanjuu.blog.config;
 
 import com.ccsanjuu.blog.properties.BlogMailProperties;
+import com.ccsanjuu.blog.properties.BlogProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class BlogMailConfigTest {
@@ -44,6 +46,15 @@ class BlogMailConfigTest {
         BlogMailProperties properties = completeProperties("http://localhost:5173");
 
         assertDoesNotThrow(() -> new BlogMailConfig(properties, completeEnvironment()));
+    }
+
+    @Test
+    void frontendBaseUrlShouldBeNormalizedAndAppNameShouldHaveDefault() {
+        BlogMailProperties properties = new BlogMailProperties();
+        properties.setFrontendBaseUrl(" https://blog.example.com/// ");
+
+        assertEquals("https://blog.example.com", properties.getFrontendBaseUrl());
+        assertEquals("青禾边", new BlogProperties().getAppName());
     }
 
     @Test

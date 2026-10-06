@@ -251,7 +251,7 @@ BLOG_SMTP_WRITE_TIMEOUT=10000
 - `BLOG_SMTP_CONNECTION_TIMEOUT`、`BLOG_SMTP_READ_TIMEOUT`、`BLOG_SMTP_WRITE_TIMEOUT` 的单位均为毫秒，默认分别为 5000、10000、10000，避免网络异常时邮件线程长期阻塞而无法进入重试。
 - 开发环境默认关闭邮件；本地需要实际发信时，通过环境变量显式设置 `BLOG_MAIL_ENABLED=true` 并提供完整 SMTP 配置。
 - 生产环境启用邮件时，`BLOG_MAIL_FRONTEND_BASE_URL` 必须显式配置为完整 HTTPS 地址；缺失、使用 HTTP 或地址格式不合法时后端拒绝启动。
-- P1 留言通知以纯文本发送；P2 将留言与评论通知统一为 `multipart/alternative`，同时携带 `text/plain` 与 `text/html`。
+- 留言与评论通知统一为 `multipart/alternative`，同时携带 `text/plain` 与 `text/html`。
 - HTML 邮件使用内联样式和兼容邮件客户端的简单布局，并为不支持 HTML 的客户端保留语义一致的纯文本版本。
 - 模板必须对昵称、文章标题、留言、评论和回复内容执行 HTML 转义；不得包含 JavaScript、表单或依赖外部 CSS。
 
