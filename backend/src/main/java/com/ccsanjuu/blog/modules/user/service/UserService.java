@@ -31,6 +31,24 @@ public interface UserService extends IService<User> {
     UpdatedUserProfileVO updateProfile(Long userId, UpdateProfileRequestDTO updateProfileRequestDTO);
 
     /**
+     * 发送修改邮箱验证码。
+     *
+     * @param userId 当前用户 ID
+     * @param email 新邮箱
+     * @param clientIp 客户端 IP
+     */
+    void sendEmailChangeCode(Long userId, String email, String clientIp);
+
+    /**
+     * 修改当前用户邮箱。
+     *
+     * @param userId 当前用户 ID
+     * @param requestDTO 修改邮箱参数
+     * @return 更新后的个人资料
+     */
+    UpdatedUserProfileVO changeEmail(Long userId, ChangeEmailRequestDTO requestDTO);
+
+    /**
      * 上传并更新当前用户头像。
      *
      * @param userId 用户 ID

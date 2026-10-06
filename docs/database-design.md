@@ -192,7 +192,7 @@ P2 通过新 migration 为 `blog_user` 增加：
 
 - `privacy_policy_version VARCHAR(71)`、`privacy_policy_accepted_at TIMESTAMPTZ`，记录注册时接受的 `sha256:` 内容哈希
 - `totp_secret_ciphertext TEXT`、`totp_enabled_at TIMESTAMPTZ`，仅管理员启用 2FA 时使用；TOTP secret 必须加密存储
-- 注册成功时直接写入 `email_verified=true` 和 `email_verified_at`；验证码只在 Redis 中保存哈希和失败次数，不落数据库
+- 注册成功时直接写入 `email_verified=true` 和 `email_verified_at`；修改邮箱成功后同样更新这两个字段；验证码只在 Redis 中保存哈希和失败次数，不落数据库
 
 隐私政策版本使用独立不可变快照表：
 

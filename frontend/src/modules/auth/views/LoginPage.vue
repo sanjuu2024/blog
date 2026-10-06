@@ -32,6 +32,7 @@
 					maxlength="32"
 					placeholder="请输入密码"
 					type="password"
+					show-password
 				>
 					<template #prefix>
 						<i-lucide-lock-keyhole />

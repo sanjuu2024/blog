@@ -1,13 +1,23 @@
 import { ElMessage, type FormInstance, type FormItemRule } from 'element-plus';
 import { computed, nextTick, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { PASSWORD_FORMAT_MESSAGE, PASSWORD_FORMAT_PATTERN } from '@/constants/validation';
+import { useIntervalFn } from '@vueuse/core';
+import {
+	EMAIL_FORMAT_MESSAGE,
+	EMAIL_FORMAT_PATTERN,
+	EMAIL_VERIFICATION_CODE_MESSAGE,
+	EMAIL_VERIFICATION_CODE_PATTERN,
+	PASSWORD_FORMAT_MESSAGE,
+	PASSWORD_FORMAT_PATTERN,
+} from '@/constants/validation';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserStore } from '@/stores/userStore';
 import { AVATAR_MAX_SIZE, validateImageFile } from '@/modules/file/utils/image';
 import {
 	changeCurrentUserPassword,
+	changeCurrentUserEmail,
 	getCurrentUserProfile,
+	sendEmailChangeCode,
 	updateCurrentUserAvatar,
 	updateCurrentUserProfile,
 } from '../api/userApi';
@@ -15,6 +25,7 @@ import {
 	USER_ROLE,
 	USER_STATUS,
 	type ChangeCurrentUserPasswordRequest,
+	type ChangeCurrentUserEmailRequest,
 	type CurrentUserInfo,
 	type UpdateCurrentUserProfileRequest,
 	type UpdatedCurrentUserProfileData,
@@ -53,14 +64,36 @@ export function useUserSettings() {
 		confirmPassword: '',
 	});
 
+	const emailForm = reactive<ChangeCurrentUserEmailRequest>({
+		currentPassword: '',
+		newEmail: '',
+		verificationCode: '',
+	});
+
 	const profileFormRef = ref<FormInstance>();
 	const passwordFormRef = ref<FormInstance>();
+	const emailFormRef = ref<FormInstance>();
 	const profileLoading = ref(false);
 	const profileLoaded = ref(false);
 	const profileLoadFailed = ref(false);
 	const avatarUploading = ref(false);
 	const profileSubmitting = ref(false);
 	const passwordSubmitting = ref(false);
+	const emailCodeSending = ref(false);
+	const emailSubmitting = ref(false);
+	const emailCodeRemainingSeconds = ref(0);
+	const { pause: pauseEmailCodeCountdown, resume: resumeEmailCodeCountdown } = useIntervalFn(
+		() => {
+			if (emailCodeRemainingSeconds.value <= 1) {
+				emailCodeRemainingSeconds.value = 0;
+				pauseEmailCodeCountdown();
+				return;
+			}
+			emailCodeRemainingSeconds.value -= 1;
+		},
+		1000,
+		{ immediate: false },
+	);
 	const profileChanged = computed(() => {
 		return (
 			(profileForm.nickname ?? '') !== userProfile.nickname ||
@@ -99,6 +132,18 @@ export function useUserSettings() {
 			isValidNewPassword(passwordForm.newPassword) &&
 			isValidConfirmPassword(passwordForm.confirmPassword),
 	);
+	const emailTargetValidated = computed(
+		() =>
+			EMAIL_FORMAT_PATTERN.test(emailForm.newEmail) &&
+			emailForm.newEmail.trim().toLowerCase() !== userProfile.email.trim().toLowerCase(),
+	);
+	const emailValidated = computed(
+		() =>
+			PASSWORD_FORMAT_PATTERN.test(emailForm.currentPassword) &&
+			EMAIL_FORMAT_PATTERN.test(emailForm.newEmail) &&
+			emailForm.newEmail.trim().toLowerCase() !== userProfile.email.trim().toLowerCase() &&
+			EMAIL_VERIFICATION_CODE_PATTERN.test(emailForm.verificationCode),
+	);
 
 	function isFormInstance(formInstance: unknown): formInstance is FormInstance {
 		return Boolean(
@@ -115,6 +160,10 @@ export function useUserSettings() {
 
 	function setPasswordFormRef(formInstance: unknown) {
 		passwordFormRef.value = isFormInstance(formInstance) ? formInstance : undefined;
+	}
+
+	function setEmailFormRef(formInstance: unknown) {
+		emailFormRef.value = isFormInstance(formInstance) ? formInstance : undefined;
 	}
 
 	function validatePasswordField(prop: keyof typeof passwordForm) {
@@ -219,12 +268,74 @@ export function useUserSettings() {
 		],
 	};
 
+	const emailRules = {
+		currentPassword: [
+			{
+				required: true,
+				trigger: 'change',
+				validator: (
+					_rule: FormItemRule,
+					value: string,
+					callback: (error?: Error) => void,
+				) => {
+					if (!PASSWORD_FORMAT_PATTERN.test(value ?? ''))
+						callback(new Error(PASSWORD_FORMAT_MESSAGE));
+					else callback();
+				},
+			},
+		],
+		newEmail: [
+			{
+				required: true,
+				trigger: 'change',
+				validator: (
+					_rule: FormItemRule,
+					value: string,
+					callback: (error?: Error) => void,
+				) => {
+					const email = value ?? '';
+					if (!EMAIL_FORMAT_PATTERN.test(email))
+						callback(new Error(EMAIL_FORMAT_MESSAGE));
+					else if (
+						email.trim().toLowerCase() === userProfile.email.trim().toLowerCase()
+					) {
+						callback(new Error('新邮箱不能与当前邮箱相同。'));
+					} else callback();
+				},
+			},
+		],
+		verificationCode: [
+			{
+				required: true,
+				trigger: 'change',
+				validator: (
+					_rule: FormItemRule,
+					value: string,
+					callback: (error?: Error) => void,
+				) => {
+					if (!EMAIL_VERIFICATION_CODE_PATTERN.test(value ?? '')) {
+						callback(new Error(EMAIL_VERIFICATION_CODE_MESSAGE));
+					} else callback();
+				},
+			},
+		],
+	};
+
 	watch(
 		() => passwordForm.oldPassword,
 		() => {
 			if (passwordForm.newPassword) {
 				validatePasswordField('newPassword');
 			}
+		},
+	);
+
+	watch(
+		() => emailForm.newEmail,
+		() => {
+			emailForm.verificationCode = '';
+			emailCodeRemainingSeconds.value = 0;
+			pauseEmailCodeCountdown();
 		},
 	);
 
@@ -251,6 +362,15 @@ export function useUserSettings() {
 		passwordForm.newPassword = '';
 		passwordForm.confirmPassword = '';
 		passwordFormRef.value?.clearValidate();
+	}
+
+	function resetEmailForm() {
+		emailForm.currentPassword = '';
+		emailForm.newEmail = '';
+		emailForm.verificationCode = '';
+		emailCodeRemainingSeconds.value = 0;
+		pauseEmailCodeCountdown();
+		emailFormRef.value?.clearValidate();
 	}
 
 	async function getUserSettingsProfile() {
@@ -340,27 +460,76 @@ export function useUserSettings() {
 		}
 	}
 
+	async function sendUserEmailChangeCode() {
+		if (
+			emailCodeSending.value ||
+			emailCodeRemainingSeconds.value > 0 ||
+			!emailTargetValidated.value
+		)
+			return;
+
+		emailCodeSending.value = true;
+		try {
+			await sendEmailChangeCode({ email: emailForm.newEmail });
+			emailCodeRemainingSeconds.value = 60;
+			resumeEmailCodeCountdown();
+			ElMessage.success('验证码已发送，请查收邮件');
+		} catch {
+			// 错误提示由 request 响应拦截器统一处理
+		} finally {
+			emailCodeSending.value = false;
+		}
+	}
+
+	async function changeUserSettingsEmail() {
+		if (emailSubmitting.value || !emailFormRef.value) return;
+
+		emailSubmitting.value = true;
+		try {
+			await emailFormRef.value.validate();
+			await changeCurrentUserEmail(emailForm);
+			ElMessage.success('邮箱修改成功，请重新登录');
+			authStore.clearAuth();
+			await router.replace('/auth/login');
+		} catch {
+			// 表单校验错误由 el-form 展示；请求错误由 request 响应拦截器统一处理
+		} finally {
+			emailSubmitting.value = false;
+		}
+	}
+
 	return {
 		userProfile,
 		profileForm,
 		passwordForm,
+		emailForm,
 		profileRules,
 		passwordRules,
+		emailRules,
 		profileValidated,
 		profileChanged,
 		passwordValidated,
+		emailValidated,
+		emailTargetValidated,
 		profileLoading,
 		profileLoaded,
 		profileLoadFailed,
 		avatarUploading,
 		profileSubmitting,
 		passwordSubmitting,
+		emailCodeSending,
+		emailSubmitting,
+		emailCodeRemainingSeconds,
 		setProfileFormRef,
 		setPasswordFormRef,
+		setEmailFormRef,
 		getUserSettingsProfile,
 		updateUserSettingsAvatar,
 		updateUserSettingsProfile,
 		changeUserSettingsPassword,
+		sendUserEmailChangeCode,
+		changeUserSettingsEmail,
 		resetPasswordForm,
+		resetEmailForm,
 	};
 }

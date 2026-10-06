@@ -7,6 +7,8 @@ import com.ccsanjuu.blog.modules.article.service.ArticleService;
 import com.ccsanjuu.blog.modules.article.model.vo.PublicArticleListItemVO;
 import com.ccsanjuu.blog.modules.auth.model.security.JwtPrincipal;
 import com.ccsanjuu.blog.modules.user.model.dto.ChangePasswordRequestDTO;
+import com.ccsanjuu.blog.modules.user.model.dto.ChangeEmailRequestDTO;
+import com.ccsanjuu.blog.modules.user.model.dto.SendEmailChangeCodeRequestDTO;
 import com.ccsanjuu.blog.modules.user.model.dto.UpdateProfileRequestDTO;
 import com.ccsanjuu.blog.modules.user.model.vo.CurrentUserProfileVO;
 import com.ccsanjuu.blog.modules.user.model.vo.PublicUserProfileVO;
@@ -17,6 +19,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -88,6 +91,41 @@ public class UserController {
             @AuthenticationPrincipal JwtPrincipal jwtPrincipal   // 🔺🔺🔺获取 jwt 拦截器拦截解析 token 后放入的用户信息，注意是作为方法的参数传递进来的
     ){
         return Result.success(userService.updateProfile(jwtPrincipal.userId(), updateProfileRequestDTO));
+    }
+
+    /**
+     * 发送修改邮箱验证码。
+     *
+     * @param requestDTO 新邮箱参数
+     * @param jwtPrincipal 当前登录用户
+     * @param request 当前 HTTP 请求
+     * @return 空响应
+     */
+    @PostMapping("/me/email-verification-codes")
+    @Operation(description = "发送修改邮箱验证码")
+    public Result<Void> sendEmailChangeCode(
+            @Valid @RequestBody SendEmailChangeCodeRequestDTO requestDTO,
+            @AuthenticationPrincipal JwtPrincipal jwtPrincipal,
+            HttpServletRequest request
+    ) {
+        userService.sendEmailChangeCode(jwtPrincipal.userId(), requestDTO.getEmail(), request.getRemoteAddr());
+        return Result.success(null);
+    }
+
+    /**
+     * 修改当前用户邮箱。
+     *
+     * @param requestDTO 修改邮箱参数
+     * @param jwtPrincipal 当前登录用户
+     * @return 更新后的个人资料
+     */
+    @PutMapping("/me/email")
+    @Operation(description = "修改当前用户邮箱")
+    public Result<UpdatedUserProfileVO> changeEmail(
+            @Valid @RequestBody ChangeEmailRequestDTO requestDTO,
+            @AuthenticationPrincipal JwtPrincipal jwtPrincipal
+    ) {
+        return Result.success(userService.changeEmail(jwtPrincipal.userId(), requestDTO));
     }
 
     /**

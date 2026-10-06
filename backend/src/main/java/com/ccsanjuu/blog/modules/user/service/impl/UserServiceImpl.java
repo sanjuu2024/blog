@@ -1,6 +1,7 @@
 package com.ccsanjuu.blog.modules.user.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ccsanjuu.blog.common.api.PageResult;
@@ -8,6 +9,8 @@ import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.auth.service.AuthService;
 import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
+import com.ccsanjuu.blog.modules.auth.model.enums.EmailVerificationPurpose;
+import com.ccsanjuu.blog.modules.auth.service.EmailVerificationService;
 import com.ccsanjuu.blog.modules.file.model.vo.UploadedImageVO;
 import com.ccsanjuu.blog.modules.file.service.ImageUploadService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
@@ -20,12 +23,15 @@ import com.ccsanjuu.blog.modules.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 @Slf4j
 @Service
@@ -37,6 +43,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final AuthService authService;
     private final TokenVersionService tokenVersionService;
     private final ImageUploadService imageUploadService;
+    private final EmailVerificationService emailVerificationService;
 
     /**
      * 获取用户公开资料卡
@@ -95,6 +102,68 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             updatedUserProfileVO.setUpdatedAt(updateUser.getUpdatedAt());
         }
         return updatedUserProfileVO;
+    }
+
+    /**
+     * 向当前用户填写的新邮箱发送修改邮箱验证码。
+     *
+     * @param userId 当前用户 ID
+     * @param email 新邮箱
+     * @param clientIp 客户端 IP
+     */
+    @Override
+    public void sendEmailChangeCode(Long userId, String email, String clientIp) {
+        User user = requireUser(userId);
+        String normalizedEmail = normalizeEmail(email);
+        if (normalizedEmail.equalsIgnoreCase(user.getEmail()) || emailExists(normalizedEmail)) {
+            throw new BizException(ResultCode.EMAIL_EXISTS);
+        }
+        emailVerificationService.sendCode(normalizedEmail, clientIp, EmailVerificationPurpose.EMAIL_CHANGE);
+    }
+
+    /**
+     * 校验当前密码和新邮箱验证码后更新邮箱，并使已有登录态失效。
+     *
+     * @param userId 当前用户 ID
+     * @param requestDTO 修改邮箱参数
+     * @return 更新后的个人资料
+     */
+    @Override
+    @Transactional
+    public UpdatedUserProfileVO changeEmail(Long userId, ChangeEmailRequestDTO requestDTO) {
+        User user = requireUserForUpdate(userId);
+        if (!passwordEncoder.matches(requestDTO.getCurrentPassword(), user.getPasswordHash())) {
+            throw new BizException(ResultCode.OLD_PASSWORD_ERROR);
+        }
+
+        String normalizedEmail = normalizeEmail(requestDTO.getNewEmail());
+        if (normalizedEmail.equalsIgnoreCase(user.getEmail()) || emailExistsExcept(normalizedEmail, userId)) {
+            throw new BizException(ResultCode.EMAIL_EXISTS);
+        }
+        emailVerificationService.verifyCode(
+                normalizedEmail,
+                requestDTO.getVerificationCode(),
+                EmailVerificationPurpose.EMAIL_CHANGE
+        );
+
+        User updateUser = new User();
+        updateUser.setId(userId);
+        updateUser.setEmail(normalizedEmail);
+        updateUser.setEmailVerified(true);
+        updateUser.setEmailVerifiedAt(OffsetDateTime.now(ZoneOffset.UTC));
+        try {
+            userMapper.updateById(updateUser);
+        } catch (DuplicateKeyException exception) {
+            throw new BizException(ResultCode.EMAIL_EXISTS);
+        }
+
+        tokenVersionService.incrementVersion(userId);
+        authService.revokeUserRefreshTokens(userId);
+
+        UpdatedUserProfileVO result = BeanUtil.copyProperties(user, UpdatedUserProfileVO.class);
+        result.setEmail(normalizedEmail);
+        result.setUpdatedAt(updateUser.getUpdatedAt());
+        return result;
     }
 
     /**
@@ -302,5 +371,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BizException(ResultCode.USER_NOT_FOUND);
         }
         return user;
+    }
+
+    private boolean emailExists(String email) {
+        return userMapper.selectCount(new LambdaQueryWrapper<User>()
+                .apply("LOWER(email) = {0}", email)) > 0;
+    }
+
+    private boolean emailExistsExcept(String email, Long userId) {
+        return userMapper.selectCount(new LambdaQueryWrapper<User>()
+                .apply("LOWER(email) = {0}", email)
+                .ne(User::getId, userId)) > 0;
+    }
+
+    private String normalizeEmail(String email) {
+        return email.strip().toLowerCase(java.util.Locale.ROOT);
     }
 }

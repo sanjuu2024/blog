@@ -231,6 +231,8 @@ Authorization: Bearer <access_token>
 | 个人中心 | `GET` | `/api/v1/users/me` | `LOGIN` | 获取当前登录用户信息 |
 | 个人中心 | `GET` | `/api/v1/users/me/liked-articles` | `LOGIN` | 分页获取当前用户点赞过且仍公开可见的文章 |
 | 个人中心 | `PUT` | `/api/v1/users/me/profile` | `LOGIN` | 更新个人资料 |
+| 个人中心 | `POST` | `/api/v1/users/me/email-verification-codes` | `LOGIN` | 发送修改邮箱验证码 |
+| 个人中心 | `PUT` | `/api/v1/users/me/email` | `LOGIN` | 验证并修改当前用户邮箱 |
 | 个人中心 | `PUT` | `/api/v1/users/me/password` | `LOGIN` | 修改密码 |
 | 个人中心 | `PUT` | `/api/v1/users/me/avatar` | `LOGIN` | 上传并更新当前用户头像 |
 | 个人中心 | `DELETE` | `/api/v1/users/me` | `LOGIN` | 使用当前密码确认后注销本人账号，仅逻辑处理 |
@@ -1087,7 +1089,25 @@ Content-Type: application/json
 }
 ```
 
-## 6.3 修改密码
+## 6.3 发送修改邮箱验证码
+
+- 路由：`POST`
+- 路径：`/api/v1/users/me/email-verification-codes`
+- 权限：`LOGIN`
+
+请求体只包含合法的新邮箱。新邮箱必须未被其他账号占用，验证码有效期 10 分钟；邮箱和客户端 IP 继续使用现有验证码发送限流规则。验证码用途与注册验证码隔离，不能交叉使用。
+
+## 6.4 修改当前用户邮箱
+
+- 路由：`PUT`
+- 路径：`/api/v1/users/me/email`
+- 权限：`LOGIN`
+
+请求体包含当前密码、新邮箱和新邮箱验证码。后端在事务中锁定当前用户，重新校验当前密码、新邮箱唯一性和验证码，成功后更新 `email`、`emailVerified=true` 与 `emailVerifiedAt`。
+
+修改邮箱成功后立即递增 `tokenVersion` 并撤销该用户全部 Refresh Token，前端清理当前登录态并要求重新登录。
+
+## 6.5 修改密码
 
 - 路由：`PUT`
 - 路径：`/api/v1/users/me/password`
@@ -1135,7 +1155,7 @@ Content-Type: application/json
 }
 ```
 
-## 6.4 注销当前账号
+## 6.6 注销当前账号
 
 - 路由：`DELETE /api/v1/users/me`
 - 权限：`LOGIN`
@@ -1146,7 +1166,7 @@ Content-Type: application/json
 - `username` 替换为 `deleted_<userId>`，`email` 替换为 `deleted_<userId>@deleted.invalid`，释放原用户名和邮箱。
 - 注册接口不得接受 `deleted_` 用户名前缀或 `.deleted.invalid` 邮箱域名，避免占位值冲突。
 
-## 6.5 注销作者的展示规则
+## 6.7 注销作者的展示规则
 
 - `deletedAt != null` 的作者统一显示为“账号已注销”，不返回原用户名、昵称或头像。
 - 评论、留言、点赞、通知、邮件投递和审计日志保留；注销不影响历史统计和关联关系。

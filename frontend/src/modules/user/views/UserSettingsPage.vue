@@ -121,10 +121,8 @@
 			<section class="settings-section">
 				<div class="settings-section__header">
 					<div>
-						<h2 class="settings-section__title">账号安全</h2>
-						<p class="settings-section__description">
-							邮箱和密码用于登录与账号安全校验。
-						</p>
+						<h2 class="settings-section__title">邮箱设置</h2>
+						<p class="settings-section__description">修改邮箱后需要重新登录。</p>
 					</div>
 				</div>
 
@@ -133,7 +131,112 @@
 						<p class="security-item__label">邮箱</p>
 						<p class="security-item__value">{{ userProfile.email }}</p>
 					</div>
-					<el-tag type="info">暂不支持修改</el-tag>
+				</div>
+
+				<el-form
+					:ref="setEmailFormRef"
+					:model="emailForm"
+					:rules="emailRules"
+					label-position="top"
+					class="settings-form email-form"
+				>
+					<el-form-item
+						prop="newEmail"
+						label="新邮箱"
+					>
+						<el-input
+							v-model="emailForm.newEmail"
+							maxlength="255"
+							placeholder="请输入新邮箱"
+						>
+							<template #prefix>
+								<i-lucide-mail />
+							</template>
+						</el-input>
+					</el-form-item>
+					<el-form-item
+						prop="verificationCode"
+						label="新邮箱验证码"
+					>
+						<div class="verification-code-field">
+							<el-input
+								v-model="emailForm.verificationCode"
+								maxlength="6"
+								placeholder="请输入 6 位验证码"
+								inputmode="numeric"
+								autocomplete="one-time-code"
+							>
+								<template #prefix>
+									<i-lucide-key-round />
+								</template>
+							</el-input>
+							<el-button
+								class="verification-code-button"
+								native-type="button"
+								:type="emailTargetValidated ? 'success' : 'info'"
+								:loading="emailCodeSending"
+								:disabled="
+									emailCodeSending ||
+									emailCodeRemainingSeconds > 0 ||
+									!emailTargetValidated
+								"
+								@click="sendUserEmailChangeCode"
+							>
+								<i-lucide-send
+									v-if="!emailCodeSending && emailCodeRemainingSeconds === 0"
+									class="mr-1"
+								/>
+								{{
+									emailCodeRemainingSeconds > 0
+										? `${emailCodeRemainingSeconds} 秒后重试`
+										: '发送验证码'
+								}}
+							</el-button>
+						</div>
+					</el-form-item>
+					<el-form-item
+						prop="currentPassword"
+						label="当前密码"
+					>
+						<el-input
+							v-model="emailForm.currentPassword"
+							type="password"
+							maxlength="32"
+							show-password
+							placeholder="请输入当前密码"
+						>
+							<template #prefix>
+								<i-lucide-lock-keyhole />
+							</template>
+						</el-input>
+					</el-form-item>
+					<div class="settings-form__actions">
+						<el-button
+							:disabled="emailSubmitting"
+							@click="resetEmailForm"
+						>
+							重置
+						</el-button>
+						<el-button
+							type="primary"
+							:loading="emailSubmitting"
+							:disabled="emailSubmitting || !emailValidated"
+							@click="changeUserSettingsEmail"
+						>
+							修改邮箱
+						</el-button>
+					</div>
+				</el-form>
+			</section>
+
+			<section class="settings-section">
+				<div class="settings-section__header">
+					<div>
+						<h2 class="settings-section__title">密码设置</h2>
+						<p class="settings-section__description">
+							修改密码后，其他设备上的登录状态也会失效。
+						</p>
+					</div>
 				</div>
 
 				<el-form
@@ -153,7 +256,11 @@
 							maxlength="32"
 							show-password
 							placeholder="请输入当前密码"
-						/>
+						>
+							<template #prefix>
+								<i-lucide-lock-keyhole-open />
+							</template>
+						</el-input>
 					</el-form-item>
 					<el-form-item
 						prop="newPassword"
@@ -165,7 +272,11 @@
 							maxlength="32"
 							show-password
 							placeholder="请输入新密码"
-						/>
+						>
+							<template #prefix>
+								<i-lucide-lock-keyhole />
+							</template>
+						</el-input>
 					</el-form-item>
 					<el-form-item
 						prop="confirmPassword"
@@ -177,7 +288,11 @@
 							maxlength="32"
 							show-password
 							placeholder="请再次输入新密码"
-						/>
+						>
+							<template #prefix>
+								<i-lucide-lock-keyhole />
+							</template>
+						</el-input>
 					</el-form-item>
 					<div class="settings-form__actions">
 						<el-button
@@ -219,24 +334,35 @@ const {
 	userProfile,
 	profileForm,
 	passwordForm,
+	emailForm,
 	profileRules,
 	passwordRules,
+	emailRules,
 	profileValidated,
 	profileChanged,
 	passwordValidated,
+	emailValidated,
 	profileLoading,
 	profileLoaded,
 	profileLoadFailed,
 	avatarUploading,
 	profileSubmitting,
 	passwordSubmitting,
+	emailCodeSending,
+	emailSubmitting,
+	emailCodeRemainingSeconds,
+	emailTargetValidated,
 	setProfileFormRef,
 	setPasswordFormRef,
+	setEmailFormRef,
 	getUserSettingsProfile,
 	updateUserSettingsAvatar,
 	updateUserSettingsProfile,
 	changeUserSettingsPassword,
+	sendUserEmailChangeCode,
+	changeUserSettingsEmail,
 	resetPasswordForm,
+	resetEmailForm,
 } = useUserSettings();
 
 // el-upload 唤起文件选择器后，会把用户选中的文件包装成 UploadFile 并传入该函数
@@ -325,9 +451,8 @@ onMounted(() => {
 
 .settings-form {
 	:deep(.el-form-item__label) {
-		color: inherit;
 		font: inherit;
-		line-height: normal;
+		font-weight: 500;
 	}
 
 	:deep(.el-form-item__error) {
@@ -341,6 +466,23 @@ onMounted(() => {
 		justify-content: flex-end;
 		gap: 0.75rem;
 	}
+}
+
+.verification-code-field {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	width: 100%;
+}
+
+// “发送验证码”按钮需要自定义样式，否则深色模式下样式突兀
+.verification-code-button.is-disabled {
+	--el-button-disabled-bg-color: var(--app-surface-muted);
+	--el-button-disabled-border-color: var(--app-border);
+	--el-button-disabled-text-color: var(--app-text-disabled);
+
+	opacity: 1;
 }
 
 .security-item {
@@ -360,6 +502,16 @@ onMounted(() => {
 	.security-item__value {
 		margin-top: 0.25rem;
 		font-weight: 600;
+
+		// 防止邮箱过长窄屏下溢出
+		overflow-wrap: anywhere;
+		white-space: pre-wrap;
+	}
+}
+
+@media (width < 768px) {
+	:deep(.el-form-item) {
+		margin-bottom: 32px;
 	}
 }
 
@@ -368,6 +520,12 @@ onMounted(() => {
 		display: flex;
 		flex-direction: column;
 		text-align: center;
+	}
+
+	.verification-code-field {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0.5rem;
 	}
 }
 </style>
