@@ -30,6 +30,10 @@ public class Comment {
 
     private String content;
 
+    private Boolean notifyOnReply;
+
+    private String unsubscribeToken;
+
     private CommentStatus status;
 
     private Long reviewedBy;

@@ -20,6 +20,7 @@ public class CreateMessageRequestDTO {
     @Size(max = 1000, message = "留言内容长度不能超过 1000 个字符")
     private String content;
 
+    @Builder.Default
     private Boolean notifyOnReply = false;
 
     @Size(max = 2048, message = "人机验证 token 长度不合法")

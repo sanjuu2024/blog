@@ -65,6 +65,8 @@ public enum ResultCode {
     COMMENT_NO_PERMISSION(106005, "无权操作该评论", 403),
     COMMENT_STATUS_TRANSITION_INVALID(106006, "评论状态流转不合法", 409),
     COMMENT_MODERATION_REASON_REQUIRED(106007, "评论处理原因不能为空", 400),
+    COMMENT_EMAIL_NOT_VERIFIED(106008, "邮箱未验证，无法订阅评论回复通知", 400),
+    COMMENT_UNSUBSCRIBE_TOKEN_INVALID(106009, "评论退订链接无效或已失效", 400),
 
     // file 模块 07xxxx
     IMAGE_REQUIRED(107001, "请选择需要上传的图片", 400),

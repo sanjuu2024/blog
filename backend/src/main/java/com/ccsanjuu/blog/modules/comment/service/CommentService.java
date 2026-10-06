@@ -83,4 +83,11 @@ public interface CommentService {
      * @return 点赞状态和最新点赞数
      */
     CommentLikeMutationVO unlikeComment(@Positive Long commentId, Long userId);
+
+    /**
+     * 关闭指定评论未来的直接回复邮件通知。
+     *
+     * @param token 评论退订令牌
+     */
+    void unsubscribeReplyNotification(String token);
 }

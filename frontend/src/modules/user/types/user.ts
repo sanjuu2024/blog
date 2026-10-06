@@ -21,6 +21,7 @@ export interface UserInfo {
 	username: string;
 	nickname: string;
 	email: string;
+	emailVerified?: boolean;
 	role: UserRole;
 	status: UserStatus;
 	avatarUrl: string;

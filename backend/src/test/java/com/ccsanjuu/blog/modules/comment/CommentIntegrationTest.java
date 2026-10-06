@@ -152,6 +152,35 @@ class CommentIntegrationTest {
     }
 
     @Test
+    void commentReplySubscriptionShouldPersistAndUnsubscribeIdempotently() {
+        Article article = findPublishedArticle();
+        User user = findActiveUser();
+        user.setEmailVerified(true);
+        userMapper.updateById(user);
+        rateLimitKey = "blog:comment:rate:user:" + user.getId() + ":article:" + article.getId();
+        stringRedisTemplate.delete(rateLimitKey);
+
+        CommentMutationVO created = commentService.createComment(
+                article.getId(),
+                user.getId(),
+                CreateCommentRequestDTO.builder()
+                        .content("订阅直接回复通知")
+                        .notifyOnReply(true)
+                        .build()
+        );
+        Comment stored = commentMapper.selectById(created.getId());
+        String token = stored.getUnsubscribeToken();
+
+        assertTrue(stored.getNotifyOnReply());
+        assertNotNull(token);
+
+        commentService.unsubscribeReplyNotification(token);
+        commentService.unsubscribeReplyNotification(token);
+
+        assertFalse(commentMapper.selectById(created.getId()).getNotifyOnReply());
+    }
+
+    @Test
     void deleteOwnCommentShouldReturnRealDeletedApprovedCount() {
         Article article = findPublishedArticle();
         User user = findActiveUser();

@@ -207,14 +207,6 @@ export const publicRoutes = [
 		},
 	},
 	{
-		path: '/messages/unsubscribe',
-		name: 'MessageUnsubscribe',
-		component: () => import('@/modules/message/views/MessageUnsubscribePage.vue'),
-		meta: {
-			title: '退订留言通知',
-		},
-	},
-	{
 		path: '/about',
 		name: 'About',
 		component: () => import('@/modules/about/views/AboutPage.vue'),
@@ -243,6 +235,22 @@ export const publicRoutes = [
 			title: '个人资料设置',
 			// hidden: true, // 在顶部导航栏隐藏该路由（只要判断没有 nav.pos 字段就不显示了）
 			requiresAuth: true, // 需要登录
+		},
+	},
+	{
+		path: '/messages/unsubscribe',
+		name: 'MessageUnsubscribe',
+		component: () => import('@/modules/message/views/MessageUnsubscribePage.vue'),
+		meta: {
+			title: '退订留言通知',
+		},
+	},
+	{
+		path: '/comments/unsubscribe',
+		name: 'CommentUnsubscribe',
+		component: () => import('@/modules/comment/views/CommentUnsubscribePage.vue'),
+		meta: {
+			title: '退订评论通知',
 		},
 	},
 ];

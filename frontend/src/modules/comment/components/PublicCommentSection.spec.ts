@@ -3,6 +3,7 @@ import { nextTick, reactive, ref } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';
+import { useUserStore } from '@/stores/userStore';
 import PublicCommentSection from './PublicCommentSection.vue';
 import { usePublicCommentList } from '../composables/usePublicCommentList';
 import { COMMENT_STATUS, type PublicCommentItem } from '../types/comment';
@@ -15,6 +16,10 @@ vi.mock('vue-router', async (importOriginal) => ({
 
 vi.mock('@/stores/authStore', () => ({
 	useAuthStore: vi.fn(),
+}));
+
+vi.mock('@/stores/userStore', () => ({
+	useUserStore: vi.fn(),
 }));
 
 vi.mock('../composables/usePublicCommentList', () => ({
@@ -91,6 +96,7 @@ describe('PublicCommentSection', () => {
 		vi.mocked(useRoute).mockReturnValue({ query: reactive({ replyId: '51' }) } as never);
 		vi.mocked(useRouter).mockReturnValue({ push: vi.fn() } as never);
 		vi.mocked(useAuthStore).mockReturnValue({ accessToken: '', isLogin: false } as never);
+		vi.mocked(useUserStore).mockReturnValue({ userInfo: null } as never);
 		vi.mocked(usePublicCommentList).mockReturnValue({
 			commentList,
 			pageParams: reactive({ pageNum: 1, pageSize: 10, hasNext: false }),

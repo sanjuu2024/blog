@@ -6,6 +6,7 @@ import com.ccsanjuu.blog.modules.comment.model.dto.CommentReplyQueryDTO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentDeleteVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentLikeMutationVO;
 import com.ccsanjuu.blog.modules.comment.model.vo.CommentReplyPageVO;
+import com.ccsanjuu.blog.modules.comment.model.dto.CommentUnsubscribeRequestDTO;
 import com.ccsanjuu.blog.modules.comment.service.CommentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -90,5 +91,20 @@ public class CommentController {
             @AuthenticationPrincipal JwtPrincipal jwtPrincipal
     ) {
         return Result.success(commentService.unlikeComment(commentId, jwtPrincipal.userId()));
+    }
+
+    /**
+     * 退订指定评论的直接回复邮件通知。
+     *
+     * @param token 评论退订令牌
+     * @return 空响应
+     */
+    @PostMapping("/notifications/unsubscribe")
+    @Operation(description = "退订评论直接回复通知")
+    public Result<Void> unsubscribeReplyNotification(
+            @RequestBody @Valid CommentUnsubscribeRequestDTO requestDTO
+    ) {
+        commentService.unsubscribeReplyNotification(requestDTO.getToken());
+        return Result.success(null);
     }
 }
