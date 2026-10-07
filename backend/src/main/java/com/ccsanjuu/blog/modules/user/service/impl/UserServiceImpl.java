@@ -53,8 +53,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     @Transactional(readOnly = true)
     public PublicUserProfileVO getPublicUserProfile(Long userId) {
-        User user = requireUser(userId);
-        return BeanUtil.copyProperties(user, PublicUserProfileVO.class);
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BizException(ResultCode.USER_NOT_FOUND);
+        }
+        PublicUserProfileVO profile = BeanUtil.copyProperties(user, PublicUserProfileVO.class);
+        if (user.getDeletedAt() != null) {
+            profile.setUsername("");
+            profile.setNickname("账号已注销");
+            profile.setAvatarUrl("");
+            profile.setBio("");
+            profile.setDeleted(true);
+        } else {
+            profile.setDeleted(false);
+        }
+        return profile;
     }
 
     /**
@@ -167,6 +180,49 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     /**
+     * 校验当前密码并注销当前账号，保留历史业务关联数据。
+     *
+     * @param userId 当前用户 ID
+     * @param requestDTO 当前密码
+     */
+    @Override
+    @Transactional
+    public void deleteCurrentUser(Long userId, DeleteCurrentUserRequestDTO requestDTO) {
+        User user = requireUserForUpdate(userId);
+        if (!passwordEncoder.matches(requestDTO.getPassword(), user.getPasswordHash())) {
+            log.warn("security_event=USER_DELETE_FAILED outcome=FAIL reason=OLD_PASSWORD_ERROR userId={}", userId);
+            throw new BizException(ResultCode.OLD_PASSWORD_ERROR);
+        }
+        if (user.getRole() == UserRole.ADMIN) {
+            throw new BizException(ResultCode.SELF_USER_DELETE_NOT_ALLOWED);
+        }
+        anonymizeAndDelete(user);
+        log.info("security_event=USER_DELETE_SUCCESS outcome=SUCCESS userId={}", userId);
+    }
+
+    /**
+     * 注销指定用户，并保护最后一个可用管理员账号。
+     *
+     * @param operatorId 操作管理员 ID
+     * @param userId 目标用户 ID
+     * @param requestDTO 注销原因
+     */
+    @Override
+    @Transactional
+    public void deleteUserByAdmin(Long operatorId, Long userId, AdminDeleteUserRequestDTO requestDTO) {
+        if (operatorId.equals(userId)) {
+            throw new BizException(ResultCode.SELF_USER_DELETE_NOT_ALLOWED);
+        }
+        User user = requireUserForUpdate(userId);
+        if (user.getRole() == UserRole.ADMIN && userMapper.selectActiveAdminIdsForUpdate().size() <= 1) {
+            throw new BizException(ResultCode.LAST_ADMIN_DELETE_NOT_ALLOWED);
+        }
+        anonymizeAndDelete(user);
+        log.info("security_event=ADMIN_USER_DELETE_SUCCESS outcome=SUCCESS actorId={} targetUserId={} reasonLength={}",
+                operatorId, userId, requestDTO.getReason().length());
+    }
+
+    /**
      * 上传并更新当前用户头像。
      *
      * @param userId 用户 ID
@@ -242,7 +298,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 : null;
 
         lambdaQuery()
-                .select(User::getId,User::getUsername,User::getNickname,User::getEmail,User::getRole,User::getStatus,User::getLastLoginAt,User::getCreatedAt)
+                .select(User::getId,User::getUsername,User::getNickname,User::getEmail,User::getRole,User::getStatus,User::getLastLoginAt,User::getCreatedAt, User::getDeletedAt)
                 .eq(userManagementPageQueryDTO.getRole() != null, User::getRole, userManagementPageQueryDTO.getRole())
                 .eq(userManagementPageQueryDTO.getStatus() != null, User::getStatus, userManagementPageQueryDTO.getStatus())
                 .apply(
@@ -260,6 +316,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .page(page);
 
         List<AdminUserItemVO> records = BeanUtil.copyToList(page.getRecords(), AdminUserItemVO.class);
+        records.stream()
+                .filter(record -> record.getDeletedAt() != null)
+                .forEach(record -> {
+                    record.setUsername("");
+                    record.setNickname("账号已注销");
+                    record.setEmail("");
+                });
         return PageResult.of(page.getTotal(), page.getCurrent(), page.getSize(), records);
     }
 
@@ -357,6 +420,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (user == null) {
             throw new BizException(ResultCode.USER_NOT_FOUND);
         }
+        if (user.getDeletedAt() != null) {
+            throw new BizException(ResultCode.USER_ALREADY_DELETED);
+        }
         return user;
     }
 
@@ -370,7 +436,30 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (user == null) {
             throw new BizException(ResultCode.USER_NOT_FOUND);
         }
+        if (user.getDeletedAt() != null) {
+            throw new BizException(ResultCode.USER_DELETED);
+        }
         return user;
+    }
+
+    private void anonymizeAndDelete(User user) {
+        if (user.getDeletedAt() != null) {
+            throw new BizException(ResultCode.USER_ALREADY_DELETED);
+        }
+        User updateUser = new User();
+        updateUser.setId(user.getId());
+        updateUser.setUsername("deleted_" + user.getId());
+        updateUser.setNickname("账号已注销");
+        updateUser.setEmail("deleted_" + user.getId() + "@deleted.invalid");
+        updateUser.setPasswordHash("");
+        updateUser.setAvatarUrl("");
+        updateUser.setBio("");
+        updateUser.setEmailVerified(false);
+        updateUser.setEmailVerifiedAt(null);
+        updateUser.setDeletedAt(OffsetDateTime.now(ZoneOffset.UTC));
+        userMapper.updateById(updateUser);
+        tokenVersionService.incrementVersion(user.getId());
+        authService.revokeUserRefreshTokens(user.getId());
     }
 
     private boolean emailExists(String email) {

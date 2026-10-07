@@ -128,6 +128,7 @@ class MessageServiceImplTest {
                 .id(USER_ID)
                 .nickname("注册用户")
                 .email("user@example.com")
+                .emailVerified(true)
                 .role(UserRole.USER)
                 .status(UserStatus.ACTIVE)
                 .build();
@@ -243,6 +244,31 @@ class MessageServiceImplTest {
                         .build()));
 
         assertEquals(ResultCode.MESSAGE_EMAIL_REQUIRED, exception.getResultCode());
+        verify(messageMapper, never()).insert(any(Message.class));
+    }
+
+    @Test
+    void loggedInMessageShouldRejectNotificationWhenEmailIsNotVerified() {
+        User user = User.builder()
+                .id(USER_ID)
+                .nickname("注册用户")
+                .email("user@example.com")
+                .emailVerified(false)
+                .role(UserRole.USER)
+                .status(UserStatus.ACTIVE)
+                .build();
+        when(userMapper.selectById(USER_ID)).thenReturn(user);
+
+        BizException exception = assertThrows(BizException.class, () -> messageService.createMessage(
+                USER_ID,
+                "127.0.0.1",
+                CreateMessageRequestDTO.builder()
+                        .content("留言内容")
+                        .notifyOnReply(true)
+                        .build()
+        ));
+
+        assertEquals(ResultCode.MESSAGE_EMAIL_NOT_VERIFIED, exception.getResultCode());
         verify(messageMapper, never()).insert(any(Message.class));
     }
 

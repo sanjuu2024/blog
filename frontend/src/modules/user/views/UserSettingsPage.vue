@@ -41,12 +41,10 @@
 		<template v-else>
 			<section class="settings-section">
 				<div class="settings-section__header">
-					<div>
-						<h2 class="settings-section__title">公开资料</h2>
-						<p class="settings-section__description">
-							这些信息会展示在个人中心和文章作者资料中。
-						</p>
-					</div>
+					<h2 class="settings-section__title">公开资料</h2>
+					<p class="settings-section__description">
+						这些信息会展示在个人中心和文章作者资料中。
+					</p>
 				</div>
 				<div class="avatar-setting">
 					<AppUserAvatar
@@ -120,10 +118,8 @@
 
 			<section class="settings-section">
 				<div class="settings-section__header">
-					<div>
-						<h2 class="settings-section__title">邮箱设置</h2>
-						<p class="settings-section__description">修改邮箱后需要重新登录。</p>
-					</div>
+					<h2 class="settings-section__title">邮箱设置</h2>
+					<p class="settings-section__description">修改邮箱后需要重新登录。</p>
 				</div>
 
 				<div class="security-item">
@@ -231,12 +227,10 @@
 
 			<section class="settings-section">
 				<div class="settings-section__header">
-					<div>
-						<h2 class="settings-section__title">密码设置</h2>
-						<p class="settings-section__description">
-							修改密码后，其他设备上的登录状态也会失效。
-						</p>
-					</div>
+					<h2 class="settings-section__title">密码设置</h2>
+					<p class="settings-section__description">
+						修改密码后，其他设备上的登录状态也会失效。
+					</p>
 				</div>
 
 				<el-form
@@ -312,12 +306,29 @@
 					</div>
 				</el-form>
 			</section>
+
+			<section class="settings-section danger-zone">
+				<div class="settings-section__header">
+					<h2 class="settings-section__title">注销账号</h2>
+					<p class="settings-section__description">
+						注销后账号无法恢复，历史内容仍会保留并显示为“账号已注销”。
+					</p>
+				</div>
+				<el-button
+					type="danger"
+					@click="handleDeleteAccount"
+				>
+					<i-lucide-power class="mr-1" />
+					注销账号
+				</el-button>
+			</section>
 		</template>
 	</div>
 </template>
 
 <script setup lang="ts">
-import type { UploadProps } from 'element-plus';
+import { ElMessageBox, type UploadProps } from 'element-plus';
+import 'element-plus/es/components/message-box/style/css';
 import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import AppUserAvatar from '@/components/AppUserAvatar.vue';
@@ -361,6 +372,7 @@ const {
 	changeUserSettingsPassword,
 	sendUserEmailChangeCode,
 	changeUserSettingsEmail,
+	deleteUserSettingsAccount,
 	resetPasswordForm,
 	resetEmailForm,
 } = useUserSettings();
@@ -372,6 +384,26 @@ const handleAvatarFileChange: UploadProps['onChange'] = (uploadFile) => {
 		void updateUserSettingsAvatar(uploadFile.raw);
 	}
 };
+
+async function handleDeleteAccount() {
+	try {
+		const { value } = await ElMessageBox.prompt(
+			'注销后将立即释放用户名和邮箱，历史评论、留言和点赞会保留，账号无法恢复。',
+			'注销账号',
+			{
+				confirmButtonText: '确认注销',
+				cancelButtonText: '取消',
+				confirmButtonClass: 'el-button--danger',
+				inputType: 'password',
+				inputPlaceholder: '请输入当前密码',
+				inputValidator: (value) => (value ? true : '请输入当前密码'),
+			},
+		);
+		await deleteUserSettingsAccount(value);
+	} catch {
+		// 用户取消确认或请求错误由请求拦截器统一处理
+	}
+}
 
 onMounted(() => {
 	getUserSettingsProfile();
@@ -420,9 +452,6 @@ onMounted(() => {
 }
 
 .settings-section__header {
-	display: flex;
-	align-items: flex-start;
-	justify-content: space-between;
 	margin-bottom: 1rem;
 
 	.settings-section__title {

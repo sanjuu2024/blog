@@ -20,4 +20,6 @@ public class PublicUserProfileVO {
     private String avatarUrl;
 
     private String bio;
+
+    private Boolean deleted;
 }

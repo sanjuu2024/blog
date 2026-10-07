@@ -55,6 +55,7 @@
 import { onMounted } from 'vue';
 import { onBeforeRouteLeave } from 'vue-router';
 import { ElMessageBox } from 'element-plus';
+import 'element-plus/es/components/message-box/style/css';
 import { MdEditor } from 'md-editor-v3';
 import { useTheme } from '@/composables/useTheme';
 import { formatDateTime } from '@/utils/datetime';

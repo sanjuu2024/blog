@@ -51,6 +51,7 @@ export interface PublicArticleAuthor {
 	nickname: string;
 	avatarUrl: string;
 	bio: string;
+	deleted?: boolean;
 }
 
 export interface PublicArticleListItem {

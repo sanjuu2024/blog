@@ -20,6 +20,7 @@ export interface AdminUserListItem {
 	status: UserStatus;
 	lastLoginAt: string | null;
 	createdAt: string;
+	deletedAt?: string | null;
 }
 
 export type AdminUserPageData = PageResult<AdminUserListItem>;
@@ -47,3 +48,9 @@ export interface UpdateUserRoleData {
 }
 
 export type UpdateUserRoleResponse = ApiResult<UpdateUserRoleData>;
+
+export interface AdminDeleteUserRequest {
+	reason: string;
+}
+
+export type AdminDeleteUserResponse = ApiResult<null>;

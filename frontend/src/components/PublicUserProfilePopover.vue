@@ -1,5 +1,6 @@
 <template>
 	<el-popover
+		v-if="!disabled"
 		placement="top"
 		:width="280"
 		:trigger="['hover', 'focus', 'click']"
@@ -48,19 +49,35 @@
 						:avatar-url="profile.avatarUrl"
 						:name="profile.nickname || profile.username"
 						:user-id="profile.id"
+						:deleted="profile.deleted"
 						:size="48"
 					/>
 					<div class="public-user-profile-popover__identity">
-						<strong>{{ profile.nickname || profile.username }}</strong>
-						<span>@{{ profile.username }}</span>
+						<strong
+							:class="{
+								'public-user-profile-popover__deleted-name': profile.deleted,
+							}"
+						>
+							{{ profile.nickname || profile.username }}
+						</strong>
+						<span v-if="!profile.deleted">@{{ profile.username }}</span>
 					</div>
 				</div>
-				<p class="public-user-profile-popover__bio">
+				<p
+					v-if="!profile.deleted"
+					class="public-user-profile-popover__bio"
+				>
 					{{ profile.bio?.trim() || '这个家伙很懒，什么也没有留下' }}
 				</p>
 			</template>
 		</div>
 	</el-popover>
+	<span
+		v-else
+		class="public-user-profile-popover__reference public-user-profile-popover__reference--disabled"
+	>
+		<slot></slot>
+	</span>
 </template>
 
 <script setup lang="ts">
@@ -75,6 +92,7 @@ defineOptions({
 
 const props = defineProps<{
 	userId: number;
+	disabled?: boolean;
 }>();
 
 const profile = ref<PublicUserProfileData | null>(null);
@@ -134,6 +152,10 @@ watch(
 	}
 }
 
+.public-user-profile-popover__reference--disabled {
+	cursor: default;
+}
+
 .public-user-profile-popover__content {
 	min-height: 5rem;
 }
@@ -177,5 +199,9 @@ watch(
 	line-height: 1.6;
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
+}
+
+.public-user-profile-popover__deleted-name {
+	color: var(--app-text-muted-more);
 }
 </style>

@@ -49,6 +49,23 @@ public interface UserService extends IService<User> {
     UpdatedUserProfileVO changeEmail(Long userId, ChangeEmailRequestDTO requestDTO);
 
     /**
+     * 注销当前用户账号。
+     *
+     * @param userId 当前用户 ID
+     * @param requestDTO 当前密码
+     */
+    void deleteCurrentUser(Long userId, DeleteCurrentUserRequestDTO requestDTO);
+
+    /**
+     * 由管理员注销其他用户账号。
+     *
+     * @param operatorId 操作管理员 ID
+     * @param userId 目标用户 ID
+     * @param requestDTO 注销原因
+     */
+    void deleteUserByAdmin(Long operatorId, Long userId, AdminDeleteUserRequestDTO requestDTO);
+
+    /**
      * 上传并更新当前用户头像。
      *
      * @param userId 用户 ID

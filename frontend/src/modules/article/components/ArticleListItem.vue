@@ -107,9 +107,12 @@
 
 					<div class="right__inner-footer flex w-full text-sm text-gray-400">
 						<!-- 发布时间 -->
-						<div class="article-list-item-published-at flex items-center">
-							<i-solar-calendar-outline class="mr-2" />
-							<p>{{ formatDateTime(article.publishedAt) }}</p>
+						<div class="article-statis-item">
+							<component
+								:is="getRouteIcon('calendar')"
+								class="mr-2"
+							/>
+							<span>{{ formatDateTime(article.publishedAt) }}</span>
 						</div>
 
 						<!-- 浏览数 -->

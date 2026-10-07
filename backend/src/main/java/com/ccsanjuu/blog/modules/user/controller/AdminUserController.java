@@ -9,6 +9,7 @@ import com.ccsanjuu.blog.modules.auth.model.security.JwtPrincipal;
 import com.ccsanjuu.blog.modules.user.model.dto.UpdateUserRoleRequestDTO;
 import com.ccsanjuu.blog.modules.user.model.dto.UpdateUserStatusRequestDTO;
 import com.ccsanjuu.blog.modules.user.model.dto.UserManagementPageQueryDTO;
+import com.ccsanjuu.blog.modules.user.model.dto.AdminDeleteUserRequestDTO;
 import com.ccsanjuu.blog.modules.user.model.vo.AdminUserItemVO;
 import com.ccsanjuu.blog.modules.user.model.vo.UpdatedUserRoleVO;
 import com.ccsanjuu.blog.modules.user.model.vo.UpdatedUserStatusVO;
@@ -86,5 +87,30 @@ public class AdminUserController {
             @AuthenticationPrincipal JwtPrincipal jwtPrincipal
             ) {
         return Result.success(userService.changeUserRole(jwtPrincipal.userId(), userId, updateUserRoleRequestDTO));
+    }
+
+    /**
+     * 注销指定用户账号。
+     *
+     * @param userId 目标用户 ID
+     * @param requestDTO 注销原因
+     * @param jwtPrincipal 当前管理员
+     * @return 空响应
+     */
+    @DeleteMapping("/{userId}")
+    @Operation(description = "注销其他用户账号")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.USER,
+            action = AdminAuditAction.DELETE,
+            resourceId = "#p0",
+            detail = "#p1.reason"
+    )
+    public Result<Void> deleteUser(
+            @PathVariable @Positive Long userId,
+            @Valid @RequestBody AdminDeleteUserRequestDTO requestDTO,
+            @AuthenticationPrincipal JwtPrincipal jwtPrincipal
+    ) {
+        userService.deleteUserByAdmin(jwtPrincipal.userId(), userId, requestDTO);
+        return Result.success(null);
     }
 }

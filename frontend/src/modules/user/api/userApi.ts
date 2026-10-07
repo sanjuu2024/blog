@@ -5,6 +5,8 @@ import type {
 	ChangeCurrentUserPasswordResponse,
 	ChangeCurrentUserEmailRequest,
 	ChangeCurrentUserEmailResponse,
+	DeleteCurrentUserRequest,
+	DeleteCurrentUserResponse,
 	CurrentUserProfileData,
 	CurrentUserProfileResponse,
 	PublicUserProfileData,
@@ -30,6 +32,7 @@ const USER_API = {
 	changeCurrentPassword: 'users/me/password',
 	sendEmailChangeCode: 'users/me/email-verification-codes',
 	changeCurrentEmail: 'users/me/email',
+	deleteCurrentUser: 'users/me',
 } as const;
 
 // 个人中心信息接口
@@ -112,4 +115,12 @@ export const changeCurrentUserEmail = (
 		UpdatedCurrentUserProfileData,
 		ChangeCurrentUserEmailRequest
 	>(USER_API.changeCurrentEmail, data);
+};
+
+// 注销当前用户账号接口
+export const deleteCurrentUser = (data: DeleteCurrentUserRequest): Promise<null> => {
+	return request.delete<DeleteCurrentUserResponse, null, DeleteCurrentUserRequest>(
+		USER_API.deleteCurrentUser,
+		{ data },
+	);
 };

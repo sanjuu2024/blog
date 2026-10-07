@@ -68,6 +68,12 @@ public class AuthServiceImpl implements AuthService {
             throw new BizException(ResultCode.PRIVACY_POLICY_VERSION_MISMATCH);
         }
 
+        String normalizedUsername = registerRequestDTO.getUsername().toLowerCase(java.util.Locale.ROOT);
+        String normalizedEmail = registerRequestDTO.getEmail().toLowerCase(java.util.Locale.ROOT);
+        if (normalizedUsername.startsWith("deleted_") || normalizedEmail.endsWith(".deleted.invalid")) {
+            throw new BizException(ResultCode.PARAM_INVALID);
+        }
+
         // 2. 验证用户名唯一性
         User user = findUserByUsername(registerRequestDTO.getUsername());
         if (user != null) {
@@ -141,6 +147,11 @@ public class AuthServiceImpl implements AuthService {
             );
             throw new BizException(ResultCode.USER_NOT_FOUND);
         }
+        if (user.getDeletedAt() != null) {
+            log.warn("security_event=LOGIN_FAILED description=\"登录失败：账号已注销\" outcome=FAIL reason=USER_DELETED userId={}",
+                    user.getId());
+            throw new BizException(ResultCode.USER_DELETED);
+        }
 
         // 🍰2. 密码是否正确、用户是否状态正常（被禁用则不能登录）
         if (!passwordEncoder.matches(loginRequestDTO.getPassword(), user.getPasswordHash())) {
@@ -213,6 +224,11 @@ public class AuthServiceImpl implements AuthService {
                     validatedRefreshToken.getUserId()
             );
             throw new BizException(ResultCode.USER_NOT_FOUND);
+        }
+        if (user.getDeletedAt() != null) {
+            log.warn("security_event=TOKEN_REFRESH_FAILED description=\"刷新登录态失败：账号已注销\" outcome=FAIL reason=USER_DELETED userId={}",
+                    user.getId());
+            throw new BizException(ResultCode.USER_DELETED);
         }
         if (user.getStatus() == UserStatus.DISABLED){
             log.warn(

@@ -20,6 +20,7 @@
 		<div class="guest-user-popover__content">
 			<AppUserAvatar
 				:name="displayName"
+				:guest="true"
 				:size="48"
 			/>
 			<div class="guest-user-popover__identity">

@@ -18,4 +18,6 @@ public class MessageAuthorVO {
     private String nickname;
 
     private String avatarUrl;
+
+    private Boolean deleted;
 }

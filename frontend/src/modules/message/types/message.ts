@@ -15,6 +15,7 @@ export interface MessageAuthor {
 	username: string;
 	nickname: string;
 	avatarUrl: string | null;
+	deleted?: boolean;
 }
 
 export interface MessageReply {

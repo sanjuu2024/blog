@@ -131,7 +131,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
         records.forEach(c -> {
             AdminCommentItemVO tmp = BeanUtil.copyProperties(c, AdminCommentItemVO.class);
             tmp.setArticle(BeanUtil.copyProperties(articleMap.get(c.getArticleId()), AdminCommentArticleVO.class));
-            tmp.setAuthor(BeanUtil.copyProperties(userMap.get(c.getUserId()), CommentAuthorVO.class));
+            tmp.setAuthor(toAuthor(userMap.get(c.getUserId())));
             if (c.getParentId() == null){
                 tmp.setType(CommentType.TOP_LEVEL);
             } else {
@@ -225,7 +225,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
         Comment updatedComment = commentMapper.selectById(commentId);
         CommentMutationVO vo = BeanUtil.copyProperties(updatedComment, CommentMutationVO.class);
         User author = userMapper.selectById(updatedComment.getUserId());
-        vo.setAuthor(BeanUtil.copyProperties(author, CommentAuthorVO.class));
+        vo.setAuthor(toAuthor(author));
         return vo;
     }
 
@@ -397,7 +397,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
         // 6. 返回
         Comment newComment = commentMapper.selectById(comment.getId());
         CommentMutationVO vo = BeanUtil.copyProperties(newComment, CommentMutationVO.class);
-        vo.setAuthor(BeanUtil.copyProperties(user, CommentAuthorVO.class));
+        vo.setAuthor(toAuthor(user));
         return vo;
     }
 
@@ -657,7 +657,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
 
             PublicCommentItemVO vo = BeanUtil.copyProperties(c, PublicCommentItemVO.class);
             CommentReplyCountBO replyCount = replyCountMap.get(c.getId());
-            vo.setAuthor(author == null ? null : BeanUtil.copyProperties(author, CommentAuthorVO.class));
+            vo.setAuthor(toAuthor(author));
             vo.setReplyCount(replyCount == null ? 0L : replyCount.getReplyCount());
             vo.setHasVisibleReplies(replyCount != null && replyCount.getVisibleReplyCount() > 0);
             vo.setIsMine(isMine);
@@ -702,8 +702,8 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
             boolean isMine = currentUserId != null && c.getUserId().equals(currentUserId);
 
             CommentReplyItemVO vo = BeanUtil.copyProperties(c, CommentReplyItemVO.class);
-            vo.setAuthor(author == null ? null : BeanUtil.copyProperties(author, CommentAuthorVO.class));
-            vo.setReplyToUser(replyToUser == null ? null : BeanUtil.copyProperties(replyToUser, CommentAuthorVO.class));
+            vo.setAuthor(toAuthor(author));
+            vo.setReplyToUser(toAuthor(replyToUser));
             vo.setReplyCount(0L);
             vo.setHasVisibleReplies(false);
             vo.setIsMine(isMine);
@@ -934,5 +934,19 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
         }
         updateArticleCommentCount(comment.getArticleId(), -approvedCount);
         return approvedCount;
+    }
+
+    private CommentAuthorVO toAuthor(User user) {
+        if (user == null) {
+            return null;
+        }
+        boolean deleted = user.getDeletedAt() != null;
+        return CommentAuthorVO.builder()
+                .id(user.getId())
+                .username(deleted ? "" : user.getUsername())
+                .nickname(deleted ? "账号已注销" : user.getNickname())
+                .avatarUrl(deleted ? "" : user.getAvatarUrl())
+                .deleted(deleted)
+                .build();
     }
 }

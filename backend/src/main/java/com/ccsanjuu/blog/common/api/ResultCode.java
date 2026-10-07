@@ -30,6 +30,10 @@ public enum ResultCode {
     EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED(102011, "验证码错误次数过多，请重新获取", 429),
     EMAIL_VERIFICATION_RATE_LIMITED(102012, "验证码请求过于频繁，请稍后再试", 429),
     EMAIL_VERIFICATION_SEND_FAILED(102013, "验证码发送失败，请稍后重试", 502),
+    USER_DELETED(102014, "账号已注销", 403),
+    LAST_ADMIN_DELETE_NOT_ALLOWED(102015, "不能注销最后一个可用管理员", 409),
+    SELF_USER_DELETE_NOT_ALLOWED(102016, "管理员不能注销自己", 403),
+    USER_ALREADY_DELETED(102017, "账号已经注销", 409),
 
     // article 模块 03xxxx
     ARTICLE_NOT_FOUND(103001, "文章不存在", 404),
@@ -84,6 +88,7 @@ public enum ResultCode {
     MESSAGE_MODERATION_REASON_REQUIRED(108007, "留言处理原因不能为空", 400),
     MESSAGE_NICKNAME_INVALID(108008, "留言昵称不合法", 400),
     MESSAGE_EMAIL_REQUIRED(108009, "勾选回复通知时必须填写邮箱", 400),
+    MESSAGE_EMAIL_NOT_VERIFIED(108016, "邮箱未验证，无法订阅留言回复通知", 400),
     MESSAGE_UNSUBSCRIBE_TOKEN_INVALID(108010, "留言退订链接无效或已失效", 400),
     MESSAGE_BATCH_INVALID(108011, "批量通过的留言必须是待审核顶层留言", 409),
     MESSAGE_BATCH_TOO_LARGE(108012, "一次最多通过 100 条留言", 400),

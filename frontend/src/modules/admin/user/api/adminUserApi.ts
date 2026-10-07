@@ -9,12 +9,15 @@ import type {
 	UpdateUserRoleResponse,
 	UpdateUserStatusRequest,
 	AdminUserPageData,
+	AdminDeleteUserRequest,
+	AdminDeleteUserResponse,
 } from '../types/adminUser';
 
 const ADMIN_USER_API = {
 	listUsers: 'admin/users',
 	updateStatus: (userId: number) => `admin/users/${userId}/status`,
 	updateRole: (userId: number) => `admin/users/${userId}/role`,
+	deleteUser: (userId: number) => `admin/users/${userId}`,
 } as const;
 
 // 获取用户分页列表接口
@@ -51,5 +54,13 @@ export const updateRole = (
 	return request.patch<UpdateUserRoleResponse, UpdateUserRoleData, UpdateUserRoleRequest>(
 		ADMIN_USER_API.updateRole(userId),
 		data,
+	);
+};
+
+// 注销指定用户接口
+export const deleteUser = (userId: number, data: AdminDeleteUserRequest): Promise<null> => {
+	return request.delete<AdminDeleteUserResponse, null, AdminDeleteUserRequest>(
+		ADMIN_USER_API.deleteUser(userId),
+		{ data },
 	);
 };

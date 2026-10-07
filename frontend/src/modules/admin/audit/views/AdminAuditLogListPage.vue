@@ -188,6 +188,7 @@
 					</el-table-column>
 					<el-table-column
 						label="操作"
+						align="center"
 						min-width="150"
 					>
 						<template #default="{ row }: { row: AdminAuditLogItem }">

@@ -8,6 +8,7 @@ import com.ccsanjuu.blog.modules.article.model.vo.PublicArticleListItemVO;
 import com.ccsanjuu.blog.modules.auth.model.security.JwtPrincipal;
 import com.ccsanjuu.blog.modules.user.model.dto.ChangePasswordRequestDTO;
 import com.ccsanjuu.blog.modules.user.model.dto.ChangeEmailRequestDTO;
+import com.ccsanjuu.blog.modules.user.model.dto.DeleteCurrentUserRequestDTO;
 import com.ccsanjuu.blog.modules.user.model.dto.SendEmailChangeCodeRequestDTO;
 import com.ccsanjuu.blog.modules.user.model.dto.UpdateProfileRequestDTO;
 import com.ccsanjuu.blog.modules.user.model.vo.CurrentUserProfileVO;
@@ -126,6 +127,23 @@ public class UserController {
             @AuthenticationPrincipal JwtPrincipal jwtPrincipal
     ) {
         return Result.success(userService.changeEmail(jwtPrincipal.userId(), requestDTO));
+    }
+
+    /**
+     * 注销当前用户账号。
+     *
+     * @param requestDTO 当前密码
+     * @param jwtPrincipal 当前登录用户
+     * @return 空响应
+     */
+    @DeleteMapping("/me")
+    @Operation(description = "注销当前用户账号")
+    public Result<Void> deleteCurrentUser(
+            @Valid @RequestBody DeleteCurrentUserRequestDTO requestDTO,
+            @AuthenticationPrincipal JwtPrincipal jwtPrincipal
+    ) {
+        userService.deleteCurrentUser(jwtPrincipal.userId(), requestDTO);
+        return Result.success(null);
     }
 
     /**

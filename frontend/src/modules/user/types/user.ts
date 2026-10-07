@@ -39,6 +39,7 @@ export interface PublicUserProfileData {
 	nickname: string;
 	avatarUrl: string;
 	bio: string;
+	deleted?: boolean;
 }
 
 export type PublicUserProfileResponse = ApiResult<PublicUserProfileData>;
@@ -101,3 +102,9 @@ export interface ChangeCurrentUserEmailRequest {
 }
 
 export type ChangeCurrentUserEmailResponse = ApiResult<UpdatedCurrentUserProfileData>;
+
+export interface DeleteCurrentUserRequest {
+	password: string;
+}
+
+export type DeleteCurrentUserResponse = ApiResult<null>;

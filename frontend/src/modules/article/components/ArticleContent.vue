@@ -121,25 +121,31 @@
 
 			<!-- 文章作者 & 发布时间 -->
 			<div class="article-author-and-published-at">
-				<PublicUserProfilePopover :user-id="article.author.id">
+				<PublicUserProfilePopover
+					:user-id="article.author.id"
+					:disabled="article.author.deleted"
+				>
 					<AppUserAvatar
 						:avatar-url="article.author.avatarUrl"
 						:name="article.author.nickname || article.author.username"
 						:user-id="article.author.id"
+						:deleted="article.author.deleted"
 						:size="24"
 						class="mr-2"
 					/>
-					<span>{{ article.author.nickname || article.author.username }}</span>
+					<span :class="{ 'article-author--deleted': article.author.deleted }">
+						{{ article.author.nickname || article.author.username }}
+					</span>
 				</PublicUserProfilePopover>
 				<span class="mx-4">·</span>
 				<div class="flex items-center">
-					<i-solar-calendar-outline class="mr-2" />
+					<component
+						:is="getRouteIcon('calendar')"
+						class="mr-2"
+					/>
 					<span>{{ formatDateTime(article.publishedAt) }}</span>
 				</div>
 			</div>
-
-			<!-- 文章发布时间 -->
-			<div class="article-published-at flex items-center"></div>
 		</div>
 
 		<div
@@ -286,6 +292,10 @@ function closeCatalog() {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+}
+
+.article-author--deleted {
+	color: var(--app-text-muted-more);
 }
 
 @media (width < 376px) {
