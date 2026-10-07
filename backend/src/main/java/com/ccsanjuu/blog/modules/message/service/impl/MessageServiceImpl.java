@@ -127,6 +127,9 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
         } else {
             nickname = user.getNickname();
             email = trim(user.getEmail());
+            if (notify && !Boolean.TRUE.equals(user.getEmailVerified())) {
+                throw new BizException(ResultCode.MESSAGE_EMAIL_NOT_VERIFIED);
+            }
             if (!admin) {
                 messageRateLimiter.acquire("user:" + user.getId());
             }
@@ -403,11 +406,16 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     }
 
     private MessageAuthorVO toAuthor(User user) {
-        return user == null ? null : MessageAuthorVO.builder()
+        if (user == null) {
+            return null;
+        }
+        boolean deleted = user.getDeletedAt() != null;
+        return MessageAuthorVO.builder()
                 .id(user.getId())
-                .username(user.getUsername())
-                .nickname(user.getNickname())
-                .avatarUrl(user.getAvatarUrl())
+                .username(deleted ? "" : user.getUsername())
+                .nickname(deleted ? "账号已注销" : user.getNickname())
+                .avatarUrl(deleted ? "" : user.getAvatarUrl())
+                .deleted(deleted)
                 .build();
     }
 

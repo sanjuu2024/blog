@@ -30,4 +30,6 @@ public class AdminUserItemVO {
     private OffsetDateTime lastLoginAt;
 
     private OffsetDateTime createdAt;
+
+    private OffsetDateTime deletedAt;
 }

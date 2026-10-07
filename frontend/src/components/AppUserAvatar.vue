@@ -3,12 +3,20 @@
 		:src="avatarUrl || undefined"
 		:size="size"
 		:style="{
-			backgroundColor: avatarUrl ? undefined : backgroundColor,
+			backgroundColor: avatarUrl
+				? undefined
+				: deleted || guest
+					? 'var(--app-bg)'
+					: backgroundColor,
 			fontSize: `${size / 3}px`,
 		}"
 		class="user-avatar"
 	>
-		{{ fallbackText }}
+		<i-lucide-user-round
+			v-if="deleted || guest"
+			class="text-(--app-text-muted-more)"
+		/>
+		<template v-else>{{ fallbackText }}</template>
 	</el-avatar>
 </template>
 
@@ -19,6 +27,8 @@ interface Props {
 	avatarUrl?: string | null;
 	name?: string | null;
 	userId?: number | string | null;
+	deleted?: boolean;
+	guest?: boolean;
 	size?: number;
 }
 
@@ -26,6 +36,8 @@ const props = withDefaults(defineProps<Props>(), {
 	avatarUrl: '',
 	name: '',
 	userId: '',
+	deleted: false,
+	guest: false,
 	size: 20,
 });
 
@@ -73,5 +85,6 @@ const backgroundColor = computed(() => {
 	color: #fff;
 	font-weight: bold;
 	user-select: none;
+	border: 1px solid var(--app-border);
 }
 </style>

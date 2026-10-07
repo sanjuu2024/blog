@@ -30,6 +30,7 @@
 		<MessageEditor
 			ref="editorRef"
 			:is-login="authStore.isLogin"
+			:email-verified="userStore.userInfo?.emailVerified"
 			:loading="submitting"
 			@submit="handleSubmit"
 		/>

@@ -184,7 +184,13 @@
 						>
 							<template #default="{ row }: { row: AdminCommentItem }">
 								<div v-if="row.author">
-									<p>{{ row.author.nickname || row.author.username }}</p>
+									<p
+										:class="{
+											'text-(--app-text-muted-more)': row.author.deleted,
+										}"
+									>
+										{{ row.author.nickname || row.author.username }}
+									</p>
 									<p class="text-xs">ID: {{ row.author.id }}</p>
 								</div>
 								<span v-else>-</span>

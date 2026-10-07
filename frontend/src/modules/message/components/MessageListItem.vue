@@ -13,12 +13,14 @@
 				<PublicUserProfilePopover
 					v-if="item.author?.id"
 					:user-id="item.author.id"
+					:disabled="item.author.deleted"
 					class="flex flex-col"
 				>
 					<AppUserAvatar
 						:avatar-url="item.author.avatarUrl"
 						:name="item.author.nickname || item.nickname"
 						:user-id="item.author.id"
+						:deleted="item.author.deleted"
 						:size="34"
 						class="self-start"
 					/>
@@ -31,11 +33,14 @@
 				>
 					<AppUserAvatar
 						:name="item.nickname"
+						:guest="true"
 						:size="34"
 						class="self-start"
 					/>
 				</GuestUserPopover>
-				<strong>{{ item.author?.nickname || item.nickname }}</strong>
+				<strong :class="{ 'message-item__deleted-name': item.author?.deleted }">
+					{{ item.author?.nickname || item.nickname }}
+				</strong>
 				<el-tag
 					v-if="item.isAnnouncement"
 					type="warning"
@@ -66,12 +71,6 @@
 		>
 			{{ item.content }}
 		</p>
-		<p
-			v-if="item.isMine && item.status === MESSAGE_STATUS.REJECTED && item.moderationReason"
-			class="message-item__reason"
-		>
-			处理原因：{{ item.moderationReason }}
-		</p>
 
 		<!-- 回复 -->
 		<div
@@ -86,12 +85,14 @@
 				<PublicUserProfilePopover
 					v-if="reply.author?.id"
 					:user-id="reply.author.id"
+					:disabled="reply.author.deleted"
 					class="flex flex-col"
 				>
 					<AppUserAvatar
 						:avatar-url="reply.author.avatarUrl"
 						:name="reply.author.nickname || '管理员'"
 						:user-id="reply.author.id"
+						:deleted="reply.author.deleted"
 						:size="28"
 						class="self-start"
 					/>
@@ -102,15 +103,18 @@
 					:avatar-url="reply.author?.avatarUrl"
 					:name="reply.author?.nickname || '管理员'"
 					:user-id="reply.author?.id"
+					:deleted="reply.author?.deleted"
 					:size="28"
 					class="self-start"
 				/>
 				<div>
 					<div class="message-reply__meta">
-						<strong>{{ reply.author?.nickname || '管理员' }}</strong>
+						<strong :class="{ 'message-item__deleted-name': reply.author?.deleted }">
+							{{ reply.author?.nickname || '管理员' }}
+						</strong>
 						<time>{{ formatDateTime(reply.createdAt) }}</time>
 					</div>
-					<p>{{ reply.content }}</p>
+					<p class="message-reply__content">{{ reply.content }}</p>
 				</div>
 			</div>
 		</div>
@@ -120,15 +124,27 @@
 			class="message-reply__bottom-toolbar"
 			:class="{ 'message-reply__bottom-toolbar--sticky': contentExpanded }"
 		>
-			<button
-				v-if="item.isMine && item.status !== MESSAGE_STATUS.DELETED"
-				class="message-item__delete"
-				type="button"
-				@click="emit('delete', item)"
-			>
-				<i-lucide-trash-2 />
-				<span>删除</span>
-			</button>
+			<div class="message-reply__bottom-toolbar__left flex items-center gap-2">
+				<button
+					v-if="item.isMine && item.status !== MESSAGE_STATUS.DELETED"
+					class="message-item__delete"
+					type="button"
+					@click="emit('delete', item)"
+				>
+					<i-lucide-trash-2 />
+					<span>删除</span>
+				</button>
+				<p
+					v-if="
+						item.isMine &&
+						item.status === MESSAGE_STATUS.REJECTED &&
+						item.moderationReason
+					"
+					class="message-item__reason"
+				>
+					处理原因：{{ item.moderationReason }}
+				</p>
+			</div>
 
 			<button
 				v-if="contentOverflows"
@@ -222,9 +238,9 @@ function statusTagType(status: MessageStatus) {
 
 <style scoped lang="scss">
 .message-item {
-	padding-bottom: 2rem;
-
-	// border-bottom: 1px solid var(--app-border);
+	padding-bottom: 1rem;
+	border-bottom: 1px solid var(--app-border);
+	margin-bottom: 1rem;
 }
 
 .message-item--muted {
@@ -265,6 +281,10 @@ function statusTagType(status: MessageStatus) {
 	white-space: nowrap;
 }
 
+.message-item__deleted-name {
+	color: var(--app-text-muted-more);
+}
+
 .message-item__header-actions {
 	display: flex;
 	flex: none;
@@ -282,6 +302,7 @@ function statusTagType(status: MessageStatus) {
 	max-height: 10rem;
 	overflow: hidden;
 	margin: 0.8rem 0 0;
+	padding-left: 1.5rem;
 
 	// 保留用户输入的换行、保留必要空白，正常文本在行尾换行
 	white-space: pre-wrap;
@@ -296,7 +317,6 @@ function statusTagType(status: MessageStatus) {
 }
 
 .message-item__reason {
-	margin-top: 0.5rem;
 	color: var(--el-color-danger);
 	font-size: 0.9rem;
 }
@@ -312,6 +332,11 @@ function statusTagType(status: MessageStatus) {
 	display: flex;
 	gap: 0.6rem;
 	padding-block: 0.5rem;
+
+	.message-reply__content {
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
 }
 
 .message-reply p {

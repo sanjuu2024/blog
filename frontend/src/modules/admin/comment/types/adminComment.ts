@@ -66,6 +66,7 @@ export interface CommentAuthor {
 	username: string;
 	nickname: string;
 	avatarUrl: string;
+	deleted?: boolean;
 }
 
 export interface AdminCommentArticleRef {

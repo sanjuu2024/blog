@@ -85,11 +85,13 @@
 				<label class="message-editor__notify">
 					<el-checkbox
 						v-model="form.notifyOnReply"
+						:disabled="props.isLogin && props.emailVerified === false"
 						@change="handleNotifyChange"
 					>
-						{{
-							props.isLogin ? '有回复时通过账号邮箱提醒我' : '有回复时通过邮箱提醒我'
-						}}
+						{{ props.isLogin ? '有回复时通过账号邮箱提醒我' : '有回复时通过邮箱提醒我'
+						}}<span v-if="props.isLogin && props.emailVerified === false"
+							>（邮箱未验证）</span
+						>
 					</el-checkbox>
 				</label>
 			</div>
@@ -167,6 +169,7 @@ defineOptions({
 const props = withDefaults(
 	defineProps<{
 		isLogin: boolean;
+		emailVerified?: boolean;
 		loading?: boolean;
 	}>(),
 	{

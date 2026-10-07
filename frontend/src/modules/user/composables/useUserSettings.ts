@@ -16,6 +16,7 @@ import { AVATAR_MAX_SIZE, validateImageFile } from '@/modules/file/utils/image';
 import {
 	changeCurrentUserPassword,
 	changeCurrentUserEmail,
+	deleteCurrentUser,
 	getCurrentUserProfile,
 	sendEmailChangeCode,
 	updateCurrentUserAvatar,
@@ -498,6 +499,13 @@ export function useUserSettings() {
 		}
 	}
 
+	async function deleteUserSettingsAccount(password: string) {
+		await deleteCurrentUser({ password });
+		ElMessage.success('账号已注销');
+		authStore.clearAuth();
+		await router.replace('/auth/login');
+	}
+
 	return {
 		userProfile,
 		profileForm,
@@ -529,6 +537,7 @@ export function useUserSettings() {
 		changeUserSettingsPassword,
 		sendUserEmailChangeCode,
 		changeUserSettingsEmail,
+		deleteUserSettingsAccount,
 		resetPasswordForm,
 		resetEmailForm,
 	};

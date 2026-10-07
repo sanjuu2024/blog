@@ -1,9 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import request from '@/utils/request';
-import { changeCurrentUserEmail, sendEmailChangeCode, updateCurrentUserAvatar } from './userApi';
+import {
+	changeCurrentUserEmail,
+	deleteCurrentUser,
+	sendEmailChangeCode,
+	updateCurrentUserAvatar,
+} from './userApi';
 
 vi.mock('@/utils/request', () => ({
 	default: {
+		delete: vi.fn(),
 		post: vi.fn(),
 		put: vi.fn(),
 	},
@@ -48,5 +54,13 @@ describe('user API contracts', () => {
 		changeCurrentUserEmail(data);
 
 		expect(request.put).toHaveBeenCalledWith('users/me/email', data);
+	});
+
+	it('submits the current user deletion request', () => {
+		deleteCurrentUser({ password: 'Password_1' });
+
+		expect(request.delete).toHaveBeenCalledWith('users/me', {
+			data: { password: 'Password_1' },
+		});
 	});
 });

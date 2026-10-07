@@ -11,12 +11,6 @@ servers:
 x-p2-planned-operations:
   description: 以下为已冻结但尚未实现的 P2 契约方向；实现时再加入 paths 和 schemas，当前不可调用。
   operations:
-    - method: DELETE
-      path: /api/v1/users/me
-      summary: 用户确认密码后注销本人账号
-    - method: DELETE
-      path: /api/v1/admin/users/{userId}
-      summary: 管理员注销其他用户
     - method: POST
       path: /api/v1/users/me/totp/setup
       summary: 创建待确认的管理员 TOTP 配置
@@ -1108,6 +1102,34 @@ paths:
           $ref: '#/components/responses/UnauthorizedResponse'
         '409':
           $ref: '#/components/responses/ConflictResponse'
+  /api/v1/users/me:
+    delete:
+      tags:
+        - Profile
+      summary: 注销当前用户账号
+      description: 权限级别 `LOGIN`。校验当前密码后逻辑注销账号，释放用户名和邮箱并撤销全部登录态，历史业务内容保留。
+      operationId: deleteCurrentUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteCurrentUserRequest'
+      responses:
+        '200':
+          description: 注销成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoDataResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
   /api/v1/users/me/password:
     put:
       tags:
@@ -1382,6 +1404,38 @@ paths:
           $ref: '#/components/responses/CommentNotFoundResponse'
         '409':
           $ref: '#/components/responses/CommentConflictResponse'
+  /api/v1/admin/users/{userId}:
+    delete:
+      tags:
+        - Admin Users
+      summary: 注销其他用户账号
+      description: 权限级别 `ADMIN`。管理员不能注销自己，也不能注销最后一个仍可用的管理员；注销为逻辑处理并保留历史业务内容。
+      operationId: deleteAdminUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminDeleteUserRequest'
+      responses:
+        '200':
+          description: 注销成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoDataResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
   /api/v1/admin/users:
     get:
       tags:
@@ -2141,7 +2195,7 @@ paths:
       tags:
         - Messages
       summary: 发表留言
-      description: 游客和登录用户均可发表顶层留言；普通留言需要审核，管理员留言或公告直接通过。登录用户的昵称和邮箱由服务端从当前账号读取。游客必须提供 Cloudflare Turnstile token，服务端校验成功后才接受留言；登录用户和管理员不要求该字段。未携带 Token 时按游客校验，已携带的 Token 无效或过期时返回 401，不降级为游客。
+      description: 游客和登录用户均可发表顶层留言；普通留言需要审核，管理员留言或公告直接通过。登录用户的昵称和邮箱由服务端从当前账号读取，勾选回复通知时邮箱必须已验证；游客必须提供 Cloudflare Turnstile token，服务端校验成功后才接受留言。未携带 Token 时按游客校验，已携带的 Token 无效或过期时返回 401，不降级为游客。
       operationId: createMessage
       security:
         - {}
@@ -3127,6 +3181,7 @@ components:
         - nickname
         - avatarUrl
         - bio
+        - deleted
       properties:
         id:
           type: integer
@@ -3144,6 +3199,9 @@ components:
         bio:
           type: string
           example: 专注后端和前端工程化
+        deleted:
+          type: boolean
+          example: false
     LoginUserInfo:
       type: object
       required:
@@ -3623,6 +3681,7 @@ components:
         - nickname
         - avatarUrl
         - bio
+        - deleted
       properties:
         id:
           type: integer
@@ -3640,6 +3699,10 @@ components:
         bio:
           type: string
           example: 专注后端和前端工程化
+        deleted:
+          type: boolean
+          description: 账号是否已注销
+          example: false
     PublicUserProfileResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
@@ -3810,6 +3873,24 @@ components:
           pattern: '^[0-9]{6}$'
           description: 发送到新邮箱的 6 位数字验证码
           example: '123456'
+    DeleteCurrentUserRequest:
+      type: object
+      required: [password]
+      properties:
+        password:
+          type: string
+          format: password
+          minLength: 6
+          maxLength: 32
+          description: 当前登录密码
+    AdminDeleteUserRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          maxLength: 255
+          description: 管理员注销原因
     ChangePasswordRequest:
       type: object
       required:
@@ -3843,6 +3924,7 @@ components:
         - status
         - lastLoginAt
         - createdAt
+        - deletedAt
       properties:
         id:
           type: integer
@@ -3879,6 +3961,10 @@ components:
           type: string
           format: date-time
           example: '2026-04-22T22:20:00+08:00'
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
     AdminUserPageData:
       allOf:
         - $ref: '#/components/schemas/PagedMeta'
@@ -4601,7 +4687,7 @@ components:
               $ref: '#/components/schemas/TagUpdateData'
     CommentAuthor:
       type: object
-      required: [id, username, nickname, avatarUrl]
+      required: [id, username, nickname, avatarUrl, deleted]
       properties:
         id:
           type: integer
@@ -4612,6 +4698,9 @@ components:
           type: string
         avatarUrl:
           type: string
+        deleted:
+          type: boolean
+          example: false
     CommentStatus:
       type: string
       enum: [PENDING, APPROVED, REJECTED, HIDDEN, DELETED]
@@ -4971,7 +5060,7 @@ components:
       enum: [TOP_LEVEL, REPLY]
     MessageAuthor:
       type: object
-      required: [id, username, nickname, avatarUrl]
+      required: [id, username, nickname, avatarUrl, deleted]
       properties:
         id:
           type: integer
@@ -4983,6 +5072,9 @@ components:
         avatarUrl:
           type: string
           nullable: true
+        deleted:
+          type: boolean
+          example: false
     MessageReply:
       type: object
       required: [id, parentId, content, status, author, createdAt]
@@ -5597,6 +5689,11 @@ components:
               value:
                 code: 108009
                 message: 勾选回复通知时必须填写邮箱
+                data: null
+            emailNotVerified:
+              value:
+                code: 108016
+                message: 邮箱未验证，无法订阅留言回复通知
                 data: null
             invalidUnsubscribeToken:
               value:

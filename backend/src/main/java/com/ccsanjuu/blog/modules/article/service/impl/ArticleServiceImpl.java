@@ -575,7 +575,17 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
             throw new BizException(ResultCode.ARTICLE_AUTHOR_NOT_FOUND);
         }
 
-        vo.setAuthor(BeanUtil.copyProperties(author, ArticleAuthorVO.class));
+        ArticleAuthorVO authorVO = BeanUtil.copyProperties(author, ArticleAuthorVO.class);
+        if (author.getDeletedAt() != null) {
+            authorVO.setUsername("");
+            authorVO.setNickname("账号已注销");
+            authorVO.setAvatarUrl("");
+            authorVO.setBio("");
+            authorVO.setDeleted(true);
+        } else {
+            authorVO.setDeleted(false);
+        }
+        vo.setAuthor(authorVO);
 
         // 4. 返回
         if (viewIdentity != null) {

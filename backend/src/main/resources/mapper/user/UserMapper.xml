@@ -13,4 +13,14 @@
         FOR UPDATE
     </select>
 
+    <select id="selectActiveAdminIdsForUpdate" resultType="java.lang.Long">
+        SELECT id
+        FROM blog_user
+        WHERE role = 'ADMIN'
+          AND status = 'ACTIVE'
+          AND deleted_at IS NULL
+        ORDER BY id
+        FOR UPDATE
+    </select>
+
 </mapper>

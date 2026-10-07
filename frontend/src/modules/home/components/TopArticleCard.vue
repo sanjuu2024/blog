@@ -58,8 +58,11 @@
 				</p>
 
 				<div class="content__meta">
-					<i-solar-calendar-outline class="mr-2" />
-					{{ formatDateTime(article.publishedAt) }}
+					<component
+						:is="getRouteIcon('calendar')"
+						class="mr-2"
+					/>
+					<span>{{ formatDateTime(article.publishedAt) }}</span>
 				</div>
 			</div>
 		</div>

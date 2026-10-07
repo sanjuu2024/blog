@@ -20,4 +20,6 @@ public class ArticleAuthorVO {
     private String avatarUrl;
 
     private String bio;
+
+    private Boolean deleted;
 }

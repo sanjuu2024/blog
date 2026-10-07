@@ -75,12 +75,14 @@
 				<div class="comment-main">
 					<PublicUserProfilePopover
 						:user-id="comment.author.id"
+						:disabled="comment.author.deleted"
 						class="flex flex-col"
 					>
 						<AppUserAvatar
 							:avatar-url="comment.author.avatarUrl"
 							:name="comment.author.nickname || comment.author.username"
 							:user-id="comment.author.id"
+							:deleted="comment.author.deleted"
 							:size="36"
 							class="mr-3 shrink-0 self-start"
 						/>
@@ -88,7 +90,10 @@
 
 					<div class="min-w-0 flex-1">
 						<div class="comment-meta">
-							<span class="comment-author">
+							<span
+								class="comment-author"
+								:class="{ 'comment-author--deleted': comment.author.deleted }"
+							>
 								{{ comment.author.nickname || comment.author.username }}
 							</span>
 							<el-tag
@@ -203,12 +208,14 @@
 							>
 								<PublicUserProfilePopover
 									:user-id="reply.author.id"
+									:disabled="reply.author.deleted"
 									class="flex flex-col"
 								>
 									<AppUserAvatar
 										:avatar-url="reply.author.avatarUrl"
 										:name="reply.author.nickname || reply.author.username"
 										:user-id="reply.author.id"
+										:deleted="reply.author.deleted"
 										:size="36"
 										class="mr-3 shrink-0 self-start"
 									/>
@@ -216,7 +223,12 @@
 
 								<div class="min-w-0 flex-1">
 									<div class="comment-meta">
-										<span class="comment-author">
+										<span
+											class="comment-author"
+											:class="{
+												'comment-author--deleted': reply.author.deleted,
+											}"
+										>
 											{{ reply.author.nickname || reply.author.username }}
 										</span>
 										<span
@@ -736,6 +748,10 @@ function getCommentStatusTagType(status: CommentStatus) {
 
 .comment-author {
 	font-weight: 600;
+}
+
+.comment-author--deleted {
+	color: var(--app-text-muted-more);
 }
 
 .comment-time,

@@ -37,6 +37,7 @@ import java.time.OffsetDateTime;
 
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -151,6 +152,17 @@ class UserControllerAvatarTest {
                         }))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(107001));
+    }
+
+    @Test
+    void deleteCurrentUserShouldPassAuthenticatedUserAndPassword() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/users/me")
+                        .header("Authorization", "Bearer " + accessToken())
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"password\":\"Password_1\"}"))
+                .andExpect(status().isOk());
+
+        verify(userService).deleteCurrentUser(eq(USER_ID), any());
     }
 
     @Test

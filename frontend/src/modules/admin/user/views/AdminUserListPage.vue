@@ -133,9 +133,13 @@
 				>
 					<template #default="{ row }">
 						<div class="flex items-center justify-center">
+							<i-lucide-trash-2
+								class="text-xl text-(--app-icon-gray-color)"
+								v-if="row.deletedAt"
+							/>
 							<i-lets-icons-check-fill
 								class="text-xl text-(--app-icon-green-color)"
-								v-if="row.status == USER_STATUS.ACTIVE"
+								v-else-if="row.status == USER_STATUS.ACTIVE"
 							/>
 							<i-lets-icons-cancel
 								class="text-xl text-(--app-icon-red-color)"
@@ -167,7 +171,7 @@
 				<el-table-column
 					label="用户操作"
 					align="center"
-					width="300"
+					width="370"
 					:fixed="isMobile ? false : 'right'"
 				>
 					<template #default="{ row }">
@@ -179,10 +183,12 @@
 								<el-button
 									type="warning"
 									title="修改用户状态"
-									:disabled="userStore.userInfo?.id === row.id"
+									:disabled="
+										userStore.userInfo?.id === row.id || Boolean(row.deletedAt)
+									"
 								>
 									<template #icon>
-										<i-ep-edit />
+										<i-lucide-square-pen />
 									</template>
 									修改状态
 								</el-button>
@@ -196,15 +202,28 @@
 								<el-button
 									type="warning"
 									title="修改用户角色"
-									:disabled="userStore.userInfo?.id === row.id"
+									:disabled="
+										userStore.userInfo?.id === row.id || Boolean(row.deletedAt)
+									"
 								>
 									<template #icon>
-										<i-solar-user-id-linear />
+										<i-lucide-id-card />
 									</template>
 									修改角色
 								</el-button>
 							</template>
 						</el-popconfirm>
+						<el-button
+							type="danger"
+							title="注销用户"
+							:disabled="userStore.userInfo?.id === row.id || Boolean(row.deletedAt)"
+							@click="deleteUserAccount(row)"
+						>
+							<template #icon>
+								<i-lucide-power />
+							</template>
+							注销账号
+						</el-button>
 					</template>
 				</el-table-column>
 			</el-table>
@@ -233,7 +252,9 @@
 
 <script setup lang="ts">
 import { nextTick, ref, reactive, onMounted, watch } from 'vue';
-import type { TableInstance } from 'element-plus';
+import { ElMessage, ElMessageBox, type TableInstance } from 'element-plus';
+import 'element-plus/es/components/message/style/css';
+import 'element-plus/es/components/message-box/style/css';
 import type {
 	AdminUserListItem,
 	AdminUserListQuery,
@@ -241,8 +262,7 @@ import type {
 	UpdateUserRoleData,
 	UpdateUserStatusData,
 } from '../types/adminUser';
-import { listUsers, updateRole, updateStatus } from '../api/adminUserApi';
-import { ElMessage } from 'element-plus';
+import { deleteUser, listUsers, updateRole, updateStatus } from '../api/adminUserApi';
 import { formatDateTime } from '@/utils/datetime';
 import { USER_ROLE, USER_STATUS, type UserRole, type UserStatus } from '@/modules/user/types/user';
 import { useUserStore } from '@/stores/userStore';
@@ -322,6 +342,27 @@ async function toggleUserRole(user: AdminUserListItem) {
 		user.role = data.role; // 直接修改当前行数据的 role 字段，无需重新拉取列表
 	} catch {
 		// 错误提示已经由 request 响应拦截器统一处理
+	}
+}
+
+async function deleteUserAccount(user: AdminUserListItem) {
+	try {
+		const { value } = await ElMessageBox.prompt(
+			`注销 ${user.username} 后将释放其用户名和邮箱，历史内容会保留。`,
+			'注销用户',
+			{
+				confirmButtonText: '确认注销',
+				cancelButtonText: '取消',
+				confirmButtonClass: 'el-button--danger',
+				inputPlaceholder: '请输入注销原因',
+				inputValidator: (value) => (value?.trim() ? true : '请输入注销原因'),
+			},
+		);
+		await deleteUser(user.id, { reason: value.trim() });
+		user.deletedAt = new Date().toISOString();
+		ElMessage.success('用户已注销');
+	} catch {
+		// 用户取消确认或请求错误由请求拦截器统一处理
 	}
 }
 
