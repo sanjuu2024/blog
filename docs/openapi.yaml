@@ -1244,6 +1244,53 @@ paths:
           $ref: '#/components/responses/UnsupportedImageTypeResponse'
         '502':
           $ref: '#/components/responses/ImageUploadFailedResponse'
+  /api/v1/admin/security-events:
+    get:
+      tags:
+        - Admin Security Events
+      summary: 获取安全事件分页列表
+      description: 权限级别 `ADMIN`。返回原始账号、来源 IP、User-Agent、请求方法及路径与可读客户端信息。仅记录可信关联的用户 ID；actorId 仅用于管理员操作其他用户。安全事件只允许追加和查询，不记录密码、验证码、Token、Authorization、Cookie、密钥、恢复码或完整请求/响应正文。
+      operationId: listSecurityEvents
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+        - name: eventType
+          in: query
+          schema:
+            $ref: '#/components/schemas/SecurityEventType'
+        - name: outcome
+          in: query
+          schema:
+            $ref: '#/components/schemas/SecurityEventOutcome'
+        - name: userId
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: createdAtFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: createdAtTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityEventPageResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
   /api/v1/admin/audit-logs:
     get:
       tags:
@@ -4989,11 +5036,60 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/UploadedImageData'
+    SecurityEventType:
+      type: string
+      enum: [REGISTER, LOGIN, LOGOUT, TOKEN_REFRESH, EMAIL_VERIFICATION, PASSWORD_CHANGE, EMAIL_CHANGE, USER_DELETE, USER_STATUS_CHANGE, USER_ROLE_CHANGE]
+    SecurityEventOutcome:
+      type: string
+      enum: [SUCCESS, FAILURE]
+    SecurityEventItem:
+      type: object
+      required: [id, eventType, outcome, userId, userUsername, userNickname, userDeleted, actorId, actorUsername, actorNickname, actorDeleted, account, ip, userAgent, requestMethod, requestPath, browser, operatingSystem, device, description, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        eventType: { $ref: '#/components/schemas/SecurityEventType' }
+        outcome: { $ref: '#/components/schemas/SecurityEventOutcome' }
+        userId: { type: integer, format: int64, nullable: true }
+        userUsername: { type: string, nullable: true, description: 目标用户当前用户名，已注销时返回占位用户名 deleted_用户ID }
+        userNickname: { type: string, nullable: true, description: 目标用户当前昵称，已注销时不返回 }
+        userDeleted: { type: boolean, nullable: true, description: 目标用户是否已注销，用户记录不存在时为 null }
+        actorId: { type: integer, format: int64, nullable: true, description: 管理员操作其他用户时的操作者 ID }
+        actorUsername: { type: string, nullable: true, description: 操作者当前用户名，已注销时返回占位用户名 deleted_用户ID }
+        actorNickname: { type: string, nullable: true, description: 操作者当前昵称，已注销时不返回 }
+        actorDeleted: { type: boolean, nullable: true, description: 操作者是否已注销，用户记录不存在时为 null }
+        account: { type: string, nullable: true, description: 原始账号输入（用户名或邮箱） }
+        ip: { type: string, nullable: true, description: 来源 IP }
+        userAgent: { type: string, nullable: true, description: 原始 User-Agent }
+        requestMethod: { type: string, nullable: true }
+        requestPath: { type: string, nullable: true, description: 请求路径，不包含 query 参数 }
+        browser: { type: string, nullable: true }
+        operatingSystem: { type: string, nullable: true }
+        device: { type: string, nullable: true }
+        description: { type: string }
+        createdAt: { type: string, format: date-time }
+    SecurityEventPageData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          required: [records]
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/SecurityEventItem'
+    SecurityEventPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/SecurityEventPageData'
     AdminAuditResourceType:
       type: string
       enum: [USER, ARTICLE, CATEGORY, TAG, COMMENT, MESSAGE, NOTIFICATION, FILE, ABOUT_PAGE]
     AdminAuditAction:
       type: string
+      description: DELETE 对用户资源表示注销，对其他资源表示删除；底层枚举和筛选参数保持不变。
       enum: [CREATE, UPDATE, DELETE, CHANGE_STATUS, CHANGE_ROLE, MODERATE, REPLY, BATCH_APPROVE, UPLOAD]
     AdminAuditResult:
       type: string

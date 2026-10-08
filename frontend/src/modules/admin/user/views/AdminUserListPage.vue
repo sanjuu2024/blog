@@ -125,7 +125,25 @@
 					label="角色"
 					align="center"
 					prop="role"
-				></el-table-column>
+					width="110"
+				>
+					<template #default="{ row }">
+						<div
+							v-if="row.role === USER_ROLE.ADMIN"
+							class="flex items-center justify-center"
+						>
+							<i-lucide-shield-check class="mr-1 text-(--app-icon-green-color)" />
+							管理员
+						</div>
+						<div
+							v-else
+							class="flex items-center justify-center"
+						>
+							<i-lucide-user-round class="mr-1 text-(--app-icon-gray-color)" />
+							普通用户
+						</div>
+					</template>
+				</el-table-column>
 				<el-table-column
 					label="状态"
 					align="center"

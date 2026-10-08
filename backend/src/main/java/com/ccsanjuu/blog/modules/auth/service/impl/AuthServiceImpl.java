@@ -24,13 +24,19 @@ import com.ccsanjuu.blog.modules.auth.model.vo.RefreshTokenVO;
 import com.ccsanjuu.blog.modules.auth.service.RegistrationEmailVerificationService;
 import com.ccsanjuu.blog.modules.auth.service.AuthService;
 import com.ccsanjuu.blog.modules.privacy.service.PrivacyPolicyService;
+import com.ccsanjuu.blog.modules.security.model.bo.SecurityEventRecordBO;
+import com.ccsanjuu.blog.modules.security.model.enums.SecurityEventOutcome;
+import com.ccsanjuu.blog.modules.security.model.enums.SecurityEventType;
+import com.ccsanjuu.blog.modules.security.service.SecurityEventService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
 import com.ccsanjuu.blog.modules.user.model.enums.UserStatus;
 import com.ccsanjuu.blog.properties.JwtProperties;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.security.SignatureException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -55,6 +61,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthMapper authMapper;
     private final PrivacyPolicyService privacyPolicyService;
     private final RegistrationEmailVerificationService registrationEmailVerificationService;
+    private final SecurityEventService securityEventService;
 
     /**
      * 用户注册
@@ -118,6 +125,8 @@ public class AuthServiceImpl implements AuthService {
                 newUser.getId(),
                 newUser.getUsername()
         );
+        recordSecurityEvent(SecurityEventType.REGISTER, SecurityEventOutcome.SUCCESS,
+                newUser.getId(), null, registerRequestDTO.getEmail(), "用户注册成功");
     }
 
     /**
@@ -141,6 +150,8 @@ public class AuthServiceImpl implements AuthService {
             user = userMapper.selectByIdForUpdate(user.getId());
         }
         if (user == null) {
+            recordSecurityEvent(SecurityEventType.LOGIN, SecurityEventOutcome.FAILURE,
+                    null, null, loginRequestDTO.getAccount(), "账号不存在");
             log.warn(
                     "security_event=LOGIN_FAILED description=\"登录失败：用户不存在\" outcome=FAIL reason=USER_NOT_FOUND account={}",
                     maskAccount(loginRequestDTO.getAccount())
@@ -148,6 +159,8 @@ public class AuthServiceImpl implements AuthService {
             throw new BizException(ResultCode.USER_NOT_FOUND);
         }
         if (user.getDeletedAt() != null) {
+            recordSecurityEvent(SecurityEventType.LOGIN, SecurityEventOutcome.FAILURE,
+                    user.getId(), null, loginRequestDTO.getAccount(), "账号已注销");
             log.warn("security_event=LOGIN_FAILED description=\"登录失败：账号已注销\" outcome=FAIL reason=USER_DELETED userId={}",
                     user.getId());
             throw new BizException(ResultCode.USER_DELETED);
@@ -155,6 +168,8 @@ public class AuthServiceImpl implements AuthService {
 
         // 🍰2. 密码是否正确、用户是否状态正常（被禁用则不能登录）
         if (!passwordEncoder.matches(loginRequestDTO.getPassword(), user.getPasswordHash())) {
+            recordSecurityEvent(SecurityEventType.LOGIN, SecurityEventOutcome.FAILURE,
+                    user.getId(), null, loginRequestDTO.getAccount(), "密码错误");
             log.warn(
                     "security_event=LOGIN_FAILED description=\"登录失败：密码错误\" outcome=FAIL reason=PASSWORD_ERROR userId={} username={}",
                     user.getId(),
@@ -163,6 +178,8 @@ public class AuthServiceImpl implements AuthService {
             throw new BizException(ResultCode.PASSWORD_ERROR);
         }
         if (user.getStatus() == UserStatus.DISABLED) {
+            recordSecurityEvent(SecurityEventType.LOGIN, SecurityEventOutcome.FAILURE,
+                    user.getId(), null, loginRequestDTO.getAccount(), "账号已禁用");
             log.warn(
                     "security_event=LOGIN_FAILED description=\"登录失败：用户已禁用\" outcome=FAIL reason=USER_DISABLED userId={} username={}",
                     user.getId(),
@@ -185,6 +202,8 @@ public class AuthServiceImpl implements AuthService {
                 user.getId(),
                 user.getUsername()
         );
+        recordSecurityEvent(SecurityEventType.LOGIN, SecurityEventOutcome.SUCCESS,
+                user.getId(), null, loginRequestDTO.getAccount(), "登录成功");
 
         // 🍰5. 封装返回
         LoginUserVO loginUserVO = BeanUtil.copyProperties(user, LoginUserVO.class);
@@ -211,14 +230,18 @@ public class AuthServiceImpl implements AuthService {
         ValidatedRefreshToken validatedRefreshToken;
         try {
             validatedRefreshToken = validateRefreshToken(refreshToken);
-        } catch (BizException ex) {
-            log.warn("security_event=TOKEN_REFRESH_FAILED description=\"刷新登录态失败：Refresh Token 无效或已过期\" outcome=FAIL reason=INVALID_OR_EXPIRED");
+        } catch (RefreshTokenValidationException ex) {
+            recordSecurityEvent(SecurityEventType.TOKEN_REFRESH, SecurityEventOutcome.FAILURE,
+                    ex.userId, null, null, ex.description);
+            log.warn("security_event=TOKEN_REFRESH_FAILED outcome=FAIL reason={} userId={}", ex.reason, ex.userId);
             throw ex;
         }
 
         // 🍰2. 锁定用户记录，使刷新、改密、禁用和角色修改按顺序执行
         User user = userMapper.selectByIdForUpdate(validatedRefreshToken.getUserId());
         if (user == null) {
+            recordSecurityEvent(SecurityEventType.TOKEN_REFRESH, SecurityEventOutcome.FAILURE,
+                    validatedRefreshToken.getUserId(), null, null, "用户不存在");
             log.warn(
                     "security_event=TOKEN_REFRESH_FAILED description=\"刷新登录态失败：用户不存在\" outcome=FAIL reason=USER_NOT_FOUND userId={}",
                     validatedRefreshToken.getUserId()
@@ -226,11 +249,15 @@ public class AuthServiceImpl implements AuthService {
             throw new BizException(ResultCode.USER_NOT_FOUND);
         }
         if (user.getDeletedAt() != null) {
+            recordSecurityEvent(SecurityEventType.TOKEN_REFRESH, SecurityEventOutcome.FAILURE,
+                    user.getId(), null, null, "账号已注销");
             log.warn("security_event=TOKEN_REFRESH_FAILED description=\"刷新登录态失败：账号已注销\" outcome=FAIL reason=USER_DELETED userId={}",
                     user.getId());
             throw new BizException(ResultCode.USER_DELETED);
         }
         if (user.getStatus() == UserStatus.DISABLED){
+            recordSecurityEvent(SecurityEventType.TOKEN_REFRESH, SecurityEventOutcome.FAILURE,
+                    user.getId(), null, null, "账号已禁用");
             log.warn(
                     "security_event=TOKEN_REFRESH_FAILED description=\"刷新登录态失败：用户已禁用\" outcome=FAIL reason=USER_DISABLED userId={}",
                     user.getId()
@@ -241,8 +268,11 @@ public class AuthServiceImpl implements AuthService {
         // 等待用户行锁期间旧 RT 可能已被改密或另一次刷新撤销，需要在锁内重新校验。
         try {
             validatedRefreshToken = validateRefreshToken(refreshToken);
-        } catch (BizException ex) {
-            log.warn("security_event=TOKEN_REFRESH_FAILED description=\"刷新登录态失败：Refresh Token 已被撤销\" outcome=FAIL reason=REVOKED_WHILE_WAITING");
+        } catch (RefreshTokenValidationException ex) {
+            recordSecurityEvent(SecurityEventType.TOKEN_REFRESH, SecurityEventOutcome.FAILURE,
+                    ex.userId, null, null, "等待用户锁后：" + ex.description);
+            log.warn("security_event=TOKEN_REFRESH_FAILED outcome=FAIL reason={} userId={} stage=AFTER_USER_LOCK",
+                    ex.reason, ex.userId);
             throw ex;
         }
 
@@ -253,6 +283,8 @@ public class AuthServiceImpl implements AuthService {
         AuthTokenPair authTokenPair = generateTokenPairAndSaveRT(user);
 
         log.info("security_event=TOKEN_REFRESH_SUCCESS description=\"登录态刷新成功\" outcome=SUCCESS userId={}", user.getId());
+        recordSecurityEvent(SecurityEventType.TOKEN_REFRESH, SecurityEventOutcome.SUCCESS,
+                user.getId(), null, null, "登录态刷新成功");
 
         // 🍰5. 封装返回
         return RefreshTokenVO.builder()
@@ -281,12 +313,16 @@ public class AuthServiceImpl implements AuthService {
                     "security_event=LOGOUT_SUCCESS description=\"用户退出登录成功\" outcome=SUCCESS userId={}",
                     validatedRefreshToken.getUserId()
             );
+            recordSecurityEvent(SecurityEventType.LOGOUT, SecurityEventOutcome.SUCCESS,
+                    validatedRefreshToken.getUserId(), null, null, "退出登录成功");
         } catch (BizException ex) {
             if (ex.getResultCode() != ResultCode.REFRESH_TOKEN_INVALID_OR_EXPIRED) {
                 throw ex;
             }
             // 退出登录按幂等语义处理：RT 无效、过期、已撤销或找不到会话，都视为已经退出。
             log.debug("security_event=LOGOUT_SUCCESS description=\"退出登录幂等完成：会话已失效\" outcome=SUCCESS reason=SESSION_ALREADY_INVALID");
+            recordSecurityEvent(SecurityEventType.LOGOUT, SecurityEventOutcome.SUCCESS,
+                    null, null, null, "退出登录幂等完成");
         }
     }
 
@@ -338,6 +374,28 @@ public class AuthServiceImpl implements AuthService {
             return "*".repeat(trimmed.length());
         }
         return trimmed.charAt(0) + "***" + trimmed.charAt(trimmed.length() - 1);
+    }
+
+    /**
+     * 追加认证事件，账号原文仅用于管理员安全事件查询。
+     *
+     * @param eventType 事件类型
+     * @param outcome 事件结果
+     * @param userId 可信关联的用户 ID
+     * @param actorId 管理员操作其他用户时的操作者 ID
+     * @param account 原始账号
+     * @param description 事件描述
+     */
+    private void recordSecurityEvent(
+            SecurityEventType eventType,
+            SecurityEventOutcome outcome,
+            Long userId,
+            Long actorId,
+            String account,
+            String description
+    ) {
+        securityEventService.record(new SecurityEventRecordBO(
+                eventType, outcome, userId, actorId, account, description));
     }
 
 
@@ -478,45 +536,51 @@ public class AuthServiceImpl implements AuthService {
      */
     private ValidatedRefreshToken validateRefreshToken(String refreshToken){
         if (refreshToken == null || refreshToken.isBlank()) {
-            throw new BizException(ResultCode.REFRESH_TOKEN_INVALID_OR_EXPIRED);
+            throw new RefreshTokenValidationException(null, "TOKEN_MISSING", "Refresh Token 缺失");
         }
 
-        String jti = null;
-        Long userId = null;
-        AuthSession authSession = null;
+        Claims claims;
         try{
-            Claims claims = JwtUtil.parseClaims(refreshToken, jwtSigningKey);
-            if (!JwtUtil.TOKEN_TYPE_REFRESH.equals(claims.get(JwtUtil.CLAIM_TOKEN_TYPE, String.class))) {
-                throw new BizException(ResultCode.REFRESH_TOKEN_INVALID_OR_EXPIRED);   // 携带的 token 类型错误
-            }
-
-            jti = claims.getId();
-            if (jti == null || jti.isBlank()) {
-                throw new BizException(ResultCode.REFRESH_TOKEN_INVALID_OR_EXPIRED);   // jti错误
-            }
-
-            userId = JwtUtil.getUserId(claims);
-            authSession = authMapper.selectOne(
-                    new LambdaQueryWrapper<AuthSession>()
-                            .eq(AuthSession::getTokenJti, jti)
-                            .eq(AuthSession::getTokenType, AuthSessionTokenType.REFRESH)
-                            .eq(AuthSession::getStatus, AuthSessionStatus.ACTIVE)
-                            .eq(AuthSession::getUserId, userId)
-            );
-            if (authSession == null) {
-                throw new BizException(ResultCode.REFRESH_TOKEN_INVALID_OR_EXPIRED);
-            }
-
-            if (authSession.getExpiresAt() == null
-                    || !authSession.getExpiresAt().isAfter(OffsetDateTime.now(ZoneOffset.UTC))) {
-                throw new BizException(ResultCode.REFRESH_TOKEN_INVALID_OR_EXPIRED);
-            }
-
-            if (!authSession.getTokenHash().equals(TokenHashUtil.sha256(refreshToken))) {
-                throw new BizException(ResultCode.REFRESH_TOKEN_INVALID_OR_EXPIRED);   // 旧 rt 值错误
-            }
+            claims = JwtUtil.parseClaims(refreshToken, jwtSigningKey);
+        } catch (ExpiredJwtException ex) {
+            // JJWT 先验证签名再判断过期，只有这类异常中的 Refresh Token 身份可用于关联事件。
+            throw new RefreshTokenValidationException(trustedRefreshUserId(ex.getClaims()),
+                    "TOKEN_EXPIRED", "Refresh Token 已过期");
+        } catch (SignatureException ex) {
+            throw new RefreshTokenValidationException(null, "SIGNATURE_INVALID", "Refresh Token 签名无效");
         } catch (JwtException | IllegalArgumentException ex) {
-            throw new BizException(ResultCode.REFRESH_TOKEN_INVALID_OR_EXPIRED);   // 旧 rt 值错误
+            throw new RefreshTokenValidationException(null, "TOKEN_INVALID", "Refresh Token 格式或声明无效");   // 旧 rt 值错误
+        }
+
+        if (!JwtUtil.TOKEN_TYPE_REFRESH.equals(claims.get(JwtUtil.CLAIM_TOKEN_TYPE))) {
+            throw new RefreshTokenValidationException(null, "TOKEN_TYPE_INVALID", "Token 类型不是 Refresh Token");   // 携带的 token 类型错误
+        }
+        Long userId = trustedRefreshUserId(claims);
+        if (userId == null) {
+            throw new RefreshTokenValidationException(null, "USER_ID_INVALID", "Refresh Token 用户 ID 无效");
+        }
+        String jti = claims.getId();
+        if (jti == null || jti.isBlank()) {
+            throw new RefreshTokenValidationException(userId, "JTI_MISSING", "Refresh Token 会话标识缺失");   // jti错误
+        }
+        AuthSession authSession = authMapper.selectOne(
+                new LambdaQueryWrapper<AuthSession>()
+                        .eq(AuthSession::getTokenJti, jti)
+                        .eq(AuthSession::getTokenType, AuthSessionTokenType.REFRESH)
+                        .eq(AuthSession::getUserId, userId)
+        );
+        if (authSession == null) {
+            throw new RefreshTokenValidationException(userId, "SESSION_NOT_FOUND", "Refresh Token 会话不存在");
+        }
+        if (authSession.getStatus() == AuthSessionStatus.REVOKED) {
+            throw new RefreshTokenValidationException(userId, "SESSION_REVOKED", "Refresh Token 会话已撤销");
+        }
+        if (authSession.getStatus() != AuthSessionStatus.ACTIVE || authSession.getExpiresAt() == null
+                || !authSession.getExpiresAt().isAfter(OffsetDateTime.now(ZoneOffset.UTC))) {
+            throw new RefreshTokenValidationException(userId, "SESSION_EXPIRED", "Refresh Token 会话已过期");
+        }
+        if (!authSession.getTokenHash().equals(TokenHashUtil.sha256(refreshToken))) {
+            throw new RefreshTokenValidationException(userId, "TOKEN_HASH_MISMATCH", "Refresh Token 与会话摘要不匹配");   // 旧 rt 值错误
         }
 
         return ValidatedRefreshToken.builder()
@@ -525,5 +589,45 @@ public class AuthServiceImpl implements AuthService {
                 .tokenJti(jti)
                 .authSession(authSession)
                 .build();
+    }
+
+    /**
+     * 从已验证签名的 Refresh Token 声明中提取用户 ID，不从未验证的 Token 猜测身份。
+     *
+     * @param claims 已通过签名验证的声明
+     * @return 可信用户 ID，类型或用户声明无效时为空
+     */
+    private Long trustedRefreshUserId(Claims claims) {
+        if (!JwtUtil.TOKEN_TYPE_REFRESH.equals(claims.get(JwtUtil.CLAIM_TOKEN_TYPE))) {
+            return null;
+        }
+        try {
+            Long userId = JwtUtil.getUserId(claims);
+            return userId != null && userId > 0 ? userId : null;
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    /** 内部保留具体失败原因，对外继续使用原有的刷新失败业务码。 */
+    private static class RefreshTokenValidationException extends BizException {
+
+        private final Long userId;
+        private final String reason;
+        private final String description;
+
+        /**
+         * 封装可信身份和安全原因，不保存 Token 本身。
+         *
+         * @param userId 可信用户 ID
+         * @param reason 内部失败原因
+         * @param description 后台事件描述
+         */
+        private RefreshTokenValidationException(Long userId, String reason, String description) {
+            super(ResultCode.REFRESH_TOKEN_INVALID_OR_EXPIRED);
+            this.userId = userId;
+            this.reason = reason;
+            this.description = description;
+        }
     }
 }

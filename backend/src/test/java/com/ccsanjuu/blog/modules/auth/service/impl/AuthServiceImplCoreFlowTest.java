@@ -19,6 +19,9 @@ import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
 import com.ccsanjuu.blog.modules.user.model.enums.UserStatus;
 import com.ccsanjuu.blog.modules.privacy.service.PrivacyPolicyService;
+import com.ccsanjuu.blog.modules.security.model.bo.SecurityEventRecordBO;
+import com.ccsanjuu.blog.modules.security.model.enums.SecurityEventType;
+import com.ccsanjuu.blog.modules.security.service.SecurityEventService;
 import com.ccsanjuu.blog.properties.JwtProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -71,6 +74,9 @@ class AuthServiceImplCoreFlowTest {
     @Mock
     private RegistrationEmailVerificationService registrationEmailVerificationService;
 
+    @Mock
+    private SecurityEventService securityEventService;
+
     private AuthServiceImpl authService;
 
     @BeforeEach
@@ -88,7 +94,8 @@ class AuthServiceImplCoreFlowTest {
                 SIGNING_KEY,
                 authMapper,
                 privacyPolicyService,
-                registrationEmailVerificationService
+                registrationEmailVerificationService,
+                securityEventService
         );
         lenient().when(privacyPolicyService.compareTo(any())).thenReturn(true);
     }
@@ -223,6 +230,11 @@ class AuthServiceImplCoreFlowTest {
         assertTrue(output.getOut().contains("userId=" + USER_ID));
         assertTrue(output.getOut().contains("username=Sanjuu"));
         assertFalse(output.getOut().contains(loginEmail));
+        ArgumentCaptor<SecurityEventRecordBO> eventCaptor = ArgumentCaptor.forClass(SecurityEventRecordBO.class);
+        verify(securityEventService).record(eventCaptor.capture());
+        assertEquals(loginEmail, eventCaptor.getValue().account());
+        assertEquals(USER_ID, eventCaptor.getValue().userId());
+        org.junit.jupiter.api.Assertions.assertNull(eventCaptor.getValue().actorId());
     }
 
     @Test
@@ -260,6 +272,9 @@ class AuthServiceImplCoreFlowTest {
         assertTrue(output.getOut().contains("reason=USER_NOT_FOUND"));
         assertTrue(output.getOut().contains("account=u***n@example.com"));
         assertFalse(output.getOut().contains(unknownEmail));
+        ArgumentCaptor<SecurityEventRecordBO> eventCaptor = ArgumentCaptor.forClass(SecurityEventRecordBO.class);
+        verify(securityEventService).record(eventCaptor.capture());
+        assertEquals(unknownEmail, eventCaptor.getValue().account());
     }
 
     @Test
@@ -360,7 +375,12 @@ class AuthServiceImplCoreFlowTest {
         assertEquals(ResultCode.REFRESH_TOKEN_INVALID_OR_EXPIRED, exception.getResultCode());
         verify(authMapper, never()).update(any(AuthSession.class), any());
         verify(authMapper, never()).insert(any(AuthSession.class));
-        assertTrue(output.getOut().contains("reason=REVOKED_WHILE_WAITING"));
+        assertTrue(output.getOut().contains("reason=SESSION_NOT_FOUND"));
+        assertTrue(output.getOut().contains("stage=AFTER_USER_LOCK"));
+        ArgumentCaptor<SecurityEventRecordBO> eventCaptor = ArgumentCaptor.forClass(SecurityEventRecordBO.class);
+        verify(securityEventService).record(eventCaptor.capture());
+        assertEquals(USER_ID, eventCaptor.getValue().userId());
+        assertEquals("等待用户锁后：Refresh Token 会话不存在", eventCaptor.getValue().description());
         assertFalse(output.getOut().contains(refreshToken));
     }
 
@@ -374,8 +394,104 @@ class AuthServiceImplCoreFlowTest {
 
         assertEquals(ResultCode.REFRESH_TOKEN_INVALID_OR_EXPIRED, exception.getResultCode());
         assertTrue(output.getOut().contains("security_event=TOKEN_REFRESH_FAILED"));
-        assertTrue(output.getOut().contains("reason=INVALID_OR_EXPIRED"));
+        assertTrue(output.getOut().contains("reason=TOKEN_INVALID"));
         assertFalse(output.getOut().contains(invalidRefreshToken));
+    }
+
+    @Test
+    void expiredSignedRefreshTokenShouldKeepTrustedUserId() {
+        String token = JwtUtil.generateRefreshToken(SIGNING_KEY, "sanjuu-blog", Duration.ofMinutes(-1),
+                USER_ID, "expired-session");
+
+        assertRefreshFailure(token, USER_ID, "Refresh Token 已过期");
+        verifyNoSessionChanges();
+    }
+
+    @Test
+    void invalidSignatureShouldNotTrustClaimedUserId() {
+        String token = JwtUtil.generateRefreshToken(
+                JwtUtil.createHmacShaKey("abcdef0123456789abcdef0123456789ab"),
+                "sanjuu-blog", Duration.ofDays(7), USER_ID, "forged-session");
+
+        assertRefreshFailure(token, null, "Refresh Token 签名无效");
+        verifyNoSessionChanges();
+    }
+
+    @Test
+    void accessTokenShouldNotBeAttributedAsRefreshToken() {
+        String token = JwtUtil.generateAccessToken(SIGNING_KEY, "sanjuu-blog", Duration.ofMinutes(15),
+                USER_ID, "Sanjuu", "USER", "ACTIVE", 3L);
+
+        assertRefreshFailure(token, null, "Token 类型不是 Refresh Token");
+        verifyNoSessionChanges();
+    }
+
+    @Test
+    void missingTokenShouldHaveConcreteReasonWithoutUserId() {
+        assertRefreshFailure(null, null, "Refresh Token 缺失");
+        verifyNoSessionChanges();
+    }
+
+    @Test
+    void missingSessionShouldKeepSignedUserId() {
+        String token = JwtUtil.generateRefreshToken(SIGNING_KEY, "sanjuu-blog", Duration.ofDays(7),
+                USER_ID, "missing-session");
+
+        assertRefreshFailure(token, USER_ID, "Refresh Token 会话不存在");
+        verifyNoSessionChanges();
+    }
+
+    @Test
+    void revokedSessionShouldHaveConcreteReasonAndUserId() {
+        String token = JwtUtil.generateRefreshToken(SIGNING_KEY, "sanjuu-blog", Duration.ofDays(7),
+                USER_ID, "revoked-session");
+        when(authMapper.selectOne(any())).thenReturn(AuthSession.builder()
+                .userId(USER_ID).status(AuthSessionStatus.REVOKED).build());
+
+        assertRefreshFailure(token, USER_ID, "Refresh Token 会话已撤销");
+        verifyNoSessionChanges();
+    }
+
+    @Test
+    void sessionExpirationShouldBeDistinguishedFromJwtExpiration() {
+        String token = JwtUtil.generateRefreshToken(SIGNING_KEY, "sanjuu-blog", Duration.ofDays(7),
+                USER_ID, "expired-session");
+        when(authMapper.selectOne(any())).thenReturn(AuthSession.builder()
+                .userId(USER_ID).status(AuthSessionStatus.ACTIVE)
+                .expiresAt(OffsetDateTime.now(ZoneOffset.UTC).minusMinutes(1)).build());
+
+        assertRefreshFailure(token, USER_ID, "Refresh Token 会话已过期");
+        verifyNoSessionChanges();
+    }
+
+    @Test
+    void mismatchedSessionHashShouldHaveConcreteReason() {
+        String token = JwtUtil.generateRefreshToken(SIGNING_KEY, "sanjuu-blog", Duration.ofDays(7),
+                USER_ID, "mismatched-session");
+        when(authMapper.selectOne(any())).thenReturn(AuthSession.builder()
+                .userId(USER_ID).status(AuthSessionStatus.ACTIVE).tokenHash("another-hash")
+                .expiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusDays(7)).build());
+
+        assertRefreshFailure(token, USER_ID, "Refresh Token 与会话摘要不匹配");
+        verifyNoSessionChanges();
+    }
+
+    private void verifyNoSessionChanges() {
+        verify(authMapper, never()).update(any(AuthSession.class), any());
+        verify(authMapper, never()).insert(any(AuthSession.class));
+    }
+
+    private void assertRefreshFailure(String token, Long userId, String description) {
+        BizException exception = assertThrows(BizException.class, () -> authService.refresh(
+                RefreshTokenRequestDTO.builder().refreshToken(token).build()));
+        assertEquals(ResultCode.REFRESH_TOKEN_INVALID_OR_EXPIRED, exception.getResultCode());
+        org.junit.jupiter.api.Assertions.assertNull(exception.getMessage());
+        ArgumentCaptor<SecurityEventRecordBO> captor = ArgumentCaptor.forClass(SecurityEventRecordBO.class);
+        verify(securityEventService).record(captor.capture());
+        assertEquals(SecurityEventType.TOKEN_REFRESH, captor.getValue().eventType());
+        assertEquals(userId, captor.getValue().userId());
+        assertEquals(description, captor.getValue().description());
+        org.junit.jupiter.api.Assertions.assertNull(captor.getValue().actorId());
     }
 
     private User activeUser() {

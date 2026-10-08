@@ -192,7 +192,7 @@
 						min-width="150"
 					>
 						<template #default="{ row }: { row: AdminAuditLogItem }">
-							<strong>{{ getActionLabel(row.action) }}</strong>
+							<strong>{{ getActionLabel(row.action, row.resourceType) }}</strong>
 							<p
 								v-if="row.actionDetail"
 								class="admin-audit-log__secondary"
@@ -306,7 +306,7 @@ const resourceTypeOptions = Object.values(AUDIT_RESOURCE_TYPE).map((value) => ({
 }));
 const actionOptions = Object.values(AUDIT_ACTION).map((value) => ({
 	value,
-	label: getActionLabel(value),
+	label: value === AUDIT_ACTION.DELETE ? '删除 / 注销' : getActionLabel(value),
 }));
 
 const defaultTime: [Date, Date] = [new Date(2000, 1, 1, 0, 0, 0), new Date(2000, 2, 1, 23, 59, 59)]; // '00:00:00', '23:59:59'
@@ -327,7 +327,11 @@ function getResourceTypeLabel(resourceType: AuditResourceType) {
 	}[resourceType];
 }
 
-function getActionLabel(action: AuditAction) {
+function getActionLabel(action: AuditAction, resourceType?: AuditResourceType) {
+	// 用户注销沿用 DELETE 审计枚举，展示文案按资源类型区分。
+	if (action === AUDIT_ACTION.DELETE && resourceType === AUDIT_RESOURCE_TYPE.USER) {
+		return '注销';
+	}
 	return {
 		[AUDIT_ACTION.CREATE]: '创建',
 		[AUDIT_ACTION.UPDATE]: '更新',

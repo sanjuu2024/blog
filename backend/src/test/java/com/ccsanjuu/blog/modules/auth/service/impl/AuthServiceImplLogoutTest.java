@@ -58,7 +58,8 @@ class AuthServiceImplLogoutTest {
                 SIGNING_KEY,
                 authMapper,
                 privacyPolicyService,
-                registrationEmailVerificationService
+                registrationEmailVerificationService,
+                org.mockito.Mockito.mock(com.ccsanjuu.blog.modules.security.service.SecurityEventService.class)
         );
     }
 

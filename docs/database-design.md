@@ -40,6 +40,7 @@
 | P2 使用 | `blog_notification` | 回复通知和管理员消息内容 |
 | P2 使用 | `blog_notification_recipient` | 登录用户通知收件与已读状态 |
 | P2 使用 | `blog_mail_delivery` | 回复通知邮件投递状态与重试记录 |
+| P2 使用 | `blog_security_event` | 认证与账号安全事件追加日志 |
 | P2 使用 | `blog_privacy_policy_version` | 隐私政策不可变 Markdown 版本快照 |
 | P2 使用 | `blog_user_recovery_code` | 管理员 TOTP 一次性恢复码哈希 |
 | 历史保留 | `blog_article_favorite` | `V1.0.0` 已创建但当前产品暂不排期，应用不读写 |
@@ -94,6 +95,8 @@
 | `blog_notification` | `created_by` | `blog_user.id` | 自动通知可为空；管理员消息必须记录创建管理员 |
 | `blog_notification_recipient` | `notification_id` | `blog_notification.id` | 创建收件记录前必须确认通知已发布或正在同一事务发布 |
 | `blog_notification_recipient` | `user_id` | `blog_user.id` | 只为存在的登录用户创建收件和已读状态 |
+| `blog_security_event` | `user_id` | `blog_user.id` | 可为空；记录事件关联的目标用户，不创建物理外键 |
+| `blog_security_event` | `actor_id` | `blog_user.id` | 可为空；仅记录管理员操作其他用户时的操作者，不创建物理外键 |
 | `blog_user_recovery_code` | `user_id` | `blog_user.id` | 仅为已启用 TOTP 的管理员生成恢复码 |
 | `blog_user` | `privacy_policy_version` | `blog_privacy_policy_version.version` | 注册时必须保存当前已归档的政策版本 |
 | `blog_message_board` | `user_id` | `blog_user.id` | 登录用户留言时记录用户 ID；游客留言时允许为空，历史游客留言不自动关联后注册用户 |
@@ -791,7 +794,39 @@ CREATE INDEX idx_blog_mail_delivery_status_created
 投递记录只保存脱敏地址和安全错误摘要。手动重试根据 `source_id`、`reply_id` 读取当前业务数据
 重新生成正文；不保存完整邮件正文、SMTP 凭据、验证码或异常堆栈。
 
-## 4.9 历史保留表：`blog_article_favorite`
+## 4.9 P2 安全事件表：`blog_security_event`
+
+```sql
+CREATE TABLE blog_security_event (
+    id BIGSERIAL PRIMARY KEY,
+    event_type VARCHAR(50) NOT NULL,
+    outcome VARCHAR(10) NOT NULL CHECK (outcome IN ('SUCCESS', 'FAILURE')),
+    user_id BIGINT,
+    actor_id BIGINT,
+    account VARCHAR(255),
+    ip VARCHAR(64),
+    user_agent TEXT,
+    request_method VARCHAR(10),
+    request_path TEXT,
+    description VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL
+);
+```
+
+安全事件表只追加，不提供更新和删除接口。记录事件类型、结果、可信关联的目标用户、管理员操作者、
+原始账号、来源 IP、原始 User-Agent、请求方法、请求路径、原因描述和创建时间，仅管理员可查询。
+`actor_id` 仅用于管理员操作其他用户，自身操作为空。请求路径不含 query 参数；来源 IP 使用服务端
+请求的 remote address，由已有可信反向代理配置处理转发头，不直接信任客户端自报的 IP。
+密码、验证码、Token、Authorization、Cookie、TOTP 密钥、恢复码、SMTP/OSS 密钥、完整请求/响应
+正文和异常堆栈不得写入该表。`created_at` 由实体字段填充器写入。
+
+`V1.2.11` 新增可读字段并删除旧脱敏账号与 HMAC 摘要字段，不修改 `V1.2.10`。历史事件保留，
+无法还原的原始字段为空，后台显示“未记录”。浏览器、系统和设备类型由查询时解析 User-Agent 得到，
+不额外存储冗余字段。安全事件查询通过已有 `UserMapper` 按当前页的 `user_id` 和 `actor_id` 批量读取
+用户当前的用户名、昵称和 `deleted_at`，不在安全事件表中保存用户资料快照。
+管理员安全事件查询可返回已注销用户的当前占位用户名 `deleted_用户ID`，不还原原用户名。
+
+## 4.10 历史保留表：`blog_article_favorite`
 
 该表由已执行的 `V1.0.0` migration 创建，当前收藏功能暂不排期，应用不提供收藏接口，
 也不读写该表。保留以下结构仅用于说明现有数据库状态；未来如启用收藏，应通过新的

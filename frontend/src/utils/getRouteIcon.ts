@@ -17,6 +17,7 @@ import IconAdminNotif from '~icons/lucide/bell';
 import IconMailDelivery from '~icons/lucide/mail';
 import IconAbout from '~icons/lucide/info';
 import IconAudit from '~icons/lucide/scroll-text';
+import IconSecurity from '~icons/lucide/shield-alert';
 import IconCalendar from '~icons/lucide/calendar-days';
 
 const iconMap = {
@@ -31,6 +32,7 @@ const iconMap = {
 	message: IconMessage,
 	about: IconAbout,
 	audit: IconAudit,
+	security: IconSecurity,
 	adminNotif: IconAdminNotif,
 	mailDelivery: IconMailDelivery,
 	calendar: IconCalendar,
