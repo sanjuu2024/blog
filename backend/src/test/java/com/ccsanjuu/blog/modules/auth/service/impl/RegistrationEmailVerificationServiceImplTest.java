@@ -65,7 +65,8 @@ class RegistrationEmailVerificationServiceImplTest {
                 mailSenderProvider,
                 mailProperties,
                 new BlogProperties(),
-                SIGNING_KEY
+                SIGNING_KEY,
+                org.mockito.Mockito.mock(com.ccsanjuu.blog.modules.security.service.SecurityEventService.class)
         );
     }
 

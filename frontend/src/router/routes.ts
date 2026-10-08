@@ -126,6 +126,15 @@ export const adminRoutes = [
 			title: '操作审计',
 		},
 	},
+	{
+		path: '/admin/security-events',
+		name: 'AdminSecurityEventList',
+		component: () => import('@/modules/admin/security/views/AdminSecurityEventPage.vue'),
+		meta: {
+			icon: 'security',
+			title: '安全事件',
+		},
+	},
 ];
 
 // 前台路由

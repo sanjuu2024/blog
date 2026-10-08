@@ -64,6 +64,18 @@ describe('AdminAuditLogListPage', () => {
 				log({ id: 1, requestMethod: 'PUT' }),
 				log({ id: 2, requestMethod: 'PATCH' }),
 				log({ id: 3, requestMethod: 'DELETE' }),
+				log({
+					id: 4,
+					resourceType: AUDIT_RESOURCE_TYPE.USER,
+					action: AUDIT_ACTION.DELETE,
+					actionDetail: null,
+				}),
+				log({
+					id: 5,
+					resourceType: AUDIT_RESOURCE_TYPE.ARTICLE,
+					action: AUDIT_ACTION.DELETE,
+					actionDetail: null,
+				}),
 			]),
 			loading: ref(false),
 			pageMeta: reactive({ total: 1, totalPages: 1, hasNext: false }),
@@ -110,6 +122,9 @@ describe('AdminAuditLogListPage', () => {
 
 		expect(wrapper.text()).toContain('admin');
 		expect(wrapper.text()).toContain('审核处理');
+		expect(wrapper.findAll('strong').filter((item) => item.text() === '注销')).toHaveLength(1);
+		expect(wrapper.findAll('strong').filter((item) => item.text() === '删除')).toHaveLength(1);
+		expect(wrapper.find('el-option-stub[label="删除 / 注销"]').exists()).toBe(true);
 		expect(wrapper.text()).toContain('成功');
 		expect(wrapper.text()).toContain('/api/v1/admin/comments/60001/moderation');
 		expect(wrapper.find('.admin-audit-log__result-tag').attributes('effect')).toBe('plain');

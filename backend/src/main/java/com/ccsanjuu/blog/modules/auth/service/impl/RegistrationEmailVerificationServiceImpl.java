@@ -7,6 +7,10 @@ import com.ccsanjuu.blog.modules.auth.service.RegistrationEmailVerificationServi
 import com.ccsanjuu.blog.modules.auth.model.enums.EmailVerificationPurpose;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
+import com.ccsanjuu.blog.modules.security.model.bo.SecurityEventRecordBO;
+import com.ccsanjuu.blog.modules.security.model.enums.SecurityEventOutcome;
+import com.ccsanjuu.blog.modules.security.model.enums.SecurityEventType;
+import com.ccsanjuu.blog.modules.security.service.SecurityEventService;
 import com.ccsanjuu.blog.properties.BlogProperties;
 import com.ccsanjuu.blog.properties.BlogMailProperties;
 import lombok.RequiredArgsConstructor;
@@ -106,6 +110,7 @@ public class RegistrationEmailVerificationServiceImpl implements RegistrationEma
     private final BlogMailProperties mailProperties;
     private final BlogProperties blogProperties;
     private final SecretKey jwtSigningKey;
+    private final SecurityEventService securityEventService;
 
     /**
      * 申请发送注册邮箱验证码，并在 SMTP 发送失败时归还本次限流额度。
@@ -129,11 +134,18 @@ public class RegistrationEmailVerificationServiceImpl implements RegistrationEma
     public void sendCode(String email, String clientIp, EmailVerificationPurpose purpose) {
         String normalizedEmail = normalizeEmail(email);
         if (emailExists(normalizedEmail)) {
+            recordSecurityEvent(SecurityEventOutcome.FAILURE, normalizedEmail, "邮箱已存在");
             log.info("security_event=EMAIL_VERIFICATION_REQUEST_REJECTED outcome=FAIL reason=EMAIL_EXISTS recipient={}",
                     maskEmail(normalizedEmail));
             throw new BizException(ResultCode.EMAIL_EXISTS);
         }
-        SendQuotaReservation reservation = acquireSendQuota(normalizedEmail, clientIp);
+        SendQuotaReservation reservation;
+        try {
+            reservation = acquireSendQuota(normalizedEmail, clientIp);
+        } catch (BizException exception) {
+            recordSecurityEvent(SecurityEventOutcome.FAILURE, normalizedEmail, "验证码请求受限");
+            throw exception;
+        }
 
         String code = "%06d".formatted(SECURE_RANDOM.nextInt(1_000_000));
         String emailHash = hashIdentity(normalizedEmail, purpose);
@@ -151,6 +163,7 @@ public class RegistrationEmailVerificationServiceImpl implements RegistrationEma
             sendMail(normalizedEmail, code, purpose);
             log.info("security_event=EMAIL_VERIFICATION_SENT outcome=SUCCESS recipient={}",
                     maskEmail(normalizedEmail));
+            recordSecurityEvent(SecurityEventOutcome.SUCCESS, normalizedEmail, "验证码发送成功");
         } catch (RuntimeException exception) {
             // 两项补偿均为尽力执行，清理失败不能覆盖对外统一的邮件发送失败结果。
             try {
@@ -165,6 +178,7 @@ public class RegistrationEmailVerificationServiceImpl implements RegistrationEma
             }
             log.warn("security_event=EMAIL_VERIFICATION_SEND_FAILED outcome=FAIL recipient={} reason={}",
                     maskEmail(normalizedEmail), exception.getClass().getSimpleName());
+            recordSecurityEvent(SecurityEventOutcome.FAILURE, normalizedEmail, "验证码发送失败");
             throw new BizException(ResultCode.EMAIL_VERIFICATION_SEND_FAILED);
         }
     }
@@ -198,11 +212,14 @@ public class RegistrationEmailVerificationServiceImpl implements RegistrationEma
                 String.valueOf(MAX_FAILURES)
         );
         if (result != null && result == -1L) {
+            recordSecurityEvent(SecurityEventOutcome.SUCCESS, normalizedEmail, "验证码校验成功");
             return;
         }
         if (result != null && result >= MAX_FAILURES) {
+            recordSecurityEvent(SecurityEventOutcome.FAILURE, normalizedEmail, "验证码错误次数过多");
             throw new BizException(ResultCode.EMAIL_VERIFICATION_ATTEMPTS_EXCEEDED);
         }
+        recordSecurityEvent(SecurityEventOutcome.FAILURE, normalizedEmail, "验证码错误或已过期");
         throw new BizException(ResultCode.EMAIL_VERIFICATION_CODE_INVALID);
     }
 
@@ -338,6 +355,28 @@ public class RegistrationEmailVerificationServiceImpl implements RegistrationEma
         String local = email.substring(0, atIndex);
         return (local.length() <= 2 ? "*".repeat(local.length()) : local.charAt(0) + "***")
                 + email.substring(atIndex);
+    }
+
+    /**
+     * 记录验证码操作结果，不记录验证码及其摘要。
+     *
+     * @param outcome 操作结果
+     * @param account 收件邮箱
+     * @param description 事件描述
+     */
+    private void recordSecurityEvent(
+            SecurityEventOutcome outcome,
+            String account,
+            String description
+    ) {
+        securityEventService.record(new SecurityEventRecordBO(
+                SecurityEventType.EMAIL_VERIFICATION,
+                outcome,
+                null,
+                null,
+                account,
+                description
+        ));
     }
 
     private String codeKey(String emailHash) {

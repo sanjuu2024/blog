@@ -13,6 +13,10 @@ import com.ccsanjuu.blog.modules.auth.model.enums.EmailVerificationPurpose;
 import com.ccsanjuu.blog.modules.auth.service.EmailVerificationService;
 import com.ccsanjuu.blog.modules.file.model.vo.UploadedImageVO;
 import com.ccsanjuu.blog.modules.file.service.ImageUploadService;
+import com.ccsanjuu.blog.modules.security.model.bo.SecurityEventRecordBO;
+import com.ccsanjuu.blog.modules.security.model.enums.SecurityEventOutcome;
+import com.ccsanjuu.blog.modules.security.model.enums.SecurityEventType;
+import com.ccsanjuu.blog.modules.security.service.SecurityEventService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.dto.*;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
@@ -44,6 +48,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     private final TokenVersionService tokenVersionService;
     private final ImageUploadService imageUploadService;
     private final EmailVerificationService emailVerificationService;
+    private final SecurityEventService securityEventService;
 
     /**
      * 获取用户公开资料卡
@@ -146,18 +151,28 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public UpdatedUserProfileVO changeEmail(Long userId, ChangeEmailRequestDTO requestDTO) {
         User user = requireUserForUpdate(userId);
         if (!passwordEncoder.matches(requestDTO.getCurrentPassword(), user.getPasswordHash())) {
+            recordSecurityEvent(SecurityEventType.EMAIL_CHANGE, SecurityEventOutcome.FAILURE,
+                    userId, userId, "当前密码错误");
             throw new BizException(ResultCode.OLD_PASSWORD_ERROR);
         }
 
         String normalizedEmail = normalizeEmail(requestDTO.getNewEmail());
         if (normalizedEmail.equalsIgnoreCase(user.getEmail()) || emailExistsExcept(normalizedEmail, userId)) {
+            recordSecurityEvent(SecurityEventType.EMAIL_CHANGE, SecurityEventOutcome.FAILURE,
+                    userId, userId, "新邮箱不可用");
             throw new BizException(ResultCode.EMAIL_EXISTS);
         }
-        emailVerificationService.verifyCode(
-                normalizedEmail,
-                requestDTO.getVerificationCode(),
-                EmailVerificationPurpose.EMAIL_CHANGE
-        );
+        try {
+            emailVerificationService.verifyCode(
+                    normalizedEmail,
+                    requestDTO.getVerificationCode(),
+                    EmailVerificationPurpose.EMAIL_CHANGE
+            );
+        } catch (BizException exception) {
+            recordSecurityEvent(SecurityEventType.EMAIL_CHANGE, SecurityEventOutcome.FAILURE,
+                    userId, userId, "新邮箱验证码校验失败");
+            throw exception;
+        }
 
         User updateUser = new User();
         updateUser.setId(userId);
@@ -167,11 +182,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         try {
             userMapper.updateById(updateUser);
         } catch (DuplicateKeyException exception) {
+            recordSecurityEvent(SecurityEventType.EMAIL_CHANGE, SecurityEventOutcome.FAILURE,
+                    userId, userId, "新邮箱不可用");
             throw new BizException(ResultCode.EMAIL_EXISTS);
         }
 
         tokenVersionService.incrementVersion(userId);
         authService.revokeUserRefreshTokens(userId);
+        recordSecurityEvent(SecurityEventType.EMAIL_CHANGE, SecurityEventOutcome.SUCCESS,
+                userId, userId, "邮箱修改成功");
 
         UpdatedUserProfileVO result = BeanUtil.copyProperties(user, UpdatedUserProfileVO.class);
         result.setEmail(normalizedEmail);
@@ -190,13 +209,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public void deleteCurrentUser(Long userId, DeleteCurrentUserRequestDTO requestDTO) {
         User user = requireUserForUpdate(userId);
         if (!passwordEncoder.matches(requestDTO.getPassword(), user.getPasswordHash())) {
+            recordSecurityEvent(SecurityEventType.USER_DELETE, SecurityEventOutcome.FAILURE,
+                    userId, userId, "当前密码错误");
             log.warn("security_event=USER_DELETE_FAILED outcome=FAIL reason=OLD_PASSWORD_ERROR userId={}", userId);
             throw new BizException(ResultCode.OLD_PASSWORD_ERROR);
         }
         if (user.getRole() == UserRole.ADMIN) {
+            recordSecurityEvent(SecurityEventType.USER_DELETE, SecurityEventOutcome.FAILURE,
+                    userId, userId, "管理员不能注销自己");
             throw new BizException(ResultCode.SELF_USER_DELETE_NOT_ALLOWED);
         }
         anonymizeAndDelete(user);
+        recordSecurityEvent(SecurityEventType.USER_DELETE, SecurityEventOutcome.SUCCESS,
+                userId, userId, "用户自助注销成功");
         log.info("security_event=USER_DELETE_SUCCESS outcome=SUCCESS userId={}", userId);
     }
 
@@ -211,13 +236,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Transactional
     public void deleteUserByAdmin(Long operatorId, Long userId, AdminDeleteUserRequestDTO requestDTO) {
         if (operatorId.equals(userId)) {
+            recordSecurityEvent(SecurityEventType.USER_DELETE, SecurityEventOutcome.FAILURE,
+                    userId, operatorId, "管理员不能注销自己");
             throw new BizException(ResultCode.SELF_USER_DELETE_NOT_ALLOWED);
         }
         User user = requireUserForUpdate(userId);
         if (user.getRole() == UserRole.ADMIN && userMapper.selectActiveAdminIdsForUpdate().size() <= 1) {
+            recordSecurityEvent(SecurityEventType.USER_DELETE, SecurityEventOutcome.FAILURE,
+                    userId, operatorId, "不能注销最后一个可用管理员");
             throw new BizException(ResultCode.LAST_ADMIN_DELETE_NOT_ALLOWED);
         }
         anonymizeAndDelete(user);
+        recordSecurityEvent(SecurityEventType.USER_DELETE, SecurityEventOutcome.SUCCESS,
+                userId, operatorId, "管理员注销用户成功");
         log.info("security_event=ADMIN_USER_DELETE_SUCCESS outcome=SUCCESS actorId={} targetUserId={} reasonLength={}",
                 operatorId, userId, requestDTO.getReason().length());
     }
@@ -258,6 +289,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public Void changePassword(Long userId, ChangePasswordRequestDTO changePasswordRequestDTO) {
         User user = requireUserForUpdate(userId);
         if (!passwordEncoder.matches(changePasswordRequestDTO.getOldPassword(), user.getPasswordHash())){
+            recordSecurityEvent(SecurityEventType.PASSWORD_CHANGE, SecurityEventOutcome.FAILURE,
+                    userId, userId, "当前密码错误");
             log.warn(
                     "security_event=PASSWORD_CHANGE_FAILED description=\"修改密码失败：原密码错误\" outcome=FAIL reason=OLD_PASSWORD_ERROR userId={}",
                     userId
@@ -276,6 +309,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 "security_event=PASSWORD_CHANGE_SUCCESS description=\"修改密码成功，已撤销现有登录态\" outcome=SUCCESS userId={} refreshTokensRevoked=true",
                 userId
         );
+        recordSecurityEvent(SecurityEventType.PASSWORD_CHANGE, SecurityEventOutcome.SUCCESS,
+                userId, userId, "密码修改成功");
 
         return null;
     }
@@ -338,6 +373,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public UpdatedUserStatusVO changeUserStatus(Long currentUserId, Long userId, UpdateUserStatusRequestDTO updateUserStatusRequestDTO) {
         User user = requireUserForUpdate(userId);
         if (currentUserId.equals(user.getId())) {   // 管理员不得修改自己的状态
+            recordSecurityEvent(SecurityEventType.USER_STATUS_CHANGE, SecurityEventOutcome.FAILURE,
+                    userId, currentUserId, "管理员不能修改自己的状态");
             log.warn(
                     "security_event=USER_STATUS_CHANGE_FAILED description=\"修改用户状态失败：不能修改自己的状态\" outcome=FAIL reason=SELF_CHANGE actorId={} targetUserId={}",
                     currentUserId,
@@ -363,6 +400,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                     updateUserStatusRequestDTO.getStatus(),
                     updateUserStatusRequestDTO.getStatus() == UserStatus.DISABLED
             );
+            recordSecurityEvent(SecurityEventType.USER_STATUS_CHANGE, SecurityEventOutcome.SUCCESS,
+                    userId, currentUserId, "用户状态修改为 " + updateUserStatusRequestDTO.getStatus());
         }
         return UpdatedUserStatusVO.builder()
                 .id(user.getId())
@@ -382,6 +421,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     public UpdatedUserRoleVO changeUserRole(Long currentUserId, Long userId, UpdateUserRoleRequestDTO updateUserRoleRequestDTO) {
         User user = requireUserForUpdate(userId);
         if (currentUserId.equals(user.getId())) {   // 管理员不得修改自己的角色
+            recordSecurityEvent(SecurityEventType.USER_ROLE_CHANGE, SecurityEventOutcome.FAILURE,
+                    userId, currentUserId, "管理员不能修改自己的角色");
             log.warn(
                     "security_event=USER_ROLE_CHANGE_FAILED description=\"修改用户角色失败：不能修改自己的角色\" outcome=FAIL reason=SELF_CHANGE actorId={} targetUserId={}",
                     currentUserId,
@@ -403,6 +444,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                     oldRole,
                     updateUserRoleRequestDTO.getRole()
             );
+            recordSecurityEvent(SecurityEventType.USER_ROLE_CHANGE, SecurityEventOutcome.SUCCESS,
+                    userId, currentUserId, "用户角色修改为 " + updateUserRoleRequestDTO.getRole());
         }
         return UpdatedUserRoleVO.builder()
                 .id(user.getId())
@@ -475,5 +518,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     private String normalizeEmail(String email) {
         return email.strip().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    /**
+     * 追加账号安全事件，自身操作不重复记录操作者 ID。
+     *
+     * @param eventType 事件类型
+     * @param outcome 事件结果
+     * @param userId 目标用户 ID
+     * @param actorId 操作者 ID
+     * @param description 事件描述
+     */
+    private void recordSecurityEvent(
+            SecurityEventType eventType,
+            SecurityEventOutcome outcome,
+            Long userId,
+            Long actorId,
+            String description
+    ) {
+        securityEventService.record(new SecurityEventRecordBO(
+                eventType, outcome, userId, actorId, null, description));
     }
 }

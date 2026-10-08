@@ -43,7 +43,8 @@ class UserServiceImplEmailTest {
     void setUp() {
         userService = new UserServiceImpl(
                 passwordEncoder, userMapper, authService, tokenVersionService,
-                imageUploadService, emailVerificationService);
+                imageUploadService, emailVerificationService,
+                org.mockito.Mockito.mock(com.ccsanjuu.blog.modules.security.service.SecurityEventService.class));
     }
 
     @Test

@@ -262,6 +262,7 @@ Authorization: Bearer <access_token>
 | 后台标签 | `PUT` | `/api/v1/admin/tags/{tagId}` | `ADMIN` | 更新标签 |
 | 后台标签 | `DELETE` | `/api/v1/admin/tags/{tagId}` | `ADMIN` | 删除标签 |
 | 后台审计日志 | `GET` | `/api/v1/admin/audit-logs` | `ADMIN` | 获取后台操作审计日志分页列表 |
+| 后台安全事件 | `GET` | `/api/v1/admin/security-events` | `ADMIN` | 获取安全事件分页列表 |
 | 后台评论 | `GET` | `/api/v1/admin/comments` | `ADMIN` | 获取评论审核分页列表 |
 | 后台评论 | `PATCH` | `/api/v1/admin/comments/{commentId}/moderation` | `ADMIN` | 审核、隐藏或删除评论 |
 | 前台留言 | `GET` | `/api/v1/messages` | `PUBLIC` | 获取留言及管理员回复分页列表，可选登录态 |
@@ -2468,6 +2469,9 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ## 12.9 后台操作审计日志
 
+用户资源的 `DELETE` 表示账号注销，表格展示“注销”；其他资源展示“删除”。通用操作筛选使用
+“删除 / 注销”，查询参数和返回的 `action` 仍为 `DELETE`，不修改历史审计记录。
+
 ### 12.9.1 获取审计日志分页列表
 
 - 路由：`GET`
@@ -2493,6 +2497,18 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | Query | `result` | `String` | 否 | `SUCCESS` 或 `FAILURE` |
 | Query | `createdAtFrom` | `String` | 否 | 创建时间范围开始，ISO 8601 时间 |
 | Query | `createdAtTo` | `String` | 否 | 创建时间范围结束，ISO 8601 时间 |
+
+## 12.10 后台安全事件日志
+
+- 路由：`GET /api/v1/admin/security-events`
+- 权限：`ADMIN`
+- 支持按 `eventType`、`outcome`、`userId`、`createdAtFrom`、`createdAtTo` 和通用分页参数筛选。
+- 列表按 `createdAt DESC, id DESC` 排序，返回 `userId`、`actorId`、原始账号 `account`、来源 `ip`、原始 `userAgent`、`requestMethod`、不含 query 的 `requestPath`、原因描述和事件时间。
+- 同时返回目标用户的 `userUsername`、`userNickname`、`userDeleted` 和操作者的 `actorUsername`、`actorNickname`、`actorDeleted`。资料来自当前用户记录；未关联或用户记录不存在时为 null；已注销时注销标记为 true，返回当前占位用户名 `deleted_用户ID`，昵称为 null，后台使用注销样式展示“账号已注销（deleted_用户ID）”。
+- 后台有目标用户时优先展示昵称、用户名和 ID，不重复展示原始账号；操作者仅在 `actorId` 有值时展示。无目标用户但有 `account` 时展示账号，验证码事件展示邮箱；两者均无时显示“未关联用户”。登录失败原因沿用事件描述，不根据账号值猜测其是否存在。
+- `browser`、`operatingSystem`、`device` 为 User-Agent 的可读解析结果；历史记录没有原始字段时返回 null，后台显示“未记录”。原始 User-Agent 可完整查看。
+- `userId` 为可信关联的目标用户；`actorId` 仅为管理员操作其他用户时的操作者，自身操作为空。刷新失败区分缺失、格式/签名错误、过期、类型或声明错误、会话不存在、已撤销、会话过期和摘要不匹配；仅签名可信且为 Refresh Token 时关联用户 ID，公开错误码不变。
+- 安全事件只允许追加和查询，不提供修改、删除或导出接口；不得保存密码、验证码、Token、Authorization、Cookie、TOTP 密钥、恢复码、SMTP/OSS 密钥、完整请求/响应正文或异常堆栈。
 
 ## 13. 图片上传接口
 
