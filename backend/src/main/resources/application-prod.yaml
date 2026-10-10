@@ -2,6 +2,7 @@ server:
   forward-headers-strategy: framework   # 处理 nginx 反向代理的配置
 
 blog:
+  site-url: ${BLOG_SITE_URL}
   auth:
     refresh-cookie:
       secure: true

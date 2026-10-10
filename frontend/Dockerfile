@@ -19,6 +19,8 @@ RUN pnpm build
 FROM nginx:1.29-alpine@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de
 
 COPY --from=build /build/dist /usr/share/nginx/html
+COPY docker/40-share-seo-template.sh /docker-entrypoint.d/40-share-seo-template.sh
+RUN chmod +x /docker-entrypoint.d/40-share-seo-template.sh
 
 EXPOSE 80
 

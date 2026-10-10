@@ -58,6 +58,10 @@ mybatis-plus:
       update-strategy: not_null   # 更新策略：只更新非空字段
 
 blog:
+  app-name: ${BLOG_APP_NAME:青禾边}
+  site-url: ${BLOG_SITE_URL:http://localhost:5173}
+  seo:
+    html-template: ${BLOG_SEO_HTML_TEMPLATE:file:../frontend/index.html}
   jwt:
     issuer: sanjuu-blog
     secret: ${BLOG_JWT_SECRET}   # base64 编码的 JWT 密钥
@@ -77,7 +81,6 @@ blog:
     enabled: ${BLOG_MAIL_ENABLED:false}
     from: ${BLOG_MAIL_FROM:}
     frontend-base-url: ${BLOG_MAIL_FRONTEND_BASE_URL:http://localhost:5173}
-    app-name: ${BLOG_APP_NAME:青禾边}
   turnstile:
     enabled: ${BLOG_TURNSTILE_ENABLED:false}
     secret-key: ${BLOG_TURNSTILE_SECRET_KEY:}

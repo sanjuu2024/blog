@@ -1,5 +1,6 @@
 import type { CATEGORY_LEVEL } from '@/modules/category/constants/category';
 import type { ApiResult, PageResult } from '@/types/api';
+import type { SeoMetadata } from '@/modules/seo/types/seo';
 
 // 查询的条件参数
 export interface ArticleFilterForm {
@@ -74,6 +75,7 @@ export type PublicArticlePageData = PageResult<PublicArticleListItem>;
 export type PublicArticlePageResponse = ApiResult<PublicArticlePageData>;
 
 export interface PublicArticleDetailData {
+	seo: SeoMetadata;
 	id: number;
 	title: string;
 	summary: string;

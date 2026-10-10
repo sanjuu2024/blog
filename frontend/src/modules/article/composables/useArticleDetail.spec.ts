@@ -15,6 +15,15 @@ vi.mock('element-plus', () => ({
 
 function article(overrides: Partial<PublicArticleDetailData> = {}): PublicArticleDetailData {
 	return {
+		seo: {
+			title: '测试文章 - 青禾边',
+			description: '文章摘要',
+			canonicalUrl: 'https://blog.example.com/articles/40001',
+			imageUrl: null,
+			type: 'article',
+			publishedAt: null,
+			updatedAt: null,
+		},
 		id: 40001,
 		title: '测试文章',
 		summary: '',
@@ -55,6 +64,10 @@ describe('useArticleDetail article likes', () => {
 		);
 		const detail = useArticleDetail();
 		await detail.getArticleDetail(40001);
+		expect(document.title).toBe('测试文章 - 青禾边');
+		expect(document.querySelector('link[rel=canonical]')?.getAttribute('href')).toBe(
+			'https://blog.example.com/articles/40001',
+		);
 
 		const firstClick = detail.toggleArticleLike();
 		const secondClick = detail.toggleArticleLike();
@@ -114,5 +127,48 @@ describe('useArticleDetail article likes', () => {
 		expect(detail.article.value?.id).toBe(40002);
 		expect(detail.article.value?.liked).toBe(false);
 		expect(detail.article.value?.likeCount).toBe(5);
+	});
+
+	it('ignores a slower article detail and its SEO after requesting a newer article', async () => {
+		let resolveOld!: (value: PublicArticleDetailData) => void;
+		vi.mocked(getArticleDetails).mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					resolveOld = resolve;
+				}),
+		);
+		const nextArticle = article({ id: 40002 });
+		nextArticle.seo = {
+			...nextArticle.seo,
+			title: '新文章',
+			canonicalUrl: 'https://blog.example.com/articles/40002',
+		};
+		vi.mocked(getArticleDetails).mockResolvedValueOnce(nextArticle);
+		const detail = useArticleDetail();
+		const oldRequest = detail.getArticleDetail(40001);
+		await detail.getArticleDetail(40002);
+		resolveOld(article());
+		await oldRequest;
+
+		expect(detail.article.value?.id).toBe(40002);
+		expect(document.title).toBe('新文章');
+		expect(document.querySelector('link[rel=canonical]')?.getAttribute('href')).toBe(
+			nextArticle.seo.canonicalUrl,
+		);
+	});
+
+	it('clears server article tags and uses a failure title when detail loading fails', async () => {
+		vi.mocked(getArticleDetails)
+			.mockResolvedValueOnce(article())
+			.mockRejectedValueOnce(new Error('network error'));
+		const detail = useArticleDetail();
+		await detail.getArticleDetail(40001);
+		await detail.getArticleDetail(40002);
+
+		expect(document.querySelector('link[rel=canonical]')).toBeNull();
+		expect(document.querySelector('meta[name=robots]')?.getAttribute('content')).toBe(
+			'noindex, follow',
+		);
+		expect(document.title).toContain('文章加载失败');
 	});
 });

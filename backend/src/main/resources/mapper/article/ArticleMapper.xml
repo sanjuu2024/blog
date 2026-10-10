@@ -2,6 +2,17 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
 <mapper namespace="com.ccsanjuu.blog.modules.article.mapper.ArticleMapper">
+    <select id="selectPublicSeoArticles" resultType="com.ccsanjuu.blog.modules.article.model.entity.Article">
+        SELECT a.id, a.updated_at
+        FROM blog_article a
+        INNER JOIN blog_category category ON category.id = a.category_id
+            AND category.level = 2 AND category.status = 'ENABLED'
+        INNER JOIN blog_category parent ON parent.id = category.parent_id
+            AND parent.level = 1 AND parent.status = 'ENABLED'
+        INNER JOIN blog_user author ON author.id = a.author_id
+        WHERE a.status = 'PUBLISHED'
+        ORDER BY a.published_at DESC, a.id DESC
+    </select>
     <update id="incrementViewCount">
         UPDATE blog_article
         SET view_count = view_count + 1

@@ -42,7 +42,6 @@
 | P2 使用 | `blog_mail_delivery` | 回复通知邮件投递状态与重试记录 |
 | P2 使用 | `blog_security_event` | 认证与账号安全事件追加日志 |
 | P2 使用 | `blog_privacy_policy_version` | 隐私政策不可变 Markdown 版本快照 |
-| P2 使用 | `blog_user_recovery_code` | 管理员 TOTP 一次性恢复码哈希 |
 | 历史保留 | `blog_article_favorite` | `V1.0.0` 已创建但当前产品暂不排期，应用不读写 |
 | P1 使用 | `blog_message_board` | 留言表，支持游客留言、审核、登录用户和管理员回复及通知退订 |
 | P1 使用 | `blog_admin_audit_log` | 后台管理操作追加式审计日志 |
@@ -97,7 +96,6 @@
 | `blog_notification_recipient` | `user_id` | `blog_user.id` | 只为存在的登录用户创建收件和已读状态 |
 | `blog_security_event` | `user_id` | `blog_user.id` | 可为空；记录事件关联的目标用户，不创建物理外键 |
 | `blog_security_event` | `actor_id` | `blog_user.id` | 可为空；仅记录管理员操作其他用户时的操作者，不创建物理外键 |
-| `blog_user_recovery_code` | `user_id` | `blog_user.id` | 仅为已启用 TOTP 的管理员生成恢复码 |
 | `blog_user` | `privacy_policy_version` | `blog_privacy_policy_version.version` | 注册时必须保存当前已归档的政策版本 |
 | `blog_message_board` | `user_id` | `blog_user.id` | 登录用户留言时记录用户 ID；游客留言时允许为空，历史游客留言不自动关联后注册用户 |
 | `blog_message_board` | `parent_id` | `blog_message_board.id` | 登录用户或管理员回复时必须确认父留言是已通过的留言 |
@@ -196,7 +194,6 @@ CREATE INDEX IF NOT EXISTS idx_blog_user_role_status
 P2 通过新 migration 为 `blog_user` 增加：
 
 - `privacy_policy_version VARCHAR(71)`、`privacy_policy_accepted_at TIMESTAMPTZ`，记录注册时接受的 `sha256:` 内容哈希
-- `totp_secret_ciphertext TEXT`、`totp_enabled_at TIMESTAMPTZ`，仅管理员启用 2FA 时使用；TOTP secret 必须加密存储
 - 注册成功时直接写入 `email_verified=true` 和 `email_verified_at`；修改邮箱成功后同样更新这两个字段；验证码只在 Redis 中保存哈希和失败次数，不落数据库
 
 隐私政策版本使用独立不可变快照表：
@@ -212,24 +209,6 @@ CREATE TABLE blog_privacy_policy_version (
 应用启动时读取并规范化 `privacy-policy.md`，计算内容哈希；数据库不存在该版本时插入快照，
 已存在时必须保证正文一致。当前产品只记录注册时的一次同意，不在登录或刷新时要求重新同意，
 因此不新增用户同意历史表。
-
-管理员恢复码使用独立表：
-
-```sql
-CREATE TABLE blog_user_recovery_code (
-    id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL,
-    code_hash VARCHAR(255) NOT NULL,
-    used_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_blog_user_recovery_code_user_unused
-    ON blog_user_recovery_code (user_id, id)
-    WHERE used_at IS NULL;
-```
-
-恢复码只保存强哈希，验证成功后原子写入 `used_at`，不可重复使用。
 
 ## 3.2 表名：`blog_auth_session`
 
@@ -464,7 +443,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_search_vector
 | --- | --- | --- | --- |
 | `id` | `BIGSERIAL` | 文章主键 ID | `40001` |
 | `title` | `VARCHAR(200)` | 文章标题 | `Spring Boot 双 Token 登录实践` |
-| `slug` | `VARCHAR(200)` | 文章 SEO 路径标识，P0 可为空；P2 再用于 URL 可读化优化 | `spring-boot-dual-token` |
+| `slug` | `VARCHAR(200)` | 历史字段，当前不启用，不参与文章 URL 或 SEO | `NULL` |
 | `summary` | `VARCHAR(500)` | 文章摘要，列表页用于简介展示 | `本文记录双 Token 的实现思路与接口设计` |
 | `content_md` | `TEXT` | Markdown 正文内容，作为后台编辑源 | `# 一、背景\n...` |
 | `content_html` | `TEXT` | 由 Markdown 转译得到的 HTML 正文，供前台渲染使用 | `<h1>一、背景</h1><p>...</p>` |
@@ -493,8 +472,9 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_search_vector
 - `search_vector` 为标题、摘要、正文分别设置 A、B、C 权重；有关键词且使用默认排序时通过 `ts_rank` 计算相关度，权重影响标题、摘要和正文的匹配分数
 - 搜索查询使用 `plainto_tsquery('public.zhparser_cfg', keyword)`，多个解析后的检索词之间为 AND 关系；单字符未产生词元或关键词为纯数字时，由应用查询对三个字段执行字面量包含匹配兜底。纯数字兜底支持 `1`、`11` 命中标题 `111`
 - `zhparser` 扩展和 `public.zhparser_cfg` 均属于数据库级对象；每个由 Flyway 管理的数据库都必须执行对应 migration，不能只依赖容器首次初始化脚本
-- P0 阶段文章详情 URL 以 `id` 作为稳定定位标识；`slug` 不作为必填字段，也不要求管理员手动维护
-- P2 阶段可在前台 URL 中追加 `slug` 提升可读性，例如 `/articles/40001-spring-boot-dual-token-login`，实际定位仍优先以 `id` 为准
+- 文章详情规范 URL 为 `/articles/{articleId}`，以 `id` 作为稳定定位标识
+- `slug` 字段及唯一索引由历史 migration 创建，当前不启用；不生成、不回填，也不提供编辑入口
+- SEO 不新增数据库结构。sitemap 从已发布文章读取 ID 和更新时间，过滤不存在或禁用的二级分类及父分类、缺失作者；已注销作者的文章沿用现有公开可见规则。详情响应的 SEO 信息直接使用本次已查询的文章生成，不再次查询文章
 
 ## 3.6 表名：`blog_article_tag`
 
@@ -817,7 +797,7 @@ CREATE TABLE blog_security_event (
 原始账号、来源 IP、原始 User-Agent、请求方法、请求路径、原因描述和创建时间，仅管理员可查询。
 `actor_id` 仅用于管理员操作其他用户，自身操作为空。请求路径不含 query 参数；来源 IP 使用服务端
 请求的 remote address，由已有可信反向代理配置处理转发头，不直接信任客户端自报的 IP。
-密码、验证码、Token、Authorization、Cookie、TOTP 密钥、恢复码、SMTP/OSS 密钥、完整请求/响应
+密码、验证码、Token、Authorization、Cookie、SMTP/OSS 密钥、完整请求/响应
 正文和异常堆栈不得写入该表。`created_at` 由实体字段填充器写入。
 
 `V1.2.11` 新增可读字段并删除旧脱敏账号与 HMAC 摘要字段，不修改 `V1.2.10`。历史事件保留，
@@ -1018,7 +998,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_project_status_sort
 | --- | --- | --- | --- |
 | `id` | `BIGSERIAL` | 项目主键 ID | `100001` |
 | `title` | `VARCHAR(200)` | 项目名称 | `个人博客系统` |
-| `slug` | `VARCHAR(200)` | 项目 SEO 路径标识 | `personal-blog-system` |
+| `slug` | `VARCHAR(200)` | 历史字段，项目模块当前不启用 | `NULL` |
 | `summary` | `VARCHAR(500)` | 项目简介 | `基于 Vue 和 Spring Boot 的个人博客练手项目` |
 | `content_md` | `TEXT` | 项目详细介绍 Markdown | `## 项目背景\n...` |
 | `cover_url` | `VARCHAR(500)` | 项目封面地址 | `https://cdn.example.com/project/blog-cover.png` |
@@ -1089,12 +1069,11 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 12. `blog_notification`
 13. `blog_notification_recipient`
 14. `blog_mail_delivery`
-15. `blog_user_recovery_code`
-16. `blog_article_favorite`（历史保留，当前不启用）
-17. `blog_message_board`
-19. `blog_admin_audit_log`
-20. `blog_project`
-21. `blog_friend_link`（上线后迭代）
+15. `blog_article_favorite`（历史保留，当前不启用）
+16. `blog_message_board`
+17. `blog_admin_audit_log`
+18. `blog_project`
+19. `blog_friend_link`（上线后迭代）
 
 ## 6. 落地建议
 

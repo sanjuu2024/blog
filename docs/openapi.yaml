@@ -8,21 +8,6 @@ info:
 servers:
   - url: http://localhost:8080
     description: 本地开发环境
-x-p2-planned-operations:
-  description: 以下为已冻结但尚未实现的 P2 契约方向；实现时再加入 paths 和 schemas，当前不可调用。
-  operations:
-    - method: POST
-      path: /api/v1/users/me/totp/setup
-      summary: 创建待确认的管理员 TOTP 配置
-    - method: POST
-      path: /api/v1/users/me/totp/confirm
-      summary: 启用 TOTP 并生成一次性恢复码
-    - method: DELETE
-      path: /api/v1/users/me/totp
-      summary: 停用管理员 TOTP
-    - method: POST
-      path: /api/v1/auth/login/totp
-      summary: 完成管理员登录第二步验证
 tags:
   - name: Auth
     description: 认证模块
@@ -63,6 +48,89 @@ tags:
   - name: Admin Dashboard
     description: 后台 Dashboard 统计接口
 paths:
+  /:
+    get:
+      tags: [Site Content]
+      summary: 获取首页首屏 HTML
+      responses:
+        '200': { $ref: '#/components/responses/PublicHtmlResponse' }
+        '503': { description: 前端入口模板不可用 }
+  /articles:
+    get:
+      tags: [Site Content]
+      summary: 获取文章列表首屏 HTML
+      responses:
+        '200': { $ref: '#/components/responses/PublicHtmlResponse' }
+        '503': { description: 前端入口模板不可用 }
+  /about:
+    get:
+      tags: [Site Content]
+      summary: 获取关于页首屏 HTML
+      responses:
+        '200': { $ref: '#/components/responses/PublicHtmlResponse' }
+        '503': { description: 前端入口模板不可用 }
+  /messages:
+    get:
+      tags: [Site Content]
+      summary: 获取留言板首屏 HTML
+      responses:
+        '200': { $ref: '#/components/responses/PublicHtmlResponse' }
+        '503': { description: 前端入口模板不可用 }
+  /articles/{articleId}:
+    get:
+      tags: [Site Content]
+      summary: 获取公开文章首屏 HTML
+      description: 仅在入口 HTML head 注入元信息，不生成正文；正文由 Vue 渲染。不记录浏览、不返回个人状态；仅允许公开可见文章，canonical 不含 query/hash。
+      parameters:
+        - $ref: '#/components/parameters/ArticleId'
+      responses:
+        '200': { $ref: '#/components/responses/PublicHtmlResponse' }
+        '404': { description: 文章不存在、不可见或分类不可用 }
+        '503': { description: 前端入口模板不可用 }
+  /sitemap.xml:
+    get:
+      tags: [Site Content]
+      summary: 获取公开页面站点地图
+      responses:
+        '200':
+          description: 仅包含公开页面和公开可见文章，不缓存
+          content:
+            application/xml:
+              schema: { type: string }
+  /robots.txt:
+    get:
+      tags: [Site Content]
+      summary: 获取爬虫访问规则
+      responses:
+        '200':
+          description: 排除后台、认证和个人中心；API 默认禁止，文章、评论、分类、标签、关于、留言、SEO 与公开用户资料 API 提供 Allow 例外。生产 API 响应带 X-Robots-Tag noindex，JSON 不单独收录。
+          content:
+            text/plain:
+              schema: { type: string }
+  /api/v1/seo:
+    get:
+      tags: [Site Content]
+      summary: 获取公开页面 SEO 元信息
+      description: 非文章公开页面内部导航时按需调用；文章页直接使用文章详情响应的 seo，不额外调用该接口。
+      parameters:
+        - name: path
+          in: query
+          required: true
+          description: 公开页面规范路径，不含 query/hash；只支持首页、文章列表、关于、留言板及纯 ID 文章详情
+          schema: { type: string, example: /articles/34 }
+      responses:
+        '200':
+          description: 元信息，不记录浏览，不缓存
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data: { $ref: '#/components/schemas/SeoMetadata' }
+        '404': { $ref: '#/components/responses/ResourceNotFoundResponse' }
   /api/v1/admin/dashboard:
     get:
       tags:
@@ -597,7 +665,7 @@ paths:
       tags:
         - Public Articles
       summary: 获取文章详情
-      description: 权限级别 `PUBLIC`。仅可查看已发布文章详情。公开读取成功后会尝试记录一次有效浏览并返回更新后的 `viewCount`：登录用户按 `userId`、游客按匿名 `visitor_id` HttpOnly Cookie 去重，同一文章一小时内只计一次。Redis 不可用时仍返回文章详情，但本次访问不计数。响应中的 `tags` 仅包含当前启用且仍存在的关联标签；历史关联的禁用标签或已被删除的标签不返回，不影响文章详情展示。文章所属二级分类及其父分类必须均存在且启用；分类不存在返回 `ARTICLE_CATEGORY_NOT_FOUND`，分类已禁用返回 `ARTICLE_CATEGORY_DISABLED`。文章关联作者必须存在；作者不存在返回 `ARTICLE_AUTHOR_NOT_FOUND`。P0 以 articleId 定位文章；slug 仅作为 P2 URL 可读化与 SEO 优化预留，不参与当前接口路径。
+      description: 权限级别 `PUBLIC`。仅可查看已发布文章详情。公开读取成功后会尝试记录一次有效浏览并返回更新后的 `viewCount`：登录用户按 `userId`、游客按匿名 `visitor_id` HttpOnly Cookie 去重，同一文章一小时内只计一次。Redis 不可用时仍返回文章详情，但本次访问不计数。响应中的 `tags` 仅包含当前启用且仍存在的关联标签；历史关联的禁用标签或已被删除的标签不返回，不影响文章详情展示。文章所属二级分类及其父分类必须均存在且启用；分类不存在返回 `ARTICLE_CATEGORY_NOT_FOUND`，分类已禁用返回 `ARTICLE_CATEGORY_DISABLED`。文章关联作者必须存在；作者不存在返回 `ARTICLE_AUTHOR_NOT_FOUND`。文章详情 API 与前台规范 URL 均以 articleId 稳定定位，前台地址保持 /articles/{articleId}。
       operationId: getPublishedArticleDetail
       parameters:
         - $ref: '#/components/parameters/ArticleId'
@@ -616,6 +684,14 @@ paths:
                   title: Spring Boot 双 Token 登录实践
                   summary: 本文记录双 Token 的实现思路与接口设计
                   contentHtml: <h1>一、背景</h1><p>这里是文章正文</p>
+                  seo:
+                    title: Spring Boot 双 Token 登录实践 - 青禾边
+                    description: 本文记录双 Token 的实现思路与接口设计
+                    canonicalUrl: https://blog.example.com/articles/40001
+                    imageUrl: https://cdn.example.com/cover/token.png
+                    type: article
+                    publishedAt: '2026-04-22T23:00:00+08:00'
+                    updatedAt: '2026-04-22T23:10:00+08:00'
                   coverUrl: https://cdn.example.com/cover/token.png
                   isTop: true
                   allowComment: true
@@ -985,6 +1061,33 @@ paths:
                   createdAt: '2026-04-22T22:20:00+08:00'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+    delete:
+      tags:
+        - Profile
+      summary: 注销当前用户账号
+      description: 权限级别 `LOGIN`。校验当前密码后逻辑注销账号，释放用户名和邮箱并撤销全部登录态，历史业务内容保留。
+      operationId: deleteCurrentUser
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteCurrentUserRequest'
+      responses:
+        '200':
+          description: 注销成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoDataResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
   /api/v1/users/me/liked-articles:
     get:
       tags:
@@ -1096,34 +1199,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UpdateProfileResponse'
-        '400':
-          $ref: '#/components/responses/BadRequestResponse'
-        '401':
-          $ref: '#/components/responses/UnauthorizedResponse'
-        '409':
-          $ref: '#/components/responses/ConflictResponse'
-  /api/v1/users/me:
-    delete:
-      tags:
-        - Profile
-      summary: 注销当前用户账号
-      description: 权限级别 `LOGIN`。校验当前密码后逻辑注销账号，释放用户名和邮箱并撤销全部登录态，历史业务内容保留。
-      operationId: deleteCurrentUser
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DeleteCurrentUserRequest'
-      responses:
-        '200':
-          description: 注销成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/NoDataResponse'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '401':
@@ -1249,7 +1324,7 @@ paths:
       tags:
         - Admin Security Events
       summary: 获取安全事件分页列表
-      description: 权限级别 `ADMIN`。返回原始账号、来源 IP、User-Agent、请求方法及路径与可读客户端信息。仅记录可信关联的用户 ID；actorId 仅用于管理员操作其他用户。安全事件只允许追加和查询，不记录密码、验证码、Token、Authorization、Cookie、密钥、恢复码或完整请求/响应正文。
+      description: 权限级别 `ADMIN`。返回原始账号、来源 IP、User-Agent、请求方法及路径与可读客户端信息。仅记录可信关联的用户 ID；actorId 仅用于管理员操作其他用户。安全事件只允许追加和查询，不记录密码、验证码、Token、Authorization、Cookie、密钥或完整请求/响应正文。
       operationId: listSecurityEvents
       security:
         - bearerAuth: []
@@ -2641,7 +2716,7 @@ components:
     ArticleId:
       name: articleId
       in: path
-      description: 文章 ID。P0 使用文章 ID 作为 URL 稳定定位标识，P2 可在前台 URL 中追加 slug 提升可读性。
+      description: 文章 ID。文章详情 API 与前台规范 URL 均以文章 ID 作为稳定定位标识。
       required: true
       schema:
         type: integer
@@ -2710,6 +2785,17 @@ components:
       schema:
         type: string
   schemas:
+    SeoMetadata:
+      type: object
+      required: [title, description, canonicalUrl, imageUrl, type, publishedAt, updatedAt]
+      properties:
+        title: { type: string }
+        description: { type: string }
+        canonicalUrl: { type: string, format: uri }
+        imageUrl: { type: string, format: uri, nullable: true }
+        type: { type: string, enum: [website, article] }
+        publishedAt: { type: string, format: date-time, nullable: true }
+        updatedAt: { type: string, format: date-time, nullable: true }
     BaseResponse:
       type: object
       required:
@@ -3536,6 +3622,7 @@ components:
         - category
         - tags
         - author
+        - seo
       properties:
         id:
           type: integer
@@ -3590,6 +3677,8 @@ components:
             $ref: '#/components/schemas/SimpleTag'
         author:
           $ref: '#/components/schemas/SimpleAuthor'
+        seo:
+          $ref: '#/components/schemas/SeoMetadata'
     PublicArticleDetailResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
@@ -5425,6 +5514,11 @@ components:
             data:
               $ref: '#/components/schemas/AdminMessagePageData'
   responses:
+    PublicHtmlResponse:
+      description: 仅在入口 HTML head 注入 canonical、description 和 Open Graph，Vue 挂载容器为空，不生成正文，不缓存
+      content:
+        text/html:
+          schema: { type: string }
     BadRequestResponse:
       description: 请求参数不合法
       content:

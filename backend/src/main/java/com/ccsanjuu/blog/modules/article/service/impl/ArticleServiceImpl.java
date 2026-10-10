@@ -28,6 +28,7 @@ import com.ccsanjuu.blog.modules.article.service.ArticleViewService;
 import com.ccsanjuu.blog.modules.article.service.ArticleLikeService;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleLikeMapper;
 import com.ccsanjuu.blog.modules.article.support.ArticleContentRenderer;
+import com.ccsanjuu.blog.modules.seo.support.SeoMetadataFactory;
 import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
 import com.ccsanjuu.blog.modules.category.model.entity.Category;
 import com.ccsanjuu.blog.modules.category.model.enums.CategoryStatus;
@@ -63,6 +64,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     private final ArticleViewService articleViewService;
     private final ArticleLikeService articleLikeService;
     private final ArticleLikeMapper articleLikeMapper;
+    private final SeoMetadataFactory seoMetadataFactory;
 
     /**
      * 获取后台文章分页列表
@@ -586,6 +588,9 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
             authorVO.setDeleted(false);
         }
         vo.setAuthor(authorVO);
+
+        // 复用当前文章生成 SEO，详情响应与首屏标签保持一致，不额外查询文章。
+        vo.setSeo(seoMetadataFactory.fromArticle(article));
 
         // 4. 返回
         if (viewIdentity != null) {

@@ -14,6 +14,13 @@ import java.util.List;
 public interface ArticleMapper extends BaseMapper<Article> {
 
     /**
+     * 查询可公开抓取的文章链接和更新时间，不读取正文或改变浏览计数。
+     *
+     * @return 符合公开文章、分类及作者可见规则的文章
+     */
+    List<Article> selectPublicSeoArticles();
+
+    /**
      * 仅对仍处于已发布状态的文章原子递增浏览总数。
      *
      * @param articleId 文章 ID

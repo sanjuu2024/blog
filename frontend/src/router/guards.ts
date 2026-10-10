@@ -100,11 +100,7 @@ export default function setupRouterGuards(router: Router) {
 			});
 		}
 
-		if (to.meta.title) {
-			document.title = `${to.meta.title} - ${import.meta.env.VITE_APP_TITLE || 'Sanjuu Blog'}`;
-		} else {
-			document.title = import.meta.env.VITE_APP_TITLE || 'Sanjuu Blog';
-		}
+		// 页面标题与 SEO 标签由 usePageSeo 及文章详情统一更新，query/hash 导航不覆盖文章标题。
 	});
 
 	// 3. 全局路由错误日志

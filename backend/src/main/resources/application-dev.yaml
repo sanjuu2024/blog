@@ -6,6 +6,8 @@ spring:
       - classpath:db/devdata
 
 blog:
+  seo:
+    html-template: ${BLOG_SEO_HTML_TEMPLATE:file:../frontend/index.html}
   auth:
     refresh-cookie:
       secure: false
