@@ -23,10 +23,11 @@
 					:avatar-url="userStore.userInfo?.avatarUrl"
 					:name="userStore.userInfo?.nickname"
 					:user-id="userStore.userInfo?.id"
+					:is-admin="userStore.userInfo?.role === 'ADMIN'"
 					:size="40"
 				/>
 			</el-badge>
-			<i-lucide-user-round
+			<i-solar-user-bold
 				v-else
 				class="app-header__guest-icon"
 			/>

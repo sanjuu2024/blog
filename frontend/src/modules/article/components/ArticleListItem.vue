@@ -132,6 +132,19 @@
 							/>
 							<span>{{ article.likeCount }}</span>
 						</div>
+
+						<!-- 评论数 -->
+						<RouterLink
+							:to="`/articles/${article.id}#article-comments`"
+							class="article-statis-item"
+							:aria-label="`${article.commentCount} 条评论，查看文章评论区`"
+						>
+							<component
+								:is="getRouteIcon('comment')"
+								class="mr-2"
+							/>
+							<span>{{ article.commentCount }}</span>
+						</RouterLink>
 					</div>
 				</div>
 
@@ -158,7 +171,7 @@ import AppImage from '@/components/AppImage.vue';
 import AppTagCapsule from '@/components/AppTagCapsule.vue';
 import { useMediaQuery } from '@vueuse/core';
 
-const isMobile = useMediaQuery('(width < 520px)');
+const isMobile = useMediaQuery('(width < 680px)');
 
 defineOptions({
 	name: 'ArticleListItem',
@@ -218,6 +231,9 @@ const coverHovered = ref(false);
 }
 
 .right__inner-footer {
+	flex-wrap: wrap;
+	row-gap: 0.375rem;
+
 	.article-statis-item {
 		display: flex;
 		align-items: center;
@@ -229,13 +245,11 @@ const coverHovered = ref(false);
 	}
 }
 
-@media (width < 600px) {
+@media (width < 680px) {
 	.article-list-item__inner {
 		padding-inline: 0;
 	}
-}
 
-@media (width < 520px) {
 	.article-list-item__inner {
 		flex-direction: column;
 		align-items: center;

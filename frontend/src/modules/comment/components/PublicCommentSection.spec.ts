@@ -73,6 +73,7 @@ function comment(): PublicCommentItem {
 			username: 'user',
 			nickname: '用户',
 			avatarUrl: '',
+			role: 'USER',
 		},
 		replyCount: 0,
 		hasVisibleReplies: false,

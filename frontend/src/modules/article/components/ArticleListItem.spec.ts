@@ -23,6 +23,7 @@ function article(overrides: Partial<PublicArticleListItem> = {}): PublicArticleL
 		publishedAt: '2026-04-22T23:00:00+08:00',
 		viewCount: 128,
 		likeCount: 0,
+		commentCount: 6,
 		category: {
 			id: 21001,
 			name: 'Java',
@@ -81,4 +82,17 @@ describe('ArticleListItem', () => {
 
 		expect(wrapper.find('.article-list-item-image').exists()).toBe(true);
 	});
+
+	it.each([0, 6])(
+		'shows %i comments and links directly to the article comment section',
+		(count) => {
+			const wrapper = mountItem(article({ commentCount: count }));
+			const link = wrapper
+				.findAllComponents(RouterLinkStub)
+				.find((item) => item.props('to') === '/articles/40001#article-comments');
+
+			expect(link?.text()).toBe(String(count));
+			expect(link?.attributes('aria-label')).toBe(`${count} 条评论，查看文章评论区`);
+		},
+	);
 });

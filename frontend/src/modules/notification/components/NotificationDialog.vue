@@ -32,92 +32,97 @@
 
 		<div
 			v-loading="loading"
-			class="notification-dialog__list divide-y divide-(--app-border) overflow-y-auto"
+			class="notification-dialog__list-wrapper overflow-y-auto"
 		>
-			<el-empty
-				v-if="!notifications.length && !loading"
-				description="暂无通知"
-			/>
-			<div
-				v-for="notification in notifications"
-				:key="notification.id"
-				class="notification-item"
-			>
-				<div class="notification-item__header">
-					<span
-						v-if="!notification.read"
-						class="notification-item__unread"
-					></span>
-					<div class="notification-item__title">
-						<span v-if="notification.type === NOTIFICATION_TYPE.ADMIN_MESSAGE"
-							>管理员消息：{{ notification.title }}</span
-						>
-						<div v-else>
-							<span class="notification-item__author mr-2 text-(--app-main)"
-								>@{{ notification.authorName }}</span
-							>
-							<span v-if="notification.type === NOTIFICATION_TYPE.COMMENT_REPLY"
-								>回复了我的评论</span
-							>
-							<span v-else-if="notification.type === NOTIFICATION_TYPE.MESSAGE_REPLY"
-								>回复了我的留言</span
-							>
-						</div>
-					</div>
-					<time>{{ formatDateTime(notification.createdAt) }}</time>
-				</div>
-
-				<div class="notification-item__body">
-					<div
-						class="notification-item__content"
-						@click.stop="openSource(notification)"
-					>
-						<NotificationContent :content="notification.content" />
-					</div>
-					<blockquote
-						v-if="notification.originalContent"
-						class="notification-item__quote"
-					>
-						{{ userStore.userInfo?.nickname || userStore.userInfo?.username }}：{{
-							notification.originalContent
-						}}
-					</blockquote>
-				</div>
+			<div class="notification-dialog__list divide-y divide-(--app-border)">
 				<div
-					class="notification-item__footer"
-					v-if="notification.type === NOTIFICATION_TYPE.COMMENT_REPLY"
+					v-for="notification in notifications"
+					:key="notification.id"
+					class="notification-item"
 				>
-					<button
-						v-if="notification.type === 'COMMENT_REPLY'"
-						type="button"
-						:disabled="!notification.canInteract || updatingLikes.has(notification.id)"
-						:aria-label="notification.liked ? '取消点赞' : '点赞回复'"
-						@click.stop="toggleLike(notification)"
+					<div class="notification-item__header">
+						<span
+							v-if="!notification.read"
+							class="notification-item__unread"
+						></span>
+						<div class="notification-item__title">
+							<span v-if="notification.type === NOTIFICATION_TYPE.ADMIN_MESSAGE"
+								>管理员消息：{{ notification.title }}</span
+							>
+							<div v-else>
+								<span class="notification-item__author mr-2 text-(--app-main)"
+									>@{{ notification.authorName }}</span
+								>
+								<span v-if="notification.type === NOTIFICATION_TYPE.COMMENT_REPLY"
+									>回复了我的评论</span
+								>
+								<span
+									v-else-if="
+										notification.type === NOTIFICATION_TYPE.MESSAGE_REPLY
+									"
+									>回复了我的留言</span
+								>
+							</div>
+						</div>
+						<time>{{ formatDateTime(notification.createdAt) }}</time>
+					</div>
+
+					<div class="notification-item__body">
+						<div
+							class="notification-item__content"
+							@click.stop="openSource(notification)"
+						>
+							<NotificationContent :content="notification.content" />
+						</div>
+						<blockquote
+							v-if="notification.originalContent"
+							class="notification-item__quote"
+						>
+							{{ userStore.userInfo?.nickname || userStore.userInfo?.username }}：{{
+								notification.originalContent
+							}}
+						</blockquote>
+					</div>
+					<div
+						class="notification-item__footer"
+						v-if="notification.type === NOTIFICATION_TYPE.COMMENT_REPLY"
 					>
-						<i-lucide-thumbs-up :class="{ 'text-(--app-main)': notification.liked }" />
-						{{ notification.likeCount }}
-					</button>
-					<button
-						v-if="
-							notification.type === NOTIFICATION_TYPE.COMMENT_REPLY &&
-							notification.canInteract
-						"
-						type="button"
-						aria-label="快捷回复"
-						@click.stop="openReply(notification)"
-					>
-						<i-lucide-message-circle-reply />
-						快捷回复
-					</button>
+						<button
+							v-if="notification.type === 'COMMENT_REPLY'"
+							type="button"
+							:disabled="
+								!notification.canInteract || updatingLikes.has(notification.id)
+							"
+							:aria-label="notification.liked ? '取消点赞' : '点赞回复'"
+							@click.stop="toggleLike(notification)"
+						>
+							<i-lucide-thumbs-up
+								:class="{ 'text-(--app-main)': notification.liked }"
+							/>
+							{{ notification.likeCount }}
+						</button>
+						<button
+							v-if="
+								notification.type === NOTIFICATION_TYPE.COMMENT_REPLY &&
+								notification.canInteract
+							"
+							type="button"
+							aria-label="快捷回复"
+							@click.stop="openReply(notification)"
+						>
+							<i-lucide-message-circle-reply />
+							快捷回复
+						</button>
+					</div>
+					<PublicCommentReplyEditor
+						v-if="isReplyEditorVisible(notification)"
+						v-model="replyContent"
+						:target-name="notification.authorName || ''"
+						:loading="replySubmitting"
+						@cancel="closeReplyEditor"
+						@submit="submitReply(notification)"
+					/>
 				</div>
-				<PublicCommentReplyEditor
-					v-if="isReplyEditorVisible(notification)"
-					v-model="replyContent"
-					:target-name="notification.authorName || ''"
-					:loading="replySubmitting"
-					@cancel="closeReplyEditor"
-					@submit="submitReply(notification)"
-				/>
 			</div>
 			<AppLoadMoreTrigger
 				:loading="loading"
@@ -276,7 +281,7 @@ async function submitReply(notification: NotificationItem) {
 	flex-wrap: wrap;
 }
 
-.notification-dialog__list {
+.notification-dialog__list-wrapper {
 	min-height: 8rem;
 	max-height: 60dvh;
 	overflow-y: auto;

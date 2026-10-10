@@ -1,4 +1,5 @@
 import type { ApiResult, PageResult } from '@/types/api';
+import type { UserRole } from '@/modules/user/types/user';
 
 export const COMMENT_STATUS = {
 	PENDING: 'PENDING',
@@ -16,6 +17,7 @@ export interface CommentAuthor {
 	nickname: string;
 	avatarUrl: string;
 	deleted?: boolean;
+	role: UserRole;
 }
 
 export interface PublicCommentItem {

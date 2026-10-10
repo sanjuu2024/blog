@@ -8,6 +8,7 @@
 							:avatar-url="userProfile.avatarUrl"
 							:name="userProfile.nickname"
 							:user-id="userProfile.id"
+							:is-admin="userProfile.role === USER_ROLE.ADMIN"
 							:size="isMobile ? 60 : 80"
 							class="mr-4 shadow"
 						/>

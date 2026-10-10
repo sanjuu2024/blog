@@ -947,6 +947,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
                 .nickname(deleted ? "账号已注销" : user.getNickname())
                 .avatarUrl(deleted ? "" : user.getAvatarUrl())
                 .deleted(deleted)
+                .role(user.getRole())
                 .build();
     }
 }

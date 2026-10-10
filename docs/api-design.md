@@ -126,9 +126,9 @@ Authorization: Bearer <access_token>
 | `103001` | `404` | `文章不存在` | 指定文章不存在 |
 | `103002` | `404` | `文章分类不存在` | 创建、更新、筛选文章或前台展示文章时指定分类不存在 |
 | `103003` | `400` | `文章只能绑定二级分类` | 创建或更新文章时绑定了一级分类 |
-| `103004` | `409` | `文章分类已禁用` | 创建、更新、筛选文章或前台展示文章时关联分类已禁用 |
+| `103004` | `409` | `文章分类已禁用` | 筛选文章或前台展示文章时关联分类已禁用；后台保存允许关联禁用分类 |
 | `103005` | `404` | `文章标签不存在` | 创建或更新文章时指定标签不存在 |
-| `103006` | `409` | `文章标签已禁用` | 创建或更新文章时指定标签已禁用 |
+| `103006` | `409` | `文章标签已禁用` | 前台筛选文章时指定标签已禁用；后台保存允许关联禁用标签 |
 | `103007` | `409` | `文章状态流转不合法` | 创建、更新或修改文章状态时不符合状态流转规则 |
 | `103008` | `404` | `文章当前不可见` | 前台访问未发布或已下线文章时，文章对前台不可见 |
 | `103009` | `404` | `文章作者不存在` | 前台展示文章详情时，文章关联作者不存在 |
@@ -613,6 +613,7 @@ GET /api/v1/articles?pageNum=1&pageSize=4&sort=LATEST
 | `isTop` | `Boolean` | 是否置顶 | `true` |
 | `publishedAt` | `String` | 发布时间 | `2026-04-22T23:00:00+08:00` |
 | `viewCount` | `Integer` | 文章有效浏览总数 | `128` |
+| `commentCount` | `Integer` | 公开评论及回复总数，复用文章 comment_count，零条返回 0 | `6` |
 | `category.id` | `Long` | 文章绑定的二级分类 ID | `21001` |
 | `category.name` | `String` | 二级分类名称 | `Java` |
 | `category.level` | `Integer` | 分类层级，固定为 `2` | `2` |
@@ -638,6 +639,7 @@ GET /api/v1/articles?pageNum=1&pageSize=4&sort=LATEST
         "isTop": true,
         "publishedAt": "2026-04-22T23:00:00+08:00",
         "viewCount": 128,
+        "commentCount": 6,
         "category": {
           "id": 21001,
           "name": "Java",
@@ -727,6 +729,7 @@ GET /api/v1/articles/40001
 | `author.nickname` | `String` | 作者昵称 | `sanjuu` |
 | `author.avatarUrl` | `String` | 作者头像地址 | `https://cdn.example.com/avatar/1.png` |
 | `author.bio` | `String` | 作者个人简介 | `专注后端和前端工程化` |
+| `author.role` | `String` | 作者当前角色，用于头像徽章展示 | `ADMIN` |
 | `seo` | `Object` | 与首屏 HTML 同源的 SEO 元信息，前端直接复用，结构见 16.9 节 | `{ "type": "article", "canonicalUrl": "https://blog.example.com/articles/40001", ... }` |
 
 ### 响应样例
@@ -927,6 +930,8 @@ GET /api/v1/tags
 - 权限：`PUBLIC`
 
 说明：公开用户资料卡用于文章作者悬浮卡、作者基础信息展示等前台场景。公开场景使用 `userId` 作为路径标识，`username` 作为展示字段。
+
+响应包含 `role`（`ADMIN`、`USER`），表示用户当前角色。公开文章、评论和留言的作者对象同样返回 `role`，供前端统一展示管理员头像徽章；游客无作者对象，已注销用户不展示徽章。展示字段不作为接口鉴权依据。
 
 ### 请求参数
 

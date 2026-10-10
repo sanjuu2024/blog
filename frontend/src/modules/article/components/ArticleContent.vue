@@ -80,6 +80,7 @@
 
 			<!-- 文章统计信息 -->
 			<div class="article-stats mb-4 flex items-center justify-center text-sm text-gray-500">
+				<!-- 浏览数 -->
 				<div class="article-statis-item">
 					<component
 						:is="getRouteIcon('view')"
@@ -87,6 +88,8 @@
 					/>
 					<span>{{ article.viewCount }}</span>
 				</div>
+
+				<!-- 评论数 -->
 				<div class="article-statis-item">
 					<component
 						:is="getRouteIcon('comment')"
@@ -94,13 +97,23 @@
 					/>
 					<span>{{ article.commentCount }}</span>
 				</div>
-				<div class="article-statis-item">
+
+				<!-- 点赞数 -->
+				<button
+					type="button"
+					class="article-statis-item article-statis-like"
+					:class="{ 'article-statis-like--liked': article.liked }"
+					:aria-label="article.liked ? '取消文章点赞' : '点赞文章'"
+					:aria-pressed="article.liked"
+					:disabled="updatingLike"
+					@click.stop="emit('toggle-like')"
+				>
 					<component
 						:is="getRouteIcon('like')"
 						class="mx-2"
 					/>
 					<span>{{ article.likeCount }}</span>
-				</div>
+				</button>
 			</div>
 
 			<!-- 文章摘要 -->
@@ -130,6 +143,7 @@
 						:name="article.author.nickname || article.author.username"
 						:user-id="article.author.id"
 						:deleted="article.author.deleted"
+						:is-admin="article.author.role === 'ADMIN'"
 						:size="24"
 						class="mr-2"
 					/>
@@ -190,6 +204,7 @@ const props = defineProps<{
 	article: PublicArticleDetailData | null;
 	isLoading: boolean;
 	errorMessage?: string;
+	updatingLike?: boolean;
 }>();
 
 const emit = defineEmits<{ 'toggle-like': [] }>();
@@ -210,6 +225,11 @@ watch(
 		refreshCatalog();
 
 		if (contentRef.value) {
+			// 需要额外处理 img 标签上的 title，否则文章正文的图片悬浮默认会显示 title。
+			// 只移除正文图片的 title，保留 alt 和作者指定的尺寸。
+			contentRef.value
+				.querySelectorAll('img[title]')
+				.forEach((image) => image.removeAttribute('title'));
 			highlightCodeUnder(contentRef.value);
 		}
 	},
@@ -257,6 +277,26 @@ function closeCatalog() {
 	display: flex;
 	align-items: center;
 	margin-right: 1rem;
+}
+
+.article-statis-like {
+	padding: 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+
+	&:hover,
+	&:focus-visible,
+	&.article-statis-like--liked {
+		color: var(--app-main);
+	}
+
+	&:focus-visible {
+		outline: 2px solid var(--app-main);
+		outline-offset: 2px;
+	}
 }
 
 .article-summary {

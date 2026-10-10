@@ -83,6 +83,7 @@
 							:name="comment.author.nickname || comment.author.username"
 							:user-id="comment.author.id"
 							:deleted="comment.author.deleted"
+							:is-admin="comment.author.role === 'ADMIN'"
 							:size="36"
 							class="mr-3 shrink-0 self-start"
 						/>
@@ -216,6 +217,7 @@
 										:name="reply.author.nickname || reply.author.username"
 										:user-id="reply.author.id"
 										:deleted="reply.author.deleted"
+										:is-admin="reply.author.role === 'ADMIN'"
 										:size="36"
 										class="mr-3 shrink-0 self-start"
 									/>

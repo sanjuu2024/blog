@@ -78,7 +78,7 @@
 					v-else
 					class="message-editor__login-hint"
 				>
-					<i-lucide-user-round />
+					<i-solar-user-bold />
 					<span>已登录，将使用你的账号资料</span>
 				</div>
 

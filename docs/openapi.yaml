@@ -643,6 +643,7 @@ paths:
                       publishedAt: '2026-04-22T23:00:00+08:00'
                       viewCount: 128
                       likeCount: 35
+                      commentCount: 6
                       category:
                         id: 21001
                         name: Java
@@ -1830,7 +1831,9 @@ paths:
       tags:
         - Admin Articles
       summary: 创建文章
-      description: 权限级别 `ADMIN`。创建新文章，仅允许直接保存为草稿或发布，不允许直接创建为下线状态。
+      description: |
+        权限级别 `ADMIN`。创建新文章，仅允许直接保存为草稿或发布，不允许直接创建为下线状态。
+        管理员允许选择禁用分类和标签；仍校验分类与父分类存在、层级正确及标签存在。分类或父分类禁用时即使发布也不在前台展示，禁用标签不在前台展示。
       operationId: createAdminArticle
       security:
         - bearerAuth: []
@@ -1926,7 +1929,9 @@ paths:
       tags:
         - Admin Articles
       summary: 更新文章
-      description: 权限级别 `ADMIN`。从未发布过的文章可保持草稿或发布；已发布过的文章仅允许在已发布与已下线之间流转，不允许回退为草稿。
+      description: |
+        权限级别 `ADMIN`。从未发布过的文章可保持草稿或发布；已发布过的文章仅允许在已发布与已下线之间流转，不允许回退为草稿。
+        管理员允许保留或选择禁用分类和标签，不自动清除关联；仍校验资源存在、二级分类及父分类层级、操作权限和状态流转。前台可见性规则不变。
       operationId: updateAdminArticle
       security:
         - bearerAuth: []
@@ -3308,6 +3313,7 @@ components:
           $ref: '#/components/schemas/CategoryParentRef'
     SimpleAuthor:
       type: object
+      description: 文章作者公开信息，role 为当前角色，用于管理员头像徽章；已注销账号不展示徽章。
       required:
         - id
         - username
@@ -3315,6 +3321,7 @@ components:
         - avatarUrl
         - bio
         - deleted
+        - role
       properties:
         id:
           type: integer
@@ -3335,6 +3342,9 @@ components:
         deleted:
           type: boolean
           example: false
+        role:
+          type: string
+          enum: [ADMIN, USER]
     LoginUserInfo:
       type: object
       required:
@@ -3540,6 +3550,7 @@ components:
         - publishedAt
         - viewCount
         - likeCount
+        - commentCount
         - category
         - tags
       properties:
@@ -3579,6 +3590,11 @@ components:
           type: integer
           description: 文章点赞总数
           example: 35
+        commentCount:
+          type: integer
+          minimum: 0
+          description: 公开评论及回复总数，直接读取文章 comment_count
+          example: 6
         category:
           $ref: '#/components/schemas/SimpleCategory'
         tags:
@@ -3811,6 +3827,7 @@ components:
                 $ref: '#/components/schemas/PublicTagItem'
     PublicUserProfile:
       type: object
+      description: 用户公开资料，role 为当前角色，用于管理员头像徽章；已注销账号不展示徽章。
       required:
         - id
         - username
@@ -3818,6 +3835,7 @@ components:
         - avatarUrl
         - bio
         - deleted
+        - role
       properties:
         id:
           type: integer
@@ -3839,6 +3857,9 @@ components:
           type: boolean
           description: 账号是否已注销
           example: false
+        role:
+          type: string
+          enum: [ADMIN, USER]
     PublicUserProfileResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
@@ -4823,7 +4844,7 @@ components:
               $ref: '#/components/schemas/TagUpdateData'
     CommentAuthor:
       type: object
-      required: [id, username, nickname, avatarUrl, deleted]
+      required: [id, username, nickname, avatarUrl, deleted, role]
       properties:
         id:
           type: integer
@@ -4837,6 +4858,9 @@ components:
         deleted:
           type: boolean
           example: false
+        role:
+          type: string
+          enum: [ADMIN, USER]
     CommentStatus:
       type: string
       enum: [PENDING, APPROVED, REJECTED, HIDDEN, DELETED]
@@ -5245,7 +5269,7 @@ components:
       enum: [TOP_LEVEL, REPLY]
     MessageAuthor:
       type: object
-      required: [id, username, nickname, avatarUrl, deleted]
+      required: [id, username, nickname, avatarUrl, deleted, role]
       properties:
         id:
           type: integer
@@ -5260,6 +5284,9 @@ components:
         deleted:
           type: boolean
           example: false
+        role:
+          type: string
+          enum: [ADMIN, USER]
     MessageReply:
       type: object
       required: [id, parentId, content, status, author, createdAt]

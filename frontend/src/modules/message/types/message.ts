@@ -1,4 +1,5 @@
 import type { ApiResult, PageResult } from '@/types/api';
+import type { UserRole } from '@/modules/user/types/user';
 
 export const MESSAGE_STATUS = {
 	PENDING: 'PENDING',
@@ -16,6 +17,7 @@ export interface MessageAuthor {
 	nickname: string;
 	avatarUrl: string | null;
 	deleted?: boolean;
+	role: UserRole;
 }
 
 export interface MessageReply {

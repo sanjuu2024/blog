@@ -60,6 +60,7 @@ describe('useArticleList', () => {
 							publishedAt: '2026-05-01T10:00:00+08:00',
 							viewCount: 0,
 							likeCount: 0,
+							commentCount: 0,
 							category: {
 								id: 21001,
 								name: 'Java',

@@ -4,6 +4,7 @@
 			:article="article"
 			:is-loading="isLoading"
 			:error-message="errorMessage"
+			:updating-like="updatingLike"
 			@toggle-like="toggleArticleLike"
 		/>
 
@@ -26,7 +27,7 @@ import { useRoute } from 'vue-router';
 
 const route = useRoute();
 
-const { article, isLoading, errorMessage, getArticleDetail, toggleArticleLike } =
+const { article, isLoading, errorMessage, updatingLike, getArticleDetail, toggleArticleLike } =
 	useArticleDetail();
 
 defineOptions({
