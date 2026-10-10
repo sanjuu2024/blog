@@ -1,5 +1,8 @@
 <template>
-	<div class="article-detail">
+	<div
+		ref="pageRef"
+		class="article-detail"
+	>
 		<ArticleContent
 			:article="article"
 			:is-loading="isLoading"
@@ -12,6 +15,7 @@
 			v-if="article"
 			:article="article"
 			@comment-count-change="changeCommentCount"
+			@reply-located="locate"
 		/>
 
 		<AppBacktop />
@@ -19,13 +23,16 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, watch } from 'vue';
+import { nextTick, ref, watch } from 'vue';
 import ArticleContent from '../components/ArticleContent.vue';
 import PublicCommentSection from '@/modules/comment/components/PublicCommentSection.vue';
 import { useArticleDetail } from '../composables/useArticleDetail';
 import { useRoute } from 'vue-router';
+import { useArticleCommentAnchor } from '../composables/useArticleCommentAnchor';
 
 const route = useRoute();
+const pageRef = ref<HTMLElement | null>(null);
+const { locate, stop } = useArticleCommentAnchor(pageRef);
 
 const { article, isLoading, errorMessage, updatingLike, getArticleDetail, toggleArticleLike } =
 	useArticleDetail();
@@ -46,11 +53,20 @@ watch(
 );
 
 watch(
-	[() => route.hash, () => article.value?.id],
-	async ([hash, articleId]) => {
-		if (hash !== '#article-comments' || !articleId) return;
+	[() => route.fullPath, () => article.value?.id],
+	async (_, __, onCleanup) => {
+		stop();
+		let cancelled = false;
+		onCleanup(() => {
+			cancelled = true;
+			stop();
+		});
+		// 回复通知由评论区报告实际目标，避免先滚动到开头再抢走回复定位。
+		if (route.hash !== '#article-comments' || !article.value || route.query.replyId) return;
 		await nextTick();
-		document.getElementById('article-comments')?.scrollIntoView({ block: 'start' });
+		if (cancelled) return;
+		const comments = pageRef.value?.querySelector<HTMLElement>('#article-comments');
+		if (comments) locate(comments);
 	},
 	{ flush: 'post' },
 );

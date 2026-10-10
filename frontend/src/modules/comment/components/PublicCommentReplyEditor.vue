@@ -10,6 +10,7 @@
 			<span v-show="emailVerified === false">（邮箱未验证）</span>
 		</el-checkbox>
 		<el-input
+			ref="inputRef"
 			v-model.trim="content"
 			type="textarea"
 			:rows="3"
@@ -31,6 +32,9 @@
 </template>
 
 <script setup lang="ts">
+import { nextTick, onMounted, ref } from 'vue';
+import type { InputInstance } from 'element-plus';
+
 defineOptions({
 	name: 'PublicCommentReplyEditor',
 });
@@ -38,11 +42,20 @@ defineOptions({
 const content = defineModel<string>({ required: true });
 const notifyOnReply = defineModel<boolean>('notifyOnReply', { default: false });
 
-const { emailVerified } = defineProps<{
+const { emailVerified, autofocus = false } = defineProps<{
 	targetName: string;
 	loading: boolean;
 	emailVerified?: boolean;
+	autofocus?: boolean;
 }>();
+
+const inputRef = ref<InputInstance>();
+onMounted(async () => {
+	if (!autofocus) return;
+	await nextTick();
+	// 焦点只在编辑器首次渲染时设置；滚动由文章定位逻辑处理，避免两者抢位置。
+	inputRef.value?.textarea?.focus({ preventScroll: true });
+});
 
 const emit = defineEmits<{
 	cancel: [];
