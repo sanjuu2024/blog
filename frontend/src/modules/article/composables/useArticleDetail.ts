@@ -3,6 +3,8 @@ import type { PublicArticleDetailData } from '../types/article';
 import { getArticleDetails, likeArticle, unlikeArticle } from '../api/articleApi';
 import { isAxiosError } from 'axios';
 import type { ApiResult } from '@/types/api';
+import { applyPageSeo, resetPageSeo } from '@/modules/seo/utils/pageSeo';
+import { onScopeDispose, getCurrentScope } from 'vue';
 
 export function useArticleDetail() {
 	// 文章详情
@@ -14,15 +16,23 @@ export function useArticleDetail() {
 	// 文章详情请求失败的错误信息
 	const errorMessage = ref('');
 	const updatingLike = ref(false);
+	let requestVersion = 0;
+	// 离开文章页后失效未完成请求，防止旧文章标签覆盖新页面。
+	if (getCurrentScope()) {
+		onScopeDispose(() => requestVersion++);
+	}
 
 	// 发送 获取文章详情 请求
 	async function getArticleDetail(articleId: string | string[] | number) {
+		const version = ++requestVersion;
 		const rawId = Array.isArray(articleId) ? articleId[0] : articleId;
 		const id = Number(rawId);
 
 		if (!Number.isSafeInteger(id) || id <= 0) {
 			article.value = null;
 			errorMessage.value = '文章 ID 不合法';
+			resetPageSeo(`文章 ID 不合法 - ${import.meta.env.VITE_APP_TITLE || '青禾边'}`);
+			isLoading.value = false;
 			ElMessage.error('文章 ID 不合法');
 			return;
 		}
@@ -32,8 +42,13 @@ export function useArticleDetail() {
 		errorMessage.value = '';
 
 		try {
-			article.value = await getArticleDetails(id);
+			const result = await getArticleDetails(id);
+			// 快速跨文章导航时仅应用当前详情及 SEO，不再发送独立元信息请求。
+			if (version !== requestVersion) return;
+			article.value = result;
+			applyPageSeo(result.seo);
 		} catch (err) {
+			if (version !== requestVersion) return;
 			if (isAxiosError<ApiResult>(err) && err.response?.status === 404) {
 				errorMessage.value = '文章不存在';
 			} else if (isAxiosError(err) && err.request && !err.response) {
@@ -41,8 +56,9 @@ export function useArticleDetail() {
 			} else {
 				errorMessage.value = '文章加载失败，请稍后重试';
 			}
+			resetPageSeo(`${errorMessage.value} - ${import.meta.env.VITE_APP_TITLE || '青禾边'}`);
 		} finally {
-			isLoading.value = false;
+			if (version === requestVersion) isLoading.value = false;
 		}
 	}
 

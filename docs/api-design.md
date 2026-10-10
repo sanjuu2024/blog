@@ -670,7 +670,8 @@ GET /api/v1/articles?pageNum=1&pageSize=4&sort=LATEST
 - 路径：`/api/v1/articles/{articleId}`
 - 权限：`PUBLIC`
 
-说明：P0 阶段文章详情接口和前台文章详情页均以 `articleId` 作为稳定定位标识。`slug` 仅作为 P2 URL 可读化与 SEO 优化预留，后续可扩展为类似 `/articles/{articleId}-{slug}` 的前台展示 URL。
+说明：文章详情接口和前台文章详情页均以 `articleId` 作为稳定定位标识；前台规范 URL 保持 `/articles/{articleId}`。
+公开文章详情响应增加必填 `seo` 对象，结构见 16.9 节，使用本次已查询的文章生成。
 
 文章详情返回的 `tags` 仅包含当前启用且仍存在的关联标签；历史关联的禁用标签或已被删除的标签不返回，不影响文章详情本身展示。
 
@@ -726,6 +727,7 @@ GET /api/v1/articles/40001
 | `author.nickname` | `String` | 作者昵称 | `sanjuu` |
 | `author.avatarUrl` | `String` | 作者头像地址 | `https://cdn.example.com/avatar/1.png` |
 | `author.bio` | `String` | 作者个人简介 | `专注后端和前端工程化` |
+| `seo` | `Object` | 与首屏 HTML 同源的 SEO 元信息，前端直接复用，结构见 16.9 节 | `{ "type": "article", "canonicalUrl": "https://blog.example.com/articles/40001", ... }` |
 
 ### 响应样例
 
@@ -738,6 +740,15 @@ GET /api/v1/articles/40001
     "title": "Spring Boot 双 Token 登录实践",
     "summary": "本文记录双 Token 的实现思路与接口设计",
     "contentHtml": "<h1>一、背景</h1><p>这里是文章正文</p>",
+    "seo": {
+      "title": "Spring Boot 双 Token 登录实践 - 青禾边",
+      "description": "本文记录双 Token 的实现思路与接口设计",
+      "canonicalUrl": "https://blog.example.com/articles/40001",
+      "imageUrl": "https://cdn.example.com/cover/token.png",
+      "type": "article",
+      "publishedAt": "2026-04-22T23:00:00+08:00",
+      "updatedAt": "2026-04-22T23:10:00+08:00"
+    },
     "coverUrl": "https://cdn.example.com/cover/token.png",
     "isTop": true,
     "allowComment": true,
@@ -2508,7 +2519,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 后台有目标用户时优先展示昵称、用户名和 ID，不重复展示原始账号；操作者仅在 `actorId` 有值时展示。无目标用户但有 `account` 时展示账号，验证码事件展示邮箱；两者均无时显示“未关联用户”。登录失败原因沿用事件描述，不根据账号值猜测其是否存在。
 - `browser`、`operatingSystem`、`device` 为 User-Agent 的可读解析结果；历史记录没有原始字段时返回 null，后台显示“未记录”。原始 User-Agent 可完整查看。
 - `userId` 为可信关联的目标用户；`actorId` 仅为管理员操作其他用户时的操作者，自身操作为空。刷新失败区分缺失、格式/签名错误、过期、类型或声明错误、会话不存在、已撤销、会话过期和摘要不匹配；仅签名可信且为 Refresh Token 时关联用户 ID，公开错误码不变。
-- 安全事件只允许追加和查询，不提供修改、删除或导出接口；不得保存密码、验证码、Token、Authorization、Cookie、TOTP 密钥、恢复码、SMTP/OSS 密钥、完整请求/响应正文或异常堆栈。
+- 安全事件只允许追加和查询，不提供修改、删除或导出接口；不得保存密码、验证码、Token、Authorization、Cookie、SMTP/OSS 密钥、完整请求/响应正文或异常堆栈。
 
 ## 13. 图片上传接口
 
@@ -2614,7 +2625,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 前台文章列表通过 `tagIds` 筛选时，传入标签必须存在且启用；不存在返回 `ARTICLE_TAG_NOT_FOUND`，禁用返回 `ARTICLE_TAG_DISABLED`
 - 前台文章列表通过 `categoryId` 筛选时，传入分类必须存在且启用；不存在返回 `ARTICLE_CATEGORY_NOT_FOUND`，禁用返回 `ARTICLE_CATEGORY_DISABLED`
 - 前台文章列表和详情要求文章所属二级分类及其父分类均存在且启用；分类不存在或禁用时，文章对前台不可见
-- P0 文章详情以 `articleId` 定位；P2 使用 `/articles/{articleId}-{slug}` 提升可读性与 SEO 表达，后端仍以 ID 稳定定位
+- 文章详情以 `articleId` 定位，前台规范 URL 保持 `/articles/{articleId}`
 - 文章从 `PUBLISHED` 修改为 `OFFLINE` 后，前台立即不可见
 
 ### 14.3 分类和标签相关
@@ -2650,7 +2661,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 审计日志只允许追加和查询；成功日志与业务操作同事务提交，失败日志在业务事务回滚后以独立事务提交
 - 审计日志不记录请求体、查询参数、密码、Token、邮箱、评论或留言正文、文件原名等敏感值
 - P2 站点页面保存、管理员消息创建与状态变更、公告留言发布、邮件投递手动重试必须写入后台审计日志
-- 邮箱验证码、TOTP 启停、TOTP 登录挑战和恢复码使用写入脱敏安全日志，不记录验证码、secret、恢复码或完整邮箱
+- 邮箱验证码发送和校验结果写入安全日志，不记录验证码或密钥；后台安全事件的账号字段允许记录完整邮箱
 
 ## 15. 后续版本预留接口
 
@@ -2784,23 +2795,39 @@ Dashboard 不再接收全局 `range` 参数。接口一次返回六个指标的�
 游客发表留言时请求增加 `turnstileToken`；后端先原子预占现有 Redis/IP 限流额度，再向 Cloudflare 验证。验证失败时事务回滚并归还本次预占额度。
 登录用户留言和评论暂不要求 Turnstile。验证失败使用统一业务错误，不返回 Cloudflare 原始响应；Cloudflare 服务不可用时返回 503。token 只用于本次请求，不落库、不写日志。
 
-### 16.9 管理员 TOTP 2FA
+### 16.9 SEO
 
-| 方法 | 路径 | 权限 | 说明 |
-| --- | --- | --- | --- |
-| `POST` | `/api/v1/users/me/totp/setup` | `ADMIN` | 生成待确认 TOTP secret 和二维码数据 |
-| `POST` | `/api/v1/users/me/totp/confirm` | `ADMIN` | 校验首个验证码并启用，返回一次性恢复码 |
-| `DELETE` | `/api/v1/users/me/totp` | `ADMIN` | 校验密码与 TOTP 后停用 |
-| `POST` | `/api/v1/auth/login/totp` | `PUBLIC` | 完成管理员登录的第二步验证 |
-
-管理员第一步密码验证成功后不得直接签发完整登录态，而是返回短期、单用途 challenge。TOTP secret
-加密存储；启用时一次性返回 10 个恢复码，恢复码只保存强哈希、展示一次、使用后失效。相关操作写入安全日志，不记录 secret、
-TOTP 验证码或恢复码。
-
-### 16.10 SEO
-
-- 前台文章路由采用 `/articles/{articleId}-{slug}`，服务端仍以 ID 为稳定定位；slug 不一致时重定向到规范 URL
+- 前台文章规范 URL 为 `/articles/{articleId}`；canonical 不包含评论定位等 query 或 hash
 - 每篇公开文章输出 canonical、Open Graph 标题/摘要/封面和绝对 URL
 - `sitemap.xml` 只包含公开页面与已发布文章；`robots.txt` 禁止抓取后台、登录、注册和个人中心
-- slug 由标题生成并允许管理员调整，要求非空值唯一；历史文章迁移时生成稳定 slug
-- 现有客户端 SPA 仅在浏览器运行后修改 meta，不能满足多数搜索和社交抓取器；实现前必须选定 SSR、预渲染或后端动态 HTML shell，不能只增加前端路由 meta
+- 首次 HTML 直接包含 SEO 标签，分享抓取器无需执行 JavaScript 即可读取标题、摘要和封面；正文仍由 Vue 渲染，其抓取依赖爬虫执行 JavaScript，不提供 SSR 或水合
+
+采用后端动态注入 HTML head，保留空的 Vue 挂载容器与原有资源标签，不生成正文、文章列表或导航布局。
+公开 HTML 与 SEO 元信息读取无需登录，不返回用户专属状态，也不记录有效浏览。
+
+| 方法 | 路径 | 响应 | 说明 |
+| --- | --- | --- | --- |
+| `GET` | `/`、`/articles`、`/about`、`/messages` | `text/html` | 前端入口 HTML 与页面元信息，正文由 Vue 渲染 |
+| `GET` | `/articles/{articleId}` | `text/html` | head 包含文章标题、摘要、canonical 和 OG，正文由 Vue 渲染；不存在、不可见或分类不可用时 HTTP 404 |
+| `GET` | `/sitemap.xml` | `application/xml` | 公开页面与公开可见文章的规范地址及文章更新时间 |
+| `GET` | `/robots.txt` | `text/plain` | 排除后台、认证及个人中心；API 默认禁止，公开渲染数据 API 提供 Allow 例外，并声明 sitemap |
+| `GET` | `/api/v1/seo?path=...` | 通用 JSON 响应 | 非文章公开页面内部导航时按需获取元信息；保留文章路径读取能力，但文章页复用详情响应的 seo；非规范文章 ID 或未知页面返回 404 |
+
+SEO JSON 的 data 为 `{title, description, canonicalUrl, imageUrl, type, publishedAt, updatedAt}`。
+`type` 为 `website` 或 `article`，图片和事件时间可为 null；无封面时不伪造 OG 图片。
+标题、描述和地址由后端统一生成，canonical 不含 query/hash，封面只接受 HTTP(S) 绝对地址或站内相对地址。
+HTML、元信息和 sitemap 使用 `Cache-Control: no-store`，避免下线内容继续从缓存公开。
+无需单独请求 SEO JSON 即可从首屏 HTML 抓取标签。首次导航匹配后端 canonical 路径时保留已有标签；
+文章详情中的 `seo` 与首屏使用同一套生成逻辑，详情成功后同步标签，失败时清理并设置 noindex。
+普通公开页面首次已有标签时不重复请求，后续内部导航按需请求；文章切换只发详情请求，过滤过期结果。
+query/hash 不触发标签清理或重复 SEO 请求；离开公开页面后清理并设置 noindex。
+HTML 模板不可读取时返回 HTTP 503，不降级为缺少前端资源的伪成功页面。
+
+`BLOG_SITE_URL` 是唯一的站点地址来源，要求 HTTP(S) origin，不含路径、查询、账号密码或片段。
+默认本地值为 `http://localhost:5173`，生产必须显式设置；站点名称复用站点级 `BLOG_APP_NAME`。
+
+robots 保留 `Disallow: /api/`，允许 `/api/v1/articles`、`/api/v1/comments/`、`/api/v1/categories`、
+`/api/v1/tags`、`/api/v1/about`、`/api/v1/messages`、`/api/v1/seo` 和 `/api/v1/users/*/public-profile`，
+确保执行 JavaScript 的爬虫能读取公开页面数据。robots 不区分 HTTP 方法，不改变现有权限或写入限制。
+生产 Nginx 的通用 `/api/` 和独立 `/api/v1/messages` location 均添加 `X-Robots-Tag: noindex`，
+防止公开 JSON 本身进入搜索结果；不向公开 HTML、sitemap 或 robots 添加该响应头。

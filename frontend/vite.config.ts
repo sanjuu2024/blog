@@ -8,12 +8,14 @@ import Components from 'unplugin-vue-components/vite';
 import { ElementPlusResolver } from 'unplugin-vue-components/resolvers';
 import Icons from 'unplugin-icons/vite';
 import IconsResolver from 'unplugin-icons/resolver';
+import { seoPlugin } from './plugins/seoPlugin';
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd());
 	return {
 		plugins: [
+			seoPlugin(env.VITE_SERVER || 'http://localhost:8080'),
 			vue(),
 			tailwindcss(),
 			// 1. 自动导入 vue 等库的 API 和 Element Plus 函数

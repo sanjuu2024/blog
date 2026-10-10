@@ -409,18 +409,15 @@ P2 功能、自动化测试和全量验收稳定后再锁定正式服务器变�
 - 至少监控 HTTPS 可用性、容器停止、磁盘阈值、备份失败和邮件持续失败，并配置外部告警渠道
 - Prometheus + Grafana 作为上线后迭代，不阻塞首次上线；上线前不得完全依赖人工查看日志
 
-P2 管理员启用 TOTP 后，应将一次性恢复码离线保存到受保护位置；服务器端只保存恢复码哈希。
-
 P2 上线新增配置至少包括：
 
 ```text
 BLOG_TURNSTILE_SECRET_KEY
 VITE_TURNSTILE_SITE_KEY
-BLOG_TOTP_ENCRYPTION_KEY
 BLOG_VISITOR_COOKIE_SECURE=true
 ```
 
-Turnstile site key 可以进入前端构建配置，secret key 和 TOTP 加密密钥必须使用 Secret 注入。
+Turnstile site key 可以进入前端构建配置，secret key 必须使用 Secret 注入。
 本地 `dev` profile 默认使用 Cloudflare 官方测试密钥；测试验证响应不携带 action，因此开发环境默认不校验 hostname 和 action，`prod` profile 则强制配置并校验两者。
 匿名访客 Cookie 在生产环境必须启用 `Secure`、`HttpOnly`、`SameSite=Lax`，并使用根路径 `/`。
 
@@ -432,6 +429,22 @@ Turnstile site key 可以进入前端构建配置，secret key 和 TOTP 加密�
 - 实现友链管理
 
 ## 10. 发布前检查清单
+
+SEO 使用站点级 `BLOG_SITE_URL`（例如 `https://blog.example.com`），在根目录环境文件维护一份，
+Compose 显式传入后端。前端无需另配域名；本地直接启动 Spring Boot 时，在 IDE/启动环境中设置该变量，
+Spring Boot 不自动读取根目录 `.env`。站点名由 `BLOG_APP_NAME` 提供。
+
+后端 `BLOG_SEO_HTML_TEMPLATE` 指定入口模板，开发默认为 `file:../frontend/index.html`。
+生产 nginx 容器启动时将本次构建的 `index.html` 原子写入共享模板卷，后端只读挂载并按请求读取，
+JS/CSS 静态资源仍由 nginx 提供；前端部署须保留上一版本带哈希的静态资源直到旧页面请求结束。
+nginx 将公开页面、文章详情、`/sitemap.xml` 和 `/robots.txt` 转发后端，不按 User-Agent 区分爬虫。
+后端仅注入 HTML head 元信息，不生成正文；文章内容由 Vue 渲染。部署后检查页面源代码可见 canonical/OG，
+Vue 页面只请求一次文章详情且不会先展示另一套文章布局。
+模板尚未就绪时公开 HTML 返回 503；发布后检查模板与资源属于同一次前端构建。
+robots 允许爬虫读取 Vue 公开渲染所需的 API；Nginx 在通用 API 和独立留言接口 location
+统一返回 `X-Robots-Tag: noindex`，JSON 可加载但不单独收录，公开 HTML 不加此头。
+根目录 `.gitattributes` 将 `frontend/docker/40-share-seo-template.sh` 固定为 LF，
+确保 Windows checkout 后复制到 Linux 镜像的启动脚本仍可执行。
 
 - 已完成数据库备份。
 - Flyway migration 可正常执行。

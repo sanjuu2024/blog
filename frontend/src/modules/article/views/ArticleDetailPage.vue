@@ -45,15 +45,6 @@ watch(
 );
 
 watch(
-	() => article.value?.title,
-	(title) => {
-		if (title) {
-			document.title = `${title} - ${import.meta.env.VITE_APP_TITLE}`;
-		}
-	},
-);
-
-watch(
 	[() => route.hash, () => article.value?.id],
 	async ([hash, articleId]) => {
 		if (hash !== '#article-comments' || !articleId) return;

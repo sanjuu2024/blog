@@ -26,6 +26,9 @@ import com.ccsanjuu.blog.modules.article.model.vo.AdminArticleDetailVO;
 import com.ccsanjuu.blog.modules.article.model.vo.AdminArticleListItemVO;
 import com.ccsanjuu.blog.modules.article.model.vo.CreatedArticleVO;
 import com.ccsanjuu.blog.modules.article.model.vo.PublicArticleDetailVO;
+import com.ccsanjuu.blog.modules.seo.support.SeoMetadataFactory;
+import com.ccsanjuu.blog.properties.BlogProperties;
+import java.net.URI;
 import com.ccsanjuu.blog.modules.article.model.vo.PublicArticleListItemVO;
 import com.ccsanjuu.blog.modules.article.model.vo.UpdatedArticleStatusVO;
 import com.ccsanjuu.blog.modules.article.model.vo.UpdatedArticleVO;
@@ -124,6 +127,8 @@ class ArticleServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        BlogProperties blogProperties = new BlogProperties();
+        blogProperties.setSiteUrl(URI.create("https://blog.example.com"));
         articleService = new ArticleServiceImpl(
                 articleTagMapper,
                 articleContentRenderer,
@@ -133,7 +138,8 @@ class ArticleServiceImplTest {
                 userMapper,
                 articleViewService,
                 articleLikeService,
-                articleLikeMapper
+                articleLikeMapper,
+                new SeoMetadataFactory(blogProperties)
         );
         ReflectionTestUtils.setField(articleService, "baseMapper", articleMapper);
         ReflectionTestUtils.setField(articleService, "entityClass", Article.class);
@@ -665,6 +671,10 @@ class ArticleServiceImplTest {
         assertEquals(USER_ID, result.getAuthor().getId());
         assertEquals("ccsanjuu", result.getAuthor().getUsername());
         assertEquals(129, result.getViewCount());
+        assertEquals("https://blog.example.com/articles/" + ARTICLE_ID, result.getSeo().getCanonicalUrl());
+        assertEquals("article", result.getSeo().getType());
+        assertEquals(PUBLISHED_AT, result.getSeo().getPublishedAt());
+        verify(articleMapper).selectById(ARTICLE_ID);
     }
 
     @Test

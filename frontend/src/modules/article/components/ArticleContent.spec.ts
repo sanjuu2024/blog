@@ -58,6 +58,15 @@ const AppUserAvatarStub = defineComponent({
 
 function article(): PublicArticleDetailData {
 	return {
+		seo: {
+			title: '测试文章 - 青禾边',
+			description: '文章摘要',
+			canonicalUrl: 'https://blog.example.com/articles/40001',
+			imageUrl: null,
+			type: 'article',
+			publishedAt: null,
+			updatedAt: null,
+		},
 		id: 40001,
 		title: '测试文章',
 		summary: '文章摘要',

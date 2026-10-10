@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import com.ccsanjuu.blog.modules.seo.model.vo.SeoMetadataVO;
 
 @Data
 @Builder
@@ -45,4 +46,6 @@ public class PublicArticleDetailVO {
     private List<ArticleTagVO> tags;
 
     private ArticleAuthorVO author;
+
+    private SeoMetadataVO seo;
 }
