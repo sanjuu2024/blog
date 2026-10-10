@@ -106,7 +106,12 @@
 					:aria-label="article.liked ? '取消文章点赞' : '点赞文章'"
 					:aria-pressed="article.liked"
 					:disabled="updatingLike"
-					@click.stop="emit('toggle-like')"
+					@click.stop="
+						(e) => {
+							triggerConfetti(e);
+							emit('toggle-like');
+						}
+					"
 				>
 					<component
 						:is="getRouteIcon('like')"
@@ -189,6 +194,7 @@ import PublicUserProfilePopover from '@/components/PublicUserProfilePopover.vue'
 import getRouteIcon from '@/utils/getRouteIcon';
 import ArticleCatalogSidebar from './ArticleCatalogSidebar.vue';
 import { useArticleCatalog } from '../composables/useArticleCatalog';
+import { useLikeConfetti } from '../composables/useLikeConfetti.ts';
 // 语法高亮渲染器
 import { highlightCodeUnder } from '@/utils/prism';
 import ArticleLikeButton from './ArticleLikeButton.vue';
@@ -199,6 +205,8 @@ import ArticleLikeButton from './ArticleLikeButton.vue';
 defineOptions({
 	name: 'ArticleContent',
 });
+
+const { triggerConfetti } = useLikeConfetti();
 
 const props = defineProps<{
 	article: PublicArticleDetailData | null;
