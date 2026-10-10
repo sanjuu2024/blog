@@ -89,12 +89,7 @@
 					<el-tree-select
 						v-model="upsertRequest.categoryId"
 						value-key="id"
-						:data="
-							categoryList.map((category) => ({
-								...category,
-								disabled: true,
-							}))
-						"
+						:data="categoryOptions"
 						:props="{
 							label: 'name',
 							disabled: 'disabled',
@@ -104,6 +99,12 @@
 						clearable
 						default-expand-all
 					/>
+					<p
+						v-if="selectedCategoryDisabled"
+						class="admin-article-visibility-warning"
+					>
+						该分类或父分类已禁用，文章发布后不会在前台显示。
+					</p>
 				</el-form-item>
 
 				<el-form-item
@@ -114,7 +115,7 @@
 					<AppTagCapsule
 						v-for="tagId in upsertRequest.tagIds"
 						:key="tagId"
-						:name="tagList.find((tag) => tag.id === tagId)?.name || '未知标签'"
+						:name="getTagLabel(tagId)"
 						class="admin-article-tag m-2"
 					/>
 					<el-button
@@ -124,6 +125,12 @@
 					>
 						选择标签
 					</el-button>
+					<p
+						v-if="hasDisabledSelectedTag"
+						class="admin-article-visibility-warning"
+					>
+						该标签不会在前台显示。
+					</p>
 				</el-form-item>
 
 				<el-form-item
@@ -211,6 +218,7 @@
 				type="primary"
 			>
 				{{ tag.name }}
+				<span v-if="tag.status === TAG_STATUS.DISABLED">（已禁用）</span>
 			</el-check-tag>
 			<div class="mt-4 flex justify-center">
 				<el-button
@@ -232,7 +240,7 @@
 
 <script setup lang="ts">
 import 'element-plus/es/components/message-box/style/css';
-import { ref, onMounted, toRaw } from 'vue';
+import { computed, ref, onMounted, toRaw } from 'vue';
 import { MdEditor, type UploadImgEvent } from 'md-editor-v3';
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { useAdminCategoryList } from '../../category/composables/useAdminCategoryList';
@@ -250,6 +258,8 @@ import { useAdminImageUpload } from '@/modules/admin/file/composables/useAdminIm
 import { ADMIN_IMAGE_UPLOAD_SCENE } from '@/modules/admin/file/types/adminFile';
 import { IMAGE_ACCEPT } from '@/modules/file/utils/image';
 import { isEqual } from 'lodash';
+import { CATEGORY_STATUS } from '@/modules/category/constants/category';
+import { TAG_STATUS } from '@/modules/tag/constants/tag';
 
 const route = useRoute();
 const router = useRouter();
@@ -268,6 +278,46 @@ const {
 	handleCreateArticle,
 	handleUpdateArticle,
 } = useAdminArticleForm();
+
+// 禁用状态只影响前台展示，后台仍可选二级分类；一级分类仅作为树分组。
+const categoryOptions = computed(() =>
+	categoryList.value.map((parent) => ({
+		...parent,
+		name: parent.name + (parent.status === CATEGORY_STATUS.DISABLED ? '（已禁用）' : ''),
+		disabled: true,
+		children: parent.children.map((child) => ({
+			...child,
+			name:
+				child.name +
+				(child.status === CATEGORY_STATUS.DISABLED ||
+				parent.status === CATEGORY_STATUS.DISABLED
+					? '（已禁用）'
+					: ''),
+		})),
+	})),
+);
+
+const selectedCategoryDisabled = computed(() =>
+	categoryList.value.some((parent) =>
+		parent.children.some(
+			(child) =>
+				child.id === upsertRequest.categoryId &&
+				(child.status === CATEGORY_STATUS.DISABLED ||
+					parent.status === CATEGORY_STATUS.DISABLED),
+		),
+	),
+);
+
+const hasDisabledSelectedTag = computed(() =>
+	tagList.value.some(
+		(tag) => tag.status === TAG_STATUS.DISABLED && upsertRequest.tagIds?.includes(tag.id),
+	),
+);
+
+function getTagLabel(tagId: number) {
+	const tag = tagList.value.find((item) => item.id === tagId);
+	return tag ? tag.name + (tag.status === TAG_STATUS.DISABLED ? '（已禁用）' : '') : '未知标签';
+}
 
 const { resolvedTheme } = useTheme();
 
@@ -465,6 +515,13 @@ async function clickUpsertArticle() {
 .admin-article-tag {
 	font-size: small;
 	font-weight: 450;
+}
+
+.admin-article-visibility-warning {
+	width: 100%;
+	margin-top: 0.5rem;
+	color: var(--el-color-warning);
+	font-size: 0.85rem;
 }
 
 .admin-article-check-tag {

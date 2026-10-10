@@ -83,6 +83,7 @@
 							:name="comment.author.nickname || comment.author.username"
 							:user-id="comment.author.id"
 							:deleted="comment.author.deleted"
+							:is-admin="comment.author.role === 'ADMIN'"
 							:size="36"
 							class="mr-3 shrink-0 self-start"
 						/>
@@ -204,6 +205,7 @@
 								v-for="reply in getReplyState(comment.id).records"
 								:key="reply.id"
 								class="reply-item"
+								:id="`comment-reply-${reply.id}`"
 								data-comment-entry
 							>
 								<PublicUserProfilePopover
@@ -216,6 +218,7 @@
 										:name="reply.author.nickname || reply.author.username"
 										:user-id="reply.author.id"
 										:deleted="reply.author.deleted"
+										:is-admin="reply.author.role === 'ADMIN'"
 										:size="36"
 										class="mr-3 shrink-0 self-start"
 									/>
@@ -314,6 +317,7 @@
 										v-if="isReplyEditorVisible(comment.id, reply.id)"
 										v-model="replyContentMap[comment.id]"
 										:target-name="replyTargetMap[comment.id]?.nickname || ''"
+										:autofocus="Number(route.query.replyId) === reply.id"
 										:email-verified="userStore.userInfo?.emailVerified"
 										v-model:notify-on-reply="notifyReplyMap[comment.id]"
 										:loading="submitting"
@@ -364,7 +368,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue';
+import { nextTick, reactive, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useRoute, useRouter } from 'vue-router';
 import { formatDateTime } from '@/utils/datetime';
@@ -394,6 +398,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
 	commentCountChange: [delta: number];
+	replyLocated: [target: HTMLElement];
 }>();
 
 const route = useRoute();
@@ -450,30 +455,44 @@ watch(
 	},
 );
 
+// 已定位的通知不因列表继续加载而重新打开编辑器或清空用户输入。
+let locatedReplyKey = '';
 watch(
-	[() => route.query.replyId, () => commentList.value.length],
-	async ([replyId]) => {
+	[() => route.query.replyId, () => props.article.id, () => commentList.value.length],
+	async ([replyId], _, onCleanup) => {
+		let cancelled = false;
+		onCleanup(() => (cancelled = true));
 		// 定位通知跳转的回复；未命中的评论必须收起，避免空回复列表占用间距。
 		const targetId = Number(replyId);
+		const key = `${props.article.id}:${targetId}`;
+		if (locatedReplyKey === key) return;
+		locatedReplyKey = '';
 		if (!targetId) return;
 		for (const comment of commentList.value) {
 			if (!comment.hasVisibleReplies && comment.replyCount === 0) continue;
 			const state = getReplyState(comment.id);
 			const wasExpanded = state.expanded;
 			if (!state.loaded) await getReplyList(comment.id, true);
+			if (cancelled) return;
 			let target = state.records.find((reply) => reply.id === targetId);
 			while (!target && state.hasNext && !state.loading) {
 				await getReplyList(comment.id);
+				if (cancelled) return;
 				target = state.records.find((reply) => reply.id === targetId);
 			}
 			if (!target) {
 				if (!wasExpanded) collapseReplies(comment.id);
 				continue;
 			}
-			openReplyEditor(comment, target.author, target.id);
-			document
-				.getElementById(`comment-content-${target.id}`)
-				?.scrollIntoView({ block: 'center' });
+			state.expanded = true;
+			if (canReply(target)) openReplyEditor(comment, target.author, target.id);
+			await nextTick();
+			if (cancelled) return;
+			const element = document.getElementById(`comment-reply-${target.id}`);
+			if (element) {
+				locatedReplyKey = key;
+				emit('replyLocated', element);
+			}
 			return;
 		}
 	},
@@ -693,6 +712,7 @@ function getCommentStatusTagType(status: CommentStatus) {
 
 <style scoped lang="scss">
 .article-comment-section {
+	scroll-margin-top: calc(var(--app-header-height) + 1rem);
 	max-width: var(--app-article-detail-width);
 	margin-inline: auto;
 	padding: 2rem 0 4rem;

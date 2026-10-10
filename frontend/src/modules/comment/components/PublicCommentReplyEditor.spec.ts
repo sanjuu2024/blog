@@ -1,6 +1,18 @@
-import { mount } from '@vue/test-utils';
-import { describe, expect, it } from 'vitest';
+import { mount, flushPromises } from '@vue/test-utils';
+import { defineComponent, ref } from 'vue';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import PublicCommentReplyEditor from './PublicCommentReplyEditor.vue';
+
+const ElInputStub = defineComponent({
+	setup(_, { expose }) {
+		const textarea = ref<HTMLTextAreaElement>();
+		expose({ textarea });
+		return { textarea };
+	},
+	template: '<textarea ref="textarea" />',
+});
+
+afterEach(() => vi.restoreAllMocks());
 
 describe('PublicCommentReplyEditor', () => {
 	it('updates content and emits cancel and submit events', async () => {
@@ -33,5 +45,22 @@ describe('PublicCommentReplyEditor', () => {
 		await buttons[1].trigger('click');
 		expect(wrapper.emitted('cancel')).toHaveLength(1);
 		expect(wrapper.emitted('submit')).toHaveLength(1);
+	});
+
+	it.each([true, false])('focuses only when autofocus is %s', async (autofocus) => {
+		const focus = vi.spyOn(HTMLTextAreaElement.prototype, 'focus');
+		const wrapper = mount(PublicCommentReplyEditor, {
+			props: { modelValue: '', targetName: '管理员', loading: false, autofocus },
+			global: { stubs: { ElInput: ElInputStub, ElButton: true, ElCheckbox: true } },
+		});
+		await flushPromises();
+		if (autofocus) {
+			expect(focus).toHaveBeenCalledExactlyOnceWith({ preventScroll: true });
+		} else {
+			expect(focus).not.toHaveBeenCalled();
+		}
+		await wrapper.setProps({ loading: true });
+		expect(focus).toHaveBeenCalledTimes(autofocus ? 1 : 0);
+		wrapper.unmount();
 	});
 });

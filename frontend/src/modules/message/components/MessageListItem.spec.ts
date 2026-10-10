@@ -76,6 +76,7 @@ describe('MessageListItem', () => {
 						username: 'reader',
 						nickname: '读者',
 						avatarUrl: null,
+						role: 'USER',
 					},
 				}),
 			},

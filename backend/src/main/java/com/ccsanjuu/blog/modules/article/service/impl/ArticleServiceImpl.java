@@ -668,19 +668,16 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         if (category == null) {
             throw new BizException(ResultCode.ARTICLE_CATEGORY_NOT_FOUND);
         }
-        if (category.getLevel() == 1){
+        if (category.getLevel() != 2){
             throw new BizException(ResultCode.ARTICLE_CATEGORY_LEVEL_INVALID);
-        }
-        if (category.getStatus() == CategoryStatus.DISABLED){
-            throw new BizException(ResultCode.ARTICLE_CATEGORY_DISABLED);
         }
 
         Category parentCategory = categoryMapper.selectById(category.getParentId());
         if (parentCategory == null) {
             throw new BizException(ResultCode.ARTICLE_CATEGORY_NOT_FOUND);
         }
-        if (parentCategory.getStatus() == CategoryStatus.DISABLED){
-            throw new BizException(ResultCode.ARTICLE_CATEGORY_DISABLED);
+        if (parentCategory.getLevel() != 1){
+            throw new BizException(ResultCode.ARTICLE_CATEGORY_LEVEL_INVALID);
         }
     }
 
@@ -763,13 +760,6 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         if (tags.isEmpty() || tags.size() != distinctTagIds.size()) {
             throw new BizException(ResultCode.ARTICLE_TAG_NOT_FOUND);
         }
-
-        // 未被禁用
-        tags.forEach(tag -> {
-           if (tag.getStatus() == TagStatus.DISABLED){
-               throw new BizException(ResultCode.ARTICLE_TAG_DISABLED);
-           }
-        });
 
         // 插入关联关系
         articleTagMapper.insertBatch(articleId, distinctTagIds);

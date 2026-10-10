@@ -39,6 +39,7 @@ const AUTHOR: CommentAuthor = {
 	username: 'alice',
 	nickname: 'Alice',
 	avatarUrl: '',
+	role: 'USER',
 };
 
 function topLevelComment(overrides: Partial<PublicCommentItem> = {}): PublicCommentItem {

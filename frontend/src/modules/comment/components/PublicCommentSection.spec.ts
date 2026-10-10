@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { nextTick, reactive, ref } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useRoute, useRouter } from 'vue-router';
@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useUserStore } from '@/stores/userStore';
 import PublicCommentSection from './PublicCommentSection.vue';
 import { usePublicCommentList } from '../composables/usePublicCommentList';
-import { COMMENT_STATUS, type PublicCommentItem } from '../types/comment';
+import { COMMENT_STATUS, type CommentReplyState, type PublicCommentItem } from '../types/comment';
 
 vi.mock('vue-router', async (importOriginal) => ({
 	...(await importOriginal<typeof import('vue-router')>()),
@@ -27,7 +27,7 @@ vi.mock('../composables/usePublicCommentList', () => ({
 }));
 
 const commentList = ref<PublicCommentItem[]>([]);
-const replyState = reactive({
+const replyState = reactive<CommentReplyState>({
 	records: [],
 	nextCursor: null,
 	hasNext: false,
@@ -73,6 +73,7 @@ function comment(): PublicCommentItem {
 			username: 'user',
 			nickname: '用户',
 			avatarUrl: '',
+			role: 'USER',
 		},
 		replyCount: 0,
 		hasVisibleReplies: false,
@@ -133,5 +134,63 @@ describe('PublicCommentSection', () => {
 
 		expect(getReplyList).not.toHaveBeenCalled();
 		expect(wrapper.find('.reply-list').exists()).toBe(false);
+		wrapper.unmount();
+	});
+
+	it.each([true, false])(
+		'locates a rendered reply with allowComment=%s',
+		async (allowComment) => {
+			vi.mocked(useAuthStore).mockReturnValue({
+				accessToken: 'token',
+				isLogin: true,
+			} as never);
+			const wrapper = mount(PublicCommentSection, {
+				attachTo: document.body,
+				props: { article: { id: 34, allowComment, commentCount: 2 } as never },
+				global: { stubs },
+			});
+			replyState.records = [
+				{ ...comment(), id: 51, parentId: 1, rootId: 1, replyToUser: null },
+			];
+			commentList.value = [{ ...comment(), replyCount: 1, hasVisibleReplies: true }];
+			await flushPromises();
+			const target = wrapper.get('#comment-reply-51').element;
+			expect(wrapper.emitted('replyLocated')?.[0]).toEqual([target]);
+			expect(wrapper.find('public-comment-reply-editor-stub').exists()).toBe(allowComment);
+			if (allowComment) {
+				expect(
+					wrapper.get('public-comment-reply-editor-stub').attributes('autofocus'),
+				).toBe('true');
+			}
+			commentList.value = [...commentList.value, { ...comment(), id: 2 }];
+			await flushPromises();
+			expect(wrapper.emitted('replyLocated')).toHaveLength(1);
+			wrapper.unmount();
+		},
+	);
+
+	it('discards a notification lookup after its route changes', async () => {
+		let resolveLookup!: () => void;
+		getReplyList.mockImplementationOnce(
+			() =>
+				new Promise<void>((resolve) => {
+					resolveLookup = resolve;
+				}),
+		);
+		const route = { query: reactive({ replyId: '51' }) };
+		vi.mocked(useRoute).mockReturnValue(route as never);
+		const wrapper = mount(PublicCommentSection, {
+			props: { article: { id: 34, allowComment: true, commentCount: 2 } as never },
+			global: { stubs },
+		});
+		commentList.value = [{ ...comment(), replyCount: 1, hasVisibleReplies: true }];
+		await nextTick();
+		route.query.replyId = '';
+		await nextTick();
+		replyState.records = [{ ...comment(), id: 51, parentId: 1, rootId: 1, replyToUser: null }];
+		resolveLookup();
+		await flushPromises();
+		expect(wrapper.emitted('replyLocated')).toBeUndefined();
+		wrapper.unmount();
 	});
 });

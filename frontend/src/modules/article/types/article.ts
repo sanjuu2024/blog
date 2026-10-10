@@ -1,6 +1,7 @@
 import type { CATEGORY_LEVEL } from '@/modules/category/constants/category';
 import type { ApiResult, PageResult } from '@/types/api';
 import type { SeoMetadata } from '@/modules/seo/types/seo';
+import type { UserRole } from '@/modules/user/types/user';
 
 // 查询的条件参数
 export interface ArticleFilterForm {
@@ -53,6 +54,7 @@ export interface PublicArticleAuthor {
 	avatarUrl: string;
 	bio: string;
 	deleted?: boolean;
+	role: UserRole;
 }
 
 export interface PublicArticleListItem {
@@ -66,6 +68,7 @@ export interface PublicArticleListItem {
 	publishedAt: string;
 	viewCount: number;
 	likeCount: number;
+	commentCount: number;
 	category: PublicArticleCategory;
 	tags: PublicArticleTag[];
 }

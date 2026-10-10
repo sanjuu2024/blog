@@ -44,6 +44,8 @@ public class PublicArticleListItemVO {
 
     private Integer likeCount;
 
+    private Integer commentCount;
+
     private ArticleCategoryVO category;
 
     private List<ArticleTagVO> tags;

@@ -3,10 +3,12 @@
 		v-if="!disabled"
 		placement="top"
 		:width="280"
-		:trigger="['hover', 'focus', 'click']"
-		:show-after="200"
+		:trigger="['hover', 'focus']"
+		:show-after="100"
 		:hide-after="50"
 		@before-enter="loadProfile"
+		@after-enter="updateBioOverflow"
+		@hide="bioExpanded = false"
 	>
 		<!-- 使用 #reference 放置触发元素 -->
 		<template #reference>
@@ -50,6 +52,7 @@
 						:name="profile.nickname || profile.username"
 						:user-id="profile.id"
 						:deleted="profile.deleted"
+						:is-admin="profile.role === 'ADMIN'"
 						:size="48"
 					/>
 					<div class="public-user-profile-popover__identity">
@@ -65,10 +68,21 @@
 				</div>
 				<p
 					v-if="!profile.deleted"
+					ref="bioRef"
 					class="public-user-profile-popover__bio"
+					:class="{ 'public-user-profile-popover__bio--expanded': bioExpanded }"
 				>
 					{{ profile.bio?.trim() || '这个家伙很懒，什么也没有留下' }}
 				</p>
+				<button
+					v-if="!profile.deleted && bioOverflows"
+					type="button"
+					class="public-user-profile-popover__bio-toggle"
+					:aria-expanded="bioExpanded"
+					@click.stop="toggleBio"
+				>
+					{{ bioExpanded ? '收起' : '展开' }}
+				</button>
 			</template>
 		</div>
 	</el-popover>
@@ -81,7 +95,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { nextTick, ref, watch } from 'vue';
+import { useResizeObserver } from '@vueuse/core';
 import AppUserAvatar from './AppUserAvatar.vue';
 import { getPublicUserProfile } from '@/modules/user/api/userApi';
 import type { PublicUserProfileData } from '@/modules/user/types/user';
@@ -98,6 +113,35 @@ const props = defineProps<{
 const profile = ref<PublicUserProfileData | null>(null);
 const loading = ref(false);
 const loadFailed = ref(false);
+const bioRef = ref<HTMLElement | null>(null);
+const bioExpanded = ref(false);
+const bioOverflows = ref(false);
+const OVERFLOW_TOLERANCE_PX = 1;
+
+// 与个人中心一致，仅在真实溢出三行时提供操作；弹层显示后再测量，避免隐藏时的尺寸影响判断。
+function updateBioOverflow() {
+	if (!bioRef.value || bioExpanded.value) return;
+	bioOverflows.value =
+		bioRef.value.scrollHeight - bioRef.value.clientHeight > OVERFLOW_TOLERANCE_PX;
+}
+
+async function toggleBio() {
+	bioExpanded.value = !bioExpanded.value;
+	await nextTick();
+	if (!bioExpanded.value) updateBioOverflow();
+}
+
+useResizeObserver(bioRef, updateBioOverflow);
+
+watch(
+	() => profile.value?.bio,
+	async () => {
+		bioExpanded.value = false;
+		bioOverflows.value = false;
+		await nextTick();
+		updateBioOverflow();
+	},
+);
 
 // 首次打开时再获取资料，避免文章详情初始化时产生额外请求。
 // p.s. userId 可能在请求完成前变化，旧请求不得覆盖新用户的状态。
@@ -158,6 +202,9 @@ watch(
 
 .public-user-profile-popover__content {
 	min-height: 5rem;
+	max-height: min(24rem, calc(100dvh - 2rem));
+	overflow-y: auto;
+	overscroll-behavior: contain;
 }
 
 .public-user-profile-popover__state {
@@ -194,11 +241,38 @@ watch(
 }
 
 .public-user-profile-popover__bio {
+	display: -webkit-box;
+	overflow: hidden;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 3;
+	line-clamp: 3;
 	margin: 0.75rem 0 0;
 	color: var(--app-text-muted);
 	line-height: 1.6;
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
+}
+
+.public-user-profile-popover__bio--expanded {
+	display: block;
+	-webkit-line-clamp: unset;
+	line-clamp: unset;
+}
+
+.public-user-profile-popover__bio-toggle {
+	margin-top: 0.25rem;
+	border: 0;
+	background: transparent;
+	color: var(--app-main);
+	cursor: pointer;
+	font-size: 0.8rem;
+	font-weight: bold;
+	text-decoration: underline;
+}
+
+.public-user-profile-popover__bio-toggle:hover,
+.public-user-profile-popover__bio-toggle:focus-visible {
+	opacity: 0.8;
 }
 
 .public-user-profile-popover__deleted-name {

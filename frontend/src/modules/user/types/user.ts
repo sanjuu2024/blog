@@ -40,6 +40,7 @@ export interface PublicUserProfileData {
 	avatarUrl: string;
 	bio: string;
 	deleted?: boolean;
+	role: UserRole;
 }
 
 export type PublicUserProfileResponse = ApiResult<PublicUserProfileData>;

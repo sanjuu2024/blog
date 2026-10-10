@@ -44,7 +44,14 @@ function article(overrides: Partial<PublicArticleDetailData> = {}): PublicArticl
 			parent: { id: 20001, name: '技术' },
 		},
 		tags: [],
-		author: { id: 10001, username: 'admin', nickname: '管理员', avatarUrl: '', bio: '' },
+		author: {
+			id: 10001,
+			username: 'admin',
+			nickname: '管理员',
+			avatarUrl: '',
+			bio: '',
+			role: 'ADMIN',
+		},
 		...overrides,
 	};
 }
@@ -71,12 +78,14 @@ describe('useArticleDetail article likes', () => {
 
 		const firstClick = detail.toggleArticleLike();
 		const secondClick = detail.toggleArticleLike();
+		expect(detail.updatingLike.value).toBe(true);
 		expect(likeArticle).toHaveBeenCalledExactlyOnceWith(40001);
 		expect(detail.article.value?.liked).toBe(false);
 		expect(detail.article.value?.likeCount).toBe(2);
 
 		resolveLike({ liked: true, likeCount: 3 });
 		await Promise.all([firstClick, secondClick]);
+		expect(detail.updatingLike.value).toBe(false);
 		expect(detail.article.value?.liked).toBe(true);
 		expect(detail.article.value?.likeCount).toBe(3);
 	});

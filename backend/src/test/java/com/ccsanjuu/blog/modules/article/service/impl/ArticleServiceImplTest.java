@@ -263,14 +263,15 @@ class ArticleServiceImplTest {
     }
 
     @Test
-    void createArticleShouldRejectDisabledCategory() {
+    void createArticleShouldAllowDisabledCategory() {
+        mockSuccessfulArticleInsert();
         when(categoryMapper.selectById(CATEGORY_ID)).thenReturn(disabledChildCategory());
+        when(tagMapper.selectByIds(any())).thenReturn(List.of(enabledTag(TAG_ID)));
 
-        BizException exception = assertThrows(BizException.class,
-                () -> articleService.createArticle(USER_ID, validUpsertRequest(ArticleStatus.DRAFT)));
+        articleService.createArticle(USER_ID, validUpsertRequest(ArticleStatus.PUBLISHED));
 
-        assertEquals(ResultCode.ARTICLE_CATEGORY_DISABLED, exception.getResultCode());
-        verify(articleMapper, never()).insert(any(Article.class));
+        verify(articleMapper).insert(any(Article.class));
+        verify(articleTagMapper).insertBatch(ARTICLE_ID, List.of(TAG_ID));
     }
 
     @Test
@@ -326,15 +327,45 @@ class ArticleServiceImplTest {
     }
 
     @Test
-    void createArticleShouldRejectDisabledTag() {
+    void createArticleShouldAllowDisabledParentAndTag() {
         mockSuccessfulArticleInsert();
+        Category parent = enabledParentCategory();
+        parent.setStatus(CategoryStatus.DISABLED);
+        when(categoryMapper.selectById(PARENT_CATEGORY_ID)).thenReturn(parent);
         when(tagMapper.selectByIds(any())).thenReturn(List.of(disabledTag(TAG_ID)));
+
+        articleService.createArticle(USER_ID, validUpsertRequest(ArticleStatus.DRAFT));
+
+        verify(articleTagMapper).insertBatch(ARTICLE_ID, List.of(TAG_ID));
+    }
+
+    @Test
+    void updateArticleShouldRetainDisabledCategoryParentAndTag() {
+        when(articleMapper.selectById(ARTICLE_ID)).thenReturn(existingArticle(ArticleStatus.PUBLISHED, PUBLISHED_AT));
+        when(categoryMapper.selectById(CATEGORY_ID)).thenReturn(disabledChildCategory());
+        Category parent = enabledParentCategory();
+        parent.setStatus(CategoryStatus.DISABLED);
+        when(categoryMapper.selectById(PARENT_CATEGORY_ID)).thenReturn(parent);
+        when(articleContentRenderer.convertMarkdownToHtml(CONTENT_MD)).thenReturn(CONTENT_HTML);
+        when(articleContentRenderer.convertToText(CONTENT_MD)).thenReturn(CONTENT_TEXT);
+        when(tagMapper.selectByIds(any())).thenReturn(List.of(disabledTag(TAG_ID)));
+
+        articleService.updateArticle(ARTICLE_ID, USER_ID, validUpsertRequest(ArticleStatus.PUBLISHED));
+
+        verify(articleMapper).updateById(any(Article.class));
+        verify(articleTagMapper).insertBatch(ARTICLE_ID, List.of(TAG_ID));
+    }
+
+    @Test
+    void createArticleShouldStillRejectInvalidParentLevel() {
+        when(categoryMapper.selectById(CATEGORY_ID)).thenReturn(enabledChildCategory());
+        when(categoryMapper.selectById(PARENT_CATEGORY_ID)).thenReturn(enabledChildCategory());
 
         BizException exception = assertThrows(BizException.class,
                 () -> articleService.createArticle(USER_ID, validUpsertRequest(ArticleStatus.DRAFT)));
 
-        assertEquals(ResultCode.ARTICLE_TAG_DISABLED, exception.getResultCode());
-        verify(articleTagMapper, never()).insertBatch(any(), any());
+        assertEquals(ResultCode.ARTICLE_CATEGORY_LEVEL_INVALID, exception.getResultCode());
+        verify(articleMapper, never()).insert(any(Article.class));
     }
 
     @Test
@@ -504,7 +535,9 @@ class ArticleServiceImplTest {
             Page<Article> page = invocation.getArgument(0);
             queryWrapper.set(invocation.getArgument(1));
             page.setTotal(1);
-            page.setRecords(List.of(existingArticle(ArticleStatus.PUBLISHED, PUBLISHED_AT)));
+            Article listedArticle = existingArticle(ArticleStatus.PUBLISHED, PUBLISHED_AT);
+            listedArticle.setCommentCount(6);
+            page.setRecords(List.of(listedArticle));
             return page;
         });
         when(articleTagMapper.selectList(any())).thenReturn(articleTags, articleTags);
@@ -520,6 +553,7 @@ class ArticleServiceImplTest {
         assertEquals(1, result.getRecords().size());
         PublicArticleListItemVO item = result.getRecords().getFirst();
         assertEquals(ARTICLE_ID, item.getId());
+        assertEquals(6, item.getCommentCount());
         assertEquals(CATEGORY_ID, item.getCategory().getId());
         assertEquals(PARENT_CATEGORY_ID, item.getCategory().getParent().getId());
         assertEquals(1, item.getTags().size());
@@ -590,6 +624,7 @@ class ArticleServiceImplTest {
         searchArticle.setId(ARTICLE_ID);
         searchArticle.setTitle("Spring Boot notes");
         searchArticle.setSummary("A short summary");
+        searchArticle.setCommentCount(3);
         searchArticle.setCategoryId(CATEGORY_ID);
         searchArticle.setHighlightedTitle(
                 "Spring __BLOG_SEARCH_HIGHLIGHT_START__Boot__BLOG_SEARCH_HIGHLIGHT_END__ notes"
@@ -614,6 +649,7 @@ class ArticleServiceImplTest {
 
         PublicArticleListItemVO result = articleService.getPublicArticleList(query).getRecords().getFirst();
 
+        assertEquals(3, result.getCommentCount());
         assertEquals(
                 "Spring <mark class=\"article-search-highlight\">Boot</mark> notes",
                 result.getHighlightedTitle()

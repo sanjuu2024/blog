@@ -1,5 +1,6 @@
 package com.ccsanjuu.blog.modules.user.model.vo;
 
+import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -22,4 +23,6 @@ public class PublicUserProfileVO {
     private String bio;
 
     private Boolean deleted;
+
+    private UserRole role;
 }

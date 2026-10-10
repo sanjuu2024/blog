@@ -1,5 +1,6 @@
 package com.ccsanjuu.blog.modules.message.model.vo;
 
+import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,4 +21,6 @@ public class MessageAuthorVO {
     private String avatarUrl;
 
     private Boolean deleted;
+
+    private UserRole role;
 }

@@ -1,23 +1,32 @@
 <template>
-	<el-avatar
-		:src="avatarUrl || undefined"
-		:size="size"
-		:style="{
-			backgroundColor: avatarUrl
-				? undefined
-				: deleted || guest
-					? 'var(--app-bg)'
-					: backgroundColor,
-			fontSize: `${size / 3}px`,
-		}"
-		class="user-avatar"
+	<div
+		class="avatar-container"
+		:style="{ width: `${size}px`, height: `${size}px` }"
 	>
-		<i-lucide-user-round
-			v-if="deleted || guest"
-			class="text-(--app-text-muted-more)"
-		/>
-		<template v-else>{{ fallbackText }}</template>
-	</el-avatar>
+		<el-avatar
+			:src="avatarUrl || undefined"
+			:size="size"
+			:style="{
+				backgroundColor: avatarUrl || deleted || guest ? 'var(--app-bg)' : backgroundColor,
+				fontSize: `${size / 3}px`,
+			}"
+			class="user-avatar flex items-center justify-center"
+		>
+			<i-solar-user-bold
+				v-if="deleted || guest"
+				class="text-lg text-(--app-text-muted-more)"
+			/>
+			<template v-else>{{ fallbackText }}</template>
+		</el-avatar>
+
+		<!-- 管理员标志 -->
+		<div
+			v-if="isAdmin && !deleted && !guest"
+			class="user-avatar-badge"
+		>
+			<i-lets-icons-lightning-fill class="h-full w-full rotate-12 text-(--app-main)" />
+		</div>
+	</div>
 </template>
 
 <script setup lang="ts">
@@ -29,6 +38,7 @@ interface Props {
 	userId?: number | string | null;
 	deleted?: boolean;
 	guest?: boolean;
+	isAdmin?: boolean;
 	size?: number;
 }
 
@@ -38,6 +48,7 @@ const props = withDefaults(defineProps<Props>(), {
 	userId: '',
 	deleted: false,
 	guest: false,
+	isAdmin: false,
 	size: 20,
 });
 
@@ -81,10 +92,27 @@ const backgroundColor = computed(() => {
 </script>
 
 <style scoped lang="scss">
+.avatar-container {
+	position: relative;
+}
+
 .user-avatar {
 	color: #fff;
 	font-weight: bold;
 	user-select: none;
 	border: 1px solid var(--app-border);
+}
+
+.user-avatar-badge {
+	position: absolute;
+	bottom: 0;
+	right: -3px;
+	width: 45%;
+	height: 45%;
+	border-radius: 50%;
+	background-color: #fff;
+	display: flex;
+	justify-content: center;
+	align-items: center;
 }
 </style>

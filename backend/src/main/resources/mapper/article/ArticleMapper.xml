@@ -60,6 +60,7 @@
             a.is_top,
             a.published_at,
             a.view_count,
+            a.comment_count,
             a.category_id,
             case
                 when to_tsvector('public.zhparser_cfg', a.title) @@ search_query.value then

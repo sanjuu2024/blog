@@ -87,6 +87,7 @@ export function useArticleDetail() {
 		article,
 		isLoading,
 		errorMessage,
+		updatingLike,
 		getArticleDetail,
 		toggleArticleLike,
 	};

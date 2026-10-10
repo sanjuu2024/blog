@@ -4,6 +4,18 @@ import com.ccsanjuu.blog.common.api.PageResult;
 import com.ccsanjuu.blog.modules.article.model.dto.PublicArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.vo.PublicArticleListItemVO;
 import com.ccsanjuu.blog.modules.article.service.ArticleService;
+import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
+import com.ccsanjuu.blog.modules.article.model.entity.Article;
+import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
+import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
+import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
+import com.ccsanjuu.blog.modules.category.model.entity.Category;
+import com.ccsanjuu.blog.modules.category.model.enums.CategoryStatus;
+import com.ccsanjuu.blog.modules.tag.mapper.TagMapper;
+import com.ccsanjuu.blog.modules.tag.model.entity.Tag;
+import com.ccsanjuu.blog.modules.tag.model.enums.TagStatus;
+import com.ccsanjuu.blog.common.exception.BizException;
+import com.ccsanjuu.blog.common.api.ResultCode;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -13,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @ActiveProfiles("test")
 @SpringBootTest
@@ -24,6 +37,54 @@ class ArticleSearchIntegrationTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private ArticleMapper articleMapper;
+
+    @Autowired
+    private CategoryMapper categoryMapper;
+
+    @Autowired
+    private TagMapper tagMapper;
+
+    @Test
+    void disabledAssociationsShouldAllowAdminSaveWhileKeepingPublicVisibilityRules() {
+        Long articleId = jdbcTemplate.queryForObject("select id from blog_article where status = 'PUBLISHED' order by id limit 1", Long.class);
+        Article existing = articleMapper.selectById(articleId);
+        Category child = categoryMapper.selectById(existing.getCategoryId());
+        Long tagId = jdbcTemplate.queryForObject("select id from blog_tag order by id limit 1", Long.class);
+        categoryMapper.updateById(Category.builder().id(child.getId()).status(CategoryStatus.DISABLED).build());
+        categoryMapper.updateById(Category.builder().id(child.getParentId()).status(CategoryStatus.DISABLED).build());
+        tagMapper.updateById(Tag.builder().id(tagId).status(TagStatus.DISABLED).build());
+        ArticleUpsertRequestDTO request = ArticleUpsertRequestDTO.builder()
+                .title("禁用关联测试").contentMd("正文内容").categoryId(child.getId())
+                .tagIds(java.util.List.of(tagId)).status(ArticleStatus.PUBLISHED).build();
+
+        var created = articleService.createArticle(existing.getAuthorId(), request);
+        articleService.updateArticle(created.getId(), existing.getAuthorId(), request);
+        assertEquals(java.util.List.of(tagId), articleService.getArticleDetail(created.getId()).getTagIds());
+        assertEquals(ResultCode.ARTICLE_CATEGORY_DISABLED, assertThrows(BizException.class,
+                () -> articleService.getPublicArticleDetail(created.getId(), null, null)).getResultCode());
+
+        categoryMapper.updateById(Category.builder().id(child.getId()).status(CategoryStatus.ENABLED).build());
+        categoryMapper.updateById(Category.builder().id(child.getParentId()).status(CategoryStatus.ENABLED).build());
+        assertTrue(articleService.getPublicArticleDetail(created.getId(), null, null).getTags().isEmpty());
+    }
+
+    @Test
+    void publicListAndSearchShouldReturnTheSameStoredCommentCount() {
+        String title = "Spring Boot 双 Token 登录实践";
+        Long articleId = jdbcTemplate.queryForObject("select id from blog_article where title = ?", Long.class, title);
+        articleMapper.updateById(Article.builder().id(articleId).commentCount(7).build());
+        PublicArticleQueryDTO listQuery = new PublicArticleQueryDTO();
+        listQuery.setPageSize(100);
+
+        var listedArticle = articleService.getPublicArticleList(listQuery).getRecords().stream()
+                .filter(item -> articleId.equals(item.getId())).findFirst().orElseThrow();
+
+        assertEquals(7, listedArticle.getCommentCount());
+        assertEquals(7, assertSingleTitle("Spring Boot", title).getCommentCount());
+    }
 
     @Test
     void publicArticleSearchShouldMatchAllConfiguredFieldsAndHideUnpublishedArticles() {

@@ -96,9 +96,9 @@
 	--el-bg-color-overlay: var(--app-surface);
 	--el-text-color-primary: var(--app-text);
 	--el-text-color-regular: var(--app-text-muted);
-	--el-text-color-secondary: #8a9388;
-	--el-text-color-placeholder: #a9b0a7;
-	--el-text-color-disabled: #c5c9c0;
+	--el-text-color-secondary: #8f8f8f;
+	--el-text-color-placeholder: #a3a3a3;
+	--el-text-color-disabled: #a2a2a2;
 	--el-border-color: var(--app-border);
 	--el-border-color-light: #e7e2d8;
 	--el-border-color-lighter: #eee9df;
@@ -145,7 +145,7 @@
 	--app-table-row-hover-bg-color: #262626;
 	--app-pagination-bg: #333333;
 	--app-pagination-bg-muted: #212121;
-	--app-tag-capsule-bg-color: #333333;
+	--app-tag-capsule-bg-color: #444444;
 	--app-tag-capsule-text-color: #ababad;
 	--app-default-img-bg-color: #333333;
 	--app-default-img-text-color: #ababad;
@@ -211,16 +211,16 @@
 	--el-color-info-light-5: #5f6670;
 	--el-color-info-light-7: #464c54;
 	--el-color-info-light-8: #363b42;
-	--el-color-info-light-9: #282d33;
+	--el-color-info-light-9: #363636;
 
 	--el-bg-color: var(--app-surface);
 	--el-bg-color-page: var(--app-bg);
 	--el-bg-color-overlay: #252525;
 	--el-text-color-primary: var(--app-text);
 	--el-text-color-regular: var(--app-text-muted);
-	--el-text-color-secondary: #8f998b;
-	--el-text-color-placeholder: #727b70;
-	--el-text-color-disabled: #5c655a;
+	--el-text-color-secondary: #9d9d9d;
+	--el-text-color-placeholder: #797979;
+	--el-text-color-disabled: #555555;
 	--el-border-color: var(--app-border);
 	--el-border-color-light: #303a30;
 	--el-border-color-lighter: #2a332a;

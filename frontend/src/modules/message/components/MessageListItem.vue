@@ -21,6 +21,7 @@
 						:name="item.author.nickname || item.nickname"
 						:user-id="item.author.id"
 						:deleted="item.author.deleted"
+						:is-admin="item.author.role === 'ADMIN'"
 						:size="34"
 						class="self-start"
 					/>
@@ -93,6 +94,7 @@
 						:name="reply.author.nickname || '管理员'"
 						:user-id="reply.author.id"
 						:deleted="reply.author.deleted"
+						:is-admin="reply.author.role === 'ADMIN'"
 						:size="28"
 						class="self-start"
 					/>
@@ -104,6 +106,7 @@
 					:name="reply.author?.nickname || '管理员'"
 					:user-id="reply.author?.id"
 					:deleted="reply.author?.deleted"
+					:is-admin="reply.author?.role === 'ADMIN'"
 					:size="28"
 					class="self-start"
 				/>

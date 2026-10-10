@@ -104,6 +104,8 @@
 
 公开作者对象由应用层根据 `deleted_at` 返回 `deleted=true`，并统一展示“账号已注销”；不返回原用户名、头像和简介。后台安全事件日志作为后续 P2 独立能力设计，不与用户注销共用业务表。
 
+公开作者和用户资料卡的 `role` 读取已有 `blog_user.role` 当前值，用于管理员头像徽章，不新增角色快照、字段或表；已注销用户不展示徽章。
+
 ## 3. P0 必建表
 
 ## 3.1 表名：`blog_user`
@@ -467,7 +469,9 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_search_vector
 
 - 例如一级分类 `技术` 下可挂二级分类 `Java`、`算法`、`前端三剑客`
 - 文章的 `category_id` 应指向 `Java`、`算法` 这类二级分类，而不是 `技术` 这类一级分类
+- 管理员保存文章时允许关联禁用分类、父分类和标签，不清除历史关联；分类与父分类必须存在且层级正确，标签必须存在。禁用状态只影响既有前台可见性规则，不新增表或字段
 - 保存或更新文章时，应用层应以 `content_md` 为源生成 `content_html` 与 `content_text`
+- 公开文章列表和搜索结果的 `commentCount` 直接读取 `blog_article.comment_count`，沿用现有公开评论与回复统计口径，不新增表或逐篇聚合查询
 - P1 文章搜索使用 PostgreSQL `zhparser` 解析 `title`、`summary` 和 `content_text`，并通过生成列 `search_vector` 与 GIN 索引完成全文检索
 - `search_vector` 为标题、摘要、正文分别设置 A、B、C 权重；有关键词且使用默认排序时通过 `ts_rank` 计算相关度，权重影响标题、摘要和正文的匹配分数
 - 搜索查询使用 `plainto_tsquery('public.zhparser_cfg', keyword)`，多个解析后的检索词之间为 AND 关系；单字符未产生词元或关键词为纯数字时，由应用查询对三个字段执行字面量包含匹配兜底。纯数字兜底支持 `1`、`11` 命中标题 `111`

@@ -51,6 +51,7 @@
 						:avatar-url="userProfile.avatarUrl"
 						:name="userProfile.nickname || userProfile.username"
 						:user-id="userProfile.id"
+						:is-admin="userProfile.role === 'ADMIN'"
 						:size="88"
 						class="shrink-0"
 					/>

@@ -416,6 +416,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
                 .nickname(deleted ? "账号已注销" : user.getNickname())
                 .avatarUrl(deleted ? "" : user.getAvatarUrl())
                 .deleted(deleted)
+                .role(user.getRole())
                 .build();
     }
 
