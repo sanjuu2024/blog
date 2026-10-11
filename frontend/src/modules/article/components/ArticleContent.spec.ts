@@ -1,11 +1,15 @@
 import { mount, RouterLinkStub } from '@vue/test-utils';
 import { defineComponent } from 'vue';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import confetti from 'canvas-confetti';
 import type { PublicArticleDetailData } from '../types/article';
 import ArticleContent from './ArticleContent.vue';
 import ArticleLikeButton from './ArticleLikeButton.vue';
 
 const refreshCatalog = vi.hoisted(() => vi.fn());
+
+// jsdom 不提供 Canvas 2D 上下文，测试彩带调用而不执行第三方动画帧。
+vi.mock('canvas-confetti', () => ({ default: vi.fn() }));
 
 vi.mock('../composables/useArticleCatalog', async () => {
 	const { ref } = await import('vue');
@@ -99,6 +103,8 @@ function article(): PublicArticleDetailData {
 }
 
 describe('ArticleContent', () => {
+	beforeEach(() => vi.clearAllMocks());
+
 	it('forwards the like button click without changing article state locally', async () => {
 		const currentArticle = article();
 		const wrapper = mount(ArticleContent, {
@@ -121,11 +127,19 @@ describe('ArticleContent', () => {
 		expect(wrapper.emitted('toggle-like')).toHaveLength(1);
 		expect(wrapper.getComponent(ArticleLikeButton).props('isLiked')).toBe(false);
 		expect(currentArticle.likeCount).toBe(1);
+		expect(confetti).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ angle: 45 }));
 
 		const statsButton = wrapper.get('.article-statis-like');
 		expect(statsButton.attributes('aria-pressed')).toBe('false');
-		await statsButton.trigger('click');
+		await statsButton.trigger('click', { clientX: 120, clientY: 80 });
 		expect(wrapper.emitted('toggle-like')).toHaveLength(2);
+		expect(confetti).toHaveBeenCalledTimes(2);
+		expect(confetti).toHaveBeenLastCalledWith({
+			particleCount: 80,
+			angle: 90,
+			spread: 90,
+			origin: { x: 120 / window.innerWidth, y: 80 / window.innerHeight },
+		});
 		expect(currentArticle.likeCount).toBe(1);
 		await wrapper.setProps({ article: { ...currentArticle, liked: true, likeCount: 2 } });
 		expect(statsButton.text()).toBe('2');
@@ -137,6 +151,8 @@ describe('ArticleContent', () => {
 		expect(statsButton.attributes('disabled')).toBeDefined();
 		await statsButton.trigger('click');
 		expect(wrapper.emitted('toggle-like')).toHaveLength(2);
+		expect(confetti).toHaveBeenCalledTimes(2);
+		wrapper.unmount();
 	});
 
 	it('closes the catalog when the article content area is clicked', async () => {
@@ -179,6 +195,7 @@ describe('ArticleContent', () => {
 			size: 24,
 		});
 		expect(wrapper.get('.public-profile-popover-stub').text()).toContain('管理员');
+		wrapper.unmount();
 	});
 
 	it('removes only image title tooltips after rendering and updating article HTML', async () => {

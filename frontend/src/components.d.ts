@@ -121,7 +121,6 @@ declare module 'vue' {
     ILucideUser: typeof import('~icons/lucide/user')['default']
     ILucideUserRound: typeof import('~icons/lucide/user-round')['default']
     ILucideX: typeof import('~icons/lucide/x')['default']
-    ILucideZap: typeof import('~icons/lucide/zap')['default']
     IMaterialSymbolsUnsubscribeOutline: typeof import('~icons/material-symbols/unsubscribe-outline')['default']
     ISolarClockCircleOutline: typeof import('~icons/solar/clock-circle-outline')['default']
     ISolarFolderOutline: typeof import('~icons/solar/folder-outline')['default']
