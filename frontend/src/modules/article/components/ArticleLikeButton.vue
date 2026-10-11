@@ -6,7 +6,12 @@
 			'article-like-button--no-catelog': !hasCatalog,
 		}"
 		aria-label="点赞文章"
-		@click="emit('toggle')"
+		@click="
+			(e) => {
+				triggerConfetti(e, 45);
+				emit('toggle');
+			}
+		"
 	>
 		<i-lucide-thumbs-up
 			class="text-xl"
@@ -16,9 +21,12 @@
 </template>
 
 <script setup lang="ts">
+import { useLikeConfetti } from '../composables/useLikeConfetti';
 defineOptions({
 	name: 'ArticleLikeButton',
 });
+
+const { triggerConfetti } = useLikeConfetti();
 
 const emit = defineEmits<{ toggle: [] }>();
 
