@@ -58,7 +58,7 @@
 					</el-dropdown-item>
 				</template>
 				<template v-else>
-					<el-dropdown-item @click="router.push('/auth/login')">
+					<el-dropdown-item @click="goLogin">
 						<i-lucide-log-in />
 						<span>注册/登录</span>
 					</el-dropdown-item>
@@ -104,7 +104,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserStore } from '@/stores/userStore';
@@ -114,6 +114,7 @@ import NotificationDialog from '@/modules/notification/components/NotificationDi
 const authStore = useAuthStore();
 const userStore = useUserStore();
 const router = useRouter();
+const route = useRoute();
 const { hasUnread, loadUnreadCount, clearUnreadCount } = useNotificationUnread();
 
 const logoutDialogVisible = ref(false);
@@ -131,6 +132,11 @@ watch(
 );
 function openLogoutDialog() {
 	logoutDialogVisible.value = true;
+}
+
+function goLogin() {
+	// 使用完整路由传递回跳目标，登录页刷新或切换注册页后也能继续返回。
+	router.push({ path: '/auth/login', query: { redirect: route.fullPath } });
 }
 
 withDefaults(

@@ -1,55 +1,72 @@
 <template>
 	<div class="latest-article-list-item">
 		<div class="time">
+			<component
+				:is="getRouteIcon('calendar')"
+				class="mr-1"
+			/>
 			{{ formatDateTime(article.publishedAt, 'YYYY-MM-DD') }}
 		</div>
 
 		<div class="content">
-			<div class="title">
-				<RouterLink
-					:to="{
-						name: 'ArticleDetail',
-						params: {
-							articleId: article.id,
-						},
-					}"
-				>
-					{{ article.title }}
-				</RouterLink>
+			<div class="left">
+				<div class="img mr-4 h-full w-32 shrink-0 rounded border border-(--app-border)">
+					<AppImage
+						:url="article.coverUrl"
+						alt="文章封面图片"
+						:rounded="false"
+						class="aspect-16/13 h-full rounded"
+					/>
+				</div>
 			</div>
 
-			<div class="category">
-				<component
-					:is="getRouteIcon('category')"
-					class="text-sm"
-				/>
+			<div class="right">
+				<div>
+					<RouterLink
+						:to="{
+							name: 'ArticleDetail',
+							params: {
+								articleId: article.id,
+							},
+						}"
+					>
+						<div class="title flex-1">{{ article.title }}</div>
+					</RouterLink>
+				</div>
 
-				<RouterLink
-					:to="{
-						name: 'CategoryArticlesPage',
-						params: {
-							categoryId: article.category.parent.id,
-						},
-					}"
-				>
-					{{ article.category.parent.name }}
-				</RouterLink>
-				/
-				<RouterLink
-					:to="{
-						name: 'CategoryArticlesPage',
-						params: {
-							categoryId: article.category.id,
-						},
-					}"
-				>
-					{{ article.category.name }}
-				</RouterLink>
+				<div class="category">
+					<component
+						:is="getRouteIcon('category')"
+						class="text-sm"
+					/>
+
+					<RouterLink
+						:to="{
+							name: 'CategoryArticlesPage',
+							params: {
+								categoryId: article.category.parent.id,
+							},
+						}"
+					>
+						{{ article.category.parent.name }}
+					</RouterLink>
+					/
+					<RouterLink
+						:to="{
+							name: 'CategoryArticlesPage',
+							params: {
+								categoryId: article.category.id,
+							},
+						}"
+					>
+						{{ article.category.name }}
+					</RouterLink>
+				</div>
+
+				<p class="summary line-clamp-2">
+					{{ article.summary ? article.summary : '暂无摘要。' }}
+				</p>
 			</div>
-
-			<p class="summary line-clamp-2">
-				{{ article.summary ? article.summary : '暂无摘要。' }}
-			</p>
 		</div>
 	</div>
 </template>
@@ -88,13 +105,17 @@ defineProps<{
 	}
 
 	.time {
-		width: 180px;
+		width: 150px;
 		padding-inline: 1rem;
 		text-align: center;
+		display: flex;
+		align-items: center;
 	}
 
 	.content {
 		flex: 1;
+		display: flex;
+		align-items: center;
 
 		.title {
 			font-size: 1.5rem;
@@ -132,6 +153,10 @@ defineProps<{
 			padding-inline: 0;
 			text-align: left;
 		}
+	}
+
+	.img {
+		display: none;
 	}
 }
 </style>
