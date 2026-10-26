@@ -17,7 +17,8 @@ import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.audit.mapper.AdminAuditLogMapper;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
 import com.ccsanjuu.blog.modules.user.model.enums.UserStatus;
-import com.ccsanjuu.blog.modules.user.model.vo.UpdatedUserAvatarVO;
+import com.ccsanjuu.blog.modules.user.model.dto.UpdateProfileRequestDTO;
+import com.ccsanjuu.blog.modules.user.model.vo.UpdatedUserProfileVO;
 import com.ccsanjuu.blog.modules.user.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -106,9 +107,8 @@ class UserControllerAvatarTest {
     }
 
     @Test
-    void updateAvatarShouldRejectUnauthenticatedRequest() throws Exception {
-        mockMvc.perform(multipart("/api/v1/users/me/avatar")
-                        .file(imageFile())
+    void profileUpdateShouldRejectUnauthenticatedRequest() throws Exception {
+        mockMvc.perform(multipart("/api/v1/users/me/profile")
                         .with(request -> {
                             request.setMethod("PUT");
                             return request;
@@ -118,17 +118,18 @@ class UserControllerAvatarTest {
     }
 
     @Test
-    void updateAvatarShouldReturnUpdatedAvatarForAuthenticatedUser() throws Exception {
+    void profileUpdateShouldAcceptAvatarAsOptionalMultipartField() throws Exception {
         MockMultipartFile file = imageFile();
         OffsetDateTime updatedAt = OffsetDateTime.parse("2026-08-09T16:00:00+08:00");
-        when(userService.updateAvatar(eq(USER_ID), eq(file))).thenReturn(UpdatedUserAvatarVO.builder()
+        when(userService.updateProfile(eq(USER_ID), any())).thenReturn(UpdatedUserProfileVO.builder()
                 .id(USER_ID)
                 .avatarUrl("https://img.example.com/avatar.jpg")
                 .updatedAt(updatedAt)
                 .build());
 
-        mockMvc.perform(multipart("/api/v1/users/me/avatar")
-                        .file(file)
+        mockMvc.perform(multipart("/api/v1/users/me/profile")
+                        .file(new MockMultipartFile("avatar", "avatar.webp", "image/webp", new byte[]{1}))
+                        .param("nickname", "Alice")
                         .header("Authorization", "Bearer " + accessToken())
                         .with(request -> {
                             request.setMethod("PUT");
@@ -136,22 +137,12 @@ class UserControllerAvatarTest {
                         }))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(USER_ID))
-                .andExpect(jsonPath("$.data.avatarUrl").value("https://img.example.com/avatar.jpg"))
-                .andExpect(jsonPath("$.data.updatedAt").value("2026-08-09T16:00:00+08:00"));
+                .andExpect(jsonPath("$.data.avatarUrl").value("https://img.example.com/avatar.jpg"));
 
-        verify(userService).updateAvatar(USER_ID, file);
-    }
-
-    @Test
-    void updateAvatarShouldReturnImageRequiredWhenFilePartIsMissing() throws Exception {
-        mockMvc.perform(multipart("/api/v1/users/me/avatar")
-                        .header("Authorization", "Bearer " + accessToken())
-                        .with(request -> {
-                            request.setMethod("PUT");
-                            return request;
-                        }))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(107001));
+        var captor = org.mockito.ArgumentCaptor.forClass(UpdateProfileRequestDTO.class);
+        verify(userService).updateProfile(eq(USER_ID), captor.capture());
+        org.junit.jupiter.api.Assertions.assertEquals("Alice", captor.getValue().getNickname());
+        org.junit.jupiter.api.Assertions.assertEquals("avatar.webp", captor.getValue().getAvatar().getOriginalFilename());
     }
 
     @Test
@@ -204,7 +195,7 @@ class UserControllerAvatarTest {
 
     private MockMultipartFile imageFile() {
         return new MockMultipartFile(
-                "file",
+                "avatar",
                 "avatar.jpg",
                 "image/jpeg",
                 new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF}

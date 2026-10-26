@@ -1,8 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ElMessage } from 'element-plus';
 import { useUserStore } from '@/stores/userStore';
-import { updateCurrentUserAvatar } from '../api/userApi';
+import { updateCurrentUserProfile } from '../api/userApi';
 import { useUserSettings } from './useUserSettings';
 
 vi.mock('vue-router', async (importOriginal) => ({
@@ -13,7 +12,6 @@ vi.mock('vue-router', async (importOriginal) => ({
 vi.mock('../api/userApi', () => ({
 	changeCurrentUserPassword: vi.fn(),
 	getCurrentUserProfile: vi.fn(),
-	updateCurrentUserAvatar: vi.fn(),
 	updateCurrentUserProfile: vi.fn(),
 }));
 
@@ -25,47 +23,54 @@ vi.mock('element-plus', () => ({
 	},
 }));
 
-describe('useUserSettings avatar upload', () => {
+describe('useUserSettings profile changes', () => {
 	beforeEach(() => {
 		setActivePinia(createPinia());
 		vi.clearAllMocks();
+		vi.stubGlobal(
+			'URL',
+			class extends URL {
+				static createObjectURL = vi.fn(() => 'blob:avatar-preview');
+				static revokeObjectURL = vi.fn();
+			},
+		);
 	});
 
-	it('updates the profile and user store after avatar upload succeeds', async () => {
-		vi.mocked(updateCurrentUserAvatar).mockResolvedValue({
+	it('keeps a cropped avatar as a local draft until profile save succeeds', async () => {
+		vi.mocked(updateCurrentUserProfile).mockResolvedValue({
 			id: 10001,
-			avatarUrl: 'https://img.example.com/avatar.jpg',
+			username: 'alice',
+			nickname: 'Alice',
+			email: 'alice@example.com',
+			avatarUrl: 'https://img.example.com/avatar.webp',
+			bio: '',
 			updatedAt: '2026-08-09T16:00:00+08:00',
 		});
-		const file = new File(['avatar'], 'avatar.jpg', { type: 'image/jpeg' });
-		const { userProfile, avatarUploading, updateUserSettingsAvatar } = useUserSettings();
+		const settings = useUserSettings();
+		const { userProfile, avatarDraftUrl, profileChanged, setAvatarDraft } = settings;
 		Object.assign(userProfile, {
 			id: 10001,
 			username: 'alice',
 			nickname: 'Alice',
 			status: 'ACTIVE',
 		});
+		const file = new File(['avatar'], 'avatar.webp', { type: 'image/webp' });
+		setAvatarDraft(file);
 
-		const success = await updateUserSettingsAvatar(file);
+		expect(profileChanged.value).toBe(true);
+		expect(userProfile.avatarUrl).toBe('');
+		expect(avatarDraftUrl.value).toBe('blob:avatar-preview');
+		expect(updateCurrentUserProfile).not.toHaveBeenCalled();
 
-		expect(success).toBe(true);
-		expect(userProfile.avatarUrl).toBe('https://img.example.com/avatar.jpg');
-		expect(useUserStore().userInfo?.avatarUrl).toBe('https://img.example.com/avatar.jpg');
-		expect(avatarUploading.value).toBe(false);
-		expect(ElMessage.success).toHaveBeenCalledWith('头像更新成功');
-	});
+		const form = { validate: vi.fn().mockResolvedValue(undefined), clearValidate: vi.fn() };
+		settings.profileForm.nickname = 'Alice';
+		settings.setProfileFormRef(form);
+		await settings.updateUserSettingsProfile();
 
-	it('rejects an oversized avatar before requesting the backend', async () => {
-		const file = new File([new Uint8Array(2 * 1024 * 1024 + 1)], 'avatar.jpg', {
-			type: 'image/jpeg',
-		});
-		const { updateUserSettingsAvatar } = useUserSettings();
-
-		const success = await updateUserSettingsAvatar(file);
-
-		expect(success).toBe(false);
-		expect(updateCurrentUserAvatar).not.toHaveBeenCalled();
-		expect(ElMessage.warning).toHaveBeenCalledWith('图片大小不能超过 2 MB');
+		expect(updateCurrentUserProfile).toHaveBeenCalledWith(settings.profileForm, file);
+		expect(userProfile.avatarUrl).toBe('https://img.example.com/avatar.webp');
+		expect(useUserStore().userInfo?.avatarUrl).toBe('https://img.example.com/avatar.webp');
+		expect(avatarDraftUrl.value).toBe('');
 	});
 
 	it('accepts a 100-character bio and rejects a longer bio', () => {

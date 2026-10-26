@@ -239,7 +239,6 @@ Authorization: Bearer <access_token>
 | 个人中心 | `POST` | `/api/v1/users/me/email-verification-codes` | `LOGIN` | 发送修改邮箱验证码 |
 | 个人中心 | `PUT` | `/api/v1/users/me/email` | `LOGIN` | 验证并修改当前用户邮箱 |
 | 个人中心 | `PUT` | `/api/v1/users/me/password` | `LOGIN` | 修改密码 |
-| 个人中心 | `PUT` | `/api/v1/users/me/avatar` | `LOGIN` | 上传并更新当前用户头像 |
 | 个人中心 | `DELETE` | `/api/v1/users/me` | `LOGIN` | 使用当前密码确认后注销本人账号，仅逻辑处理 |
 | 后台用户 | `GET` | `/api/v1/admin/users` | `ADMIN` | 获取用户分页列表 |
 | 后台用户 | `PATCH` | `/api/v1/admin/users/{userId}/status` | `ADMIN` | 修改用户状态 |
@@ -1061,22 +1060,24 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.access
 
 #### Body 参数
 
+请求 Content-Type 为 `multipart/form-data`。头像字段可选；未上传头像时仅更新昵称或简介。
+
 | 字段名称 | 字段类型 | 必填 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- | --- |
 | `nickname` | `String` | 否 | 用户昵称，1-20 位，不能全为空白字符 | `Alice` |
 | `bio` | `String` | 否 | 个人简介，最长 100 个字符，换行和空行均计入字符数 | `专注 Java 与前端工程化` |
+| `avatar` | `binary` | 否 | 已确认的 512×512 WebP 裁剪头像，最大 2 MB | `avatar.webp` |
 
 ### 请求样例
 
 ```http
 PUT /api/v1/users/me/profile
 Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.access
-Content-Type: application/json
+Content-Type: multipart/form-data
 
-{
-  "nickname": "Alice",
-  "bio": "专注 Java 与前端工程化"
-}
+nickname=Alice
+bio=专注 Java 与前端工程化
+avatar=avatar.webp（可选）
 ```
 
 ### 响应参数
@@ -2532,34 +2533,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 上传对象使用不可变 UUID key，并通过配置的自定义公开域名返回完整 URL。P1 不压缩、不转换格式、不生成缩略图，也不自动删除被替换或失去引用的 OSS 对象。
 
-### 13.1 上传并更新当前用户头像
+### 13.1 个人资料头像上传
 
-- 路由：`PUT`
-- 路径：`/api/v1/users/me/avatar`
-- 权限：`LOGIN`
-- Content-Type：`multipart/form-data`
+头像通过 `PUT /api/v1/users/me/profile` 的可选 `avatar` multipart 字段提交，不再单独提供头像上传接口。上传仅发生在用户点击“保存公开资料”时；服务端校验并上传 OSS 后，与资料字段一起更新用户记录。裁剪确认本身不调用后端。
 
-请求字段：
-
-| 位置 | 字段 | 类型 | 必填 | 说明 |
-| --- | --- | --- | --- | --- |
-| Form Data | `file` | `binary` | 是 | 头像图片，最大 2 MB |
-
-上传成功后，后端更新 `blog_user.avatar_url` 并返回当前头像信息：
-
-```json
-{
-  "code": 0,
-  "message": "成功",
-  "data": {
-    "id": 10002,
-    "avatarUrl": "https://img.example.com/avatars/10002/2026/08/uuid.jpg",
-    "updatedAt": "2026-08-09T10:00:00+08:00"
-  }
-}
-```
-
-同一用户每分钟最多成功上传 1 次头像，并且每 24 小时最多成功上传 10 次。限流使用 Redis 原子执行；上传或数据库事务失败时释放本次预占额度。
+裁剪结果为 512×512 WebP，最大 2 MB；动画 GIF 按当前显示帧生成静态图片。头像上传仍使用同一用户每分钟最多 1 次、每 24 小时最多 10 次的 Redis 限流规则。OSS 上传成功但数据库更新失败时，头像地址不生效；未引用 OSS 对象按现有资源保留规则处理。
 
 ### 13.2 上传后台图片
 

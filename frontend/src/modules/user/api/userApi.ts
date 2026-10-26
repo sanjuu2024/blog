@@ -13,8 +13,6 @@ import type {
 	PublicUserProfileResponse,
 	UpdatedCurrentUserProfileData,
 	UpdateCurrentUserProfileRequest,
-	UpdatedCurrentUserAvatarData,
-	UpdatedCurrentUserAvatarResponse,
 	UpdatedCurrentUserProfileResponse,
 	LikedArticlePageData,
 	LikedArticlePageResponse,
@@ -28,7 +26,6 @@ const USER_API = {
 	currentProfile: 'users/me',
 	likedArticles: 'users/me/liked-articles',
 	updateCurrentProfile: 'users/me/profile',
-	updateCurrentAvatar: 'users/me/avatar',
 	changeCurrentPassword: 'users/me/password',
 	sendEmailChangeCode: 'users/me/email-verification-codes',
 	changeCurrentEmail: 'users/me/email',
@@ -63,24 +60,18 @@ export const getPublicUserProfile = (
 	);
 };
 
-// 更新个人资料接口
+// 更新个人资料接口；头像草稿随公开资料一起保存
 export const updateCurrentUserProfile = (
 	data: UpdateCurrentUserProfileRequest,
+	avatar?: File,
 ): Promise<UpdatedCurrentUserProfileData> => {
-	return request.put<
-		UpdatedCurrentUserProfileResponse,
-		UpdatedCurrentUserProfileData,
-		UpdateCurrentUserProfileRequest
-	>(USER_API.updateCurrentProfile, data);
-};
-
-// 上传并更新当前用户头像
-export const updateCurrentUserAvatar = (file: File): Promise<UpdatedCurrentUserAvatarData> => {
 	const formData = new FormData();
-	formData.append('file', file);
+	if (data.nickname !== undefined) formData.append('nickname', data.nickname);
+	if (data.bio !== undefined) formData.append('bio', data.bio);
+	if (avatar) formData.append('avatar', avatar);
 
-	return request.put<UpdatedCurrentUserAvatarResponse, UpdatedCurrentUserAvatarData, FormData>(
-		USER_API.updateCurrentAvatar,
+	return request.put<UpdatedCurrentUserProfileResponse, UpdatedCurrentUserProfileData, FormData>(
+		USER_API.updateCurrentProfile,
 		formData,
 		{ timeout: 30000 },
 	);

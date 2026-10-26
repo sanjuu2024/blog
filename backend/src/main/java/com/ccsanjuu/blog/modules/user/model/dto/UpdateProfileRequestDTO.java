@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.springframework.web.multipart.MultipartFile;
 
 @Data
 @Builder
@@ -19,4 +20,6 @@ public class UpdateProfileRequestDTO {
 
     @Size(max = 100, message = "个人简介长度不能超过 100 个字符")
     private String bio;
+
+    private MultipartFile avatar;
 }

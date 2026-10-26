@@ -48,7 +48,7 @@
 				</div>
 				<div class="avatar-setting">
 					<AppUserAvatar
-						:avatar-url="userProfile.avatarUrl"
+						:avatar-url="avatarDraftUrl || userProfile.avatarUrl"
 						:name="userProfile.nickname || userProfile.username"
 						:user-id="userProfile.id"
 						:is-admin="userProfile.role === 'ADMIN'"
@@ -57,18 +57,15 @@
 					/>
 					<div>
 						<p class="avatar-setting__label">头像</p>
-						<!-- 点击内部按钮时由 el-upload 唤起文件选择器；选中文件后交给 on-change 自行上传 -->
+						<!-- 选择文件后先进入裁剪，确认结果仍只是未保存的资料草稿。 -->
 						<el-upload
 							:accept="IMAGE_ACCEPT"
 							:auto-upload="false"
-							:disabled="avatarUploading"
+							:disabled="profileSubmitting"
 							:show-file-list="false"
 							:on-change="handleAvatarFileChange"
 						>
-							<el-button
-								:loading="avatarUploading"
-								:disabled="avatarUploading"
-							>
+							<el-button :disabled="profileSubmitting">
 								更换头像
 								<template #icon>
 									<i-lucide-upload />
@@ -115,6 +112,13 @@
 						保存公开资料
 					</el-button>
 				</el-form>
+				<AvatarCropDialog
+					v-model="avatarCropVisible"
+					:source-file="avatarSourceFile"
+					@confirm="setAvatarDraft"
+					@error="ElMessage.error('图片读取失败，请重新选择')"
+					@closed="avatarSourceFile = null"
+				/>
 			</section>
 
 			<section class="settings-section">
@@ -328,12 +332,13 @@
 </template>
 
 <script setup lang="ts">
-import { ElMessageBox, type UploadProps } from 'element-plus';
+import { ElMessage, ElMessageBox, type UploadProps } from 'element-plus';
 import 'element-plus/es/components/message-box/style/css';
-import { onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import AppUserAvatar from '@/components/AppUserAvatar.vue';
-import { IMAGE_ACCEPT } from '@/modules/file/utils/image';
+import { AVATAR_MAX_SIZE, IMAGE_ACCEPT, validateImageFile } from '@/modules/file/utils/image';
+import AvatarCropDialog from '../components/AvatarCropDialog.vue';
 import { useUserSettings } from '../composables/useUserSettings';
 
 defineOptions({
@@ -357,7 +362,7 @@ const {
 	profileLoading,
 	profileLoaded,
 	profileLoadFailed,
-	avatarUploading,
+	avatarDraftUrl,
 	profileSubmitting,
 	passwordSubmitting,
 	emailCodeSending,
@@ -368,7 +373,7 @@ const {
 	setPasswordFormRef,
 	setEmailFormRef,
 	getUserSettingsProfile,
-	updateUserSettingsAvatar,
+	setAvatarDraft,
 	updateUserSettingsProfile,
 	changeUserSettingsPassword,
 	sendUserEmailChangeCode,
@@ -378,12 +383,19 @@ const {
 	resetEmailForm,
 } = useUserSettings();
 
-// el-upload 唤起文件选择器后，会把用户选中的文件包装成 UploadFile 并传入该函数
-// 头像上传接口需要接收浏览器原始的 File，因此从 uploadFile.raw 中取出后再交给 composable
+const avatarCropVisible = ref(false);
+const avatarSourceFile = ref<File | null>(null);
+
+// el-upload 只负责选择文件，原图通过校验后交给裁剪弹窗，不会立即上传。
 const handleAvatarFileChange: UploadProps['onChange'] = (uploadFile) => {
-	if (uploadFile.raw) {
-		void updateUserSettingsAvatar(uploadFile.raw);
+	if (!uploadFile.raw) return;
+	const message = validateImageFile(uploadFile.raw, AVATAR_MAX_SIZE);
+	if (message) {
+		ElMessage.warning(message);
+		return;
 	}
+	avatarSourceFile.value = uploadFile.raw;
+	avatarCropVisible.value = true;
 };
 
 async function handleDeleteAccount() {

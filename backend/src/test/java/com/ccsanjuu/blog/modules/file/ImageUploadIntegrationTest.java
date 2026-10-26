@@ -7,7 +7,8 @@ import com.ccsanjuu.blog.modules.file.service.ObjectStorageService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.modules.user.model.enums.UserStatus;
-import com.ccsanjuu.blog.modules.user.model.vo.UpdatedUserAvatarVO;
+import com.ccsanjuu.blog.modules.user.model.dto.UpdateProfileRequestDTO;
+import com.ccsanjuu.blog.modules.user.model.vo.UpdatedUserProfileVO;
 import com.ccsanjuu.blog.modules.user.service.UserService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -67,7 +68,7 @@ class ImageUploadIntegrationTest {
     }
 
     @Test
-    void avatarUploadShouldPersistUrlAndUseRealRedisRateLimit() {
+    void profileAvatarShouldPersistUrlAndUseRealRedisRateLimit() {
         User user = findActiveUser();
         minuteRateLimitKey = buildRateLimitKey(user.getId(), "minute");
         dailyRateLimitKey = buildRateLimitKey(user.getId(), "day");
@@ -80,13 +81,14 @@ class ImageUploadIntegrationTest {
                 eq("image/png")
         )).thenReturn(AVATAR_URL);
         MockMultipartFile file = new MockMultipartFile(
-                "file",
+                "avatar",
                 "avatar.png",
                 "image/png",
                 new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}
         );
 
-        UpdatedUserAvatarVO result = userService.updateAvatar(user.getId(), file);
+        UpdateProfileRequestDTO requestDTO = UpdateProfileRequestDTO.builder().avatar(file).build();
+        UpdatedUserProfileVO result = userService.updateProfile(user.getId(), requestDTO);
         User updatedUser = userMapper.selectById(user.getId());
 
         assertEquals(AVATAR_URL, result.getAvatarUrl());
@@ -96,7 +98,7 @@ class ImageUploadIntegrationTest {
 
         BizException exception = assertThrows(
                 BizException.class,
-                () -> userService.updateAvatar(user.getId(), file)
+                () -> userService.updateProfile(user.getId(), requestDTO)
         );
         assertEquals(ResultCode.AVATAR_UPLOAD_RATE_LIMITED, exception.getResultCode());
         verify(objectStorageService, times(1))

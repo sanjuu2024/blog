@@ -1,7 +1,5 @@
 package com.ccsanjuu.blog.modules.user.service.impl;
 
-import com.ccsanjuu.blog.common.api.ResultCode;
-import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.auth.service.AuthService;
 import com.ccsanjuu.blog.modules.auth.service.RegistrationEmailVerificationService;
 import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
@@ -9,7 +7,8 @@ import com.ccsanjuu.blog.modules.file.model.vo.UploadedImageVO;
 import com.ccsanjuu.blog.modules.file.service.ImageUploadService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
-import com.ccsanjuu.blog.modules.user.model.vo.UpdatedUserAvatarVO;
+import com.ccsanjuu.blog.modules.user.model.dto.UpdateProfileRequestDTO;
+import com.ccsanjuu.blog.modules.user.model.vo.UpdatedUserProfileVO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,9 +19,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -65,34 +62,32 @@ class UserServiceImplAvatarTest {
     }
 
     @Test
-    void updateAvatarShouldUploadImageAndPersistPublicUrl() {
-        MockMultipartFile file = new MockMultipartFile("file", "avatar.jpg", "image/jpeg", new byte[]{1});
-        when(userMapper.selectById(USER_ID)).thenReturn(User.builder().id(USER_ID).build());
+    void profileUpdateShouldUploadAndPersistAvatarTogetherWithProfile() {
+        MockMultipartFile file = new MockMultipartFile("avatar", "avatar.webp", "image/webp", new byte[]{1});
+        when(userMapper.selectById(USER_ID)).thenReturn(User.builder()
+                .id(USER_ID)
+                .username("demo")
+                .nickname("旧昵称")
+                .avatarUrl("")
+                .bio("")
+                .build());
         when(imageUploadService.uploadAvatar(USER_ID, file)).thenReturn(UploadedImageVO.builder()
                 .url(AVATAR_URL)
                 .build());
+        UpdateProfileRequestDTO requestDTO = UpdateProfileRequestDTO.builder()
+                .nickname("新昵称")
+                .avatar(file)
+                .build();
 
-        UpdatedUserAvatarVO result = userService.updateAvatar(USER_ID, file);
+        UpdatedUserProfileVO result = userService.updateProfile(USER_ID, requestDTO);
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userMapper).updateById(userCaptor.capture());
         assertEquals(USER_ID, userCaptor.getValue().getId());
+        assertEquals("新昵称", userCaptor.getValue().getNickname());
         assertEquals(AVATAR_URL, userCaptor.getValue().getAvatarUrl());
-        assertEquals(USER_ID, result.getId());
         assertEquals(AVATAR_URL, result.getAvatarUrl());
-    }
-
-    @Test
-    void updateAvatarShouldRejectMissingUserBeforeUploading() {
-        MockMultipartFile file = new MockMultipartFile("file", "avatar.jpg", "image/jpeg", new byte[]{1});
-        when(userMapper.selectById(USER_ID)).thenReturn(null);
-
-        BizException exception = assertThrows(
-                BizException.class,
-                () -> userService.updateAvatar(USER_ID, file)
-        );
-
-        assertEquals(ResultCode.USER_NOT_FOUND, exception.getResultCode());
-        verifyNoInteractions(imageUploadService);
+        assertEquals("新昵称", result.getNickname());
+        verify(imageUploadService).uploadAvatar(USER_ID, file);
     }
 }

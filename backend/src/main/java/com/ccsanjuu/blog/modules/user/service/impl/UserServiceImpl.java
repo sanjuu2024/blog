@@ -31,7 +31,6 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.time.OffsetDateTime;
@@ -94,6 +93,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
      * @return
      */
     @Override
+    @Transactional
     public UpdatedUserProfileVO updateProfile(Long userId, UpdateProfileRequestDTO updateProfileRequestDTO) {
         User user = requireUser(userId);
 
@@ -101,7 +101,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         updateUser.setId(user.getId());
         updateUser.setNickname(updateProfileRequestDTO.getNickname());
         updateUser.setBio(updateProfileRequestDTO.getBio());
-        if (updateUser.getNickname() != null || updateUser.getBio() != null) {
+        if (updateProfileRequestDTO.getAvatar() != null && !updateProfileRequestDTO.getAvatar().isEmpty()) {
+            UploadedImageVO uploadedImage = imageUploadService.uploadAvatar(userId, updateProfileRequestDTO.getAvatar());
+            updateUser.setAvatarUrl(uploadedImage.getUrl());
+        }
+        if (updateUser.getNickname() != null || updateUser.getBio() != null || updateUser.getAvatarUrl() != null) {
             userMapper.updateById(updateUser);
         }
 
@@ -116,6 +120,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 ? updateProfileRequestDTO.getBio()
                 : user.getBio()
         );
+        updatedUserProfileVO.setAvatarUrl(updateUser.getAvatarUrl() != null
+                ? updateUser.getAvatarUrl()
+                : user.getAvatarUrl());
         if (updateUser.getUpdatedAt() != null) {
             updatedUserProfileVO.setUpdatedAt(updateUser.getUpdatedAt());
         }
@@ -251,31 +258,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 userId, operatorId, "管理员注销用户成功");
         log.info("security_event=ADMIN_USER_DELETE_SUCCESS outcome=SUCCESS actorId={} targetUserId={} reasonLength={}",
                 operatorId, userId, requestDTO.getReason().length());
-    }
-
-    /**
-     * 上传并更新当前用户头像。
-     *
-     * @param userId 用户 ID
-     * @param file 头像图片
-     * @return 更新后的头像信息
-     */
-    @Override
-    @Transactional
-    public UpdatedUserAvatarVO updateAvatar(Long userId, MultipartFile file) {
-        User user = requireUser(userId);
-        UploadedImageVO uploadedImage = imageUploadService.uploadAvatar(userId, file);
-
-        User updateUser = new User();
-        updateUser.setId(user.getId());
-        updateUser.setAvatarUrl(uploadedImage.getUrl());
-        userMapper.updateById(updateUser);
-
-        return UpdatedUserAvatarVO.builder()
-                .id(user.getId())
-                .avatarUrl(uploadedImage.getUrl())
-                .updatedAt(updateUser.getUpdatedAt())
-                .build();
     }
 
     /**

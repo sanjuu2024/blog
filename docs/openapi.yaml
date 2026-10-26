@@ -1115,14 +1115,14 @@ paths:
       tags:
         - Profile
       summary: 更新个人资料
-      description: 权限级别 `LOGIN`。支持修改昵称、个人简介；不支持修改用户名，用户名注册后不可修改。
+      description: 权限级别 `LOGIN`。以 multipart/form-data 同步保存昵称、个人简介和可选裁剪头像；头像文件仅在点击保存资料时上传，成功后与资料一起生效。不支持修改用户名，用户名注册后不可修改。
       operationId: updateCurrentUserProfile
       security:
         - bearerAuth: []
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
               $ref: '#/components/schemas/UpdateProfileRequest'
             example:
@@ -1150,6 +1150,14 @@ paths:
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+        '413':
+          $ref: '#/components/responses/ImageTooLargeResponse'
+        '415':
+          $ref: '#/components/responses/UnsupportedImageTypeResponse'
+        '429':
+          $ref: '#/components/responses/AvatarUploadRateLimitResponse'
+        '502':
+          $ref: '#/components/responses/ImageUploadFailedResponse'
   /api/v1/users/me/email-verification-codes:
     post:
       tags:
@@ -1239,45 +1247,6 @@ paths:
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
-  /api/v1/users/me/avatar:
-    put:
-      tags:
-        - Profile
-      summary: 上传并更新当前用户头像
-      description: 权限级别 `LOGIN`。后端校验图片后中转上传至阿里云 OSS，并立即更新当前用户 avatarUrl。支持 JPG、JPEG、PNG、WebP、GIF，最大 2 MB；不压缩、不裁剪，旧 OSS 对象不自动删除。同一用户每分钟最多 1 次、每 24 小时最多 10 次。
-      operationId: updateCurrentUserAvatar
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              required: [file]
-              properties:
-                file:
-                  type: string
-                  format: binary
-      responses:
-        '200':
-          description: 头像更新成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UpdatedAvatarResponse'
-        '400':
-          $ref: '#/components/responses/ImageRequiredResponse'
-        '401':
-          $ref: '#/components/responses/UnauthorizedResponse'
-        '413':
-          $ref: '#/components/responses/ImageTooLargeResponse'
-        '415':
-          $ref: '#/components/responses/UnsupportedImageTypeResponse'
-        '429':
-          $ref: '#/components/responses/AvatarUploadRateLimitResponse'
-        '502':
-          $ref: '#/components/responses/ImageUploadFailedResponse'
   /api/v1/admin/files/images:
     post:
       tags:
@@ -3936,6 +3905,7 @@ components:
               $ref: '#/components/schemas/ProfileData'
     UpdateProfileRequest:
       type: object
+      description: 修改个人资料；avatar 可选，头像文件为已裁剪的 WebP 图片，最大 2 MB。
       properties:
         nickname:
           type: string
@@ -3949,6 +3919,10 @@ components:
           maxLength: 100
           description: 个人简介，最长 100 个字符，换行和空行均计入字符数
           example: 专注 Java 与前端工程化
+        avatar:
+          type: string
+          format: binary
+          description: 可选的 512×512 WebP 裁剪头像，最大 2 MB；动画 GIF 裁剪后为静态图片
     UpdateProfileData:
       type: object
       required:
@@ -5099,29 +5073,6 @@ components:
           type: string
           maxLength: 255
           description: REJECT、HIDE、DELETE 时必填；APPROVE 时不传并清空历史处理原因
-    UpdatedAvatarData:
-      type: object
-      required: [id, avatarUrl, updatedAt]
-      properties:
-        id:
-          type: integer
-          format: int64
-          example: 10002
-        avatarUrl:
-          type: string
-          format: uri
-          example: https://img.example.com/avatars/10002/2026/08/uuid.jpg
-        updatedAt:
-          type: string
-          format: date-time
-    UpdatedAvatarResponse:
-      allOf:
-        - $ref: '#/components/schemas/BaseResponse'
-        - type: object
-          required: [data]
-          properties:
-            data:
-              $ref: '#/components/schemas/UpdatedAvatarData'
     UploadedImageData:
       type: object
       required: [url, originalName, contentType, size]
