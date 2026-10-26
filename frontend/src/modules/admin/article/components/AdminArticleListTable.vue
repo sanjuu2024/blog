@@ -40,7 +40,7 @@
 									alt="文章封面图"
 									class="mr-4 h-20 w-20 shrink-0 rounded border border-(--app-border)"
 								/>
-								<span class="mx-4 text-left">{{ row.title }}</span>
+								<span class="admin-article-title mx-4">{{ row.title }}</span>
 							</RouterLink>
 						</div>
 					</template>
@@ -291,5 +291,11 @@ onActivated(() => {
 .admin-article-pagination {
 	flex: none;
 	margin-top: 1.5rem;
+}
+
+.admin-article-title {
+	text-align: left;
+	overflow-wrap: anywhere;
+	word-break: normal;
 }
 </style>

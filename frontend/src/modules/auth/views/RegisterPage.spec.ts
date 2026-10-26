@@ -1,17 +1,22 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { nextTick } from 'vue';
+import { createMemoryHistory, createRouter, type LocationQuery } from 'vue-router';
+import { routes } from '@/router/routes';
 import { getPrivacyPolicy } from '@/modules/privacy/api/privacyApi';
 import PrivacyPolicyDialog from '@/modules/privacy/components/PrivacyPolicyDialog.vue';
 import { register, sendEmailVerificationCode } from '../api/authApi';
 import RegisterPage from './RegisterPage.vue';
 
-const router = vi.hoisted(() => ({ replace: vi.fn() }));
+const router = vi.hoisted(() => ({ replace: vi.fn(), resolve: vi.fn() }));
+const route = vi.hoisted(() => ({ query: {} as LocationQuery }));
 const showSuccess = vi.hoisted(() => vi.fn());
 const showWarning = vi.hoisted(() => vi.fn());
 
-vi.mock('vue-router', () => ({
+vi.mock('vue-router', async (importOriginal) => ({
+	...(await importOriginal<typeof import('vue-router')>()),
 	useRouter: () => router,
+	useRoute: () => route,
 }));
 
 vi.mock('../api/authApi', () => ({
@@ -29,6 +34,7 @@ vi.mock('element-plus', async (importOriginal) => ({
 }));
 
 const wrappers: ReturnType<typeof mount>[] = [];
+const testRouter = createRouter({ history: createMemoryHistory(), routes });
 
 function mountPage() {
 	const wrapper = mount(RegisterPage, {
@@ -48,6 +54,8 @@ function mountPage() {
 describe('RegisterPage', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		route.query = {};
+		router.resolve.mockImplementation(testRouter.resolve);
 		vi.mocked(register).mockResolvedValue(null);
 		vi.mocked(sendEmailVerificationCode).mockResolvedValue(null);
 		vi.mocked(getPrivacyPolicy).mockResolvedValue({
@@ -70,35 +78,58 @@ describe('RegisterPage', () => {
 		expect(register).not.toHaveBeenCalled();
 	});
 
-	it('registers when a valid form is submitted', async () => {
-		const wrapper = mountPage();
-		const inputs = wrapper.findAll('input');
-		wrapper.findComponent(PrivacyPolicyDialog).vm.$emit('loaded', {
-			version: 'sha256:first',
-		});
-		await nextTick();
+	it.each([undefined, '/articles/34?replyId=51#article-comments', '//example.com'])(
+		'registers and preserves only a valid redirect=%s',
+		async (redirect) => {
+			route.query = redirect ? { redirect } : {};
+			const wrapper = mountPage();
+			const inputs = wrapper.findAll('input');
+			wrapper.findComponent(PrivacyPolicyDialog).vm.$emit('loaded', {
+				version: 'sha256:first',
+			});
+			await nextTick();
 
-		await inputs[0].setValue('demo_user');
-		await inputs[1].setValue('demo@example.com');
-		await inputs[2].setValue('123456');
-		await inputs[3].setValue('Passw0rd!');
-		await inputs[4].setValue('Passw0rd!');
-		await inputs[5].setValue(true);
-		await flushPromises();
-		await wrapper.get('form').trigger('submit');
-		await flushPromises();
+			await inputs[0].setValue('demo_user');
+			await inputs[1].setValue('demo@example.com');
+			await inputs[2].setValue('123456');
+			await inputs[3].setValue('Passw0rd!');
+			await inputs[4].setValue('Passw0rd!');
+			await inputs[5].setValue(true);
+			await flushPromises();
+			await wrapper.get('form').trigger('submit');
+			await flushPromises();
 
-		expect(register).toHaveBeenCalledTimes(1);
-		expect(register).toHaveBeenCalledWith({
-			username: 'demo_user',
-			email: 'demo@example.com',
-			password: 'Passw0rd!',
-			verificationCode: '123456',
-			privacyPolicyVersion: 'sha256:first',
-		});
-		expect(router.replace).toHaveBeenCalledWith('/auth/login');
-		expect(showSuccess).toHaveBeenCalledWith('注册成功，请登录');
-	});
+			expect(register).toHaveBeenCalledTimes(1);
+			expect(register).toHaveBeenCalledWith({
+				username: 'demo_user',
+				email: 'demo@example.com',
+				password: 'Passw0rd!',
+				verificationCode: '123456',
+				privacyPolicyVersion: 'sha256:first',
+			});
+			expect(router.replace).toHaveBeenCalledWith({
+				path: '/auth/login',
+				query: redirect?.startsWith('/articles/') ? { redirect } : {},
+			});
+			expect(showSuccess).toHaveBeenCalledWith('注册成功，请登录');
+		},
+	);
+
+	it.each(['/articles?keyword=Vue', '/auth/register'])(
+		'preserves only valid targets when switching to login with redirect=%s',
+		async (redirect) => {
+			route.query = { redirect };
+			const wrapper = mountPage();
+			await wrapper
+				.findAll('.el-link')
+				.find((link) => link.text() === '已有帐号？去登录')!
+				.trigger('click');
+			expect(router.replace).toHaveBeenCalledWith({
+				path: '/auth/login',
+				query: redirect === '/auth/register' ? {} : { redirect },
+			});
+		},
+	);
 
 	it('fetches the current privacy policy version before registration when needed', async () => {
 		const wrapper = mountPage();

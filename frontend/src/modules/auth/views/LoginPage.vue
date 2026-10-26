@@ -54,7 +54,7 @@
 				<el-link
 					type="primary"
 					class="auth-footer-link"
-					@click="router.replace('/auth/register')"
+					@click="goRegister"
 					>没有账号？立即注册
 				</el-link>
 				<el-link
@@ -83,6 +83,7 @@ import {
 } from '@/constants/validation';
 import { useAuthStore } from '@/stores/authStore';
 import { useUserStore } from '@/stores/userStore';
+import { getAuthRedirect } from '../utils/redirect';
 
 defineOptions({
 	name: 'LoginPage',
@@ -151,15 +152,19 @@ async function handlerLogin() {
 	try {
 		const res: LoginData = await login(loginForm);
 		useAuthStore().setAccessToken(res.accessToken);
-		const redirectQuery = route.query.redirect;
-		const redirect = Array.isArray(redirectQuery) ? redirectQuery[0] : redirectQuery;
+		const redirect = getAuthRedirect(router, route.query.redirect);
 		const userStore = useUserStore();
 		userStore.setUserInfo(res.user);
-		router.replace(typeof redirect === 'string' && redirect.startsWith('/') ? redirect : '/'); // 如果是从其他需要登录的页面跳过来登录页的，登录后跳转回去。
+		router.replace(redirect || '/'); // 如果是从其他需要登录的页面跳过来登录页的，登录后跳转回去。
 		ElMessage.success('登录成功');
 	} catch {
 		// 错误提示已经由 request 响应拦截器统一处理
 	}
+}
+
+function goRegister() {
+	const redirect = getAuthRedirect(router, route.query.redirect);
+	router.replace({ path: '/auth/register', query: redirect ? { redirect } : {} });
 }
 </script>
 

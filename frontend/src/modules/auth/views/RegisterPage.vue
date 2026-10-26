@@ -139,7 +139,7 @@
 				<el-link
 					type="primary"
 					class="auth-footer-link"
-					@click="router.replace('/auth/login')"
+					@click="goLogin"
 				>
 					已有帐号？去登录
 				</el-link>
@@ -157,7 +157,8 @@
 
 <script setup lang="ts">
 import { nextTick, ref, reactive, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
+import { getAuthRedirect } from '../utils/redirect';
 import { useIntervalFn } from '@vueuse/core';
 import { isAxiosError } from 'axios';
 import type { ApiResult } from '@/types/api';
@@ -184,6 +185,7 @@ defineOptions({
 });
 
 const router = useRouter();
+const route = useRoute();
 const registerFormRef = ref<FormInstance>();
 const privacyPolicyVisible = ref(false);
 const privacyPolicyVersion = ref('');
@@ -383,7 +385,7 @@ async function handlerRegister() {
 			verificationCode: registerForm.verificationCode,
 			privacyPolicyVersion: privacyPolicyVersion.value,
 		});
-		router.replace('/auth/login');
+		goLogin();
 		ElMessage.success('注册成功，请登录');
 	} catch (error) {
 		if (
@@ -407,6 +409,11 @@ async function handlerRegister() {
 		}
 		// 错误提示已经由 request 响应拦截器统一处理
 	}
+}
+
+function goLogin() {
+	const redirect = getAuthRedirect(router, route.query.redirect);
+	router.replace({ path: '/auth/login', query: redirect ? { redirect } : {} });
 }
 
 function handlePrivacyPolicyLoaded(policy: { version: string }) {
