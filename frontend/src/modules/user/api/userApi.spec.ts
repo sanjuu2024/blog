@@ -4,7 +4,7 @@ import {
 	changeCurrentUserEmail,
 	deleteCurrentUser,
 	sendEmailChangeCode,
-	updateCurrentUserAvatar,
+	updateCurrentUserProfile,
 } from './userApi';
 
 vi.mock('@/utils/request', () => ({
@@ -20,16 +20,18 @@ describe('user API contracts', () => {
 		vi.clearAllMocks();
 	});
 
-	it('uploads the current user avatar as multipart form data', () => {
-		const file = new File(['avatar'], 'avatar.jpg', { type: 'image/jpeg' });
+	it('submits profile fields and the optional avatar in one multipart request', () => {
+		const file = new File(['avatar'], 'avatar.webp', { type: 'image/webp' });
 
-		updateCurrentUserAvatar(file);
+		updateCurrentUserProfile({ nickname: 'Alice', bio: 'Bio' }, file);
 
-		expect(request.put).toHaveBeenCalledWith('users/me/avatar', expect.any(FormData), {
+		expect(request.put).toHaveBeenCalledWith('users/me/profile', expect.any(FormData), {
 			timeout: 30000,
 		});
 		const formData = vi.mocked(request.put).mock.calls[0]?.[1] as FormData;
-		expect(formData.get('file')).toBe(file);
+		expect(formData.get('nickname')).toBe('Alice');
+		expect(formData.get('bio')).toBe('Bio');
+		expect(formData.get('avatar')).toBe(file);
 	});
 
 	it('sends the email change verification code', () => {

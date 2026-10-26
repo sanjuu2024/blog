@@ -5,7 +5,6 @@ import com.ccsanjuu.blog.common.api.PageResult;
 import com.ccsanjuu.blog.modules.user.model.dto.*;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.modules.user.model.vo.*;
-import org.springframework.web.multipart.MultipartFile;
 
 public interface UserService extends IService<User> {
     /**
@@ -64,15 +63,6 @@ public interface UserService extends IService<User> {
      * @param requestDTO 注销原因
      */
     void deleteUserByAdmin(Long operatorId, Long userId, AdminDeleteUserRequestDTO requestDTO);
-
-    /**
-     * 上传并更新当前用户头像。
-     *
-     * @param userId 用户 ID
-     * @param file 头像图片
-     * @return 更新后的头像信息
-     */
-    UpdatedUserAvatarVO updateAvatar(Long userId, MultipartFile file);
 
     /**
      * 修改密码

@@ -14,7 +14,6 @@ import com.ccsanjuu.blog.modules.user.model.dto.UpdateProfileRequestDTO;
 import com.ccsanjuu.blog.modules.user.model.vo.CurrentUserProfileVO;
 import com.ccsanjuu.blog.modules.user.model.vo.PublicUserProfileVO;
 import com.ccsanjuu.blog.modules.user.model.vo.UpdatedUserProfileVO;
-import com.ccsanjuu.blog.modules.user.model.vo.UpdatedUserAvatarVO;
 import com.ccsanjuu.blog.modules.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,10 +23,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/users")
@@ -88,7 +85,7 @@ public class UserController {
     @PutMapping("/me/profile")
     @Operation(description = "更新个人资料")
     public Result<UpdatedUserProfileVO> updateProfile(
-            @Valid @RequestBody UpdateProfileRequestDTO updateProfileRequestDTO,
+            @Valid @ModelAttribute UpdateProfileRequestDTO updateProfileRequestDTO,
             @AuthenticationPrincipal JwtPrincipal jwtPrincipal   // 🔺🔺🔺获取 jwt 拦截器拦截解析 token 后放入的用户信息，注意是作为方法的参数传递进来的
     ){
         return Result.success(userService.updateProfile(jwtPrincipal.userId(), updateProfileRequestDTO));
@@ -144,22 +141,6 @@ public class UserController {
     ) {
         userService.deleteCurrentUser(jwtPrincipal.userId(), requestDTO);
         return Result.success(null);
-    }
-
-    /**
-     * 上传并更新当前用户头像。
-     *
-     * @param file 头像图片
-     * @param jwtPrincipal 当前登录用户
-     * @return 更新后的头像信息
-     */
-    @PutMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(description = "上传并更新当前用户头像")
-    public Result<UpdatedUserAvatarVO> updateAvatar(
-            @RequestPart("file") MultipartFile file,
-            @AuthenticationPrincipal JwtPrincipal jwtPrincipal
-    ) {
-        return Result.success(userService.updateAvatar(jwtPrincipal.userId(), file));
     }
 
     /**

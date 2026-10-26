@@ -1,5 +1,5 @@
 import { ElMessage, type FormInstance, type FormItemRule } from 'element-plus';
-import { computed, nextTick, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useIntervalFn } from '@vueuse/core';
 import {
@@ -19,7 +19,6 @@ import {
 	deleteCurrentUser,
 	getCurrentUserProfile,
 	sendEmailChangeCode,
-	updateCurrentUserAvatar,
 	updateCurrentUserProfile,
 } from '../api/userApi';
 import {
@@ -77,7 +76,8 @@ export function useUserSettings() {
 	const profileLoading = ref(false);
 	const profileLoaded = ref(false);
 	const profileLoadFailed = ref(false);
-	const avatarUploading = ref(false);
+	const avatarDraftFile = ref<File>();
+	const avatarDraftUrl = ref('');
 	const profileSubmitting = ref(false);
 	const passwordSubmitting = ref(false);
 	const emailCodeSending = ref(false);
@@ -98,7 +98,8 @@ export function useUserSettings() {
 	const profileChanged = computed(() => {
 		return (
 			(profileForm.nickname ?? '') !== userProfile.nickname ||
-			(profileForm.bio ?? '') !== userProfile.bio
+			(profileForm.bio ?? '') !== userProfile.bio ||
+			Boolean(avatarDraftFile.value)
 		);
 	});
 
@@ -401,9 +402,13 @@ export function useUserSettings() {
 		profileSubmitting.value = true;
 		try {
 			await profileFormRef.value.validate();
-			const data: UpdatedCurrentUserProfileData = await updateCurrentUserProfile(profileForm);
+			const data: UpdatedCurrentUserProfileData = await updateCurrentUserProfile(
+				profileForm,
+				avatarDraftFile.value,
+			);
 			Object.assign(userProfile, data);
 			userStore.setUserInfo({ ...userProfile });
+			clearAvatarDraft();
 			setProfileForm();
 			ElMessage.success('公开资料更新成功');
 		} catch {
@@ -413,28 +418,22 @@ export function useUserSettings() {
 		}
 	}
 
-	async function updateUserSettingsAvatar(file: File) {
-		if (avatarUploading.value) return false;
-
+	function setAvatarDraft(file: File) {
 		const validationMessage = validateImageFile(file, AVATAR_MAX_SIZE);
 		if (validationMessage) {
 			ElMessage.warning(validationMessage);
-			return false;
+			return;
 		}
 
-		avatarUploading.value = true;
-		try {
-			const data = await updateCurrentUserAvatar(file);
-			userProfile.avatarUrl = data.avatarUrl;
-			userStore.setUserInfo({ ...userProfile });
-			ElMessage.success('头像更新成功');
-			return true;
-		} catch {
-			// 请求错误由 request 响应拦截器统一处理
-			return false;
-		} finally {
-			avatarUploading.value = false;
-		}
+		clearAvatarDraft();
+		avatarDraftFile.value = file;
+		avatarDraftUrl.value = URL.createObjectURL(file);
+	}
+
+	function clearAvatarDraft() {
+		if (avatarDraftUrl.value) URL.revokeObjectURL(avatarDraftUrl.value);
+		avatarDraftFile.value = undefined;
+		avatarDraftUrl.value = '';
 	}
 
 	async function changeUserSettingsPassword() {
@@ -506,6 +505,8 @@ export function useUserSettings() {
 		await router.replace('/auth/login');
 	}
 
+	onBeforeUnmount(clearAvatarDraft);
+
 	return {
 		userProfile,
 		profileForm,
@@ -522,7 +523,8 @@ export function useUserSettings() {
 		profileLoading,
 		profileLoaded,
 		profileLoadFailed,
-		avatarUploading,
+		avatarDraftFile,
+		avatarDraftUrl,
 		profileSubmitting,
 		passwordSubmitting,
 		emailCodeSending,
@@ -532,7 +534,7 @@ export function useUserSettings() {
 		setPasswordFormRef,
 		setEmailFormRef,
 		getUserSettingsProfile,
-		updateUserSettingsAvatar,
+		setAvatarDraft,
 		updateUserSettingsProfile,
 		changeUserSettingsPassword,
 		sendUserEmailChangeCode,
