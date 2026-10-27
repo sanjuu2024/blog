@@ -149,7 +149,7 @@
 						:user-id="article.author.id"
 						:deleted="article.author.deleted"
 						:is-admin="article.author.role === 'ADMIN'"
-						:size="24"
+						:size="30"
 						class="mr-2"
 					/>
 					<span :class="{ 'article-author--deleted': article.author.deleted }">

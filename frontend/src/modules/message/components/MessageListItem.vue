@@ -35,7 +35,7 @@
 					<AppUserAvatar
 						:name="item.nickname"
 						:guest="true"
-						:size="34"
+						:size="36"
 						class="self-start"
 					/>
 				</GuestUserPopover>
@@ -95,7 +95,7 @@
 						:user-id="reply.author.id"
 						:deleted="reply.author.deleted"
 						:is-admin="reply.author.role === 'ADMIN'"
-						:size="28"
+						:size="36"
 						class="self-start"
 					/>
 				</PublicUserProfilePopover>

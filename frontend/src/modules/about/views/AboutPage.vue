@@ -51,6 +51,12 @@ onMounted(() => {
 	// :deep(p) {
 	// 	text-indent: 2em;
 	// }
+
+	:deep(a) {
+		color: var(--app-main);
+		text-decoration: underline;
+		font-weight: bold;
+	}
 }
 
 .about-page__state {

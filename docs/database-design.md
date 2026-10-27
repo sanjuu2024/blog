@@ -676,6 +676,7 @@ CREATE TABLE blog_about_page (
 关于页固定使用主键 `1`，migration 只建表、不插入业务内容。管理员第一次保存时创建记录，之后更新
 同一记录；规范化后的 Markdown 未变化时不更新。隐私政策不进入该表，而是由后端 classpath 中的
 `privacy-policy.md` 提供，版本为去除首尾空白后的 Markdown 内容 SHA-256；资源缺失或为空时后端拒绝启动。
+`content_html` 由 Markdown 转换并经白名单清洗；`a[href]` 保留同源相对 URL 及 HTTP、HTTPS、mailto 绝对 URL，危险协议与协议相对 URL 不保留。
 
 ## 4.5 P2 使用表：`blog_article_daily_stat`
 
