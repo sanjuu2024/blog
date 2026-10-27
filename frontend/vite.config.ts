@@ -49,6 +49,7 @@ export default defineConfig(({ mode }) => {
 							'material-symbols',
 							'mdi',
 							'lucide',
+							'streamline-ultimate-color',
 						],
 					}),
 				],

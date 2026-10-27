@@ -153,7 +153,6 @@ describe('MessageBoardPage', () => {
 		});
 		await nextTick();
 
-		expect(wrapper.get('.message-board__header').text()).toBe('留言板');
 		expect(wrapper.get('.message-board__empty').text()).toBe('还没有留言，来说点什么吧。');
 		expect(wrapper.get('[data-test="load-more"]').text()).toBe('');
 	});

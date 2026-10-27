@@ -19,6 +19,7 @@ import IconAbout from '~icons/lucide/info';
 import IconAudit from '~icons/lucide/scroll-text';
 import IconSecurity from '~icons/lucide/shield-alert';
 import IconCalendar from '~icons/lucide/calendar-days';
+import IconFriendLink from '~icons/lucide/link';
 
 const iconMap = {
 	dashboard: IconSpeed,
@@ -36,6 +37,7 @@ const iconMap = {
 	adminNotif: IconAdminNotif,
 	mailDelivery: IconMailDelivery,
 	calendar: IconCalendar,
+	friendLink: IconFriendLink,
 };
 
 type AdminMenuIcon = keyof typeof iconMap;

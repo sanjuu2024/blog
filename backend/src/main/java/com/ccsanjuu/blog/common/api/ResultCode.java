@@ -94,7 +94,11 @@ public enum ResultCode {
     MESSAGE_BATCH_TOO_LARGE(108012, "一次最多通过 100 条留言", 400),
     MESSAGE_MAIL_CONFIG_INVALID(108013, "留言通知邮件配置不完整", 500),
     TURNSTILE_VERIFICATION_FAILED(108014, "人机验证失败，请重试", 400),
-    TURNSTILE_SERVICE_UNAVAILABLE(108015, "人机验证服务暂不可用，请稍后重试", 503);
+    TURNSTILE_SERVICE_UNAVAILABLE(108015, "人机验证服务暂不可用，请稍后重试", 503),
+
+    // friend link 模块 09xxxx
+    FRIEND_LINK_NOT_FOUND(109001, "友链不存在", 404),
+    FRIEND_LINK_URL_ALREADY_EXISTS(109002, "友链地址已存在", 409);
 
     private final int code;
     private final String message;

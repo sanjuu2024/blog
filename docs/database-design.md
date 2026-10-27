@@ -46,7 +46,7 @@
 | P1 使用 | `blog_message_board` | 留言表，支持游客留言、审核、登录用户和管理员回复及通知退订 |
 | P1 使用 | `blog_admin_audit_log` | 后台管理操作追加式审计日志 |
 | 预留表 | `blog_project` | 项目作品表，待有实际作品后再评估使用 |
-| 上线后迭代 | `blog_friend_link` | 友链表，P2 不启用 |
+| P2 使用 | `blog_friend_link` | 友链信息及固定分区归属 |
 
 ### 2.3 设计原则
 
@@ -1016,7 +1016,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_project_status_sort
 | `created_at` | `TIMESTAMPTZ` | 创建时间 | `2026-05-10 10:00:00+08` |
 | `updated_at` | `TIMESTAMPTZ` | 更新时间 | `2026-05-12 18:00:00+08` |
 
-## 4.13 上线后迭代表：`blog_friend_link`
+## 4.13 P2 使用表：`blog_friend_link`
 
 ### SQL（PostgreSQL）
 
@@ -1027,7 +1027,9 @@ CREATE TABLE IF NOT EXISTS blog_friend_link (
     url VARCHAR(500) NOT NULL,
     logo_url VARCHAR(500) NOT NULL DEFAULT '',
     description VARCHAR(255) NOT NULL DEFAULT '',
-    sort_no INTEGER NOT NULL DEFAULT 0,
+    section VARCHAR(20) NOT NULL
+        CHECK (section IN ('FRIENDS', 'EXPERTS', 'PEERS')),
+    sort_no INTEGER NOT NULL DEFAULT 100,
     status VARCHAR(20) NOT NULL DEFAULT 'ENABLED'
         CHECK (status IN ('ENABLED', 'DISABLED')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -1037,8 +1039,11 @@ CREATE TABLE IF NOT EXISTS blog_friend_link (
 CREATE UNIQUE INDEX IF NOT EXISTS uq_blog_friend_link_url
     ON blog_friend_link (url);
 
-CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
-    ON blog_friend_link (status, sort_no);
+CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_section_sort
+    ON blog_friend_link (status, section, sort_no, id);
+
+CREATE INDEX IF NOT EXISTS idx_blog_friend_link_created_at
+    ON blog_friend_link (created_at DESC, id DESC);
 ```
 
 ### 字段表
@@ -1048,12 +1053,21 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 | `id` | `BIGSERIAL` | 友链主键 ID | `110001` |
 | `name` | `VARCHAR(100)` | 友链名称 | `某某技术博客` |
 | `url` | `VARCHAR(500)` | 友链地址 | `https://tech.example.com` |
-| `logo_url` | `VARCHAR(500)` | 友链 Logo 地址 | `https://tech.example.com/logo.png` |
+| `logo_url` | `VARCHAR(500)` | 友链头像图片或网站代表图地址 | `https://tech.example.com/avatar.png` |
 | `description` | `VARCHAR(255)` | 友链说明 | `专注 Java 与中间件` |
-| `sort_no` | `INTEGER` | 排序值 | `5` |
+| `section` | `VARCHAR(20)` | 固定友链分区：`FRIENDS`、`EXPERTS`、`PEERS`，分别展示为“友人帐”“大佬们”“同行者” | `FRIENDS` |
+| `sort_no` | `INTEGER` | 分区内显示顺序，数值越小越靠前；新建默认 100，可按 100 间隔安排后续插入 | `100` |
 | `status` | `VARCHAR(20)` | 友链状态 | `ENABLED` |
 | `created_at` | `TIMESTAMPTZ` | 创建时间 | `2026-06-01 09:00:00+08` |
 | `updated_at` | `TIMESTAMPTZ` | 更新时间 | `2026-06-01 09:10:00+08` |
+
+业务约束：
+
+- 友链地址 `url` 全局唯一，应用层只接受 HTTPS 绝对 URL；头像图片或网站代表图地址可为空，非空时只接受 HTTP(S) 绝对 URL，建议使用清晰的正方形图片。
+- `section` 是固定枚举，不提供分区管理能力；公开结果按分区固定顺序 `FRIENDS`、`EXPERTS`、`PEERS` 分组，每组按 `sort_no ASC, id ASC` 排序。
+- 公开查询只读取 `status = 'ENABLED'` 的记录；后台查询可包含停用记录。
+- 数据库不创建业务表之间的物理外键；友链是独立内容，不关联申请留言。友链申请通过留言板人工沟通，不在本表记录申请状态。
+- 友链页展示的本站申请资料来自后端必填运行时配置，不持久化到数据库，因此不新增站点资料表或 Flyway migration。
 
 ## 5. 建表顺序建议
 
@@ -1077,7 +1091,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 16. `blog_message_board`
 17. `blog_admin_audit_log`
 18. `blog_project`
-19. `blog_friend_link`（上线后迭代）
+19. `blog_friend_link`（P2 使用）
 
 ## 6. 落地建议
 
@@ -1103,3 +1117,5 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 - 浏览去重 key 只保存在 Redis 一小时，PostgreSQL 保存文章总量和每日聚合
 - 通知收件记录只面向登录用户；留言板公告不保存通知已读状态
 - 邮件投递失败原因只能保存安全摘要，手动重试根据业务关联重新生成正文
+- 友链分区固定为 FRIENDS、EXPERTS、PEERS，由管理员直接维护友链记录，不保存留言申请状态
+- `V1.0.0` 只创建了空的 `blog_friend_link` 占位表，migration 和 devdata 均未播种友链记录。`V1.2.12` 删除该空占位表并按本节最终结构重建，固定三个分区并将新建友链排序默认值设为 `100`。

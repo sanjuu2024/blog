@@ -6,6 +6,10 @@ spring:
       - classpath:db/devdata
 
 blog:
+  app-name: ${BLOG_APP_NAME:青禾边}
+  site-url: ${BLOG_SITE_URL:http://localhost:5173}
+  description: ${BLOG_DESC:本地开发博客}
+  logo-url: ${BLOG_LOGO_URL:https://example.com/site-logo.png}
   seo:
     html-template: ${BLOG_SEO_HTML_TEMPLATE:file:../frontend/index.html}
   auth:

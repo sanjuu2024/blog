@@ -29,7 +29,7 @@ public class PublicHtmlController {
      * @param request 当前请求
      * @return 首屏 HTML
      */
-    @GetMapping(value = {"/", "/articles", "/about", "/messages", "/articles/{articleId}"},
+    @GetMapping(value = {"/", "/articles", "/about", "/messages", "/links", "/articles/{articleId}"},
             produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<String> getHtml(HttpServletRequest request) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())

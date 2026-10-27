@@ -49,12 +49,12 @@ class BlogMailConfigTest {
     }
 
     @Test
-    void frontendBaseUrlShouldBeNormalizedAndAppNameShouldHaveDefault() {
+    void frontendBaseUrlShouldBeNormalizedAndAppNameShouldDefaultToEmpty() {
         BlogMailProperties properties = new BlogMailProperties();
         properties.setFrontendBaseUrl(" https://blog.example.com/// ");
 
         assertEquals("https://blog.example.com", properties.getFrontendBaseUrl());
-        assertEquals("青禾边", new BlogProperties().getAppName());
+        assertEquals("", new BlogProperties().getAppName());
     }
 
     @Test

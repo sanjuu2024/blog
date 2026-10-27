@@ -1,10 +1,10 @@
 <template>
 	<section class="message-board">
 		<div class="message-board__list">
-			<header class="message-board__header">
+			<!-- <header class="message-board__header">
 				<i-lucide-messages-square class="message-board__icon" />
 				<h1>留言板</h1>
-			</header>
+			</header> -->
 			<div class="message-board__scroll app-scrollbar app-scrollbar--stable">
 				<div
 					v-if="!messageList.length && !loading"
@@ -125,24 +125,24 @@ async function handleSubmit(form: CreateMessageRequest) {
 	background: transparent;
 }
 
-.message-board__header {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 0.6rem;
-	padding-bottom: 1rem;
-}
+// .message-board__header {
+// 	display: flex;
+// 	align-items: center;
+// 	justify-content: center;
+// 	gap: 0.6rem;
+// 	padding-bottom: 1rem;
 
-.message-board__header h1 {
-	margin: 0;
-	font-size: 1.6rem;
-}
+// 	h1 {
+// 		margin: 0;
+// 		font-size: 1.6rem;
+// 	}
 
-.message-board__icon {
-	width: 2rem;
-	height: 2rem;
-	color: var(--app-main);
-}
+// 	.message-board__icon {
+// 		width: 2rem;
+// 		height: 2rem;
+// 		color: var(--app-main);
+// 	}
+// }
 
 .message-board__scroll {
 	min-height: 0;

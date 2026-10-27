@@ -18,7 +18,11 @@ tags:
   - name: Public Users
     description: 前台公共用户接口
   - name: Site Content
-    description: 关于页和隐私政策公开内容
+    description: 公开站点页面和隐私政策内容
+  - name: Friend Links
+    description: 前台公开友链接口
+  - name: Admin Friend Links
+    description: 后台友链管理接口
   - name: Profile
     description: 个人中心接口
   - name: Admin Files
@@ -76,6 +80,13 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/PublicHtmlResponse' }
         '503': { description: 前端入口模板不可用 }
+  /links:
+    get:
+      tags: [Site Content]
+      summary: 获取友链页首屏 HTML
+      responses:
+        '200': { $ref: '#/components/responses/PublicHtmlResponse' }
+        '503': { description: 前端入口模板不可用 }
   /articles/{articleId}:
     get:
       tags: [Site Content]
@@ -103,7 +114,7 @@ paths:
       summary: 获取爬虫访问规则
       responses:
         '200':
-          description: 排除后台、认证和个人中心；API 默认禁止，文章、评论、分类、标签、关于、留言、SEO 与公开用户资料 API 提供 Allow 例外。生产 API 响应带 X-Robots-Tag noindex，JSON 不单独收录。
+          description: 排除后台、认证和个人中心；API 默认禁止，允许 GET /api/v1/friend-links 及其本站申请资料子路径读取公开友链数据；生产 API 响应带 X-Robots-Tag noindex，JSON 不单独收录。
           content:
             text/plain:
               schema: { type: string }
@@ -116,7 +127,7 @@ paths:
         - name: path
           in: query
           required: true
-          description: 公开页面规范路径，不含 query/hash；只支持首页、文章列表、关于、留言板及纯 ID 文章详情
+          description: 公开页面规范路径，不含 query/hash；支持首页、文章列表、关于、留言板、友链及纯 ID 文章详情
           schema: { type: string, example: /articles/34 }
       responses:
         '200':
@@ -131,6 +142,147 @@ paths:
                     properties:
                       data: { $ref: '#/components/schemas/SeoMetadata' }
         '404': { $ref: '#/components/responses/ResourceNotFoundResponse' }
+  /api/v1/friend-links:
+    get:
+      tags: [Friend Links]
+      summary: 获取已启用友链分区
+      description: 无需登录。始终返回 FRIENDS、EXPERTS、PEERS 三个固定分区；每个分区按 sortNo、id 升序，仅包含 ENABLED 友链。空分区返回空 records；不分页、不缓存。
+      operationId: listPublicFriendLinks
+      responses:
+        '200':
+          description: 查询成功
+          headers:
+            Cache-Control:
+              schema: { type: string, example: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicFriendLinkSectionsResponse' }
+  /api/v1/friend-links/site-profile:
+    get:
+      tags: [Friend Links]
+      summary: 获取本站友链申请资料
+      description: 无需登录。返回由后端运行时配置提供的本站名称、地址、描述和头像图片或网站代表图；响应不缓存。生产地址必须为 HTTPS origin 且图片地址必须为 HTTPS；dev/test 可使用 localhost HTTP 站点地址和 HTTP(S) 图片地址。
+      operationId: getPublicFriendLinkSiteProfile
+      responses:
+        '200':
+          description: 查询成功
+          headers:
+            Cache-Control:
+              schema: { type: string, example: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicFriendLinkSiteProfileResponse' }
+  /about:
+    get:
+      tags: [Site Content]
+      summary: 获取关于页首屏 HTML
+      responses:
+        '200': { $ref: '#/components/responses/PublicHtmlResponse' }
+        '503': { description: 前端入口模板不可用 }
+  /messages:
+    get:
+      tags: [Site Content]
+      summary: 获取留言板首屏 HTML
+      responses:
+        '200': { $ref: '#/components/responses/PublicHtmlResponse' }
+        '503': { description: 前端入口模板不可用 }
+  /api/v1/admin/friend-links:
+    get:
+      tags: [Admin Friend Links]
+      summary: 分页查询友链
+      description: 权限级别 `ADMIN`。结果包含启用和停用友链，按 createdAt、id 倒序；支持名称模糊查询及分区、状态筛选。
+      operationId: listAdminFriendLinks
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+        - name: keyword
+          in: query
+          required: false
+          schema: { type: string, maxLength: 100 }
+        - name: section
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/FriendLinkSection' }
+        - name: status
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/FriendLinkStatus' }
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminFriendLinkPageResponse' }
+        '400': { $ref: '#/components/responses/BadRequestResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedResponse' }
+        '403': { $ref: '#/components/responses/ForbiddenResponse' }
+    post:
+      tags: [Admin Friend Links]
+      summary: 创建友链
+      description: 权限级别 `ADMIN`。成功和失败操作均写后台操作审计日志；创建状态默认为 ENABLED，sortNo 默认为 100。后台列表顺序为 createdAt、id 倒序。
+      operationId: createAdminFriendLink
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FriendLinkCreateRequest' }
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FriendLinkMutationResponse' }
+        '400': { $ref: '#/components/responses/BadRequestResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedResponse' }
+        '403': { $ref: '#/components/responses/ForbiddenResponse' }
+        '409': { $ref: '#/components/responses/FriendLinkConflictResponse' }
+  /api/v1/admin/friend-links/{friendLinkId}:
+    put:
+      tags: [Admin Friend Links]
+      summary: 更新友链
+      description: 权限级别 `ADMIN`。完整替换可编辑字段；成功和失败操作均写后台操作审计日志。
+      operationId: updateAdminFriendLink
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: friendLinkId
+          in: path
+          required: true
+          schema: { type: integer, format: int64, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FriendLinkUpdateRequest' }
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FriendLinkMutationResponse' }
+        '400': { $ref: '#/components/responses/BadRequestResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedResponse' }
+        '403': { $ref: '#/components/responses/ForbiddenResponse' }
+        '404': { $ref: '#/components/responses/FriendLinkNotFoundResponse' }
+        '409': { $ref: '#/components/responses/FriendLinkConflictResponse' }
+    delete:
+      tags: [Admin Friend Links]
+      summary: 永久删除友链
+      description: 权限级别 `ADMIN`。物理删除指定记录，成功和失败操作均写后台操作审计日志。
+      operationId: deleteAdminFriendLink
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: friendLinkId
+          in: path
+          required: true
+          schema: { type: integer, format: int64, minimum: 1 }
+      responses:
+        '200': { $ref: '#/components/responses/NoDataResponse' }
+        '400': { $ref: '#/components/responses/BadRequestResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedResponse' }
+        '403': { $ref: '#/components/responses/ForbiddenResponse' }
+        '404': { $ref: '#/components/responses/FriendLinkNotFoundResponse' }
   /api/v1/admin/dashboard:
     get:
       tags:
@@ -2759,6 +2911,112 @@ components:
       schema:
         type: string
   schemas:
+    FriendLinkSection:
+      type: string
+      enum: [FRIENDS, EXPERTS, PEERS]
+      description: 固定分区，依次展示为友人帐、大佬们、同行者
+    FriendLinkStatus:
+      type: string
+      enum: [ENABLED, DISABLED]
+    FriendLinkItem:
+      type: object
+      required: [id, name, url, logoUrl, description, section, sortNo]
+      properties:
+        id: { type: integer, format: int64, example: 110001 }
+        name: { type: string, maxLength: 100, example: 某某技术博客 }
+        url: { type: string, format: uri, maxLength: 500, pattern: '^https://.+', example: https://tech.example.com }
+        logoUrl: { type: string, maxLength: 500, description: 头像图片或网站代表图地址；空字符串表示未配置图片，建议使用清晰的正方形图片, example: https://tech.example.com/avatar.png }
+        description: { type: string, maxLength: 255, example: 专注 Java 与中间件 }
+        section: { $ref: '#/components/schemas/FriendLinkSection' }
+        sortNo: { type: integer, format: int32, example: 100 }
+    PublicFriendLinkSection:
+      type: object
+      required: [section, name, records]
+      properties:
+        section: { $ref: '#/components/schemas/FriendLinkSection' }
+        name: { type: string, example: 友人帐 }
+        records:
+          type: array
+          items: { $ref: '#/components/schemas/FriendLinkItem' }
+    PublicFriendLinkSectionsResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              minItems: 3
+              maxItems: 3
+              items: { $ref: '#/components/schemas/PublicFriendLinkSection' }
+    PublicFriendLinkSiteProfile:
+      type: object
+      required: [name, url, description, logoUrl]
+      properties:
+        name: { type: string, minLength: 1, example: 青禾边 }
+        url: { type: string, format: uri, pattern: '^https?://.+', description: '生产环境为 HTTPS origin；dev/test 可使用 localhost HTTP', example: https://blog.example.com }
+        description: { type: string, minLength: 1, example: 聆听心中最初的声音 }
+        logoUrl: { type: string, format: uri, pattern: '^https?://.+', description: '本站头像图片或网站代表图地址；生产环境必须为 HTTPS，dev/test 可使用 HTTP(S)', example: https://img.example.com/site-avatar.png }
+    PublicFriendLinkSiteProfileResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/PublicFriendLinkSiteProfile' }
+    AdminFriendLinkItem:
+      allOf:
+        - $ref: '#/components/schemas/FriendLinkItem'
+        - type: object
+          required: [status, createdAt, updatedAt]
+          properties:
+            status: { $ref: '#/components/schemas/FriendLinkStatus' }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    AdminFriendLinkPageData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          required: [records]
+          properties:
+            records:
+              type: array
+              items: { $ref: '#/components/schemas/AdminFriendLinkItem' }
+    AdminFriendLinkPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/AdminFriendLinkPageData' }
+    FriendLinkCreateRequest:
+      type: object
+      required: [name, url, section]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        url: { type: string, format: uri, minLength: 1, maxLength: 500, pattern: '^https://.+' }
+        logoUrl: { type: string, maxLength: 500, pattern: '^(https?://.*)?$', description: 头像图片或网站代表图地址，可选，建议使用清晰的正方形图片, default: '' }
+        description: { type: string, maxLength: 255, default: '' }
+        section: { $ref: '#/components/schemas/FriendLinkSection' }
+        sortNo: { type: integer, format: int32, minimum: 0, default: 100 }
+        status:
+          allOf:
+            - $ref: '#/components/schemas/FriendLinkStatus'
+          default: ENABLED
+    FriendLinkUpdateRequest:
+      type: object
+      required: [name, url, section, sortNo, status]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        url: { type: string, format: uri, minLength: 1, maxLength: 500, pattern: '^https://.+' }
+        logoUrl: { type: string, maxLength: 500, pattern: '^(https?://.*)?$', description: 头像图片或网站代表图地址，可选，建议使用清晰的正方形图片, default: '' }
+        description: { type: string, maxLength: 255, default: '' }
+        section: { $ref: '#/components/schemas/FriendLinkSection' }
+        sortNo: { type: integer, format: int32, minimum: 0 }
+        status: { $ref: '#/components/schemas/FriendLinkStatus' }
+    FriendLinkMutationResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/AdminFriendLinkItem' }
     SeoMetadata:
       type: object
       required: [title, description, canonicalUrl, imageUrl, type, publishedAt, updatedAt]
@@ -5150,7 +5408,7 @@ components:
               $ref: '#/components/schemas/SecurityEventPageData'
     AdminAuditResourceType:
       type: string
-      enum: [USER, ARTICLE, CATEGORY, TAG, COMMENT, MESSAGE, NOTIFICATION, FILE, ABOUT_PAGE]
+      enum: [USER, ARTICLE, CATEGORY, TAG, COMMENT, MESSAGE, NOTIFICATION, FILE, ABOUT_PAGE, FRIEND_LINK]
     AdminAuditAction:
       type: string
       description: DELETE 对用户资源表示注销，对其他资源表示删除；底层枚举和筛选参数保持不变。
@@ -5649,6 +5907,24 @@ components:
           example:
             code: 199404
             message: 请求资源不存在
+            data: null
+    FriendLinkNotFoundResponse:
+      description: 友链不存在
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            code: 109001
+            message: 友链不存在
+            data: null
+    FriendLinkConflictResponse:
+      description: 友链地址已被其他记录使用
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            code: 109002
+            message: 友链地址已存在
             data: null
     ArticleNotFoundResponse:
       description: 文章不存在

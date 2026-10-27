@@ -90,6 +90,26 @@ describe('usePageSeo', () => {
 		expect(document.title).not.toBe('过期文章结果');
 	});
 
+	it('loads metadata for the friend-links page', async () => {
+		vi.mocked(getSeoMetadata)
+			.mockResolvedValueOnce(metadata)
+			.mockResolvedValueOnce({
+				...metadata,
+				canonicalUrl: 'https://blog.example.com/links',
+				title: '友链 - 青禾边',
+			});
+		start();
+		await flushPromises();
+		route.path = '/links';
+		await flushPromises();
+
+		expect(getSeoMetadata).toHaveBeenLastCalledWith('/links');
+		expect(document.title).toBe('友链 - 青禾边');
+		expect(document.querySelector('link[rel=canonical]')?.getAttribute('href')).toBe(
+			'https://blog.example.com/links',
+		);
+	});
+
 	it('preserves matching server tags on startup without another SEO request', async () => {
 		applyPageSeo(metadata);
 		const canonical = document.querySelector('link[rel=canonical]');

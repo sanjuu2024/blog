@@ -6,8 +6,10 @@ x-backend-build: &backend-build
 
 x-backend-environment: &backend-environment
   SPRING_PROFILES_ACTIVE: prod
-  BLOG_APP_NAME: ${BLOG_APP_NAME:-青禾边}
+  BLOG_APP_NAME: ${BLOG_APP_NAME:?BLOG_APP_NAME is required}
   BLOG_SITE_URL: ${BLOG_SITE_URL:?BLOG_SITE_URL is required}
+  BLOG_DESC: ${BLOG_DESC:?BLOG_DESC is required}
+  BLOG_LOGO_URL: ${BLOG_LOGO_URL:?BLOG_LOGO_URL is required}
   BLOG_SEO_HTML_TEMPLATE: file:/app/frontend-template/index.html
   BLOG_DB_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}"
   BLOG_DB_USERNAME: ${POSTGRES_USER:?POSTGRES_USER is required}

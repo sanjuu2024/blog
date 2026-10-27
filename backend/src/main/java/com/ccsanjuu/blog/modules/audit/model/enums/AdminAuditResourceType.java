@@ -12,5 +12,6 @@ public enum AdminAuditResourceType {
     MESSAGE,
     NOTIFICATION,
     FILE,
-    ABOUT_PAGE
+    ABOUT_PAGE,
+    FRIEND_LINK
 }

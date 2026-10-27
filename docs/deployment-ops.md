@@ -426,13 +426,26 @@ Turnstile site key 可以进入前端构建配置，secret key 必须使用 Secr
 - 接入 Prometheus + Grafana，补充应用、JVM、PostgreSQL、Redis、Nginx 和业务指标仪表盘
 - 根据实际使用情况评估游客点赞与账号点赞合并、点赞反作弊和 SMTP 退信自动处理
 - 增加头像审核：拒绝后回退为默认头像并发送管理员消息，不联动隐藏已有评论或留言
-- 实现友链管理
 
 ## 10. 发布前检查清单
 
 SEO 使用站点级 `BLOG_SITE_URL`（例如 `https://blog.example.com`），在根目录环境文件维护一份，
 Compose 显式传入后端。前端无需另配域名；本地直接启动 Spring Boot 时，在 IDE/启动环境中设置该变量，
-Spring Boot 不自动读取根目录 `.env`。站点名由 `BLOG_APP_NAME` 提供。
+Spring Boot 不自动读取根目录 `.env`。站点名由 `BLOG_APP_NAME` 提供；友链申请资料描述和 Logo 地址分别由
+`BLOG_DESC` 和 `BLOG_LOGO_URL` 提供。生产 Compose 要求四项均显式非空，站点地址和 Logo 地址必须使用 HTTPS；
+dev/test 使用各自 profile 的明确本地资料，站点地址允许 localhost HTTP，Logo 地址允许 HTTP(S)，不依赖生产环境文件。
+
+正式生产根目录 `.env` 或仓库外 prodtest `.env.prodtest` 必须填写以下友链申请资料，不能留空：
+
+| 变量 | 需要填写的值 | 约束 |
+| --- | --- | --- |
+| `BLOG_APP_NAME` | 对外展示的网站名称 | 去除首尾空白后非空 |
+| `BLOG_SITE_URL` | 网站规范 origin | HTTPS，例如 `https://blog.example.com`，不带路径、查询或片段 |
+| `BLOG_DESC` | 友链申请时展示的网站描述 | 非空纯文本 |
+| `BLOG_LOGO_URL` | 站点头像或 Logo 的公开图片地址 | HTTPS 绝对 URL |
+
+四项由 `compose.prod.yaml` 的 backend 和 `compose.bootstrap.yaml` 的管理员初始化服务共同读取。
+更新环境文件后需要重新创建 backend 容器使 Spring Boot 读取新配置；无需重建前端镜像。
 
 后端 `BLOG_SEO_HTML_TEMPLATE` 指定入口模板，开发默认为 `file:../frontend/index.html`。
 生产 nginx 容器启动时将本次构建的 `index.html` 原子写入共享模板卷，后端只读挂载并按请求读取，
