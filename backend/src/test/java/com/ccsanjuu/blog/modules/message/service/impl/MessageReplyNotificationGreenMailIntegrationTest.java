@@ -115,7 +115,7 @@ class MessageReplyNotificationGreenMailIntegrationTest {
 
         assertEquals("notifications@sanjuu.test", received.getFrom()[0].toString());
         assertEquals("guest@example.test", received.getAllRecipients()[0].toString());
-        assertEquals("您在 青禾边 留言有了新的回复", received.getSubject());
+        assertEquals("您在 集成测试站点 留言有了新的回复", received.getSubject());
         assertTrue(plainText.contains("这是一条测试留言"));
         assertTrue(plainText.contains("这是管理员的测试回复"));
         assertTrue(plainText.contains("http://localhost:5173/messages"));

@@ -89,14 +89,14 @@ class SeoIntegrationTest {
                 .andExpect(jsonPath("$.data.canonicalUrl").value("https://blog.example.com" + path));
         var metadata = articleService.getPublicArticleDetail(article.getId(), null, null).getSeo();
         assertEquals("https://blog.example.com" + path, metadata.getCanonicalUrl());
-        assertEquals("SEO中文测试 - 青禾边", metadata.getTitle());
+        assertEquals("SEO中文测试 - 集成测试站点", metadata.getTitle());
         mockMvc.perform(get("/links"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("https://blog.example.com/links")))
                 .andExpect(content().string(not(containsString("<h1"))));
         mockMvc.perform(get("/api/v1/seo").param("path", "/links"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.title").value("友链 - 青禾边"))
+                .andExpect(jsonPath("$.data.title").value("友链 - 集成测试站点"))
                 .andExpect(jsonPath("$.data.canonicalUrl").value("https://blog.example.com/links"));
         mockMvc.perform(get("/sitemap.xml")).andExpect(status().isOk())
                 .andExpect(content().string(containsString("https://blog.example.com" + path + "</loc>")));
