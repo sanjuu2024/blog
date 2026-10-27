@@ -29,6 +29,7 @@ describe('P0 route contract', () => {
 				'AdminArticle',
 				'AdminCategoryList',
 				'AdminTagList',
+				'AdminFriendLinkList',
 				'AdminCommentList',
 				'AdminMessageList',
 				'AdminAbout',

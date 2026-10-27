@@ -324,6 +324,7 @@ function getResourceTypeLabel(resourceType: AuditResourceType) {
 		[AUDIT_RESOURCE_TYPE.NOTIFICATION]: '管理员消息',
 		[AUDIT_RESOURCE_TYPE.FILE]: '文件',
 		[AUDIT_RESOURCE_TYPE.ABOUT_PAGE]: '关于页面',
+		[AUDIT_RESOURCE_TYPE.FRIEND_LINK]: '友链',
 	}[resourceType];
 }
 

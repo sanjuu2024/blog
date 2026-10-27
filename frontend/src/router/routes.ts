@@ -94,6 +94,15 @@ export const adminRoutes = [
 		},
 	},
 	{
+		path: '/admin/friend-links',
+		name: 'AdminFriendLinkList',
+		component: () => import('@/modules/admin/friend-link/views/AdminFriendLinkListPage.vue'),
+		meta: {
+			icon: 'friendLink',
+			title: '友链管理',
+		},
+	},
+	{
 		path: '/admin/mail-deliveries',
 		name: 'AdminMailDeliveryList',
 		component: () => import('@/modules/admin/mail-delivery/views/AdminMailDeliveryPage.vue'),

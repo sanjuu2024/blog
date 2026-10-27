@@ -169,6 +169,8 @@ Authorization: Bearer <access_token>
 | `108013` | `500` | `留言通知邮件配置不完整` | 启用邮件通知时 SMTP 或发件配置不完整 |
 | `108014` | `400` | `人机验证失败，请重试` | 游客未提交有效 Turnstile token，或验证上下文不匹配 |
 | `108015` | `503` | `人机验证服务暂不可用，请稍后重试` | Cloudflare Siteverify 调用失败或服务不可用 |
+| `109001` | `404` | `友链不存在` | 管理员更新或删除的友链记录不存在 |
+| `109002` | `409` | `友链地址已存在` | 创建或更新友链时网站地址与其他记录冲突 |
 
 ### 2.7 分页结构
 
@@ -260,6 +262,10 @@ Authorization: Bearer <access_token>
 | 后台标签 | `POST` | `/api/v1/admin/tags` | `ADMIN` | 创建标签 |
 | 后台标签 | `PUT` | `/api/v1/admin/tags/{tagId}` | `ADMIN` | 更新标签 |
 | 后台标签 | `DELETE` | `/api/v1/admin/tags/{tagId}` | `ADMIN` | 删除标签 |
+| 后台友链 | `GET` | `/api/v1/admin/friend-links` | `ADMIN` | 按名称、分区、状态分页查询友链 |
+| 后台友链 | `POST` | `/api/v1/admin/friend-links` | `ADMIN` | 创建友链 |
+| 后台友链 | `PUT` | `/api/v1/admin/friend-links/{friendLinkId}` | `ADMIN` | 更新友链、分区、状态或排序 |
+| 后台友链 | `DELETE` | `/api/v1/admin/friend-links/{friendLinkId}` | `ADMIN` | 永久删除友链 |
 | 后台审计日志 | `GET` | `/api/v1/admin/audit-logs` | `ADMIN` | 获取后台操作审计日志分页列表 |
 | 后台安全事件 | `GET` | `/api/v1/admin/security-events` | `ADMIN` | 获取安全事件分页列表 |
 | 后台评论 | `GET` | `/api/v1/admin/comments` | `ADMIN` | 获取评论审核分页列表 |
@@ -2043,8 +2049,8 @@ Content-Type: application/json
 
 说明：
 
--   删除一级分类前，必须先删除其下所有二级分类。
--   删除二级分类前，必须确认该分类下没有关联文章。
+- 删除一级分类前，必须先删除其下所有二级分类。
+- 删除二级分类前，必须确认该分类下没有关联文章。
 
 ### 请求参数
 
@@ -2521,7 +2527,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 权限：`ADMIN`
 - 支持按 `eventType`、`outcome`、`userId`、`createdAtFrom`、`createdAtTo` 和通用分页参数筛选。
 - 列表按 `createdAt DESC, id DESC` 排序，返回 `userId`、`actorId`、原始账号 `account`、来源 `ip`、原始 `userAgent`、`requestMethod`、不含 query 的 `requestPath`、原因描述和事件时间。
-- 同时返回目标用户的 `userUsername`、`userNickname`、`userDeleted` 和操作者的 `actorUsername`、`actorNickname`、`actorDeleted`。资料来自当前用户记录；未关联或用户记录不存在时为 null；已注销时注销标记为 true，返回当前占位用户名 `deleted_用户ID`，昵称为 null，后台使用注销样式展示“账号已注销（deleted_用户ID）”。
+- 同时返回目标用户的 `userUsername`、`userNickname`、`userDeleted` 和操作者的 `actorUsername`、`actorNickname`、`actorDeleted`。资料来自当前用户记录；未关联或用户记录不存在时为 null；已注销时注销标记为 true，返回当前占位用户名 `deleted_用户ID`，昵称为 null，后台使用注销样式展示“账号已注销（deleted\_用户ID）”。
 - 后台有目标用户时优先展示昵称、用户名和 ID，不重复展示原始账号；操作者仅在 `actorId` 有值时展示。无目标用户但有 `account` 时展示账号，验证码事件展示邮箱；两者均无时显示“未关联用户”。登录失败原因沿用事件描述，不根据账号值猜测其是否存在。
 - `browser`、`operatingSystem`、`device` 为 User-Agent 的可读解析结果；历史记录没有原始字段时返回 null，后台显示“未记录”。原始 User-Agent 可完整查看。
 - `userId` 为可信关联的目标用户；`actorId` 仅为管理员操作其他用户时的操作者，自身操作为空。刷新失败区分缺失、格式/签名错误、过期、类型或声明错误、会话不存在、已撤销、会话过期和摘要不匹配；仅签名可信且为 Refresh Token 时关联用户 ID，公开错误码不变。
@@ -2662,6 +2668,29 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 本节冻结 P2 契约方向；已实现状态以各小节标注和 `openapi.yaml` 中的实际 paths 为准。后续实现必须继续使用 `/api/v1/**`、统一响应结构、现有认证错误码和后台审计规则，并同步补入 `openapi.yaml`。
 
+### 16.0 友链管理
+
+| 方法 | 路径 | 权限 | 说明 |
+| --- | --- | --- | --- |
+| `GET` | `/api/v1/admin/friend-links` | `ADMIN` | 分页查询友链，支持名称、分区和状态筛选 |
+| `POST` | `/api/v1/admin/friend-links` | `ADMIN` | 创建友链 |
+| `PUT` | `/api/v1/admin/friend-links/{friendLinkId}` | `ADMIN` | 更新友链资料、分区、状态和排序 |
+| `DELETE` | `/api/v1/admin/friend-links/{friendLinkId}` | `ADMIN` | 永久删除友链 |
+
+本次实施范围为管理员分页查询、新增、更新与删除；公开友链读取接口和前台展示页保留在产品契约中，后续单独实现。后台列表返回启用和停用记录，并按创建时间和 ID 倒序分页；
+每页沿用通用分页上限。所有后台写操作通过既有 `@AdminAudit` 机制记录成功和失败审计。
+
+友链请求字段为 `name`（必填，1–100 字符）、`url`（必填，HTTP(S) 绝对 URL，最长 500 字符）、
+`description`（可空，最长 255 字符）、`logoUrl`（可空，HTTP(S) 绝对 URL，最长 500 字符）、
+`section`（必填，`FRIENDS`/`EXPERTS`/`PEERS`）、`sortNo`（32 位整数）和 `status`（`ENABLED`/`DISABLED`）。
+创建时状态默认 `ENABLED`、排序默认 100；排序值越小越靠前，可预留间隔便于后续插入。后台列表仍按创建时间和 ID 倒序；未填写的可空文本字段规范化为空字符串。
+名称和描述按纯文本展示，不解析 HTML 或 Markdown；Logo 由浏览器直接加载，不经本站代理。
+重复网站地址返回 HTTP 409、业务码 `109002`；目标不存在返回 HTTP 404、业务码 `109001`。
+其他字段校验失败使用 `199001`。
+
+友链申请只通过后续公开页面的说明引导到留言板；留言正文由申请者自行提供名称、地址、描述和可选 Logo URL。
+留言和友链记录互相独立，审核不会自动创建友链，只有管理员在友链管理页面执行新增后才会公开展示。
+
 ### 16.1 注册邮箱验证码（已实现）
 
 | 方法 | 路径 | 权限 | 说明 |
@@ -2790,7 +2819,7 @@ Dashboard 不再接收全局 `range` 参数。接口一次返回六个指标的�
 
 | 方法 | 路径 | 响应 | 说明 |
 | --- | --- | --- | --- |
-| `GET` | `/`、`/articles`、`/about`、`/messages` | `text/html` | 前端入口 HTML 与页面元信息，正文由 Vue 渲染 |
+| `GET` | `/`、`/articles`、`/about`、`/messages` | `text/html` | 当前已实现的前端入口 HTML 与页面元信息，正文由 Vue 渲染 |
 | `GET` | `/articles/{articleId}` | `text/html` | head 包含文章标题、摘要、canonical 和 OG，正文由 Vue 渲染；不存在、不可见或分类不可用时 HTTP 404 |
 | `GET` | `/sitemap.xml` | `application/xml` | 公开页面与公开可见文章的规范地址及文章更新时间 |
 | `GET` | `/robots.txt` | `text/plain` | 排除后台、认证及个人中心；API 默认禁止，公开渲染数据 API 提供 Allow 例外，并声明 sitemap |
@@ -2799,6 +2828,8 @@ Dashboard 不再接收全局 `range` 参数。接口一次返回六个指标的�
 SEO JSON 的 data 为 `{title, description, canonicalUrl, imageUrl, type, publishedAt, updatedAt}`。
 `type` 为 `website` 或 `article`，图片和事件时间可为 null；无封面时不伪造 OG 图片。
 标题、描述和地址由后端统一生成，canonical 不含 query/hash，封面只接受 HTTP(S) 绝对地址或站内相对地址。
+友链页标题为“友链 - {BLOG_APP_NAME}”，description 使用“{BLOG_APP_NAME}的友链”，canonical 为 `BLOG_SITE_URL + /links`；进入 sitemap 时与其他静态公开页面一样不输出 `lastmod`。友链 API 只被 robots 作为渲染数据读取例外，不允许搜索引擎单独索引 JSON。
+上述友链 SEO 与 `/links` 页面属于后续公开页实施契约，本次只交付管理员友链接口。
 HTML、元信息和 sitemap 使用 `Cache-Control: no-store`，避免下线内容继续从缓存公开。
 无需单独请求 SEO JSON 即可从首屏 HTML 抓取标签。首次导航匹配后端 canonical 路径时保留已有标签；
 文章详情中的 `seo` 与首屏使用同一套生成逻辑，详情成功后同步标签，失败时清理并设置 noindex。
@@ -2812,5 +2843,6 @@ HTML 模板不可读取时返回 HTTP 503，不降级为缺少前端资源的伪
 robots 保留 `Disallow: /api/`，允许 `/api/v1/articles`、`/api/v1/comments/`、`/api/v1/categories`、
 `/api/v1/tags`、`/api/v1/about`、`/api/v1/messages`、`/api/v1/seo` 和 `/api/v1/users/*/public-profile`，
 确保执行 JavaScript 的爬虫能读取公开页面数据。robots 不区分 HTTP 方法，不改变现有权限或写入限制。
-生产 Nginx 的通用 `/api/` 和独立 `/api/v1/messages` location 均添加 `X-Robots-Tag: noindex`，
+待公开友链查询接口和友链页上线时，再将该读取接口加入 robots Allow 例外。
+生产 Nginx 的通用 `/api/` location 添加 `X-Robots-Tag: noindex`，
 防止公开 JSON 本身进入搜索结果；不向公开 HTML、sitemap 或 robots 添加该响应头。

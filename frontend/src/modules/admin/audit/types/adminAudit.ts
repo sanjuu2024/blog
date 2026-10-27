@@ -10,6 +10,7 @@ export const AUDIT_RESOURCE_TYPE = {
 	NOTIFICATION: 'NOTIFICATION',
 	FILE: 'FILE',
 	ABOUT_PAGE: 'ABOUT_PAGE',
+	FRIEND_LINK: 'FRIEND_LINK',
 } as const;
 
 export type AuditResourceType = (typeof AUDIT_RESOURCE_TYPE)[keyof typeof AUDIT_RESOURCE_TYPE];
