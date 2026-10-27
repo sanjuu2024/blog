@@ -13,6 +13,10 @@ spring:
       - classpath:db/devdata
 
 blog:
+  app-name: 集成测试站点
+  site-url: http://localhost:5173
+  description: 用于自动化测试的站点资料
+  logo-url: https://img.test.example.com/site-logo.png
   jwt:
     secret: ${BLOG_TEST_JWT_SECRET}
   auth:

@@ -235,6 +235,8 @@ Authorization: Bearer <access_token>
 | 前台分类 | `GET` | `/api/v1/categories` | `PUBLIC` | 获取启用分类列表 |
 | 前台标签 | `GET` | `/api/v1/tags` | `PUBLIC` | 获取启用标签列表 |
 | 前台用户 | `GET` | `/api/v1/users/{userId}/public-profile` | `PUBLIC` | 获取用户公开资料卡 |
+| 前台友链 | `GET` | `/api/v1/friend-links` | `PUBLIC` | 获取固定分区及已启用友链 |
+| 前台友链 | `GET` | `/api/v1/friend-links/site-profile` | `PUBLIC` | 获取友链申请页展示的本站资料 |
 | 个人中心 | `GET` | `/api/v1/users/me` | `LOGIN` | 获取当前登录用户信息 |
 | 个人中心 | `GET` | `/api/v1/users/me/liked-articles` | `LOGIN` | 分页获取当前用户点赞过且仍公开可见的文章 |
 | 个人中心 | `PUT` | `/api/v1/users/me/profile` | `LOGIN` | 更新个人资料 |
@@ -2676,20 +2678,32 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | `POST` | `/api/v1/admin/friend-links` | `ADMIN` | 创建友链 |
 | `PUT` | `/api/v1/admin/friend-links/{friendLinkId}` | `ADMIN` | 更新友链资料、分区、状态和排序 |
 | `DELETE` | `/api/v1/admin/friend-links/{friendLinkId}` | `ADMIN` | 永久删除友链 |
+| `GET` | `/api/v1/friend-links` | `PUBLIC` | 获取固定顺序的三个分区及其启用友链 |
+| `GET` | `/api/v1/friend-links/site-profile` | `PUBLIC` | 获取本站友链申请资料 |
 
-本次实施范围为管理员分页查询、新增、更新与删除；公开友链读取接口和前台展示页保留在产品契约中，后续单独实现。后台列表返回启用和停用记录，并按创建时间和 ID 倒序分页；
+后台列表返回启用和停用记录，并按创建时间和 ID 倒序分页；
 每页沿用通用分页上限。所有后台写操作通过既有 `@AdminAudit` 机制记录成功和失败审计。
 
-友链请求字段为 `name`（必填，1–100 字符）、`url`（必填，HTTP(S) 绝对 URL，最长 500 字符）、
-`description`（可空，最长 255 字符）、`logoUrl`（可空，HTTP(S) 绝对 URL，最长 500 字符）、
+公开接口始终按 `FRIENDS`、`EXPERTS`、`PEERS` 顺序返回“友人帐”“大佬们”“同行者”三个分区；
+每个分区的 `records` 可为空，记录按 `sortNo ASC, id ASC` 排序，仅包含 `ENABLED` 友链。
+公开记录返回 `id`、`name`、`url`、`logoUrl`、`description`、`section`、`sortNo`，不返回状态和后台时间字段；
+未设置头像图片或网站代表图时 `logoUrl` 返回空字符串。接口无需登录、不分页，响应使用 `Cache-Control: no-store`。
+
+友链请求字段为 `name`（必填，1–100 字符）、`url`（必填，HTTPS 绝对 URL，最长 500 字符）、
+`description`（可空，最长 255 字符）、`logoUrl`（可空，头像图片或网站代表图地址，HTTP(S) 绝对 URL，最长 500 字符；建议使用清晰的正方形图片）、
 `section`（必填，`FRIENDS`/`EXPERTS`/`PEERS`）、`sortNo`（32 位整数）和 `status`（`ENABLED`/`DISABLED`）。
 创建时状态默认 `ENABLED`、排序默认 100；排序值越小越靠前，可预留间隔便于后续插入。后台列表仍按创建时间和 ID 倒序；未填写的可空文本字段规范化为空字符串。
-名称和描述按纯文本展示，不解析 HTML 或 Markdown；Logo 由浏览器直接加载，不经本站代理。
+名称和描述按纯文本展示，不解析 HTML 或 Markdown；头像图片或网站代表图由浏览器直接加载，不经本站代理。
 重复网站地址返回 HTTP 409、业务码 `109002`；目标不存在返回 HTTP 404、业务码 `109001`。
 其他字段校验失败使用 `199001`。
 
-友链申请只通过后续公开页面的说明引导到留言板；留言正文由申请者自行提供名称、地址、描述和可选 Logo URL。
+友链申请只通过公开页面的说明引导到留言板；留言正文由申请者自行提供名称、HTTPS 地址、描述和可选头像图片或网站代表图地址；建议图片清晰且为正方形。
 留言和友链记录互相独立，审核不会自动创建友链，只有管理员在友链管理页面执行新增后才会公开展示。
+
+`GET /api/v1/friend-links/site-profile` 无需登录，返回 `{name, url, description, logoUrl}`，响应使用 `Cache-Control: no-store`。
+四个字段分别来自 `BLOG_APP_NAME`、`BLOG_SITE_URL`、`BLOG_DESC`、`BLOG_LOGO_URL`，均为必填非空配置；其中 `logoUrl` 表示本站头像图片或网站代表图地址。生产环境缺少配置或 URL 格式无效时后端启动失败。
+生产 `BLOG_SITE_URL` 必须为 HTTPS origin，`BLOG_LOGO_URL`（图片地址）必须为 HTTPS 绝对 URL。dev/test 使用 profile 内明确的本地资料，允许 `BLOG_SITE_URL` 为 localhost HTTP，图片地址允许 HTTP(S)。
+本站资料仅通过公开响应提供，不提供后台编辑接口，也不写入数据库。
 
 ### 16.1 注册邮箱验证码（已实现）
 
@@ -2819,7 +2833,7 @@ Dashboard 不再接收全局 `range` 参数。接口一次返回六个指标的�
 
 | 方法 | 路径 | 响应 | 说明 |
 | --- | --- | --- | --- |
-| `GET` | `/`、`/articles`、`/about`、`/messages` | `text/html` | 当前已实现的前端入口 HTML 与页面元信息，正文由 Vue 渲染 |
+| `GET` | `/`、`/articles`、`/about`、`/messages`、`/links` | `text/html` | 前端入口 HTML 与公开页面元信息，正文由 Vue 渲染 |
 | `GET` | `/articles/{articleId}` | `text/html` | head 包含文章标题、摘要、canonical 和 OG，正文由 Vue 渲染；不存在、不可见或分类不可用时 HTTP 404 |
 | `GET` | `/sitemap.xml` | `application/xml` | 公开页面与公开可见文章的规范地址及文章更新时间 |
 | `GET` | `/robots.txt` | `text/plain` | 排除后台、认证及个人中心；API 默认禁止，公开渲染数据 API 提供 Allow 例外，并声明 sitemap |
@@ -2828,8 +2842,8 @@ Dashboard 不再接收全局 `range` 参数。接口一次返回六个指标的�
 SEO JSON 的 data 为 `{title, description, canonicalUrl, imageUrl, type, publishedAt, updatedAt}`。
 `type` 为 `website` 或 `article`，图片和事件时间可为 null；无封面时不伪造 OG 图片。
 标题、描述和地址由后端统一生成，canonical 不含 query/hash，封面只接受 HTTP(S) 绝对地址或站内相对地址。
-友链页标题为“友链 - {BLOG_APP_NAME}”，description 使用“{BLOG_APP_NAME}的友链”，canonical 为 `BLOG_SITE_URL + /links`；进入 sitemap 时与其他静态公开页面一样不输出 `lastmod`。友链 API 只被 robots 作为渲染数据读取例外，不允许搜索引擎单独索引 JSON。
-上述友链 SEO 与 `/links` 页面属于后续公开页实施契约，本次只交付管理员友链接口。
+友链页标题为“友链 - {BLOG_APP_NAME}”，description 使用“{BLOG_APP_NAME}的友链”，canonical 为 `BLOG_SITE_URL + /links`；
+进入 sitemap 时与其他静态公开页面一样不输出 `lastmod`。友链 API 只被 robots 作为渲染数据读取例外，不允许搜索引擎单独索引 JSON。
 HTML、元信息和 sitemap 使用 `Cache-Control: no-store`，避免下线内容继续从缓存公开。
 无需单独请求 SEO JSON 即可从首屏 HTML 抓取标签。首次导航匹配后端 canonical 路径时保留已有标签；
 文章详情中的 `seo` 与首屏使用同一套生成逻辑，详情成功后同步标签，失败时清理并设置 noindex。
@@ -2837,12 +2851,11 @@ HTML、元信息和 sitemap 使用 `Cache-Control: no-store`，避免下线内�
 query/hash 不触发标签清理或重复 SEO 请求；离开公开页面后清理并设置 noindex。
 HTML 模板不可读取时返回 HTTP 503，不降级为缺少前端资源的伪成功页面。
 
-`BLOG_SITE_URL` 是唯一的站点地址来源，要求 HTTP(S) origin，不含路径、查询、账号密码或片段。
-默认本地值为 `http://localhost:5173`，生产必须显式设置；站点名称复用站点级 `BLOG_APP_NAME`。
+`BLOG_SITE_URL` 是唯一的站点地址来源，不含路径、查询、账号密码或片段；生产必须为 HTTPS origin，dev/test 可使用 localhost HTTP。
+站点名称、描述和头像图片或网站代表图地址分别复用站点级 `BLOG_APP_NAME`、`BLOG_DESC` 和 `BLOG_LOGO_URL`；生产环境四项配置均必须显式提供。
 
 robots 保留 `Disallow: /api/`，允许 `/api/v1/articles`、`/api/v1/comments/`、`/api/v1/categories`、
-`/api/v1/tags`、`/api/v1/about`、`/api/v1/messages`、`/api/v1/seo` 和 `/api/v1/users/*/public-profile`，
+`/api/v1/tags`、`/api/v1/about`、`/api/v1/messages`、`/api/v1/friend-links`（包含本站申请资料子路径）、`/api/v1/seo` 和 `/api/v1/users/*/public-profile`，
 确保执行 JavaScript 的爬虫能读取公开页面数据。robots 不区分 HTTP 方法，不改变现有权限或写入限制。
-待公开友链查询接口和友链页上线时，再将该读取接口加入 robots Allow 例外。
 生产 Nginx 的通用 `/api/` location 添加 `X-Robots-Tag: noindex`，
 防止公开 JSON 本身进入搜索结果；不向公开 HTML、sitemap 或 robots 添加该响应头。

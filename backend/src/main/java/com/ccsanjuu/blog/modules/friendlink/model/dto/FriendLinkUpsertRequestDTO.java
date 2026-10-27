@@ -22,7 +22,7 @@ public class FriendLinkUpsertRequestDTO {
     @Size(max = 500, message = "友链地址长度不能超过 500 个字符")
     private String url;
 
-    @Size(max = 500, message = "友链 Logo 地址长度不能超过 500 个字符")
+    @Size(max = 500, message = "友链头像图片或网站代表图地址长度不能超过 500 个字符")
     private String logoUrl;
 
     @Size(max = 255, message = "友链描述长度不能超过 255 个字符")

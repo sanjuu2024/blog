@@ -43,6 +43,17 @@ class PublicHtmlControllerTest {
     }
 
     @Test
+    void friendLinksHtmlShouldHaveUtf8AndNoStore() throws Exception {
+        when(seoService.renderHtml("/links")).thenReturn("<h1>友链</h1>");
+
+        mockMvc.perform(get("/links"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(content().contentType("text/html;charset=UTF-8"))
+                .andExpect(content().string("<h1>友链</h1>"));
+    }
+
+    @Test
     void disabledCategoryShouldReturnReal404Html() throws Exception {
         when(seoService.renderHtml("/articles/34")).thenThrow(new BizException(ResultCode.ARTICLE_CATEGORY_DISABLED));
         mockMvc.perform(get("/articles/34")).andExpect(status().isNotFound())

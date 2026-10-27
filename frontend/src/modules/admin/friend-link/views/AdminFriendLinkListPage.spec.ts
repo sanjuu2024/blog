@@ -2,7 +2,7 @@ import { flushPromises, mount } from '@vue/test-utils';
 import { defineComponent, h, ref } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { listAdminFriendLinks } from '../api/adminFriendLinkApi';
-import { FRIEND_LINK_SECTION, FRIEND_LINK_STATUS } from '../types/adminFriendLink';
+import { FRIEND_LINK_SECTION, FRIEND_LINK_STATUS } from '@/modules/link/types/friendLink';
 import AdminFriendLinkListPage from './AdminFriendLinkListPage.vue';
 
 vi.mock('../api/adminFriendLinkApi', () => ({
@@ -98,7 +98,10 @@ describe('AdminFriendLinkListPage', () => {
 					ElButton: { template: '<button><slot/></button>' },
 					ElTable: { template: '<div><slot/></div>' },
 					ElTableColumn: TableColumnStub,
-					ElTag: { template: '<span><slot/></span>' },
+					ElTag: {
+						props: ['effect', 'type'],
+						template: '<span :data-effect="effect" :data-type="type"><slot/></span>',
+					},
 					ElPagination: true,
 					ElDrawer: {
 						template: '<div><slot/><slot name="header"/><slot name="footer"/></div>',
@@ -116,5 +119,6 @@ describe('AdminFriendLinkListPage', () => {
 		expect(wrapper.text()).toContain('全部');
 		expect(wrapper.text()).toContain('100');
 		expect(wrapper.text()).toContain('启用');
+		expect(wrapper.find('[data-effect="plain"][data-type="success"]').exists()).toBe(true);
 	});
 });

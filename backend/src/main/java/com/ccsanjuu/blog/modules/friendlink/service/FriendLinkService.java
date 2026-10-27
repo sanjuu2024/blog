@@ -6,8 +6,12 @@ import com.ccsanjuu.blog.modules.friendlink.model.dto.FriendLinkUpsertRequestDTO
 import com.ccsanjuu.blog.modules.friendlink.model.dto.FriendLinkUpdateRequestDTO;
 import com.ccsanjuu.blog.modules.friendlink.model.vo.AdminFriendLinkItemVO;
 import com.ccsanjuu.blog.modules.friendlink.model.vo.FriendLinkMutationVO;
+import com.ccsanjuu.blog.modules.friendlink.model.vo.PublicFriendLinkSectionVO;
+import com.ccsanjuu.blog.modules.friendlink.model.vo.PublicFriendLinkSiteProfileVO;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
+
+import java.util.List;
 
 public interface FriendLinkService {
 
@@ -18,6 +22,20 @@ public interface FriendLinkService {
      * @return 友链分页结果
      */
     PageResult<AdminFriendLinkItemVO> getAdminFriendLinkList(AdminFriendLinkQueryDTO queryDTO);
+
+    /**
+     * 获取固定分区顺序的启用友链。
+     *
+     * @return 三个固定分区及其启用友链
+     */
+    List<PublicFriendLinkSectionVO> getPublicFriendLinkSections();
+
+    /**
+     * 获取友链申请页展示的本站资料。
+     *
+     * @return 本站名称、地址、描述和 Logo
+     */
+    PublicFriendLinkSiteProfileVO getPublicFriendLinkSiteProfile();
 
     /**
      * 创建友链。

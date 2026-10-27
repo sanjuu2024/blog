@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAdminFriendLink } from '../api/adminFriendLinkApi';
-import { FRIEND_LINK_SECTION, FRIEND_LINK_STATUS } from '../types/adminFriendLink';
+import { FRIEND_LINK_SECTION, FRIEND_LINK_STATUS } from '@/modules/link/types/friendLink';
 import { useAdminFriendLinkForm } from './useAdminFriendLinkForm';
 
 vi.mock('../api/adminFriendLinkApi', () => ({
@@ -18,6 +18,24 @@ describe('useAdminFriendLinkForm', () => {
 		expect(form.form.status).toBe(FRIEND_LINK_STATUS.ENABLED);
 		expect(form.form.sortNo).toBe(100);
 		expect(form.drawerVisible.value).toBe(true);
+	});
+
+	it('requires HTTPS for website URLs while allowing HTTP(S) representative image URLs', () => {
+		const form = useAdminFriendLinkForm();
+		const urlErrors: Error[] = [];
+		const logoErrors: Error[] = [];
+		const urlValidator = form.rules.url[1].validator;
+		const logoValidator = form.rules.logoUrl[0].validator;
+
+		urlValidator?.({}, 'http://example.com', (error) => {
+			if (error) urlErrors.push(error);
+		});
+		logoValidator?.({}, 'http://example.com/logo.png', (error) => {
+			if (error) logoErrors.push(error);
+		});
+
+		expect(urlErrors[0]?.message).toContain('HTTPS');
+		expect(logoErrors).toEqual([]);
 	});
 
 	it('loads the complete item when editing', () => {

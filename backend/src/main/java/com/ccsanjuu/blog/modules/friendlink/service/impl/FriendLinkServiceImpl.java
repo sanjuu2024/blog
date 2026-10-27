@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ccsanjuu.blog.common.api.PageResult;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
+import com.ccsanjuu.blog.properties.BlogProperties;
 import com.ccsanjuu.blog.modules.friendlink.mapper.FriendLinkMapper;
 import com.ccsanjuu.blog.modules.friendlink.model.dto.AdminFriendLinkQueryDTO;
 import com.ccsanjuu.blog.modules.friendlink.model.dto.FriendLinkUpsertRequestDTO;
@@ -15,6 +16,9 @@ import com.ccsanjuu.blog.modules.friendlink.model.enums.FriendLinkSection;
 import com.ccsanjuu.blog.modules.friendlink.model.enums.FriendLinkStatus;
 import com.ccsanjuu.blog.modules.friendlink.model.vo.AdminFriendLinkItemVO;
 import com.ccsanjuu.blog.modules.friendlink.model.vo.FriendLinkMutationVO;
+import com.ccsanjuu.blog.modules.friendlink.model.vo.PublicFriendLinkItemVO;
+import com.ccsanjuu.blog.modules.friendlink.model.vo.PublicFriendLinkSectionVO;
+import com.ccsanjuu.blog.modules.friendlink.model.vo.PublicFriendLinkSiteProfileVO;
 import com.ccsanjuu.blog.modules.friendlink.service.FriendLinkService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
@@ -24,6 +28,10 @@ import org.springframework.util.StringUtils;
 
 import java.net.URI;
 import java.util.Locale;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +40,52 @@ public class FriendLinkServiceImpl implements FriendLinkService {
     private static final int DEFAULT_SORT_NO = 100;
 
     private final FriendLinkMapper friendLinkMapper;
+    private final BlogProperties blogProperties;
+
+    /**
+     * 前台获取固定分区顺序的启用友链。
+     *
+     * @return 三个固定分区及其启用友链
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<PublicFriendLinkSectionVO> getPublicFriendLinkSections() {
+        Map<FriendLinkSection, List<PublicFriendLinkItemVO>> recordsBySection =
+                new EnumMap<>(FriendLinkSection.class);
+        for (FriendLinkSection section : FriendLinkSection.values()) {
+            recordsBySection.put(section, new ArrayList<>());
+        }
+
+        for (FriendLink friendLink : friendLinkMapper.selectList(new LambdaQueryWrapper<FriendLink>()
+                .eq(FriendLink::getStatus, FriendLinkStatus.ENABLED)
+                .orderByAsc(FriendLink::getSortNo)
+                .orderByAsc(FriendLink::getId))) {
+            recordsBySection.get(friendLink.getSection())
+                    .add(BeanUtil.copyProperties(friendLink, PublicFriendLinkItemVO.class));
+        }
+
+        return List.of(
+                publicSection(FriendLinkSection.FRIENDS, recordsBySection),
+                publicSection(FriendLinkSection.EXPERTS, recordsBySection),
+                publicSection(FriendLinkSection.PEERS, recordsBySection)
+        );
+    }
+
+    /**
+     * 获取友链申请页展示的本站资料。
+     *
+     * @return 本站名称、地址、描述和 Logo
+     */
+    @Override
+    public PublicFriendLinkSiteProfileVO getPublicFriendLinkSiteProfile() {
+        String siteUrl = blogProperties.getSiteUrl().toString().replaceAll("/$", "");
+        return PublicFriendLinkSiteProfileVO.builder()
+                .name(blogProperties.getAppName())
+                .url(siteUrl)
+                .description(blogProperties.getDescription().trim())
+                .logoUrl(blogProperties.getLogoUrl().trim())
+                .build();
+    }
 
     /**
      * 获取后台友链分页列表。
@@ -127,13 +181,14 @@ public class FriendLinkServiceImpl implements FriendLinkService {
     }
 
     /**
-     * 将友链 URL 规范化为允许的 HTTP(S) 绝对地址。
+     * 将友链地址规范化为绝对 URL，并按字段要求限制协议。
      *
      * @param value 原始地址
      * @param optional 是否允许空值
+     * @param requireHttps 是否只允许 HTTPS
      * @return 规范地址
      */
-    private String normalizeHttpUrl(String value, boolean optional) {
+    private String normalizeUrl(String value, boolean optional, boolean requireHttps) {
         String url = value == null ? "" : value.trim();
         if (url.isEmpty() && optional) {
             return "";
@@ -145,8 +200,8 @@ public class FriendLinkServiceImpl implements FriendLinkService {
             throw new BizException(ResultCode.PARAM_INVALID);
         }
 
-        boolean allowedScheme = "http".equalsIgnoreCase(uri.getScheme())
-                || "https".equalsIgnoreCase(uri.getScheme());
+        boolean allowedScheme = "https".equalsIgnoreCase(uri.getScheme())
+                || (!requireHttps && "http".equalsIgnoreCase(uri.getScheme()));
         if (!allowedScheme || uri.getHost() == null || uri.getUserInfo() != null) {
             throw new BizException(ResultCode.PARAM_INVALID);
         }
@@ -163,7 +218,7 @@ public class FriendLinkServiceImpl implements FriendLinkService {
      *
      * @param name 网站名称
      * @param url 网站地址
-     * @param logoUrl Logo 地址
+     * @param logoUrl 头像图片或网站代表图地址
      * @param description 网站描述
      * @param section 固定分区
      * @param sortNo 分区内顺序
@@ -179,8 +234,8 @@ public class FriendLinkServiceImpl implements FriendLinkService {
             Integer sortNo,
             FriendLinkStatus status
     ) {
-        String normalizedUrl = normalizeHttpUrl(url, false);
-        String normalizedLogoUrl = normalizeHttpUrl(logoUrl, true);
+        String normalizedUrl = normalizeUrl(url, false, true);
+        String normalizedLogoUrl = normalizeUrl(logoUrl, true, false);
         return FriendLink.builder()
                 .name(name.trim())
                 .url(normalizedUrl)
@@ -204,6 +259,29 @@ public class FriendLinkServiceImpl implements FriendLinkService {
             throw new BizException(ResultCode.FRIEND_LINK_NOT_FOUND);
         }
         return friendLink;
+    }
+
+    /**
+     * 组装固定分区标题及其公开记录。
+     *
+     * @param section 固定分区
+     * @param recordsBySection 启用友链分组
+     * @return 公开分区
+     */
+    private PublicFriendLinkSectionVO publicSection(
+            FriendLinkSection section,
+            Map<FriendLinkSection, List<PublicFriendLinkItemVO>> recordsBySection
+    ) {
+        String name = switch (section) {
+            case FRIENDS -> "友人帐";
+            case EXPERTS -> "大佬们";
+            case PEERS -> "同行者";
+        };
+        return PublicFriendLinkSectionVO.builder()
+                .section(section)
+                .name(name)
+                .records(recordsBySection.get(section))
+                .build();
     }
 
     /**

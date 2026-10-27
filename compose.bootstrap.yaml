@@ -11,6 +11,10 @@ services:
     restart: "no"
     environment:
       SPRING_PROFILES_ACTIVE: prod,bootstrap-admin
+      BLOG_APP_NAME: ${BLOG_APP_NAME:?BLOG_APP_NAME is required}
+      BLOG_SITE_URL: ${BLOG_SITE_URL:?BLOG_SITE_URL is required}
+      BLOG_DESC: ${BLOG_DESC:?BLOG_DESC is required}
+      BLOG_LOGO_URL: ${BLOG_LOGO_URL:?BLOG_LOGO_URL is required}
       BLOG_DB_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}"
       BLOG_DB_USERNAME: ${POSTGRES_USER:?POSTGRES_USER is required}
       BLOG_DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}

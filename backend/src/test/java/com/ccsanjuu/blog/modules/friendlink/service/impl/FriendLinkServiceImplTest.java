@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
+import com.ccsanjuu.blog.properties.BlogProperties;
 import com.ccsanjuu.blog.modules.friendlink.mapper.FriendLinkMapper;
 import com.ccsanjuu.blog.modules.friendlink.model.dto.AdminFriendLinkQueryDTO;
 import com.ccsanjuu.blog.modules.friendlink.model.dto.FriendLinkUpsertRequestDTO;
@@ -43,7 +44,12 @@ class FriendLinkServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new FriendLinkServiceImpl(friendLinkMapper);
+        BlogProperties blogProperties = new BlogProperties();
+        blogProperties.setAppName("青禾边");
+        blogProperties.setSiteUrl(URI.create("https://blog.example.com"));
+        blogProperties.setDescription("聆听心中最初的声音");
+        blogProperties.setLogoUrl("https://img.example.com/site-logo.png");
+        service = new FriendLinkServiceImpl(friendLinkMapper, blogProperties);
     }
 
     @Test
@@ -68,6 +74,25 @@ class FriendLinkServiceImplTest {
     }
 
     @Test
+    void createShouldContinueToAllowHttpLogoUrl() {
+        FriendLink requestEntity = validEntity();
+        FriendLinkUpsertRequestDTO request = request();
+        request.setLogoUrl("http://example.com/logo.png");
+        when(friendLinkMapper.exists(any())).thenReturn(false);
+        doAnswer(invocation -> {
+            FriendLink inserted = invocation.getArgument(0);
+            inserted.setId(FRIEND_LINK_ID);
+            return 1;
+        }).when(friendLinkMapper).insert(any(FriendLink.class));
+        when(friendLinkMapper.selectById(FRIEND_LINK_ID)).thenAnswer(invocation -> requestEntity);
+
+        service.createFriendLink(request);
+
+        verify(friendLinkMapper).insert(org.mockito.ArgumentMatchers.<FriendLink>argThat(
+                friendLink -> "http://example.com/logo.png".equals(friendLink.getLogoUrl())));
+    }
+
+    @Test
     void createShouldRejectUnsafeUrlBeforeDatabaseWrite() {
         FriendLinkUpsertRequestDTO request = request();
         request.setUrl("javascript:alert(1)");
@@ -75,6 +100,28 @@ class FriendLinkServiceImplTest {
         BizException exception = assertThrows(BizException.class, () -> service.createFriendLink(request));
 
         assertEquals(ResultCode.PARAM_INVALID, exception.getResultCode());
+        verifyNoInteractions(friendLinkMapper);
+    }
+
+    @Test
+    void createShouldRejectHttpUrlBeforeDatabaseWrite() {
+        FriendLinkUpsertRequestDTO request = request();
+        request.setUrl("http://example.com");
+
+        BizException exception = assertThrows(BizException.class, () -> service.createFriendLink(request));
+
+        assertEquals(ResultCode.PARAM_INVALID, exception.getResultCode());
+        verifyNoInteractions(friendLinkMapper);
+    }
+
+    @Test
+    void publicSiteProfileShouldUseConfiguredSiteValues() {
+        var profile = service.getPublicFriendLinkSiteProfile();
+
+        assertEquals("青禾边", profile.getName());
+        assertEquals("https://blog.example.com", profile.getUrl());
+        assertEquals("聆听心中最初的声音", profile.getDescription());
+        assertEquals("https://img.example.com/site-logo.png", profile.getLogoUrl());
         verifyNoInteractions(friendLinkMapper);
     }
 
@@ -185,4 +232,18 @@ class FriendLinkServiceImplTest {
                 .updatedAt(OffsetDateTime.parse("2026-10-26T00:00:00Z"))
                 .build();
     }
+
+    private FriendLink publicFriendLink(Long id, FriendLinkSection section, Integer sortNo) {
+        return FriendLink.builder()
+                .id(id)
+                .name("Link " + id)
+                .url("https://example.com/" + id)
+                .logoUrl("")
+                .description("")
+                .section(section)
+                .sortNo(sortNo)
+                .status(FriendLinkStatus.ENABLED)
+                .build();
+    }
+
 }

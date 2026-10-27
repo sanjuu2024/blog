@@ -25,7 +25,10 @@ export function usePageSeo() {
 				resetPageSeo(route.meta.title ? `${route.meta.title} - ${siteName}` : siteName);
 			}
 			// 文章页面从详情响应同步 SEO；query/hash 不改变规范地址，也不触发此监听。
-			if (preserveInitial || !['/', '/articles', '/about', '/messages'].includes(path))
+			if (
+				preserveInitial ||
+				!['/', '/articles', '/about', '/messages', '/links'].includes(path)
+			)
 				return;
 			try {
 				const metadata = await getSeoMetadata(path);

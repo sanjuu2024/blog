@@ -14,6 +14,8 @@ import com.ccsanjuu.blog.modules.friendlink.model.enums.FriendLinkSection;
 import com.ccsanjuu.blog.modules.friendlink.model.enums.FriendLinkStatus;
 import com.ccsanjuu.blog.modules.friendlink.model.vo.AdminFriendLinkItemVO;
 import com.ccsanjuu.blog.modules.friendlink.model.vo.FriendLinkMutationVO;
+import com.ccsanjuu.blog.modules.friendlink.model.vo.PublicFriendLinkItemVO;
+import com.ccsanjuu.blog.modules.friendlink.model.vo.PublicFriendLinkSectionVO;
 import com.ccsanjuu.blog.modules.friendlink.service.FriendLinkService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
@@ -46,9 +48,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = AdminFriendLinkController.class)
+@WebMvcTest(controllers = {AdminFriendLinkController.class, FriendLinkController.class})
 @Import({
         SecurityConfig.class,
         GlobalExceptionHandler.class,
@@ -92,6 +95,41 @@ class AdminFriendLinkControllerTest {
                         .header("Authorization", "Bearer " + accessToken(UserRole.USER)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(101003));
+    }
+
+    @Test
+    void publicFriendLinkListShouldAllowAnonymousRequestsAndUseNoStore() throws Exception {
+        when(friendLinkService.getPublicFriendLinkSections()).thenReturn(List.of(
+                PublicFriendLinkSectionVO.builder()
+                        .section(FriendLinkSection.FRIENDS)
+                        .name("友人帐")
+                        .records(List.of(PublicFriendLinkItemVO.builder()
+                                .id(FRIEND_LINK_ID)
+                                .name("Example")
+                                .url("https://example.com")
+                                .logoUrl("")
+                                .description("Example site")
+                                .section(FriendLinkSection.FRIENDS)
+                                .sortNo(100)
+                                .build()))
+                        .build(),
+                PublicFriendLinkSectionVO.builder().section(FriendLinkSection.EXPERTS).name("大佬们")
+                        .records(List.of()).build(),
+                PublicFriendLinkSectionVO.builder().section(FriendLinkSection.PEERS).name("同行者")
+                        .records(List.of()).build()
+        ));
+
+        mockMvc.perform(get("/api/v1/friend-links"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.data.length()").value(3))
+                .andExpect(jsonPath("$.data[0].name").value("友人帐"))
+                .andExpect(jsonPath("$.data[0].records[0].id").value(FRIEND_LINK_ID))
+                .andExpect(jsonPath("$.data[0].records[0].status").doesNotExist())
+                .andExpect(jsonPath("$.data[1].records.length()").value(0))
+                .andExpect(jsonPath("$.data[2].name").value("同行者"));
+
+        verify(friendLinkService).getPublicFriendLinkSections();
     }
 
     @Test

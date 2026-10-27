@@ -6,7 +6,7 @@ import {
 	listAdminFriendLinks,
 	updateAdminFriendLink,
 } from './adminFriendLinkApi';
-import { FRIEND_LINK_SECTION, FRIEND_LINK_STATUS } from '../types/adminFriendLink';
+import { FRIEND_LINK_SECTION, FRIEND_LINK_STATUS } from '@/modules/link/types/friendLink';
 
 vi.mock('@/utils/request', () => ({
 	default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },

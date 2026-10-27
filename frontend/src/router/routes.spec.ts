@@ -43,13 +43,13 @@ describe('P0 route contract', () => {
 		);
 	});
 
-	it('hides unfinished links and places about after the message board', () => {
+	it('places the links page between the message board and about page', () => {
 		const navigationNames = publicRoutes
 			.filter((route) => route.meta?.nav)
 			.map((route) => route.name);
 
-		expect(navigationNames).not.toContain('Link');
-		expect(navigationNames.indexOf('About')).toBe(navigationNames.indexOf('MessageBoard') + 1);
+		expect(navigationNames.indexOf('Link')).toBe(navigationNames.indexOf('MessageBoard') + 1);
+		expect(navigationNames.indexOf('About')).toBe(navigationNames.indexOf('Link') + 1);
 	});
 
 	it('does not expose tags as a top navigation entry', () => {

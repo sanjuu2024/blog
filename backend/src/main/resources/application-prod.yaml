@@ -2,7 +2,12 @@ server:
   forward-headers-strategy: framework   # 处理 nginx 反向代理的配置
 
 blog:
-  site-url: ${BLOG_SITE_URL}
+  app-name: ${BLOG_APP_NAME:}
+  site-url: ${BLOG_SITE_URL:}
+  description: ${BLOG_DESC:}
+  logo-url: ${BLOG_LOGO_URL:}
+  require-https-site-url: true
+  require-https-logo-url: true
   auth:
     refresh-cookie:
       secure: true

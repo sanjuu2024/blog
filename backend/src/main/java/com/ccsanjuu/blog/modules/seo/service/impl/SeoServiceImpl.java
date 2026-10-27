@@ -33,7 +33,7 @@ import java.util.Map;
 public class SeoServiceImpl implements SeoService {
 
     private static final Map<String, String> PUBLIC_PAGES = Map.of(
-            "/", "首页", "/articles", "文章", "/about", "关于", "/messages", "留言板");
+            "/", "首页", "/articles", "文章", "/about", "关于", "/messages", "留言板", "/links", "友链");
 
     private final ArticleService articleService;
     private final ArticleMapper articleMapper;
@@ -154,6 +154,7 @@ public class SeoServiceImpl implements SeoService {
         return "User-agent: *\nDisallow: /admin\nDisallow: /auth\nDisallow: /user\nDisallow: /api/\n"
                 + "Allow: /api/v1/articles\nAllow: /api/v1/comments/\nAllow: /api/v1/categories\n"
                 + "Allow: /api/v1/tags\nAllow: /api/v1/about\nAllow: /api/v1/messages\n"
+                + "Allow: /api/v1/friend-links\n"
                 + "Allow: /api/v1/seo\nAllow: /api/v1/users/*/public-profile\n"
                 + "Sitemap: " + baseUrl() + "/sitemap.xml\n";
     }

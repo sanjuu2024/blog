@@ -140,6 +140,8 @@
 								:type="
 									row.status === FRIEND_LINK_STATUS.ENABLED ? 'success' : 'info'
 								"
+								effect="plain"
+								class="font-bold"
 							>
 								{{ row.status === FRIEND_LINK_STATUS.ENABLED ? '启用' : '停用' }}
 							</el-tag>
@@ -273,12 +275,12 @@
 				</el-form-item>
 				<el-form-item
 					prop="logoUrl"
-					label="Logo 地址（可选）"
+					label="头像图片或网站代表图地址（可选）"
 				>
 					<el-input
 						v-model.trim="form.logoUrl"
 						maxlength="500"
-						placeholder="https://example.com/logo.png"
+						placeholder="https://example.com/avatar.png"
 					/>
 				</el-form-item>
 				<el-form-item
@@ -343,9 +345,9 @@ import { formatDateTime } from '@/utils/datetime';
 import {
 	FRIEND_LINK_SECTIONS,
 	FRIEND_LINK_STATUS,
-	type AdminFriendLinkItem,
 	type FriendLinkSection,
-} from '../types/adminFriendLink';
+} from '@/modules/link/types/friendLink';
+import { type AdminFriendLinkItem } from '../types/adminFriendLink';
 import { useAdminFriendLinkList } from '../composables/useAdminFriendLinkList';
 import { useAdminFriendLinkForm } from '../composables/useAdminFriendLinkForm';
 

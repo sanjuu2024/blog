@@ -29,11 +29,14 @@ import java.time.Duration;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -80,6 +83,29 @@ class FriendLinkIntegrationTest {
         userMapper.insert(admin);
     }
 
+    @Test
+    void publicSiteProfileReturnsConfiguredValuesWithoutAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/friend-links/site-profile"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.data.name").value("集成测试站点"))
+                .andExpect(jsonPath("$.data.url").value("http://localhost:5173"))
+                .andExpect(jsonPath("$.data.description").value("用于自动化测试的站点资料"))
+                .andExpect(jsonPath("$.data.logoUrl").value("https://img.test.example.com/site-logo.png"));
+    }
+
+    @Test
+    void adminCannotSaveFriendLinkWithHttpUrl() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/friend-links")
+                        .header("Authorization", "Bearer " + accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"HTTP 友链", "url":"http://example.com", "section":"FRIENDS"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(199001));
+    }
+
     @AfterEach
     void tearDown() {
         if (admin != null && admin.getId() != null) {
@@ -110,6 +136,16 @@ class FriendLinkIntegrationTest {
         friendLinkId = friendLinkMapper.selectOne(new LambdaQueryWrapper<FriendLink>()
                 .eq(FriendLink::getName, name)).getId();
 
+        mockMvc.perform(get("/api/v1/friend-links"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.data.length()").value(3))
+                .andExpect(jsonPath("$.data[0].section").value("FRIENDS"))
+                .andExpect(jsonPath("$.data[0].name").value("友人帐"))
+                .andExpect(jsonPath("$.data[0].records[*].id", hasItem(friendLinkId.intValue())))
+                .andExpect(jsonPath("$.data[1].section").value("EXPERTS"))
+                .andExpect(jsonPath("$.data[2].section").value("PEERS"));
+
         mockMvc.perform(put("/api/v1/admin/friend-links/{friendLinkId}", friendLinkId)
                         .header("Authorization", "Bearer " + accessToken())
                         .contentType(MediaType.APPLICATION_JSON)
@@ -130,6 +166,10 @@ class FriendLinkIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.records[0].id").value(friendLinkId));
+
+        mockMvc.perform(get("/api/v1/friend-links"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].records[*].id", not(hasItem(friendLinkId.intValue()))));
 
         mockMvc.perform(post("/api/v1/admin/friend-links")
                         .header("Authorization", "Bearer " + accessToken())

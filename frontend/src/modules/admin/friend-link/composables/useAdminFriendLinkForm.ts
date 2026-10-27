@@ -1,11 +1,7 @@
 import { ElMessage, type FormInstance } from 'element-plus';
 import { createAdminFriendLink, updateAdminFriendLink } from '../api/adminFriendLinkApi';
-import {
-	FRIEND_LINK_SECTION,
-	FRIEND_LINK_STATUS,
-	type AdminFriendLinkItem,
-	type FriendLinkUpsertRequest,
-} from '../types/adminFriendLink';
+import { FRIEND_LINK_SECTION, FRIEND_LINK_STATUS } from '@/modules/link/types/friendLink';
+import type { AdminFriendLinkItem, FriendLinkUpsertRequest } from '../types/adminFriendLink';
 
 const SORT_NO_DEFAULT = 100;
 
@@ -25,39 +21,42 @@ export function useAdminFriendLinkForm() {
 		status: FRIEND_LINK_STATUS.ENABLED,
 	};
 	const form = reactive<FriendLinkUpsertRequest>({ ...initialForm });
-	const validateHttpUrl = (
-		_rule: unknown,
-		value: string | undefined,
-		callback: (error?: Error) => void,
-	) => {
-		const rawValue = value?.trim() ?? '';
-		if (!rawValue) {
-			callback();
-			return;
-		}
-		try {
-			const parsed = new URL(rawValue);
-			if (
-				(parsed.protocol !== 'http:' && parsed.protocol !== 'https:') ||
-				!parsed.hostname ||
-				parsed.username ||
-				parsed.password
-			) {
-				callback(new Error('请输入有效的 HTTP(S) 地址'));
+	const createUrlValidator =
+		(httpsOnly: boolean) =>
+		(_rule: unknown, value: string | undefined, callback: (error?: Error) => void) => {
+			const rawValue = value?.trim() ?? '';
+			if (!rawValue) {
+				callback();
 				return;
 			}
-			callback();
-		} catch {
-			callback(new Error('请输入有效的 HTTP(S) 地址'));
-		}
-	};
+			const errorMessage = httpsOnly
+				? '请输入有效的 HTTPS 地址'
+				: '请输入有效的 HTTP(S) 地址';
+			try {
+				const parsed = new URL(rawValue);
+				if (
+					(httpsOnly
+						? parsed.protocol !== 'https:'
+						: !['http:', 'https:'].includes(parsed.protocol)) ||
+					!parsed.hostname ||
+					parsed.username ||
+					parsed.password
+				) {
+					callback(new Error(errorMessage));
+					return;
+				}
+				callback();
+			} catch {
+				callback(new Error(errorMessage));
+			}
+		};
 	const rules = {
 		name: [{ required: true, message: '请输入网站名称', trigger: 'blur' }],
 		url: [
 			{ required: true, message: '请输入网站地址', trigger: 'blur' },
-			{ validator: validateHttpUrl, trigger: 'blur' },
+			{ validator: createUrlValidator(true), trigger: 'blur' },
 		],
-		logoUrl: [{ validator: validateHttpUrl, trigger: 'blur' }],
+		logoUrl: [{ validator: createUrlValidator(false), trigger: 'blur' }],
 		section: [{ required: true, message: '请选择友链分区', trigger: 'change' }],
 	};
 

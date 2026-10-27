@@ -58,8 +58,10 @@ mybatis-plus:
       update-strategy: not_null   # 更新策略：只更新非空字段
 
 blog:
-  app-name: ${BLOG_APP_NAME:青禾边}
-  site-url: ${BLOG_SITE_URL:http://localhost:5173}
+  app-name: ${BLOG_APP_NAME:}
+  site-url: ${BLOG_SITE_URL:}
+  description: ${BLOG_DESC:}
+  logo-url: ${BLOG_LOGO_URL:}
   seo:
     html-template: ${BLOG_SEO_HTML_TEMPLATE:file:../frontend/index.html}
   jwt:

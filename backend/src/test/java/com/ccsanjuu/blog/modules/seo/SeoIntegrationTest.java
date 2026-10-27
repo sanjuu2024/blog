@@ -90,8 +90,18 @@ class SeoIntegrationTest {
         var metadata = articleService.getPublicArticleDetail(article.getId(), null, null).getSeo();
         assertEquals("https://blog.example.com" + path, metadata.getCanonicalUrl());
         assertEquals("SEO中文测试 - 青禾边", metadata.getTitle());
+        mockMvc.perform(get("/links"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("https://blog.example.com/links")))
+                .andExpect(content().string(not(containsString("<h1"))));
+        mockMvc.perform(get("/api/v1/seo").param("path", "/links"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.title").value("友链 - 青禾边"))
+                .andExpect(jsonPath("$.data.canonicalUrl").value("https://blog.example.com/links"));
         mockMvc.perform(get("/sitemap.xml")).andExpect(status().isOk())
                 .andExpect(content().string(containsString("https://blog.example.com" + path + "</loc>")));
+        mockMvc.perform(get("/sitemap.xml"))
+                .andExpect(content().string(containsString("https://blog.example.com/links</loc>")));
         assertEquals(7, articleMapper.selectById(article.getId()).getViewCount());
         mockMvc.perform(get("/api/v1/articles/" + article.getId()))
                 .andExpect(status().isOk())
@@ -121,6 +131,7 @@ class SeoIntegrationTest {
                 .andExpect(content().string(containsString("Disallow: /admin")))
                 .andExpect(content().string(containsString("Disallow: /api/\n")))
                 .andExpect(content().string(containsString("Allow: /api/v1/articles\n")))
+                .andExpect(content().string(containsString("Allow: /api/v1/friend-links\n")))
                 .andExpect(content().string(containsString("Allow: /api/v1/users/*/public-profile\n")))
                 .andExpect(content().string(not(containsString("Allow: /api/v1/users/me"))));
         mockMvc.perform(get("/api/v1/seo").param("path", "/admin"))

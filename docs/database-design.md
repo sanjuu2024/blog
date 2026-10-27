@@ -1053,7 +1053,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_created_at
 | `id` | `BIGSERIAL` | 友链主键 ID | `110001` |
 | `name` | `VARCHAR(100)` | 友链名称 | `某某技术博客` |
 | `url` | `VARCHAR(500)` | 友链地址 | `https://tech.example.com` |
-| `logo_url` | `VARCHAR(500)` | 友链 Logo 地址 | `https://tech.example.com/logo.png` |
+| `logo_url` | `VARCHAR(500)` | 友链头像图片或网站代表图地址 | `https://tech.example.com/avatar.png` |
 | `description` | `VARCHAR(255)` | 友链说明 | `专注 Java 与中间件` |
 | `section` | `VARCHAR(20)` | 固定友链分区：`FRIENDS`、`EXPERTS`、`PEERS`，分别展示为“友人帐”“大佬们”“同行者” | `FRIENDS` |
 | `sort_no` | `INTEGER` | 分区内显示顺序，数值越小越靠前；新建默认 100，可按 100 间隔安排后续插入 | `100` |
@@ -1063,10 +1063,11 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_created_at
 
 业务约束：
 
-- 友链地址 `url` 全局唯一，应用层只接受 HTTP(S) 绝对 URL；Logo 地址可为空，非空时同样只接受 HTTP(S) 绝对 URL。
+- 友链地址 `url` 全局唯一，应用层只接受 HTTPS 绝对 URL；头像图片或网站代表图地址可为空，非空时只接受 HTTP(S) 绝对 URL，建议使用清晰的正方形图片。
 - `section` 是固定枚举，不提供分区管理能力；公开结果按分区固定顺序 `FRIENDS`、`EXPERTS`、`PEERS` 分组，每组按 `sort_no ASC, id ASC` 排序。
 - 公开查询只读取 `status = 'ENABLED'` 的记录；后台查询可包含停用记录。
 - 数据库不创建业务表之间的物理外键；友链是独立内容，不关联申请留言。友链申请通过留言板人工沟通，不在本表记录申请状态。
+- 友链页展示的本站申请资料来自后端必填运行时配置，不持久化到数据库，因此不新增站点资料表或 Flyway migration。
 
 ## 5. 建表顺序建议
 

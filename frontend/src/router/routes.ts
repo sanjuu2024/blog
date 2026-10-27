@@ -203,22 +203,22 @@ export const publicRoutes = [
 		],
 	},
 	{
-		path: '/links',
-		name: 'Link',
-		component: () => import('@/modules/link/views/LinkPage.vue'),
-		meta: {
-			title: '友链',
-			// nav: {
-			// 	pos: 'right', // 在顶部导航栏右侧（友链功能未正式开发，该路由暂时隐藏）
-			// },
-		},
-	},
-	{
 		path: '/messages',
 		name: 'MessageBoard',
 		component: () => import('@/modules/message/views/MessageBoardPage.vue'),
 		meta: {
 			title: '留言',
+			nav: {
+				pos: 'right',
+			},
+		},
+	},
+	{
+		path: '/links',
+		name: 'Link',
+		component: () => import('@/modules/link/views/LinkPage.vue'),
+		meta: {
+			title: '友链',
 			nav: {
 				pos: 'right',
 			},
