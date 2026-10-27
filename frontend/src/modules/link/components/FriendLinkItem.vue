@@ -63,13 +63,13 @@ defineProps<{
 	aspect-ratio: 1;
 	flex: 0 0 auto;
 	border-bottom: 1px solid var(--app-border);
+	background-color: var(--app-default-img-bg-color);
 }
 
 .friend-link-item__logo-fallback {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: var(--app-surface);
 	font-size: 2.5rem;
 }
 

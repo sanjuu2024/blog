@@ -111,6 +111,8 @@
 									? 'success'
 									: 'danger'
 							"
+							effect="plain"
+							class="font-bold"
 						>
 							{{ row.outcome === SECURITY_EVENT_OUTCOME.SUCCESS ? '成功' : '失败' }}
 						</el-tag>

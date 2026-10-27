@@ -73,7 +73,10 @@ describe('AdminSecurityEventPage', () => {
 						data: () => ({ row: event }),
 						template: '<div><slot :row="row" /></div>',
 					},
-					ElTag: { template: '<span><slot /></span>' },
+					ElTag: {
+						props: ['effect', 'type'],
+						template: '<span :data-effect="effect" :data-type="type"><slot /></span>',
+					},
 					ElTooltip: {
 						props: ['content'],
 						template: '<div :title="content"><slot /></div>',
@@ -88,6 +91,7 @@ describe('AdminSecurityEventPage', () => {
 		const wrapper = mountPage();
 
 		expect(wrapper.text()).toContain('安全事件');
+		expect(wrapper.find('[data-effect="plain"][data-type="danger"]').exists()).toBe(true);
 		expect(wrapper.findAll('button')).toHaveLength(2);
 		expect(wrapper.text()).toContain('目标用户：测试用户');
 		expect(wrapper.text()).toContain('（alice）');

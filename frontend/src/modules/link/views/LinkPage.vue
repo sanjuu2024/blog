@@ -173,11 +173,13 @@ onMounted(loadFriendLinks);
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		padding-bottom: 0.5rem;
-		margin-bottom: 1rem;
+		padding: 0.5rem 0.75rem;
+		margin-bottom: 1.5rem;
+		background-color: var(--app-message-item-header-bg);
+		border-radius: 0 0 0.5rem 0.5rem;
 
 		h2 {
-			font-size: 1.75rem;
+			font-size: 1.5rem;
 			font-weight: bold;
 		}
 	}
