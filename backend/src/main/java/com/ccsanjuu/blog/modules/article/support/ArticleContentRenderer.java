@@ -9,10 +9,13 @@ import com.vladsch.flexmark.util.ast.Node;
 import com.vladsch.flexmark.util.ast.TextCollectingVisitor;
 import com.vladsch.flexmark.util.data.MutableDataSet;
 import org.jsoup.Jsoup;
+import org.jsoup.nodes.Attribute;
+import org.jsoup.nodes.Element;
 import org.jsoup.safety.Safelist;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.net.URI;
 import java.util.List;
 
 @Component
@@ -22,7 +25,7 @@ public class ArticleContentRenderer {
     private final HtmlRenderer htmlRenderer;
 
     // 清洗白名单列表
-    private static final Safelist ARTICLE_HTML_SAFELIST = Safelist.relaxed()
+    private static final Safelist ARTICLE_HTML_SAFELIST = new Safelist(Safelist.relaxed()
             // Markdown 表格 / 手写安全表格
             .addTags(
                     "table", "thead", "tbody", "tfoot", "tr", "th", "td",
@@ -65,7 +68,26 @@ public class ArticleContentRenderer {
             .addAttributes("h6", "class")
 
             // 如果 a 标签带 target=_blank，强制加 rel，避免 window.opener 风险
-            .addEnforcedAttribute("a", "rel", "noopener noreferrer");
+            .addEnforcedAttribute("a", "rel", "noopener noreferrer")
+            .preserveRelativeLinks(true)) {
+        @Override
+        public boolean isSafeAttribute(String tagName, Element element, Attribute attribute) {
+            if ("a".equals(tagName) && "href".equals(attribute.getKey())) {
+                try {
+                    URI uri = URI.create(attribute.getValue());
+                    if (!uri.isAbsolute()) {
+                        return uri.getRawAuthority() == null
+                                && !attribute.getValue().startsWith("//")
+                                && !attribute.getValue().contains("\\")
+                                && (uri.getRawPath() == null || !uri.getRawPath().contains("\\"));
+                    }
+                } catch (IllegalArgumentException exception) {
+                    return false;
+                }
+            }
+            return super.isSafeAttribute(tagName, element, attribute);
+        }
+    };
 
     public ArticleContentRenderer() {
         // 创建配置集

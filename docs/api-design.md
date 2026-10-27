@@ -2608,7 +2608,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 已发布过的文章仅允许在 `PUBLISHED` 与 `OFFLINE` 之间流转，不允许回退为 `DRAFT`
 - `publishedAt` 表示首次发布时间，仅在文章第一次变为 `PUBLISHED` 时写入；下线、重新发布或更新已发布文章时不刷新
 - 文章必须绑定二级分类，不能直接绑定一级分类
-- 文章保存或更新时，后端应以 `contentMd` 为源自动生成并持久化 `contentHtml`
+- 文章保存或更新时，后端应以 `contentMd` 为源自动生成并持久化经过白名单清洗的 `contentHtml`；链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL，不允许协议相对 URL、危险协议或事件处理属性
 - 文章保存或更新时，后端应以 `contentMd` 为源自动提取并持久化 `contentText`
 - 前台文章详情接口优先返回 `contentHtml` 用于页面渲染
 - 前台文章列表和详情响应中的 `tags` 仅展示当前启用且仍存在的关联标签；历史关联的禁用标签或已删除标签不返回
@@ -2727,9 +2727,9 @@ Redis 只保存验证码哈希、失败次数和 TTL，最多允许 5 次校验�
 
 关于页保存请求只包含 `contentMd`，去除首尾空白后不能为空且最长 100000 个字符。后端生成
 `contentHtml`、`contentText`；规范化后的 Markdown 未变化时不重复更新。公开响应保留现有
-`/about` 前端路由所需内容，前端 Markdown 容器继续使用 `2rem` 行距。
+`/about` 前端路由所需内容，前端 Markdown 容器继续使用 `2rem` 行距。HTML 白名单允许 `a[href]` 使用同源相对 URL（例如 `/messages`）及 HTTP、HTTPS、mailto 绝对 URL；协议相对 URL、危险协议和事件处理属性会被清除。
 
-隐私政策读取后端 classpath 中的 `privacy-policy.md`，返回规范化 Markdown 的 `sha256:` 内容哈希、HTML 和纯文本。
+隐私政策读取后端 classpath 中的 `privacy-policy.md`，返回规范化 Markdown 的 `sha256:` 内容哈希、HTML 和纯文本；HTML 复用相同白名单规则，允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL。
 响应使用 `ETag` 和 `Cache-Control: no-cache`；`If-None-Match` 命中时返回 304。资源缺失或为空
 时后端拒绝启动。注册请求提交当前哈希，哈希不一致时要求用户重新读取和确认。
 

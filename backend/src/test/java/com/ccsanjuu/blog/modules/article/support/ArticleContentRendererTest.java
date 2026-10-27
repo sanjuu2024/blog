@@ -44,6 +44,21 @@ class ArticleContentRendererTest {
     }
 
     @Test
+    void convertMarkdownToHtmlShouldPreserveSiteRelativeLinksOnly() {
+        String html = articleContentRenderer.convertMarkdownToHtml("""
+                [留言板](/messages)
+                <a href="/message-board">另一个站内路径</a>
+                <a href="//external.example/path">协议相对外链</a>
+                <a href="///external.example/path">多斜线外链</a>
+                """);
+
+        assertTrue(html.contains("href=\"/messages\""));
+        assertTrue(html.contains("href=\"/message-board\""));
+        assertFalse(html.contains("//external.example/path"));
+        assertFalse(html.contains("///external.example/path"));
+    }
+
+    @Test
     void convertToTextShouldCollectPlainTextFromMarkdown() {
         String text = articleContentRenderer.convertToText("""
                 # Title
