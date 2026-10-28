@@ -50,11 +50,12 @@ class DashboardIntegrationTest {
 
     @Test
     void userTrendCountsAccountsThatWereLaterLogicallyDeleted() {
-        DashboardVO before = dashboardService.getDashboard();
         String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-        var createdAt = LocalDate.now(ZoneId.of("Asia/Shanghai"))
+        ZoneId dashboardZone = ZoneId.of("Asia/Shanghai");
+        LocalDate today = LocalDate.now(dashboardZone);
+        var createdAt = today
                 .atTime(12, 0)
-                .atZone(ZoneId.of("Asia/Shanghai"))
+                .atZone(dashboardZone)
                 .toOffsetDateTime();
 
         jdbcTemplate.update("""
@@ -71,12 +72,18 @@ class DashboardIntegrationTest {
                 createdAt
         );
 
-        DashboardVO after = dashboardService.getDashboard();
-
-        assertEquals(before.getSummary().getUserCount(), after.getSummary().getUserCount());
-        assertEquals(
-                before.getTrends().getUsers().getDay().getLast().getIncrement() + 1,
-                after.getTrends().getUsers().getDay().getLast().getIncrement()
+        Long activeUsers = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM blog_user WHERE deleted_at IS NULL",
+                Long.class
         );
+        Long registrationsToday = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM blog_user WHERE (created_at AT TIME ZONE 'Asia/Shanghai')::date = ?",
+                Long.class,
+                today
+        );
+        DashboardVO dashboard = dashboardService.getDashboard();
+
+        assertEquals(activeUsers, dashboard.getSummary().getUserCount());
+        assertEquals(registrationsToday, dashboard.getTrends().getUsers().getDay().getLast().getIncrement());
     }
 }
