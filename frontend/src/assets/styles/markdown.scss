@@ -8,6 +8,12 @@
 	--fontStack-sansSerif: var(--app-font-family);
 	color: var(--app-text);
 
+	.katex-display {
+		max-width: 100%;
+		overflow-x: auto;
+		overflow-y: hidden;
+	}
+
 	// 居中显示独占一行的 Markdown 图片
 	p > img:only-child {
 		display: block;
