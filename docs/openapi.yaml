@@ -3893,8 +3893,8 @@ components:
           example: 本文记录双 Token 的实现思路与接口设计
         contentHtml:
           type: string
-          description: 由 Markdown 转译并经白名单清洗的 HTML 正文；链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL
-          example: "<h1>一、背景</h1><p>这里是文章正文</p>"
+          description: 由 Markdown 转译并经白名单清洗的 HTML 正文；链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL。公式分隔符及 LaTeX 源保留在 HTML 文本中，公开文章详情前端使用 KaTeX 排版，接口不返回或存储排版器生成的 HTML。
+          example: "<h1>公式</h1><p>$2^3$</p>"
         coverUrl:
           type: string
           example: https://cdn.example.com/cover/token.png

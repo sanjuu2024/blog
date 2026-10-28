@@ -1,4 +1,4 @@
-import { mount, RouterLinkStub } from '@vue/test-utils';
+import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils';
 import { defineComponent } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import confetti from 'canvas-confetti';
@@ -234,6 +234,47 @@ describe('ArticleContent', () => {
 		await wrapper.vm.$nextTick();
 		expect(wrapper.get('.article-markdown img').attributes('title')).toBeUndefined();
 		expect(wrapper.get('.article-markdown img').attributes('alt')).toBe('新图片');
+		wrapper.unmount();
+	});
+
+	it('renders TeX formulas after article HTML updates and leaves code blocks untouched', async () => {
+		const currentArticle = article();
+		currentArticle.contentHtml =
+			'<p>Inline $2^3$ and \\(x^2\\)</p><p>$$\\frac{1}{2}$$</p><p>Invalid $\\notARealCommand$</p><pre><code>$2^3$</code></pre>';
+		const wrapper = mount(ArticleContent, {
+			props: { article: currentArticle, isLoading: false },
+			global: {
+				stubs: {
+					RouterLink: RouterLinkStub,
+					ArticleCatalogSidebar: ArticleCatalogSidebarStub,
+					AppImage: true,
+					AppTagCapsule: true,
+					AppUserAvatar: AppUserAvatarStub,
+					PublicUserProfilePopover: PublicUserProfilePopoverStub,
+					ILucideThumbsUp: true,
+				},
+			},
+		});
+
+		await wrapper.vm.$nextTick();
+		await vi.dynamicImportSettled();
+		await flushPromises();
+		expect(wrapper.findAll('.article-markdown .katex')).toHaveLength(4);
+		expect(wrapper.findAll('.article-markdown .katex-display')).toHaveLength(1);
+		expect(wrapper.get('.article-markdown pre code').text()).toBe('$2^3$');
+		expect(wrapper.find('.article-markdown pre .katex').exists()).toBe(false);
+		expect(wrapper.get('.article-markdown p:nth-of-type(3)').text()).toContain(
+			'notARealCommand',
+		);
+
+		await wrapper.setProps({
+			article: { ...currentArticle, contentHtml: '<p>Updated $x_1$</p>' },
+		});
+		await wrapper.vm.$nextTick();
+		await vi.dynamicImportSettled();
+		await flushPromises();
+		expect(wrapper.findAll('.article-markdown .katex')).toHaveLength(1);
+		expect(wrapper.get('.article-markdown .katex').text()).toContain('x');
 		wrapper.unmount();
 	});
 });

@@ -725,7 +725,7 @@ GET /api/v1/articles/40001
 | `id` | `Long` | 文章 ID | `40001` |
 | `title` | `String` | 文章标题 | `Spring Boot 双 Token 登录实践` |
 | `summary` | `String` | 文章摘要 | `本文记录双 Token 的实现思路与接口设计` |
-| `contentHtml` | `String` | HTML 正文，由 Markdown 转译得到，供前端渲染 | `<h1>一、背景</h1><p>...</p>` |
+| `contentHtml` | `String` | HTML 正文，由 Markdown 转译并经白名单清洗；公式分隔符及 LaTeX 源保留在 HTML 文本中，由文章详情前端使用 KaTeX 排版，不改写接口或存储内容 | `<h1>公式</h1><p>$2^3$</p>` |
 | `coverUrl` | `String` | 封面地址 | `https://cdn.example.com/cover/token.png` |
 | `isTop` | `Boolean` | 是否置顶 | `true` |
 | `allowComment` | `Boolean` | 是否允许新增评论和回复；关闭后已有 APPROVED 评论仍可展示 | `true` |
@@ -2618,6 +2618,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - `publishedAt` 表示首次发布时间，仅在文章第一次变为 `PUBLISHED` 时写入；下线、重新发布或更新已发布文章时不刷新
 - 文章必须绑定二级分类，不能直接绑定一级分类
 - 文章保存或更新时，后端应以 `contentMd` 为源自动生成并持久化经过白名单清洗的 `contentHtml`；链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL，不允许协议相对 URL、危险协议或事件处理属性
+- `contentHtml` 保留 `$...$`、`\(...\)`、`$$...$$`、`\[...\]` 公式源；公开文章详情前端使用 KaTeX 排版，后端不存储排版器生成的 HTML
 - 文章保存或更新时，后端应以 `contentMd` 为源自动提取并持久化 `contentText`
 - 前台文章详情接口优先返回 `contentHtml` 用于页面渲染
 - 前台文章列表和详情响应中的 `tags` 仅展示当前启用且仍存在的关联标签；历史关联的禁用标签或已删除标签不返回

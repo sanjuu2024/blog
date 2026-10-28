@@ -233,12 +233,32 @@ watch(
 		refreshCatalog();
 
 		if (contentRef.value) {
+			const contentElement = contentRef.value;
 			// 需要额外处理 img 标签上的 title，否则文章正文的图片悬浮默认会显示 title。
 			// 只移除正文图片的 title，保留 alt 和作者指定的尺寸。
-			contentRef.value
+			contentElement
 				.querySelectorAll('img[title]')
 				.forEach((image) => image.removeAttribute('title'));
-			highlightCodeUnder(contentRef.value);
+			const contentText = contentElement.textContent || '';
+			if (
+				contentText.includes('$') ||
+				contentText.includes('\\(') ||
+				contentText.includes('\\[')
+			) {
+				const { default: renderMathInElement } = await import('katex/contrib/auto-render');
+				if (contentRef.value !== contentElement) return;
+				renderMathInElement(contentElement, {
+					delimiters: [
+						{ left: '$$', right: '$$', display: true },
+						{ left: '\\[', right: '\\]', display: true },
+						{ left: '$', right: '$', display: false },
+						{ left: '\\(', right: '\\)', display: false },
+					],
+					throwOnError: false,
+					trust: false,
+				});
+			}
+			highlightCodeUnder(contentElement);
 		}
 	},
 	{ immediate: true },
