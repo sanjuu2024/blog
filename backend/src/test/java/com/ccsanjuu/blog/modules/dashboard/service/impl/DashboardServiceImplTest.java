@@ -11,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -61,6 +62,14 @@ class DashboardServiceImplTest {
 
     @Test
     void shouldBuildFourIndependentTrendGranularities() {
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Shanghai"));
+        when(dashboardMapper.selectTrendEvents(any(), any())).thenReturn(List.of(
+                new DashboardTrendEventBO(today.minusDays(30), "users", 3L),
+                new DashboardTrendEventBO(today, "users", 1L),
+                new DashboardTrendEventBO(today, "views", 5L),
+                new DashboardTrendEventBO(today, "likes", 2L)
+        ));
+
         DashboardVO result = dashboardService.getDashboard();
 
         assertEquals(10L, result.getSummary().getUserCount());
@@ -68,9 +77,14 @@ class DashboardServiceImplTest {
         assertEquals(12, result.getTrends().getUsers().getWeek().size());
         assertEquals(12, result.getTrends().getUsers().getMonth().size());
         assertEquals(5, result.getTrends().getUsers().getYear().size());
-        assertEquals(11L, result.getTrends().getUsers().getDay().getLast().getValue());
+        assertEquals(13L, result.getTrends().getUsers().getDay().getFirst().getValue());
+        assertEquals(0L, result.getTrends().getUsers().getDay().getFirst().getIncrement());
+        assertEquals(14L, result.getTrends().getUsers().getDay().getLast().getValue());
+        assertEquals(1L, result.getTrends().getUsers().getDay().getLast().getIncrement());
         assertEquals(105L, result.getTrends().getViews().getDay().getLast().getValue());
+        assertEquals(5L, result.getTrends().getViews().getDay().getLast().getIncrement());
         assertEquals(22L, result.getTrends().getLikes().getDay().getLast().getValue());
+        assertEquals(2L, result.getTrends().getLikes().getDay().getLast().getIncrement());
         assertEquals(1, result.getTopByViews().size());
         assertEquals("点赞最多", result.getTopByLikes().getFirst().getTitle());
     }

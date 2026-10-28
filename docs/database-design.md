@@ -636,8 +636,7 @@ CREATE UNIQUE INDEX uq_blog_article_like_visitor
 | `visitor_token_hash` | `VARCHAR(71)` | 游客匿名 token 哈希；登录用户点赞时为空 | `sha256:...` |
 | `created_at` | `TIMESTAMPTZ` | 点赞时间 | `2026-05-03 09:30:00+08` |
 
-文章点赞允许登录用户和游客。清除 Cookie 或更换设备可能形成新的游客主体，因此游客点赞属于
-非严格统计，并使用 Redis 限流降低滥用。文章下线后保留历史点赞，但不允许新增点赞。
+文章点赞允许登录用户和游客。清除 Cookie 或更换设备可能形成新的游客主体，因此游客点赞属于非严格统计，并使用 Redis 限流降低滥用。文章下线后保留历史点赞，但不允许新增点赞。
 
 ## 4.3 P2 使用表：`blog_comment_like`
 
@@ -1112,7 +1111,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_created_at
 - `V1.2.3` migration 新增 `blog_comment_like`，并为 `blog_comment` 增加点赞冗余计数及非负约束
 - `V1.2.6` migration 为 `blog_notification` 增加管理员消息草稿的单个指定用户字段
 - `V1.2.8` migration 新增隐私政策版本快照表，并为用户增加注册时接受的政策版本和时间
-- Dashboard 直接聚合现有业务表和 `blog_article_daily_stat`，不新增历史点赞事件表；文章点赞历史趋势只统计当前仍存在的点赞明细
+- Dashboard 直接聚合现有业务表和 `blog_article_daily_stat`，每个趋势点同时返回周期增量和截至周期结束的累计值，不新增历史点赞事件表；用户趋势包含所有已创建账号，文章点赞趋势按当前仍存在的明细归期，评论和留言趋势按当前 `APPROVED` 状态及 `created_at` 归期
 - P2 所有新表、字段、约束和索引都必须使用新的 Flyway migration；本节目标 SQL 不能用于修改已执行的历史 migration
 - 文章/评论点赞明细与冗余计数必须事务一致；游客点赞不与登录账号自动合并
 - 浏览去重 key 只保存在 Redis 一小时，PostgreSQL 保存文章总量和每日聚合

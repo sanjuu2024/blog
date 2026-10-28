@@ -131,7 +131,7 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     /**
-     * 按指定粒度生成累计趋势点。
+     * 按指定粒度生成周期增量和累计趋势点。
      *
      * @param events 事件数据
      * @param baseline 窗口开始前的累计值
@@ -139,7 +139,7 @@ public class DashboardServiceImpl implements DashboardService {
      * @param periodCount 周期数量
      * @param period 粒度
      * @param today 当前自然日
-     * @return 趋势点列表
+     * @return 含周期增量和累计值的趋势点列表
      */
     private List<DashboardTrendPointVO> buildTrendPoints(
             Map<LocalDate, Long> events,
@@ -159,14 +159,20 @@ public class DashboardServiceImpl implements DashboardService {
             LocalDate periodStart = addPeriods(firstPeriodStart, index, period);
             LocalDate periodEnd = addPeriods(firstPeriodStart, index + 1, period).minusDays(1);
             periodEnd = periodEnd.isAfter(today) ? today : periodEnd;
+            long increment = 0;
 
             while (!cursorDate.isAfter(periodEnd)) {
-                cumulative += events.getOrDefault(cursorDate, 0L);
+                long amount = events.getOrDefault(cursorDate, 0L);
+                cumulative += amount;
+                if (!cursorDate.isBefore(periodStart)) {
+                    increment += amount;
+                }
                 cursorDate = cursorDate.plusDays(1);
             }
 
             points.add(DashboardTrendPointVO.builder()
                     .period(periodStart.toString())
+                    .increment(increment)
                     .value(cumulative)
                     .build());
         }
