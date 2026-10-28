@@ -2,6 +2,8 @@ package com.ccsanjuu.blog.modules.article.service.impl;
 
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
+import com.ccsanjuu.blog.common.ratelimit.LikeRateLimiter;
+import com.ccsanjuu.blog.common.util.TokenHashUtil;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleLikeMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.model.bo.ArticleLikeIdentity;
@@ -39,11 +41,19 @@ class ArticleLikeServiceImplTest {
     @Mock
     private CategoryMapper categoryMapper;
 
+    @Mock
+    private LikeRateLimiter likeRateLimiter;
+
     private ArticleLikeServiceImpl articleLikeService;
 
     @BeforeEach
     void setUp() {
-        articleLikeService = new ArticleLikeServiceImpl(articleMapper, articleLikeMapper, categoryMapper);
+        articleLikeService = new ArticleLikeServiceImpl(
+                articleMapper,
+                articleLikeMapper,
+                categoryMapper,
+                likeRateLimiter
+        );
     }
 
     @Test
@@ -62,6 +72,7 @@ class ArticleLikeServiceImplTest {
         verify(articleLikeMapper).insertIgnore(captor.capture());
         assertEquals(10001L, captor.getValue().getUserId());
         assertEquals(null, captor.getValue().getVisitorTokenHash());
+        verify(likeRateLimiter).acquire("user:10001", ResultCode.ARTICLE_LIKE_RATE_LIMITED);
     }
 
     @Test
@@ -92,6 +103,10 @@ class ArticleLikeServiceImplTest {
         verify(articleLikeMapper).insertIgnore(captor.capture());
         assertEquals(null, captor.getValue().getUserId());
         assertTrue(captor.getValue().getVisitorTokenHash().startsWith("sha256:"));
+        verify(likeRateLimiter).acquire(
+                "visitor:" + TokenHashUtil.sha256("visitor-token"),
+                ResultCode.ARTICLE_LIKE_RATE_LIMITED
+        );
     }
 
     @Test
@@ -105,6 +120,7 @@ class ArticleLikeServiceImplTest {
         assertFalse(result.getLiked());
         assertEquals(2, result.getLikeCount());
         verify(articleMapper).decrementLikeCount(40001L);
+        verify(likeRateLimiter).acquire("user:10001", ResultCode.ARTICLE_LIKE_RATE_LIMITED);
     }
 
     @Test

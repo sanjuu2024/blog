@@ -263,7 +263,10 @@ BLOG_SMTP_WRITE_TIMEOUT=10000
 - Refresh Token 由后端通过 `Set-Cookie` 写入 `refresh_token` HttpOnly Cookie，`Nginx` 不应丢弃或改写该响应头。
 - `refresh_token` Cookie 路径固定为 `/api/v1/auth`，只随认证相关接口发送；生产 HTTPS 环境必须带 `Secure`，并保持 `HttpOnly`、`SameSite=Lax`。
 - 若后端需要根据请求协议决定是否添加 `Secure`，反向代理应正确传递 `X-Forwarded-Proto` 等代理头。
-- `Nginx` 应对 `POST /api/v1/messages` 等公开写接口配置独立的 `limit_req` 限流规则，在请求进入后端前拦截明显的高频访问；应用层仍需使用 Redis 完成业务身份维度的第二层限流。
+- `Nginx` 已对 `POST /api/v1/messages` 配置来源 IP 限流；还应对文章和评论点赞/取消路径配置
+  每秒 2 次、突发 10 次，对 `POST /api/v1/auth/login` 配置每秒 1 次、突发 5 次。新增路径的
+  边缘限流超限返回 HTTP 429 和通用业务码 `199429`。
+- 点赞接口还需由应用层使用 Redis 按 `userId` 或匿名 token 哈希限制每 60 秒最多 30 次点赞/取消操作；登录接口由 Redis 按用户/IP 组合与来源 IP 统计失败次数。若 Nginx 前置 CDN 或负载均衡，必须先配置可信代理的真实客户端地址解析，否则边缘限流会把代理地址当作所有用户的来源。
 - `Nginx` 必须覆盖并重新生成 `X-Real-IP`、`X-Forwarded-For` 等客户端地址请求头，后端只信任由受控反向代理写入的代理头，不能直接信任公网请求自行携带的同名头。
 - 当前设计不依赖跨域 CORS；若未来改成前后端跨站点部署，需要重新评估 `SameSite=None; Secure`、携带凭证的 CORS 配置和 CSRF 防护策略。
 - 域名解析 TTL 不要设得太长，推荐先使用 `300s` 到 `600s`，迁移稳定后可按需调高。

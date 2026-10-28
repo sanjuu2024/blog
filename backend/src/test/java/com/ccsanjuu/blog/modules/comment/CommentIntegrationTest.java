@@ -3,6 +3,7 @@ package com.ccsanjuu.blog.modules.comment;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
+import com.ccsanjuu.blog.common.util.TokenHashUtil;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
 import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
@@ -149,6 +150,25 @@ class CommentIntegrationTest {
         );
 
         assertEquals(ResultCode.COMMENT_RATE_LIMITED, exception.getResultCode());
+    }
+
+    @Test
+    void commentLikeAndUnlikeShouldUseTheSharedLikeActorRateLimit() {
+        Article article = findPublishedArticle();
+        User user = findActiveUser();
+        Comment comment = insertComment(article.getId(), user.getId(), null, null, CommentStatus.APPROVED);
+        rateLimitKey = "blog:like:rate:actor:" + TokenHashUtil.sha256("user:" + user.getId());
+        stringRedisTemplate.delete(rateLimitKey);
+
+        for (int index = 0; index < 15; index++) {
+            commentService.likeComment(comment.getId(), user.getId());
+            commentService.unlikeComment(comment.getId(), user.getId());
+        }
+
+        BizException exception = assertThrows(BizException.class,
+                () -> commentService.likeComment(comment.getId(), user.getId()));
+
+        assertEquals(ResultCode.COMMENT_LIKE_RATE_LIMITED, exception.getResultCode());
     }
 
     @Test

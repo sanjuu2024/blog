@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ccsanjuu.blog.common.api.PageResult;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
+import com.ccsanjuu.blog.common.ratelimit.LikeRateLimiter;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
 import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
@@ -102,6 +103,9 @@ class CommentServiceImplTest {
     private CommentReplyNotificationService commentReplyNotificationService;
 
     @Mock
+    private LikeRateLimiter likeRateLimiter;
+
+    @Mock
     private ValueOperations<String, String> valueOperations;
 
     private CommentServiceImpl commentService;
@@ -114,7 +118,8 @@ class CommentServiceImplTest {
     @BeforeEach
     void setUp() {
         commentService = new CommentServiceImpl(articleMapper, commentMapper, commentLikeMapper,
-                userMapper, stringRedisTemplate, notificationService, commentReplyNotificationService);
+                userMapper, stringRedisTemplate, notificationService, commentReplyNotificationService,
+                likeRateLimiter);
         ReflectionTestUtils.setField(commentService, "baseMapper", commentMapper);
         ReflectionTestUtils.setField(commentService, "entityClass", Comment.class);
         ReflectionTestUtils.setField(commentService, "mapperClass", CommentMapper.class);
@@ -814,6 +819,7 @@ class CommentServiceImplTest {
         assertTrue(result.getLiked());
         assertEquals(3, result.getLikeCount());
         verify(commentMapper).incrementLikeCount(COMMENT_ID);
+        verify(likeRateLimiter).acquire("user:" + USER_ID, ResultCode.COMMENT_LIKE_RATE_LIMITED);
     }
 
     @Test
@@ -861,6 +867,7 @@ class CommentServiceImplTest {
         assertFalse(result.getLiked());
         assertEquals(1, result.getLikeCount());
         verify(commentMapper).decrementLikeCount(COMMENT_ID);
+        verify(likeRateLimiter).acquire("user:" + USER_ID, ResultCode.COMMENT_LIKE_RATE_LIMITED);
     }
 
     @Test

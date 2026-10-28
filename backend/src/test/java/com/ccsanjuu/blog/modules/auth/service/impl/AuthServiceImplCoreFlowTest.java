@@ -14,6 +14,7 @@ import com.ccsanjuu.blog.modules.auth.model.enums.AuthSessionTokenType;
 import com.ccsanjuu.blog.modules.auth.model.vo.LoginVO;
 import com.ccsanjuu.blog.modules.auth.model.vo.RefreshTokenVO;
 import com.ccsanjuu.blog.modules.auth.service.RegistrationEmailVerificationService;
+import com.ccsanjuu.blog.modules.auth.support.LoginRateLimiter;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
@@ -49,6 +50,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
@@ -56,6 +58,7 @@ class AuthServiceImplCoreFlowTest {
 
     private static final Long USER_ID = 10001L;
     private static final String PASSWORD = "Password_123";
+    private static final String CLIENT_IP = "203.0.113.10";
     private static final SecretKey SIGNING_KEY =
             JwtUtil.createHmacShaKey("0123456789abcdef0123456789abcdef");
 
@@ -77,6 +80,9 @@ class AuthServiceImplCoreFlowTest {
     @Mock
     private SecurityEventService securityEventService;
 
+    @Mock
+    private LoginRateLimiter loginRateLimiter;
+
     private AuthServiceImpl authService;
 
     @BeforeEach
@@ -95,7 +101,8 @@ class AuthServiceImplCoreFlowTest {
                 authMapper,
                 privacyPolicyService,
                 registrationEmailVerificationService,
-                securityEventService
+                securityEventService,
+                loginRateLimiter
         );
         lenient().when(privacyPolicyService.compareTo(any())).thenReturn(true);
     }
@@ -195,7 +202,7 @@ class AuthServiceImplCoreFlowTest {
         LoginVO result = authService.login(LoginRequestDTO.builder()
                 .account("SANJUU")
                 .password(PASSWORD)
-                .build());
+                .build(), CLIENT_IP);
 
         assertNotNull(result.getAccessToken());
         assertNotNull(result.getRefreshToken());
@@ -209,6 +216,23 @@ class AuthServiceImplCoreFlowTest {
         verify(userMapper).updateById(userCaptor.capture());
         assertEquals(USER_ID, userCaptor.getValue().getId());
         assertNotNull(userCaptor.getValue().getLastLoginAt());
+        verify(loginRateLimiter).checkIpAllowed(CLIENT_IP);
+        verify(loginRateLimiter).checkAccountAllowed(CLIENT_IP, USER_ID);
+        verify(loginRateLimiter).clearAccountFailures(CLIENT_IP, USER_ID);
+    }
+
+    @Test
+    void loginShouldRejectIpRateLimitBeforeQueryingAccount() {
+        doThrow(new BizException(ResultCode.LOGIN_RATE_LIMITED))
+                .when(loginRateLimiter).checkIpAllowed(CLIENT_IP);
+
+        BizException exception = assertThrows(BizException.class, () -> authService.login(
+                LoginRequestDTO.builder().account("SANJUU").password(PASSWORD).build(),
+                CLIENT_IP
+        ));
+
+        assertEquals(ResultCode.LOGIN_RATE_LIMITED, exception.getResultCode());
+        verifyNoInteractions(userMapper, passwordEncoder);
     }
 
     @Test
@@ -221,7 +245,8 @@ class AuthServiceImplCoreFlowTest {
         when(passwordEncoder.matches(PASSWORD, user.getPasswordHash())).thenReturn(true);
 
         BizException exception = assertThrows(BizException.class, () -> authService.login(
-                LoginRequestDTO.builder().account(loginEmail).password(PASSWORD).build()
+                LoginRequestDTO.builder().account(loginEmail).password(PASSWORD).build(),
+                CLIENT_IP
         ));
 
         assertEquals(ResultCode.USER_DISABLED, exception.getResultCode());
@@ -235,6 +260,7 @@ class AuthServiceImplCoreFlowTest {
         assertEquals(loginEmail, eventCaptor.getValue().account());
         assertEquals(USER_ID, eventCaptor.getValue().userId());
         org.junit.jupiter.api.Assertions.assertNull(eventCaptor.getValue().actorId());
+        verify(loginRateLimiter).recordFailure(CLIENT_IP, USER_ID);
     }
 
     @Test
@@ -248,7 +274,8 @@ class AuthServiceImplCoreFlowTest {
         when(passwordEncoder.matches(PASSWORD, lockedUser.getPasswordHash())).thenReturn(false);
 
         BizException exception = assertThrows(BizException.class, () -> authService.login(
-                LoginRequestDTO.builder().account(loginEmail).password(PASSWORD).build()
+                LoginRequestDTO.builder().account(loginEmail).password(PASSWORD).build(),
+                CLIENT_IP
         ));
 
         assertEquals(ResultCode.PASSWORD_ERROR, exception.getResultCode());
@@ -258,6 +285,7 @@ class AuthServiceImplCoreFlowTest {
         assertTrue(output.getOut().contains("userId=" + USER_ID));
         assertTrue(output.getOut().contains("username=Sanjuu"));
         assertFalse(output.getOut().contains(loginEmail));
+        verify(loginRateLimiter).recordFailure(CLIENT_IP, USER_ID);
     }
 
     @Test
@@ -265,7 +293,8 @@ class AuthServiceImplCoreFlowTest {
         String unknownEmail = "unknown@example.com";
 
         BizException exception = assertThrows(BizException.class, () -> authService.login(
-                LoginRequestDTO.builder().account(unknownEmail).password(PASSWORD).build()
+                LoginRequestDTO.builder().account(unknownEmail).password(PASSWORD).build(),
+                CLIENT_IP
         ));
 
         assertEquals(ResultCode.USER_NOT_FOUND, exception.getResultCode());
@@ -275,6 +304,7 @@ class AuthServiceImplCoreFlowTest {
         ArgumentCaptor<SecurityEventRecordBO> eventCaptor = ArgumentCaptor.forClass(SecurityEventRecordBO.class);
         verify(securityEventService).record(eventCaptor.capture());
         assertEquals(unknownEmail, eventCaptor.getValue().account());
+        verify(loginRateLimiter).recordFailure(CLIENT_IP, null);
     }
 
     @Test

@@ -19,10 +19,11 @@ public interface AuthService {
 
     /**
      * 用户登录
-     * @param loginRequestDTO
-     * @return
+     * @param loginRequestDTO 登录账号和密码
+     * @param clientIp 客户端 IP，由受信任的反向代理提供
+     * @return 登录令牌和用户资料
      */
-    LoginVO login(LoginRequestDTO loginRequestDTO);
+    LoginVO login(LoginRequestDTO loginRequestDTO, String clientIp);
 
     /**
      * 刷新登录态

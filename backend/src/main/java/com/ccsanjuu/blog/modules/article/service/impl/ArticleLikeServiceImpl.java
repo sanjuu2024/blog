@@ -2,6 +2,7 @@ package com.ccsanjuu.blog.modules.article.service.impl;
 
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
+import com.ccsanjuu.blog.common.ratelimit.LikeRateLimiter;
 import com.ccsanjuu.blog.common.util.TokenHashUtil;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleLikeMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
@@ -26,6 +27,7 @@ public class ArticleLikeServiceImpl implements ArticleLikeService {
     private final ArticleMapper articleMapper;
     private final ArticleLikeMapper articleLikeMapper;
     private final CategoryMapper categoryMapper;
+    private final LikeRateLimiter likeRateLimiter;
 
     /**
      * 为文章增加当前主体的点赞。
@@ -37,8 +39,9 @@ public class ArticleLikeServiceImpl implements ArticleLikeService {
     @Override
     @Transactional
     public ArticleLikeMutationVO likeArticle(Long articleId, ArticleLikeIdentity identity) {
-        requirePublicArticle(articleId);
         Actor actor = resolveActor(identity);
+        likeRateLimiter.acquire(rateLimitIdentity(actor), ResultCode.ARTICLE_LIKE_RATE_LIMITED);
+        requirePublicArticle(articleId);
         ArticleLike existingLike = articleLikeMapper.selectByActor(
                 articleId,
                 actor.userId(),
@@ -65,8 +68,9 @@ public class ArticleLikeServiceImpl implements ArticleLikeService {
     @Override
     @Transactional
     public ArticleLikeMutationVO unlikeArticle(Long articleId, ArticleLikeIdentity identity) {
-        requireArticle(articleId);
         Actor actor = resolveActor(identity);
+        likeRateLimiter.acquire(rateLimitIdentity(actor), ResultCode.ARTICLE_LIKE_RATE_LIMITED);
+        requireArticle(articleId);
         if (articleLikeMapper.deleteByActor(
                 articleId,
                 actor.userId(),
@@ -141,6 +145,12 @@ public class ArticleLikeServiceImpl implements ArticleLikeService {
         return identity.isAuthenticated()
                 ? new Actor(identity.userId(), null)
                 : new Actor(null, TokenHashUtil.sha256(identity.visitorToken()));
+    }
+
+    private String rateLimitIdentity(Actor actor) {
+        return actor.userId() == null
+                ? "visitor:" + actor.visitorTokenHash()
+                : "user:" + actor.userId();
     }
 
     private record Actor(Long userId, String visitorTokenHash) {

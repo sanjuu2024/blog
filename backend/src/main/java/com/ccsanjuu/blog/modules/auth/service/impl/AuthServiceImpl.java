@@ -23,6 +23,7 @@ import com.ccsanjuu.blog.modules.auth.model.vo.LoginVO;
 import com.ccsanjuu.blog.modules.auth.model.vo.RefreshTokenVO;
 import com.ccsanjuu.blog.modules.auth.service.RegistrationEmailVerificationService;
 import com.ccsanjuu.blog.modules.auth.service.AuthService;
+import com.ccsanjuu.blog.modules.auth.support.LoginRateLimiter;
 import com.ccsanjuu.blog.modules.privacy.service.PrivacyPolicyService;
 import com.ccsanjuu.blog.modules.security.model.bo.SecurityEventRecordBO;
 import com.ccsanjuu.blog.modules.security.model.enums.SecurityEventOutcome;
@@ -62,6 +63,7 @@ public class AuthServiceImpl implements AuthService {
     private final PrivacyPolicyService privacyPolicyService;
     private final RegistrationEmailVerificationService registrationEmailVerificationService;
     private final SecurityEventService securityEventService;
+    private final LoginRateLimiter loginRateLimiter;
 
     /**
      * 用户注册
@@ -131,12 +133,14 @@ public class AuthServiceImpl implements AuthService {
 
     /**
      * 用户登录
-     * @param loginRequestDTO
-     * @return
+     * @param loginRequestDTO 登录账号和密码
+     * @param clientIp 客户端 IP，由受信任的反向代理提供
+     * @return 登录令牌和用户资料
      */
     @Override
     @Transactional
-    public LoginVO login(LoginRequestDTO loginRequestDTO) {
+    public LoginVO login(LoginRequestDTO loginRequestDTO, String clientIp) {
+        loginRateLimiter.checkIpAllowed(clientIp);
         // 🍰1. 根据 account 是否包含 @，分别按邮箱或用户名查询用户
         User user = null;
         if (loginRequestDTO.getAccount().contains("@")){
@@ -145,11 +149,15 @@ public class AuthServiceImpl implements AuthService {
         else{
             user = findUserByUsername(loginRequestDTO.getAccount());
         }
+        if (user != null) {
+            loginRateLimiter.checkAccountAllowed(clientIp, user.getId());
+        }
         // 与改密、禁用、角色修改串行，拿到锁后使用最新的账号状态和密码继续校验。
         if (user != null) {
             user = userMapper.selectByIdForUpdate(user.getId());
         }
         if (user == null) {
+            loginRateLimiter.recordFailure(clientIp, null);
             recordSecurityEvent(SecurityEventType.LOGIN, SecurityEventOutcome.FAILURE,
                     null, null, loginRequestDTO.getAccount(), "账号不存在");
             log.warn(
@@ -159,6 +167,7 @@ public class AuthServiceImpl implements AuthService {
             throw new BizException(ResultCode.USER_NOT_FOUND);
         }
         if (user.getDeletedAt() != null) {
+            loginRateLimiter.recordFailure(clientIp, user.getId());
             recordSecurityEvent(SecurityEventType.LOGIN, SecurityEventOutcome.FAILURE,
                     user.getId(), null, loginRequestDTO.getAccount(), "账号已注销");
             log.warn("security_event=LOGIN_FAILED description=\"登录失败：账号已注销\" outcome=FAIL reason=USER_DELETED userId={}",
@@ -168,6 +177,7 @@ public class AuthServiceImpl implements AuthService {
 
         // 🍰2. 密码是否正确、用户是否状态正常（被禁用则不能登录）
         if (!passwordEncoder.matches(loginRequestDTO.getPassword(), user.getPasswordHash())) {
+            loginRateLimiter.recordFailure(clientIp, user.getId());
             recordSecurityEvent(SecurityEventType.LOGIN, SecurityEventOutcome.FAILURE,
                     user.getId(), null, loginRequestDTO.getAccount(), "密码错误");
             log.warn(
@@ -178,6 +188,7 @@ public class AuthServiceImpl implements AuthService {
             throw new BizException(ResultCode.PASSWORD_ERROR);
         }
         if (user.getStatus() == UserStatus.DISABLED) {
+            loginRateLimiter.recordFailure(clientIp, user.getId());
             recordSecurityEvent(SecurityEventType.LOGIN, SecurityEventOutcome.FAILURE,
                     user.getId(), null, loginRequestDTO.getAccount(), "账号已禁用");
             log.warn(
@@ -204,6 +215,7 @@ public class AuthServiceImpl implements AuthService {
         );
         recordSecurityEvent(SecurityEventType.LOGIN, SecurityEventOutcome.SUCCESS,
                 user.getId(), null, loginRequestDTO.getAccount(), "登录成功");
+        loginRateLimiter.clearAccountFailures(clientIp, user.getId());
 
         // 🍰5. 封装返回
         LoginUserVO loginUserVO = BeanUtil.copyProperties(user, LoginUserVO.class);
