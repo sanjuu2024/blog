@@ -21,6 +21,7 @@ export interface DashboardSummary {
 
 export interface DashboardTrendPoint {
 	period: string;
+	increment: number;
 	value: number;
 }
 

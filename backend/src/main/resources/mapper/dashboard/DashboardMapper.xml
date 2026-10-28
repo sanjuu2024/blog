@@ -21,8 +21,7 @@
                'users' AS metric,
                COUNT(*) AS amount
         FROM blog_user
-        WHERE deleted_at IS NULL
-          AND (created_at AT TIME ZONE 'Asia/Shanghai')::date &gt;= #{startDate}
+        WHERE (created_at AT TIME ZONE 'Asia/Shanghai')::date &gt;= #{startDate}
           AND (created_at AT TIME ZONE 'Asia/Shanghai')::date &lt; #{endDateExclusive}
         GROUP BY event_date
 
@@ -88,8 +87,7 @@
                'users' AS metric,
                COUNT(*) AS amount
         FROM blog_user
-        WHERE deleted_at IS NULL
-          AND (created_at AT TIME ZONE 'Asia/Shanghai')::date &lt; #{startDate}
+        WHERE (created_at AT TIME ZONE 'Asia/Shanghai')::date &lt; #{startDate}
 
         UNION ALL
 

@@ -13,5 +13,7 @@ public class DashboardTrendPointVO {
 
     private String period;
 
+    private Long increment;
+
     private Long value;
 }

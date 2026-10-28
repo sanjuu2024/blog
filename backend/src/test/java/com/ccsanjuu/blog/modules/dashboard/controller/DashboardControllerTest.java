@@ -5,6 +5,8 @@ import com.ccsanjuu.blog.config.SecurityConfig;
 import com.ccsanjuu.blog.config.WebMvcConfig;
 import com.ccsanjuu.blog.modules.auth.service.TokenVersionService;
 import com.ccsanjuu.blog.modules.dashboard.model.vo.DashboardSummaryVO;
+import com.ccsanjuu.blog.modules.dashboard.model.vo.DashboardMetricTrendVO;
+import com.ccsanjuu.blog.modules.dashboard.model.vo.DashboardTrendPointVO;
 import com.ccsanjuu.blog.modules.dashboard.model.vo.DashboardTrendsVO;
 import com.ccsanjuu.blog.modules.dashboard.model.vo.DashboardVO;
 import com.ccsanjuu.blog.modules.dashboard.service.DashboardService;
@@ -58,7 +60,15 @@ class DashboardControllerTest {
         when(tokenVersionService.getCurrentVersion(anyLong())).thenReturn(0L);
         when(dashboardService.getDashboard()).thenReturn(DashboardVO.builder()
                 .summary(DashboardSummaryVO.builder().userCount(10L).build())
-                .trends(DashboardTrendsVO.builder().build())
+                .trends(DashboardTrendsVO.builder()
+                        .users(DashboardMetricTrendVO.builder()
+                                .day(java.util.List.of(DashboardTrendPointVO.builder()
+                                        .period("2026-10-28")
+                                        .increment(2L)
+                                        .value(12L)
+                                        .build()))
+                                .build())
+                        .build())
                 .topByViews(java.util.List.of())
                 .topByLikes(java.util.List.of())
                 .topByComments(java.util.List.of())
@@ -80,7 +90,9 @@ class DashboardControllerTest {
         mockMvc.perform(get("/api/v1/admin/dashboard")
                         .header("Authorization", "Bearer " + accessToken(UserRole.ADMIN)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.summary.userCount").value(10));
+                .andExpect(jsonPath("$.data.summary.userCount").value(10))
+                .andExpect(jsonPath("$.data.trends.users.day[0].increment").value(2))
+                .andExpect(jsonPath("$.data.trends.users.day[0].value").value(12));
     }
 
     private String accessToken(UserRole role) {

@@ -288,7 +288,7 @@ paths:
       tags:
         - Admin Dashboard
       summary: 获取管理员 Dashboard
-      description: 权限级别 `ADMIN`。返回用户、文章、有效浏览、文章点赞、可见评论和可见留言总量；每个指标提供最近 30 天、12 周、12 个月和 5 年的累计趋势，并返回三类已发布文章 Top 10 及分布统计。文章点赞主体分布只统计当前仍保留的点赞明细，不代表历史全部点赞。
+      description: 权限级别 `ADMIN`。返回用户、文章、有效浏览、文章点赞、可见评论和可见留言总量；每个趋势点同时提供周期增量 increment 和截至周期结束的累计值 value，前端每个图表独立切换、默认展示增量。周期为 Asia/Shanghai 自然日，未结束周期统计至当前时刻。用户增量包含后来注销的账号；文章趋势按现存文章的首次发布时间统计并包含 OFFLINE 文章；浏览按有效浏览日聚合；文章点赞只统计当前仍保留的明细；评论和留言只统计当前 APPROVED 记录并按 created_at 归期，不按审核时间归期。接口还返回三类已发布文章 Top 10 及分布统计。
       operationId: getAdminDashboard
       security:
         - bearerAuth: []
@@ -3306,7 +3306,7 @@ components:
           format: int64
     DashboardTrendPoint:
       type: object
-      required: [period, value]
+      required: [period, value, increment]
       properties:
         period:
           type: string
@@ -3314,7 +3314,11 @@ components:
         value:
           type: integer
           format: int64
-          description: 截至该周期的累计总数
+          description: 截至该周期结束的累计数量
+        increment:
+          type: integer
+          format: int64
+          description: 该周期内符合指标当前统计口径的数量；可见评论和留言按创建时间归期，文章点赞只统计当前仍存在的点赞明细
     DashboardMetricTrend:
       type: object
       required: [day, week, month, year]

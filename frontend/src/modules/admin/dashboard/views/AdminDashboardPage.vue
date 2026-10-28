@@ -51,7 +51,6 @@
 				<section class="dashboard-section">
 					<div class="dashboard-section__header">
 						<h2>趋势</h2>
-						<span>累计总数</span>
 					</div>
 					<div class="dashboard-trend-grid">
 						<DashboardTrendChart
