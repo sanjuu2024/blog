@@ -636,7 +636,10 @@ CREATE UNIQUE INDEX uq_blog_article_like_visitor
 | `visitor_token_hash` | `VARCHAR(71)` | 游客匿名 token 哈希；登录用户点赞时为空 | `sha256:...` |
 | `created_at` | `TIMESTAMPTZ` | 点赞时间 | `2026-05-03 09:30:00+08` |
 
-文章点赞允许登录用户和游客。清除 Cookie 或更换设备可能形成新的游客主体，因此游客点赞属于非严格统计，并使用 Redis 限流降低滥用。文章下线后保留历史点赞，但不允许新增点赞。
+文章点赞允许登录用户和游客。清除 Cookie 或更换设备可能形成新的游客主体，因此游客点赞属于非严格统计。
+文章和评论点赞/取消共享 Redis 主体限流：登录用户按 `userId`、游客按匿名 token 哈希，每 60 秒最多
+30 次操作；生产 Nginx 再按来源 IP 限制点赞路径每秒 2 次、突发 10 次。文章下线后保留历史点赞，
+但不允许新增点赞。
 
 ## 4.3 P2 使用表：`blog_comment_like`
 
@@ -655,6 +658,7 @@ CREATE INDEX idx_blog_comment_like_user_created
 
 - 评论点赞只允许登录用户，`user_id` 不可为空
 - 仅当前可见的 `APPROVED` 评论允许新增点赞；隐藏或删除后保留历史明细但不能新增
+- 评论点赞/取消与文章点赞共用按登录用户 ID 的 Redis 主体限流
 - 点赞/取消点赞与 `blog_comment.like_count` 在同一事务执行
 
 ## 4.4 P2 使用表：`blog_about_page`

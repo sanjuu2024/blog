@@ -64,16 +64,19 @@ public class AuthController {
 
     /**
      * 用户登录
-     * @param loginRequestDTO
-     * @return
+     * @param loginRequestDTO 登录参数
+     * @param request 当前 HTTP 请求，用于解析客户端 IP
+     * @param response 当前 HTTP 响应，用于写入 Refresh Token Cookie
+     * @return 登录结果
      */
     @PostMapping("/login")
     @Operation(description = "登录")
     // HttpServletResponse response：由 Spring MVC 的方法参数解析器自动传进来，代表当前这一次 HTTP 响应，可以用来设置响应头、状态码、Cookie 等。
     public Result<LoginVO> login(@Valid @RequestBody LoginRequestDTO loginRequestDTO,
+                                 HttpServletRequest request,
                                  HttpServletResponse response
     ) {
-        LoginVO loginVO = authService.login(loginRequestDTO);
+        LoginVO loginVO = authService.login(loginRequestDTO, request.getRemoteAddr());
         refreshTokenCookieManager.addRefreshTokenCookie(response, loginVO.getRefreshToken(), loginVO.getRefreshTokenExpiresAt());
         return Result.success(loginVO);
     }

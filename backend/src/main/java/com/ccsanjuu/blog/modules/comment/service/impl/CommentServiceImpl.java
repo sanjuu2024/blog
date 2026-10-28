@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ccsanjuu.blog.common.api.PageResult;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
+import com.ccsanjuu.blog.common.ratelimit.LikeRateLimiter;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
 import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
@@ -71,6 +72,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
     private final StringRedisTemplate stringRedisTemplate;
     private final NotificationService notificationService;
     private final CommentReplyNotificationService commentReplyNotificationService;
+    private final LikeRateLimiter likeRateLimiter;
 
     /**
      * 获取后台评论分页列表
@@ -449,6 +451,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
     @Override
     @Transactional
     public CommentLikeMutationVO likeComment(Long commentId, Long userId) {
+        likeRateLimiter.acquire("user:" + userId, ResultCode.COMMENT_LIKE_RATE_LIMITED);
         Comment comment = requireCommentForLike(commentId);
         checkPublishedArticle(comment.getArticleId());
         if (comment.getStatus() != CommentStatus.APPROVED) {
@@ -476,6 +479,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
     @Override
     @Transactional
     public CommentLikeMutationVO unlikeComment(Long commentId, Long userId) {
+        likeRateLimiter.acquire("user:" + userId, ResultCode.COMMENT_LIKE_RATE_LIMITED);
         requireCommentForLike(commentId);
         if (commentLikeMapper.deleteByCommentAndUser(commentId, userId) > 0) {
             commentMapper.decrementLikeCount(commentId);

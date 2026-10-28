@@ -8,6 +8,7 @@ public enum ResultCode {
     SUCCESS(0, "成功", 200),
     PARAM_INVALID(199001, "请求参数不合法", 400),
     RESOURCE_NOT_FOUND(199404, "请求资源不存在", 404),
+    REQUEST_RATE_LIMITED(199429, "请求过于频繁，请稍后再试", 429),
     SYSTEM_ERROR(299001, "系统内部异常", 500),
 
     // auth 模块 01xxxx
@@ -15,6 +16,7 @@ public enum ResultCode {
     ACCESS_TOKEN_EXPIRED(101002, "Access Token 已过期", 401),
     NO_PERMISSION(101003, "无权限访问", 403),
     REFRESH_TOKEN_INVALID_OR_EXPIRED(101004, "Refresh Token 无效或已过期", 401),
+    LOGIN_RATE_LIMITED(101005, "登录尝试过于频繁，请稍后再试", 429),
 
     // user 模块 02xxxx
     USER_NOT_FOUND(102001, "用户不存在", 404),
@@ -45,6 +47,7 @@ public enum ResultCode {
     ARTICLE_STATUS_TRANSITION_INVALID(103007, "文章状态流转不合法", 409),
     ARTICLE_NOT_VISIBLE(103008, "文章当前不可见", 404),
     ARTICLE_AUTHOR_NOT_FOUND(103009, "文章作者不存在", 404),
+    ARTICLE_LIKE_RATE_LIMITED(103010, "点赞操作过于频繁，请稍后再试", 429),
 
     // category 模块 04xxxx
     CATEGORY_NAME_ALREADY_EXISTS(104001, "分类名称已存在", 409),
@@ -71,6 +74,7 @@ public enum ResultCode {
     COMMENT_MODERATION_REASON_REQUIRED(106007, "评论处理原因不能为空", 400),
     COMMENT_EMAIL_NOT_VERIFIED(106008, "邮箱未验证，无法订阅评论回复通知", 400),
     COMMENT_UNSUBSCRIBE_TOKEN_INVALID(106009, "评论退订链接无效或已失效", 400),
+    COMMENT_LIKE_RATE_LIMITED(106010, "点赞操作过于频繁，请稍后再试", 429),
 
     // file 模块 07xxxx
     IMAGE_REQUIRED(107001, "请选择需要上传的图片", 400),

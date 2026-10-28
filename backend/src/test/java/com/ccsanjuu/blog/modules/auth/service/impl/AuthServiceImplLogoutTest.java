@@ -4,6 +4,7 @@ import com.ccsanjuu.blog.common.util.JwtUtil;
 import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.auth.model.dto.LogoutRequestDTO;
 import com.ccsanjuu.blog.modules.auth.service.RegistrationEmailVerificationService;
+import com.ccsanjuu.blog.modules.auth.support.LoginRateLimiter;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.privacy.service.PrivacyPolicyService;
 import com.ccsanjuu.blog.properties.JwtProperties;
@@ -59,7 +60,8 @@ class AuthServiceImplLogoutTest {
                 authMapper,
                 privacyPolicyService,
                 registrationEmailVerificationService,
-                org.mockito.Mockito.mock(com.ccsanjuu.blog.modules.security.service.SecurityEventService.class)
+                org.mockito.Mockito.mock(com.ccsanjuu.blog.modules.security.service.SecurityEventService.class),
+                org.mockito.Mockito.mock(LoginRateLimiter.class)
         );
     }
 

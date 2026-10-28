@@ -604,7 +604,7 @@ paths:
       tags:
         - Auth
       summary: 用户登录
-      description: 权限级别 `PUBLIC`。支持用户名或邮箱登录；用户名和邮箱登录均按大小写不敏感处理。登录成功后响应体返回 Access Token，Refresh Token 通过 `Set-Cookie` 写入 `refresh_token` HttpOnly Cookie，不返回给前端 JavaScript 读取。
+      description: 权限级别 `PUBLIC`。支持用户名或邮箱登录；用户名和邮箱登录均按大小写不敏感处理。登录成功后响应体返回 Access Token，Refresh Token 通过 `Set-Cookie` 写入 `refresh_token` HttpOnly Cookie，不返回给前端 JavaScript 读取。Redis 对同一用户/IP 组合限制 15 分钟内最多 5 次登录失败，并对同一 IP 限制 15 分钟内最多 30 次失败；成功登录后清除该用户/IP 组合的失败计数。生产 Nginx 另限制每来源 IP 每秒 1 次、突发 5 次。
       operationId: loginUser
       requestBody:
         required: true
@@ -651,6 +651,8 @@ paths:
           $ref: '#/components/responses/UnauthorizedResponse'
         '403':
           $ref: '#/components/responses/UserDisabledResponse'
+        '429':
+          $ref: '#/components/responses/LoginRateLimitedResponse'
   /api/v1/auth/refresh:
     post:
       tags:
@@ -879,7 +881,7 @@ paths:
       tags:
         - Public Articles
       summary: 点赞文章
-      description: 权限级别 `PUBLIC`。登录用户按 `userId`、游客按 `visitor_id` Cookie 幂等点赞，仅允许已发布文章。
+      description: 权限级别 `PUBLIC`。登录用户按 `userId`、游客按 `visitor_id` Cookie 幂等点赞，仅允许已发布文章。应用层对每个登录用户或游客主体的文章和评论点赞/取消合计限制为每 60 秒 30 次；生产 Nginx 对点赞路径另按来源 IP 限制每秒 2 次、突发 10 次。
       operationId: likeArticle
       security:
         - {}
@@ -897,11 +899,13 @@ paths:
           $ref: '#/components/responses/PublicArticleDetailNotFoundResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+        '429':
+          $ref: '#/components/responses/ArticleLikeRateLimitedResponse'
     delete:
       tags:
         - Public Articles
       summary: 取消文章点赞
-      description: 权限级别 `PUBLIC`。登录用户或游客取消自己的点赞，操作幂等；文章下线后仍允许取消历史点赞。
+      description: 权限级别 `PUBLIC`。登录用户或游客取消自己的点赞，操作幂等；文章下线后仍允许取消历史点赞。点赞和取消共享登录用户/游客主体限额，重复的幂等请求也计入。
       operationId: unlikeArticle
       security:
         - {}
@@ -919,6 +923,8 @@ paths:
           $ref: '#/components/responses/PublicArticleDetailNotFoundResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+        '429':
+          $ref: '#/components/responses/ArticleLikeRateLimitedResponse'
   /api/v1/articles/{articleId}/comments:
     get:
       tags:
@@ -1051,7 +1057,7 @@ paths:
       tags:
         - Public Comments
       summary: 点赞评论
-      description: 权限级别 `LOGIN`。仅当前可见的 APPROVED 评论允许新增点赞；重复点赞幂等。
+      description: 权限级别 `LOGIN`。仅当前可见的 APPROVED 评论允许新增点赞；重复点赞幂等。评论点赞与文章点赞共享每用户每 60 秒 30 次的应用层限额；生产 Nginx 对点赞路径另按来源 IP 限制每秒 2 次、突发 10 次。
       operationId: likeComment
       security:
         - bearerAuth: []
@@ -1068,11 +1074,13 @@ paths:
           $ref: '#/components/responses/UnauthorizedResponse'
         '404':
           $ref: '#/components/responses/CommentNotFoundResponse'
+        '429':
+          $ref: '#/components/responses/CommentLikeRateLimitedResponse'
     delete:
       tags:
         - Public Comments
       summary: 取消评论点赞
-      description: 权限级别 `LOGIN`。取消当前用户的评论点赞，操作幂等；评论隐藏或删除后仍允许取消历史点赞。
+      description: 权限级别 `LOGIN`。取消当前用户的评论点赞，操作幂等；评论隐藏或删除后仍允许取消历史点赞。点赞和取消共享文章/评论点赞的每用户限额，重复的幂等请求也计入。
       operationId: unlikeComment
       security:
         - bearerAuth: []
@@ -1089,6 +1097,8 @@ paths:
           $ref: '#/components/responses/UnauthorizedResponse'
         '404':
           $ref: '#/components/responses/CommentNotFoundResponse'
+        '429':
+          $ref: '#/components/responses/CommentLikeRateLimitedResponse'
   /api/v1/categories:
     get:
       tags:
@@ -5882,6 +5892,63 @@ components:
             code: 102012
             message: 验证码请求过于频繁，请稍后再试
             data: null
+    LoginRateLimitedResponse:
+      description: 登录失败次数或来源 IP 请求频率超过限制
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            applicationFailureLimit:
+              summary: Redis 登录失败次数限制
+              value:
+                code: 101005
+                message: 登录尝试过于频繁，请稍后再试
+                data: null
+            nginxIpLimit:
+              summary: Nginx 来源 IP 边缘限流
+              value:
+                code: 199429
+                message: 请求过于频繁，请稍后再试
+                data: null
+    ArticleLikeRateLimitedResponse:
+      description: 文章点赞主体频率或来源 IP 请求频率超过限制
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            applicationActorLimit:
+              summary: Redis 点赞主体限流
+              value:
+                code: 103010
+                message: 点赞操作过于频繁，请稍后再试
+                data: null
+            nginxIpLimit:
+              summary: Nginx 来源 IP 边缘限流
+              value:
+                code: 199429
+                message: 请求过于频繁，请稍后再试
+                data: null
+    CommentLikeRateLimitedResponse:
+      description: 评论点赞主体频率或来源 IP 请求频率超过限制
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            applicationActorLimit:
+              summary: Redis 点赞主体限流
+              value:
+                code: 106010
+                message: 点赞操作过于频繁，请稍后再试
+                data: null
+            nginxIpLimit:
+              summary: Nginx 来源 IP 边缘限流
+              value:
+                code: 199429
+                message: 请求过于频繁，请稍后再试
+                data: null
     EmailVerificationSendFailedResponse:
       description: 验证码邮件发送失败
       content:
