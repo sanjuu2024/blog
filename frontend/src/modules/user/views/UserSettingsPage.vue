@@ -53,6 +53,7 @@
 						:user-id="userProfile.id"
 						:is-admin="userProfile.role === 'ADMIN'"
 						:size="88"
+						:badge-size-percent="35"
 						class="shrink-0"
 					/>
 					<div>

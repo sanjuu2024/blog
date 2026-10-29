@@ -19,7 +19,7 @@ const cropperImage = {
 	}),
 	addEventListener: vi.fn(),
 	removeEventListener: vi.fn(),
-	getBoundingClientRect: vi.fn(() => ({ width: 560, height: 420, left: 0, top: 0 })),
+	getBoundingClientRect: vi.fn(() => ({ width: 420, height: 420, left: 0, top: 0 })),
 };
 const cropperSelection = {
 	$change: vi.fn(),
@@ -28,7 +28,7 @@ const cropperSelection = {
 const cropper = {
 	destroy: vi.fn(),
 	getCropperCanvas: vi.fn(() => ({
-		getBoundingClientRect: vi.fn(() => ({ width: 560, height: 420, left: 0, top: 0 })),
+		getBoundingClientRect: vi.fn(() => ({ width: 420, height: 420, left: 0, top: 0 })),
 	})),
 	getCropperImage: vi.fn(() => cropperImage),
 	getCropperSelection: vi.fn(() => cropperSelection),
@@ -63,7 +63,7 @@ describe('AvatarCropDialog', () => {
 		vi.stubGlobal('cancelAnimationFrame', vi.fn());
 	});
 
-	it('initializes a centered crop area and drags the image inside a fixed frame', async () => {
+	it('initializes a centered square crop inside the square preview', async () => {
 		const wrapper = mount(AvatarCropDialog, {
 			props: {
 				modelValue: true,
@@ -93,17 +93,21 @@ describe('AvatarCropDialog', () => {
 		expect(cropperOptions?.template).toContain(
 			'<cropper-handle action="move" theme-color="transparent"></cropper-handle>',
 		);
-		expect(cropperSelection.$change).toHaveBeenCalledWith(112, 42, 336, 336, 1);
+		expect(cropperSelection.$change).toHaveBeenCalledWith(42, 42, 336, 336, 1);
+
+		await wrapper.get('[data-testid="avatar-crop-maximize"]').trigger('click');
+		expect(cropperSelection.$change).toHaveBeenLastCalledWith(0, 0, 420, 420, 1);
 
 		await wrapper.get('[data-testid="avatar-crop-reset"]').trigger('click');
 		expect(cropperImage.$resetTransform).toHaveBeenCalled();
 		expect(cropperImage.$center).toHaveBeenCalledWith('cover');
-		expect(cropperSelection.$change).toHaveBeenCalledTimes(2);
+		expect(cropperSelection.$change).toHaveBeenCalledTimes(3);
+		expect(cropperSelection.$change).toHaveBeenLastCalledWith(42, 42, 336, 336, 1);
 	});
 
 	it('shows only the vertical indicator for a tall image', async () => {
 		cropperImage.getBoundingClientRect.mockReturnValue({
-			width: 560,
+			width: 420,
 			height: 840,
 			left: 0,
 			top: -120,

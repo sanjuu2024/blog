@@ -42,6 +42,12 @@
 				@click="resetCrop"
 				>重置</el-button
 			>
+			<el-button
+				data-testid="avatar-crop-maximize"
+				:disabled="!cropper"
+				@click="maximizeSelection"
+				>最大化裁剪框</el-button
+			>
 			<el-button @click="emit('update:modelValue', false)">取消</el-button>
 			<el-button
 				type="primary"
@@ -144,8 +150,8 @@ async function initializeSelection() {
 	await image.$ready();
 	await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 	if (!props.modelValue || cropper.value !== currentCropper) return;
-	// 保存初始 cover 变换，作为后续滚轮缩放的精确下限。
-	minimumImageScale = getImageScale(image);
+	// 初始化与后续重置共用同一个 cover 基准，避免滚轮缩小停在边界前。
+	resetImageToCover(image);
 
 	const canvasRect = canvas.getBoundingClientRect();
 	const imageRect = image.getBoundingClientRect();
@@ -181,6 +187,16 @@ function resetCrop() {
 		initialSelection.height,
 		1,
 	);
+}
+
+function maximizeSelection() {
+	const canvas = cropper.value?.getCropperCanvas();
+	const selection = cropper.value?.getCropperSelection();
+	if (!canvas || !selection) return;
+
+	const { width, height } = canvas.getBoundingClientRect();
+	const size = Math.min(width, height);
+	selection.$change((width - size) / 2, (height - size) / 2, size, size, 1);
 }
 
 function handleImageWheel(event: WheelEvent) {
@@ -358,11 +374,11 @@ onBeforeUnmount(destroyCropper);
 <style lang="scss" scoped>
 .avatar-crop-dialog__stage {
 	display: grid;
-	width: 100%;
-	height: min(62vh, 420px);
-	min-height: 260px;
+	width: min(100%, 420px, 62vh);
+	aspect-ratio: 1;
 	grid-template-columns: minmax(0, 1fr) 1rem;
 	grid-template-rows: minmax(0, 1fr) 1rem;
+	margin-inline: auto;
 }
 
 .avatar-crop-dialog__canvas {
