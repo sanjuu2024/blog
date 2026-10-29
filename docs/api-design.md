@@ -2848,6 +2848,7 @@ Dashboard 不接收全局 `range` 或趋势模式参数。接口一次返回六�
 - 前台文章规范 URL 为 `/articles/{articleId}`；canonical 不包含评论定位等 query 或 hash
 - 每篇公开文章输出 canonical、Open Graph 标题/摘要/封面和绝对 URL
 - `sitemap.xml` 只包含公开页面与已发布文章；`robots.txt` 禁止抓取后台、登录、注册和个人中心
+- `rss.xml` 为无需登录的 RSS 2.0 feed，只包含最近 20 篇仍公开的已发布文章，按发布时间倒序；每项包含标题、纯文本摘要、发布时间及文章规范地址，不包含全文或用户状态
 - 首次 HTML 直接包含 SEO 标签，分享抓取器无需执行 JavaScript 即可读取标题、摘要和封面；正文仍由 Vue 渲染，其抓取依赖爬虫执行 JavaScript，不提供 SSR 或水合
 
 采用后端动态注入 HTML head，保留空的 Vue 挂载容器与原有资源标签，不生成正文、文章列表或导航布局。
@@ -2858,6 +2859,7 @@ Dashboard 不接收全局 `range` 或趋势模式参数。接口一次返回六�
 | `GET` | `/`、`/articles`、`/about`、`/messages`、`/links` | `text/html` | 前端入口 HTML 与公开页面元信息，正文由 Vue 渲染 |
 | `GET` | `/articles/{articleId}` | `text/html` | head 包含文章标题、摘要、canonical 和 OG，正文由 Vue 渲染；不存在、不可见或分类不可用时 HTTP 404 |
 | `GET` | `/sitemap.xml` | `application/xml` | 公开页面与公开可见文章的规范地址及文章更新时间 |
+| `GET` | `/rss.xml` | `application/rss+xml` | 最近 20 篇仍公开的已发布文章 RSS 2.0 feed；包含标题、摘要、发布时间和规范地址 |
 | `GET` | `/robots.txt` | `text/plain` | 排除后台、认证及个人中心；API 默认禁止，公开渲染数据 API 提供 Allow 例外，并声明 sitemap |
 | `GET` | `/api/v1/seo?path=...` | 通用 JSON 响应 | 非文章公开页面内部导航时按需获取元信息；保留文章路径读取能力，但文章页复用详情响应的 seo；非规范文章 ID 或未知页面返回 404 |
 

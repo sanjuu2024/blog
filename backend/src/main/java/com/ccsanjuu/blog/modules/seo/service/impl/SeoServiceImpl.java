@@ -25,6 +25,9 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.Map;
 
 @Service
@@ -34,6 +37,10 @@ public class SeoServiceImpl implements SeoService {
 
     private static final Map<String, String> PUBLIC_PAGES = Map.of(
             "/", "首页", "/articles", "文章", "/about", "关于", "/messages", "留言板", "/links", "友链");
+    private static final int RSS_ARTICLE_LIMIT = 20;
+    private static final DateTimeFormatter RSS_DATE_FORMATTER = DateTimeFormatter.RFC_1123_DATE_TIME
+            .withLocale(Locale.US)
+            .withZone(ZoneOffset.UTC);
 
     private final ArticleService articleService;
     private final ArticleMapper articleMapper;
@@ -131,7 +138,7 @@ public class SeoServiceImpl implements SeoService {
             for (String path : PUBLIC_PAGES.keySet().stream().sorted().toList()) {
                 writeSitemapUrl(xml, path, null);
             }
-            for (var article : articleMapper.selectPublicSeoArticles()) {
+            for (var article : articleMapper.selectPublicSyndicationArticles(null)) {
                 writeSitemapUrl(xml, "/articles/" + article.getId(), article.getUpdatedAt());
             }
             xml.writeEndElement();
@@ -140,6 +147,54 @@ public class SeoServiceImpl implements SeoService {
             return output.toString();
         } catch (XMLStreamException exception) {
             throw new IllegalStateException("站点地图生成失败", exception);
+        }
+    }
+
+    /**
+     * 输出最新的公开文章摘要供 RSS 阅读器订阅。
+     *
+     * @return RSS 2.0 XML
+     */
+    @Override
+    public String getRssFeed() {
+        var articles = articleMapper.selectPublicSyndicationArticles(RSS_ARTICLE_LIMIT);
+
+        try {
+            StringWriter output = new StringWriter();
+            XMLStreamWriter xml = XMLOutputFactory.newFactory().createXMLStreamWriter(output);
+            xml.writeStartDocument("UTF-8", "1.0");
+            xml.writeStartElement("rss");
+            xml.writeAttribute("version", "2.0");
+            xml.writeStartElement("channel");
+            writeTextElement(xml, "title", blogProperties.getAppName());
+            writeTextElement(xml, "link", baseUrl());
+            writeTextElement(xml, "description", blogProperties.getDescription());
+            writeTextElement(xml, "language", "zh-CN");
+            writeTextElement(xml, "lastBuildDate", RSS_DATE_FORMATTER.format(OffsetDateTime.now(ZoneOffset.UTC)));
+
+            for (var article : articles) {
+                String articleUrl = baseUrl() + "/articles/" + article.getId();
+                xml.writeStartElement("item");
+                writeTextElement(xml, "title", article.getTitle());
+                writeTextElement(xml, "link", articleUrl);
+                xml.writeStartElement("guid");
+                xml.writeAttribute("isPermaLink", "true");
+                xml.writeCharacters(articleUrl);
+                xml.writeEndElement();
+                if (article.getPublishedAt() != null) {
+                    writeTextElement(xml, "pubDate", RSS_DATE_FORMATTER.format(article.getPublishedAt()));
+                }
+                writeTextElement(xml, "description", article.getSummary());
+                xml.writeEndElement();
+            }
+
+            xml.writeEndElement();
+            xml.writeEndElement();
+            xml.writeEndDocument();
+            xml.close();
+            return output.toString();
+        } catch (XMLStreamException exception) {
+            throw new IllegalStateException("RSS 订阅生成失败", exception);
         }
     }
 
@@ -181,6 +236,22 @@ public class SeoServiceImpl implements SeoService {
             document.head().appendElement("meta").attr(attribute, key)
                     .attr("content", value.toString()).attr("data-seo", "true");
         }
+    }
+
+    /**
+     * 使用 XML writer 写入并转义文本元素。
+     *
+     * @param xml XML writer
+     * @param name 元素名称
+     * @param value 文本内容
+     * @throws XMLStreamException XML 写入失败
+     */
+    private void writeTextElement(XMLStreamWriter xml, String name, String value) throws XMLStreamException {
+        xml.writeStartElement(name);
+        if (value != null) {
+            xml.writeCharacters(value);
+        }
+        xml.writeEndElement();
     }
 
     /**

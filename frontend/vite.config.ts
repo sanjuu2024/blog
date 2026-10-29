@@ -86,7 +86,7 @@ export default defineConfig(({ mode }) => {
 
 		test: {
 			environment: 'jsdom',
-			include: ['src/**/*.spec.ts'],
+			include: ['src/**/*.spec.ts', 'plugins/**/*.spec.ts'],
 			server: {
 				deps: {
 					inline: ['element-plus'],

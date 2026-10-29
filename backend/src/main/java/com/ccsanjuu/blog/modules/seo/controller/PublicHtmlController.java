@@ -48,6 +48,18 @@ public class PublicHtmlController {
     }
 
     /**
+     * 获取公开文章 RSS 订阅。
+     *
+     * @return RSS 2.0 XML
+     */
+    @GetMapping(value = "/rss.xml", produces = "application/rss+xml")
+    public ResponseEntity<String> getRssFeed() {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .contentType(new MediaType("application", "rss+xml", StandardCharsets.UTF_8))
+                .body(seoService.getRssFeed());
+    }
+
+    /**
      * 获取爬虫访问规则。
      *
      * @return robots 文本

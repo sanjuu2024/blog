@@ -20,6 +20,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.xml.parsers.DocumentBuilderFactory;
+import java.io.ByteArrayInputStream;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
@@ -100,6 +102,11 @@ class SeoIntegrationTest {
                 .andExpect(jsonPath("$.data.canonicalUrl").value("https://blog.example.com/links"));
         mockMvc.perform(get("/sitemap.xml")).andExpect(status().isOk())
                 .andExpect(content().string(containsString("https://blog.example.com" + path + "</loc>")));
+        mockMvc.perform(get("/rss.xml")).andExpect(status().isOk())
+                .andExpect(content().contentType("application/rss+xml;charset=UTF-8"))
+                .andExpect(content().string(containsString("https://blog.example.com" + path)))
+                .andExpect(content().string(containsString("SEO中文测试")))
+                .andExpect(content().string(containsString("文章摘要")));
         mockMvc.perform(get("/sitemap.xml"))
                 .andExpect(content().string(containsString("https://blog.example.com/links</loc>")));
         assertEquals(7, articleMapper.selectById(article.getId()).getViewCount());
@@ -112,6 +119,8 @@ class SeoIntegrationTest {
         mockMvc.perform(get(path)).andExpect(status().isNotFound());
         mockMvc.perform(get("/sitemap.xml"))
                 .andExpect(content().string(not(containsString("https://blog.example.com" + path + "</loc>"))));
+        mockMvc.perform(get("/rss.xml"))
+                .andExpect(content().string(not(containsString("https://blog.example.com" + path))));
     }
 
     @Test
@@ -123,6 +132,46 @@ class SeoIntegrationTest {
         mockMvc.perform(get(path)).andExpect(status().isNotFound());
         mockMvc.perform(get("/sitemap.xml"))
                 .andExpect(content().string(not(containsString("https://blog.example.com" + path + "</loc>"))));
+        mockMvc.perform(get("/rss.xml"))
+                .andExpect(content().string(not(containsString("https://blog.example.com" + path))));
+    }
+
+    @Test
+    void rssShouldReturnOnlyTheLatestTwentyArticlesInDescendingPublicationOrder() throws Exception {
+        OffsetDateTime newest = article.getPublishedAt().plusMinutes(21);
+        for (int index = 0; index < 21; index++) {
+            Article feedArticle = Article.builder()
+                    .title("RSS article " + index)
+                    .summary("RSS summary " + index)
+                    .contentMd("RSS body " + index)
+                    .contentHtml("<p>RSS body " + index + "</p>")
+                    .contentText("RSS body " + index)
+                    .coverUrl("")
+                    .categoryId(article.getCategoryId())
+                    .authorId(author.getId())
+                    .status(ArticleStatus.PUBLISHED)
+                    .isTop(false)
+                    .allowComment(true)
+                    .viewCount(0)
+                    .likeCount(0)
+                    .commentCount(0)
+                    .publishedAt(newest.minusMinutes(index))
+                    .build();
+            articleMapper.insert(feedArticle);
+        }
+
+        byte[] response = mockMvc.perform(get("/rss.xml"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsByteArray();
+        var factory = DocumentBuilderFactory.newInstance();
+        var xml = factory.newDocumentBuilder().parse(new ByteArrayInputStream(response));
+        var items = xml.getElementsByTagName("item");
+
+        assertEquals(20, items.getLength());
+        assertEquals("RSS article 0", ((org.w3c.dom.Element) items.item(0))
+                .getElementsByTagName("title").item(0).getTextContent());
+        assertEquals("RSS article 19", ((org.w3c.dom.Element) items.item(19))
+                .getElementsByTagName("title").item(0).getTextContent());
     }
 
     @Test

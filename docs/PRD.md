@@ -93,6 +93,7 @@
 - 游客留言接入 Turnstile；登录用户评论继续使用登录态与 Redis 限流
 - 文章评论直接回复邮件通知订阅；留言与评论通知统一使用 `multipart/alternative`（`text/plain` + `text/html`）
 - 文章 SEO，包括 canonical、sitemap、robots.txt 和 Open Graph；文章详情 URL 保持 `/articles/{articleId}`
+- 提供 RSS 2.0 订阅，只包含最近 20 篇仍公开的已发布文章；每项输出标题、摘要、发布时间和文章规范地址
 - 友链管理与固定分区展示，包括管理员维护、留言申请指引及友链页 SEO
 - 公开首页、文章列表、关于页、留言板和文章详情由后端在前端入口 HTML 中注入 canonical、description 与 Open Graph；页面正文和布局统一由 Vue 渲染，不生成第二套简易正文，正文抓取依赖爬虫执行 JavaScript
 - 友链页使用固定“友人帐”“大佬们”“同行者”三个分区，作为公开页面纳入 SEO、sitemap 和 robots 公共数据 API 抓取例外；仅管理员维护，不提供公开申请表单

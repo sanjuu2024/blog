@@ -226,6 +226,7 @@ Element Plus 的 `success`、`warning`、`danger`、`info` 按钮也遵循同样
 
 - 文章详情保持 `/articles/{articleId}`，根据规范 URL 更新 canonical 和 Open Graph
 - `/links` 公开页面使用 canonical 和 Open Graph，纳入 sitemap；友链公共数据接口按 API noindex 规则提供给执行 JavaScript 的爬虫
+- 前端入口 HTML 提供 `application/rss+xml` 的 `rel="alternate"` 自动发现链接，RSS 地址为 `/rss.xml`
 - 首屏 HTML 仅由后端注入 head 元信息，正文和布局统一由 Vue 渲染；首次启动保留服务端标签，不经历简易正文与 Vue 页面两套布局切换
 - 文章页使用详情响应的 seo 同步标签，不再单独请求 SEO；其他公开页面按需请求元信息，过滤异步过期结果，离开文章后清理标签，query/hash 不影响元信息
 - 开发环境由 Vite 中间件转发公开 HTML 和 sitemap/robots；HTML 返回后使用 Vite 的 transformIndexHtml 注入开发资源，API 继续使用现有代理

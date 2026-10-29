@@ -28,6 +28,13 @@ public interface SeoService {
     String getSitemap();
 
     /**
+     * 生成公开文章 RSS 2.0 feed。
+     *
+     * @return RSS XML
+     */
+    String getRssFeed();
+
+    /**
      * 获取爬虫规则及站点地图地址。
      *
      * @return robots 文本
