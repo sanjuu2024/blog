@@ -126,7 +126,7 @@
 				class="article-summary"
 				v-if="article.summary"
 			>
-				<p class="text-sm text-(--app-text-muted)">{{ article.summary }}</p>
+				<p class="text-center text-sm text-(--app-text-muted)">{{ article.summary }}</p>
 			</div>
 
 			<!-- 文章内容 -->

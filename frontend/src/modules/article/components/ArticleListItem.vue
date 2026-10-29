@@ -106,45 +106,49 @@
 					</div>
 
 					<div class="right__inner-footer flex w-full text-sm text-gray-400">
-						<!-- 发布时间 -->
-						<div class="article-statis-item">
-							<component
-								:is="getRouteIcon('calendar')"
-								class="mr-2"
-							/>
-							<span>{{ formatDateTime(article.publishedAt) }}</span>
+						<div class="right__inner-footer-left">
+							<!-- 发布时间 -->
+							<div class="article-statis-item">
+								<component
+									:is="getRouteIcon('calendar')"
+									class="mr-2"
+								/>
+								<span>{{ formatDateTime(article.publishedAt) }}</span>
+							</div>
 						</div>
 
-						<!-- 浏览数 -->
-						<div class="article-statis-item">
-							<component
-								:is="getRouteIcon('view')"
-								class="mr-2"
-							/>
-							<span>{{ article.viewCount }}</span>
-						</div>
+						<div class="right__inner-footer-right">
+							<!-- 浏览数 -->
+							<div class="article-statis-item">
+								<component
+									:is="getRouteIcon('view')"
+									class="mr-2"
+								/>
+								<span>{{ article.viewCount }}</span>
+							</div>
 
-						<!-- 点赞数 -->
-						<div class="article-statis-item">
-							<component
-								:is="getRouteIcon('like')"
-								class="mr-2"
-							/>
-							<span>{{ article.likeCount }}</span>
-						</div>
+							<!-- 点赞数 -->
+							<div class="article-statis-item">
+								<component
+									:is="getRouteIcon('like')"
+									class="mr-2"
+								/>
+								<span>{{ article.likeCount }}</span>
+							</div>
 
-						<!-- 评论数 -->
-						<RouterLink
-							:to="`/articles/${article.id}#article-comments`"
-							class="article-statis-item"
-							:aria-label="`${article.commentCount} 条评论，查看文章评论区`"
-						>
-							<component
-								:is="getRouteIcon('comment')"
-								class="mr-2"
-							/>
-							<span>{{ article.commentCount }}</span>
-						</RouterLink>
+							<!-- 评论数 -->
+							<RouterLink
+								:to="`/articles/${article.id}#article-comments`"
+								class="article-statis-item"
+								:aria-label="`${article.commentCount} 条评论，查看文章评论区`"
+							>
+								<component
+									:is="getRouteIcon('comment')"
+									class="mr-2"
+								/>
+								<span>{{ article.commentCount }}</span>
+							</RouterLink>
+						</div>
 					</div>
 				</div>
 
@@ -199,8 +203,16 @@ const coverHovered = ref(false);
 	margin-left: 2rem;
 }
 
-.article-list-item-title:hover {
-	color: var(--app-button-bg);
+.article-list-item-title {
+	display: -webkit-box;
+	overflow: hidden;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+
+	&:hover {
+		color: var(--app-button-bg);
+	}
 }
 
 .article-list-item-category {
@@ -232,7 +244,7 @@ const coverHovered = ref(false);
 
 .right__inner-footer {
 	flex-wrap: wrap;
-	row-gap: 0.375rem;
+	align-items: center;
 
 	.article-statis-item {
 		display: flex;
@@ -242,6 +254,32 @@ const coverHovered = ref(false);
 	& > :not(:first-child)::before {
 		content: '·';
 		margin-inline: 0.5rem;
+	}
+
+	.right__inner-footer-left {
+		display: flex;
+		align-items: center;
+	}
+
+	.right__inner-footer-right {
+		display: flex;
+		align-items: center;
+
+		& > :not(:first-child)::before {
+			content: '·';
+			margin-inline: 0.5rem;
+		}
+	}
+
+	@media (width < 680px) {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.5rem;
+
+		& > :not(:first-child)::before {
+			content: '';
+			margin-inline: 0;
+		}
 	}
 }
 

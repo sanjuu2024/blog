@@ -260,6 +260,10 @@ BLOG_SMTP_WRITE_TIMEOUT=10000
 - 生产环境必须启用 HTTPS。
 - `Nginx` 负责证书终止和反向代理。
 - 前端静态资源与后端 API 按同域部署设计；生产环境由 `Nginx` 托管前端产物，并将 `/api/**` 反向代理到后端服务。
+- 前端构建产物包含 `public/50x.html`；Nginx 对面向用户的页面请求配置 HTTP 500、502、503、504
+  静态兜底页。仅页面代理 location 开启上游错误拦截，`/api/**` 保留 API 错误响应，不返回
+  50x HTML。
+- 50x 页面不依赖 Vue 或后端，只提供重试和返回首页；静态图片占位后续资源放在 `frontend/public/img/errors/`，通过根路径 URL 加载。
 - Refresh Token 由后端通过 `Set-Cookie` 写入 `refresh_token` HttpOnly Cookie，`Nginx` 不应丢弃或改写该响应头。
 - `refresh_token` Cookie 路径固定为 `/api/v1/auth`，只随认证相关接口发送；生产 HTTPS 环境必须带 `Secure`，并保持 `HttpOnly`、`SameSite=Lax`。
 - 若后端需要根据请求协议决定是否添加 `Secure`，反向代理应正确传递 `X-Forwarded-Proto` 等代理头。

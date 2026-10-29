@@ -1,11 +1,12 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { nextTick } from 'vue';
+import { defineComponent, nextTick } from 'vue';
 import UserProfilePage from './UserProfilePage.vue';
 
 const mocks = vi.hoisted(() => ({
 	getCurrentUserProfile: vi.fn(),
 	getLikedArticles: vi.fn(),
+	isMobile: false,
 	resizeObserverCallback: undefined as (() => void) | undefined,
 }));
 
@@ -14,12 +15,15 @@ vi.mock('../api/userApi', () => ({
 	getLikedArticles: mocks.getLikedArticles,
 }));
 
-vi.mock('@vueuse/core', () => ({
-	useMediaQuery: () => ({ value: false }),
-	useResizeObserver: vi.fn((_target, callback: () => void) => {
-		mocks.resizeObserverCallback = callback;
-	}),
-}));
+vi.mock('@vueuse/core', async () => {
+	const { ref } = await import('vue');
+	return {
+		useMediaQuery: (query: string) => ref(query === '(width < 400px)' ? mocks.isMobile : false),
+		useResizeObserver: vi.fn((_target, callback: () => void) => {
+			mocks.resizeObserverCallback = callback;
+		}),
+	};
+});
 
 vi.mock('vue-router', () => ({
 	useRouter: () => ({ push: vi.fn() }),
@@ -33,7 +37,14 @@ function mountPage() {
 	return mount(UserProfilePage, {
 		global: {
 			stubs: {
-				AppUserAvatar: true,
+				AppUserAvatar: defineComponent({
+					props: {
+						size: Number,
+						badgeSizePercent: Number,
+					},
+					template:
+						'<div class="user-avatar-stub" :data-size="size" :data-badge-size-percent="badgeSizePercent" />',
+				}),
 				ElButton: {
 					template: '<button><slot name="icon" /><slot /></button>',
 				},
@@ -47,6 +58,7 @@ function mountPage() {
 describe('UserProfilePage bio', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mocks.isMobile = false;
 		mocks.resizeObserverCallback = undefined;
 		mocks.getCurrentUserProfile.mockResolvedValue({
 			id: 10001,
@@ -68,6 +80,26 @@ describe('UserProfilePage bio', () => {
 			totalPages: 0,
 			hasNext: false,
 		});
+	});
+
+	it('passes desktop and mobile avatar badge sizes', async () => {
+		mocks.isMobile = false;
+		const desktopWrapper = mountPage();
+		await flushPromises();
+		expect(desktopWrapper.get('.user-avatar-stub').attributes()).toMatchObject({
+			'data-size': '80',
+			'data-badge-size-percent': '33',
+		});
+		desktopWrapper.unmount();
+
+		mocks.isMobile = true;
+		const mobileWrapper = mountPage();
+		await flushPromises();
+		expect(mobileWrapper.get('.user-avatar-stub').attributes()).toMatchObject({
+			'data-size': '60',
+			'data-badge-size-percent': '45',
+		});
+		mobileWrapper.unmount();
 	});
 
 	it('does not show the toggle for a one-pixel rendering difference', async () => {

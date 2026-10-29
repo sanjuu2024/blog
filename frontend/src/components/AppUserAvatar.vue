@@ -23,6 +23,7 @@
 		<div
 			v-if="isAdmin && !deleted && !guest"
 			class="user-avatar-badge"
+			:style="{ width: `${badgeSizePercent}%`, height: `${badgeSizePercent}%` }"
 		>
 			<i-lets-icons-lightning-fill class="h-full w-full rotate-12 text-(--app-main)" />
 		</div>
@@ -40,6 +41,7 @@ interface Props {
 	guest?: boolean;
 	isAdmin?: boolean;
 	size?: number;
+	badgeSizePercent?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -50,6 +52,7 @@ const props = withDefaults(defineProps<Props>(), {
 	guest: false,
 	isAdmin: false,
 	size: 20,
+	badgeSizePercent: 45,
 });
 
 const AVATAR_COLORS = [
@@ -105,10 +108,8 @@ const backgroundColor = computed(() => {
 
 .user-avatar-badge {
 	position: absolute;
-	bottom: 0;
-	right: -3px;
-	width: 45%;
-	height: 45%;
+	bottom: 4%;
+	right: -7%;
 	border-radius: 50%;
 	background-color: #fff;
 	display: flex;
