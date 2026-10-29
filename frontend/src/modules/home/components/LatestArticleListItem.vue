@@ -121,6 +121,13 @@ defineProps<{
 			font-size: 1.5rem;
 			font-weight: 600;
 			margin-bottom: 0.5rem;
+			display: -webkit-box;
+			overflow: hidden;
+			-webkit-box-orient: vertical;
+			-webkit-line-clamp: 2;
+			line-clamp: 2;
+			white-space: pre-wrap;
+			overflow-wrap: anywhere;
 		}
 
 		.category {
@@ -138,6 +145,13 @@ defineProps<{
 		.summary {
 			font-size: 0.9rem;
 			color: var(--app-text-muted);
+			display: -webkit-box;
+			overflow: hidden;
+			-webkit-box-orient: vertical;
+			-webkit-line-clamp: 3;
+			line-clamp: 3;
+			white-space: pre-wrap;
+			overflow-wrap: anywhere;
 		}
 	}
 }

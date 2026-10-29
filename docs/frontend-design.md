@@ -230,3 +230,18 @@ Element Plus 的 `success`、`warning`、`danger`、`info` 按钮也遵循同样
 - 文章页使用详情响应的 seo 同步标签，不再单独请求 SEO；其他公开页面按需请求元信息，过滤异步过期结果，离开文章后清理标签，query/hash 不影响元信息
 - 开发环境由 Vite 中间件转发公开 HTML 和 sitemap/robots；HTML 返回后使用 Vite 的 transformIndexHtml 注入开发资源，API 继续使用现有代理
 - 游客留言编辑器加载 Turnstile；登录用户不显示挑战控件
+
+## 16. 服务不可用兜底页
+
+- `frontend/public/50x.html` 作为不依赖 Vue、JavaScript 或后端 API 的 Nginx 静态兜底页；
+- 页面内容在视口中垂直、水平居中；使用 `frontend/public/img/50x.avif` 透明插图，不给图片或图片区域添加背景和边框
+- 静态页固定使用护眼米黄背景 `#f0ead9`；主按钮颜色对齐当前 Element Plus primary 按钮，默认 `#587f5c`、hover `#4f7a55`
+- 页面只提供“重试”和“返回首页”两个操作，不自动跳转，不显示站内反馈表单
+- Nginx 只对面向用户的 HTML/静态页面请求中的 HTTP 500、502、503、504 使用该页面；
+  `/api/**` 的 5xx 响应不改写为 HTML
+- API 请求失败时用户留在当前功能页面，由该页面的失败状态、重试入口或通用错误提示反馈；
+  不自动导航到服务不可用页或反馈页
+- Vue 404 页面沿用相同的居中内容布局，固定使用护眼米黄背景 `#f0ead9`，显示 `404` 状态码；
+  透明插图使用 `/img/404.avif` 并限制尺寸，标题加粗，避免图片溢出到文字区域
+- 404 与 50x 页面共享标题、正文和按钮尺寸；404 按钮使用 Element Plus，首页按钮为 primary，
+  上一页按钮使用固定浅色描边样式，避免暗色主题将其渲染为深色块

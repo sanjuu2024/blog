@@ -10,7 +10,8 @@
 							:user-id="userProfile.id"
 							:is-admin="userProfile.role === USER_ROLE.ADMIN"
 							:size="isMobile ? 60 : 80"
-							class="mr-4 shadow"
+							:badge-size-percent="isMobile ? 45 : 33"
+							class="mr-4"
 						/>
 					</div>
 					<div class="user-name-and-bio">
@@ -96,6 +97,7 @@
 					/>
 				</div>
 				<el-pagination
+					class="py-4"
 					v-if="likedArticlesTotalPages > 1"
 					v-model:current-page="likedArticlesPage"
 					:page-size="pageSize"
@@ -193,8 +195,11 @@ onMounted(() => {
 	width: 100%;
 	min-height: 200px;
 	padding: 1rem 2rem;
-	background: url('@/assets/img/food.png') repeat var(--app-main);
-	box-shadow: inset 0 -120px 80px -100px rgb(0 0 0 / 50%);
+	background:
+		linear-gradient(rgb(0 0 0 / 15%), rgb(0 0 0 / 15%)),
+		url('@/assets/img/UserProfileBg.avif') no-repeat center 40% / cover,
+		var(--app-main);
+	box-shadow: inset 0 -180px 80px -100px rgb(0 0 0 / 60%);
 }
 
 .article-list-wrapper {

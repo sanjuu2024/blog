@@ -44,15 +44,13 @@ defineProps<{
 	border: 1px solid var(--app-border);
 	background: var(--app-bg);
 	transition:
-		border-color 0.15s ease,
-		box-shadow 0.15s ease;
+		border 0.15s ease,
+		transform 0.1s ease-in-out;
 
-	&:hover {
-		border: 2px solid var(--app-main);
-	}
-
+	&:hover,
 	&:focus-visible {
 		outline: 2px solid var(--app-main);
+		transform: translateY(-0.2rem);
 	}
 }
 
