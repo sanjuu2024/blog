@@ -76,3 +76,9 @@ code,
 pre {
 	font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
 }
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}

@@ -67,4 +67,16 @@ describe('P0 route contract', () => {
 		expect(adminLayout?.meta?.requiresAuth).toBe(true);
 		expect(adminLayout?.meta?.requiresAdmin).toBe(true);
 	});
+
+	it('marks internal-scroll public pages to preserve the full viewport below the header', () => {
+		for (const routeName of [
+			'Category',
+			'MessageBoard',
+			'MessageUnsubscribe',
+			'CommentUnsubscribe',
+		]) {
+			const route = publicRoutes.find((candidate) => candidate.name === routeName);
+			expect(route?.meta?.fullHeight).toBe(true);
+		}
+	});
 });

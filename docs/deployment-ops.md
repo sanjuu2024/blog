@@ -264,6 +264,7 @@ BLOG_SMTP_WRITE_TIMEOUT=10000
   静态兜底页。仅页面代理 location 开启上游错误拦截，`/api/**` 保留 API 错误响应，不返回
   50x HTML。
 - 50x 页面不依赖 Vue 或后端，只提供重试和返回首页；静态图片占位后续资源放在 `frontend/public/img/errors/`，通过根路径 URL 加载。
+- `VITE_SITE_LAUNCHED_AT` 在生产 `.env` 中配置为带时区的首次正式公开运行时间，并通过 Compose build args 编入 Nginx 前端镜像；该值是公开前端配置，不是 Secret。首次上线后保持不变；调整时间需重新构建前端镜像。
 - Refresh Token 由后端通过 `Set-Cookie` 写入 `refresh_token` HttpOnly Cookie，`Nginx` 不应丢弃或改写该响应头。
 - `refresh_token` Cookie 路径固定为 `/api/v1/auth`，只随认证相关接口发送；生产 HTTPS 环境必须带 `Secure`，并保持 `HttpOnly`、`SameSite=Lax`。
 - 若后端需要根据请求协议决定是否添加 `Secure`，反向代理应正确传递 `X-Forwarded-Proto` 等代理头。

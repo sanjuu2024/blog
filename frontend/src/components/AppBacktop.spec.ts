@@ -3,15 +3,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import AppBacktop from './AppBacktop.vue';
 
 afterEach(() => {
+	vi.restoreAllMocks();
 	document.body.innerHTML = '';
 });
 
 describe('AppBacktop', () => {
-	it('scrolls the application layout to the top', async () => {
-		const scrollContainer = document.createElement('div');
-		scrollContainer.className = 'app-layout';
-		scrollContainer.scrollTo = vi.fn();
-		document.body.append(scrollContainer);
+	it('scrolls the browser page to the top', async () => {
+		const scrollTo = vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
 
 		const wrapper = mount(AppBacktop, {
 			global: {
@@ -23,9 +21,10 @@ describe('AppBacktop', () => {
 
 		await wrapper.get('button').trigger('click');
 
-		expect(scrollContainer.scrollTo).toHaveBeenCalledWith({
+		expect(scrollTo).toHaveBeenCalledExactlyOnceWith({
 			top: 0,
 			behavior: 'smooth',
 		});
+		wrapper.unmount();
 	});
 });

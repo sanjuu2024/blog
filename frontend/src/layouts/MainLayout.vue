@@ -1,22 +1,28 @@
 <template>
 	<div class="app-layout">
-		<AppHeader />
+		<AppHeader class="app-layout__header" />
 		<AppMain />
+		<AppFooter />
 	</div>
 </template>
 
 <script setup lang="ts">
 import AppHeader from './components/AppHeader.vue';
 import AppMain from './components/AppMain.vue';
+import AppFooter from './components/AppFooter.vue';
 
 defineOptions({
 	name: 'MainLayout',
 });
 </script>
 
-<style>
+<style scoped lang="scss">
 .app-layout {
-	height: 100dvh;
-	overflow-y: scroll;
+	display: flex;
+	flex-direction: column;
+	min-height: 100dvh;
+
+	// 由浏览器正常处理页面滚动，不需要让整个布局容器强制滚动。
+	// overflow-y: scroll;
 }
 </style>
