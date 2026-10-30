@@ -9,13 +9,14 @@
 			:error-message="errorMessage"
 			:updating-like="updatingLike"
 			@toggle-like="toggleArticleLike"
+			@jump-to-comments="jumpToComments"
 		/>
 
 		<PublicCommentSection
 			v-if="article"
 			:article="article"
 			@comment-count-change="changeCommentCount"
-			@reply-located="locate"
+			@reply-located="locateReply"
 		/>
 
 		<AppBacktop />
@@ -33,6 +34,7 @@ import { useArticleCommentAnchor } from '../composables/useArticleCommentAnchor'
 const route = useRoute();
 const pageRef = ref<HTMLElement | null>(null);
 const { locate, stop } = useArticleCommentAnchor(pageRef);
+let manualCommentNavigation = false;
 
 const { article, isLoading, errorMessage, updatingLike, getArticleDetail, toggleArticleLike } =
 	useArticleDetail();
@@ -56,6 +58,7 @@ watch(
 	[() => route.fullPath, () => article.value?.id],
 	async (_, __, onCleanup) => {
 		stop();
+		manualCommentNavigation = false;
 		let cancelled = false;
 		onCleanup(() => {
 			cancelled = true;
@@ -70,6 +73,17 @@ watch(
 	},
 	{ flush: 'post' },
 );
+
+function jumpToComments() {
+	manualCommentNavigation = true;
+	const comments = pageRef.value?.querySelector<HTMLElement>('#article-comments');
+	if (comments) locate(comments, 'smooth');
+}
+
+function locateReply(target: HTMLElement) {
+	// 通知回复可能晚于用户点击才加载完成，此时不能再抢回滚动位置。
+	if (!manualCommentNavigation) locate(target);
+}
 
 // 评论创建或删除后，直接更新本地统计，避免重新拉取文章详情导致页面滚动回顶部
 function changeCommentCount(delta: number) {

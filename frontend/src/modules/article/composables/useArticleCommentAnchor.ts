@@ -4,6 +4,7 @@ import { useEventListener, useResizeObserver, useTimeoutFn } from '@vueuse/core'
 // 列表与通知跳转共用定位，初次加载的高度变化只在短时间内校正，不持续干扰阅读。
 export function useArticleCommentAnchor(pageRef: Ref<HTMLElement | null>) {
 	const target = shallowRef<HTMLElement | null>(null);
+	let pageHeight = 0;
 	const { start, stop: stopTimeout } = useTimeoutFn(stop, 10_000, { immediate: false });
 
 	function stop() {
@@ -11,7 +12,7 @@ export function useArticleCommentAnchor(pageRef: Ref<HTMLElement | null>) {
 		stopTimeout();
 	}
 
-	function align() {
+	function align(behavior: ScrollBehavior = 'instant') {
 		if (!target.value) return;
 		if (!target.value.isConnected) {
 			stop();
@@ -20,22 +21,29 @@ export function useArticleCommentAnchor(pageRef: Ref<HTMLElement | null>) {
 
 		target.value.scrollIntoView({
 			block: 'start',
-			behavior: 'instant',
+			behavior,
 		});
 	}
 
-	async function locate(element: HTMLElement) {
+	async function locate(element: HTMLElement, behavior: ScrollBehavior = 'instant') {
 		stop();
+		pageHeight = pageRef.value?.getBoundingClientRect().height ?? 0;
 		target.value = element;
 		start();
 		await nextTick();
-		align();
+		align(behavior);
 	}
 
 	// 不监听 scroll：程序滚动也会触发它，不能因此提前结束图片加载后的校正。
 	useResizeObserver(
 		computed(() => (target.value ? pageRef.value : null)),
-		align,
+		() => {
+			const height = pageRef.value?.getBoundingClientRect().height ?? 0;
+			// 首次观察也会通知；高度未变时不打断正在进行的平滑滚动。
+			if (height === pageHeight) return;
+			pageHeight = height;
+			align();
+		},
 	);
 	useEventListener(document, ['wheel', 'touchstart', 'pointerdown', 'keydown'], stop, {
 		passive: true,

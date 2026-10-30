@@ -1,26 +1,32 @@
 <template>
-	<button
+	<AppFixedButton
 		class="article-like-button"
 		:class="{
 			'article-like-button-expanded': expanded,
-			'article-like-button--no-catelog': !hasCatalog,
 		}"
+		placement="bottom-left"
+		:offset-y="props.offsetY"
+		:height-multiplier="1.5"
 		aria-label="点赞文章"
 		@click="
 			(e) => {
-				triggerConfetti(e, 45);
+				if (!isLiked) triggerConfetti(e, 45);
 				emit('toggle');
 			}
 		"
 	>
-		<i-lucide-thumbs-up
-			class="text-xl"
-			:class="{ 'article-like-button--filled': isLiked }"
-		/>
-	</button>
+		<div class="flex flex-col items-center">
+			<i-lucide-thumbs-up
+				class="text-xl"
+				:class="{ 'article-like-button--filled': isLiked }"
+			/>
+			<span class="article-like-button__count text-sm">{{ props.likeCount }}</span>
+		</div>
+	</AppFixedButton>
 </template>
 
 <script setup lang="ts">
+import AppFixedButton from '@/components/AppFixedButton.vue';
 import { useLikeConfetti } from '../composables/useLikeConfetti';
 defineOptions({
 	name: 'ArticleLikeButton',
@@ -28,13 +34,14 @@ defineOptions({
 
 const { triggerConfetti } = useLikeConfetti();
 
+const props = defineProps<{
+	offsetY: number;
+	likeCount: number;
+}>();
+
 const emit = defineEmits<{ toggle: [] }>();
 
 const expanded = defineModel<boolean>('expanded', {
-	required: true,
-});
-
-const hasCatalog = defineModel<boolean>('hasCatalog', {
 	required: true,
 });
 
@@ -46,40 +53,6 @@ const isLiked = defineModel<boolean>('isLiked', {
 
 <style scoped lang="scss">
 // 侧栏拉开/关上的按钮
-.article-like-button {
-	position: fixed;
-	left: 32px;
-	bottom: 100px;
-	width: 44px;
-	height: 44px;
-	border-radius: 9999px;
-	background-color: var(--app-surface);
-	color: var(--app-text-muted);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	box-shadow: 0 0 4px rgb(0 0 0 / 20%);
-	transition:
-		transform 0.2s ease,
-		background-color 0.1s ease;
-
-	&:hover {
-		color: var(--app-main);
-	}
-
-	&:focus-visible {
-		outline: 2px solid var(--app-main);
-		outline-offset: 2px;
-	}
-
-	z-index: 999;
-	cursor: pointer;
-}
-
-.article-like-button--no-catelog {
-	bottom: 32px;
-}
-
 .article-like-button-expanded {
 	transform: translateX(calc(var(--app-article-catalog-sidebar-width) - 16px));
 }

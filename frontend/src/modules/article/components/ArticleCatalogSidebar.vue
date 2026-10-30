@@ -3,15 +3,16 @@
 		v-if="catalogList.length"
 		to="body"
 	>
-		<button
+		<AppFixedButton
 			class="article-catalog-sidebar-button"
 			:class="{ 'article-catalog-sidebar-button-expanded': expanded }"
+			placement="bottom-left"
 			aria-label="打开/关闭文章目录侧栏"
 			:aria-expanded="expanded"
 			@click="expanded = !expanded"
 		>
 			<i-lucide-list class="text-xl" />
-		</button>
+		</AppFixedButton>
 
 		<aside
 			ref="sidebarRef"
@@ -38,6 +39,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
 import { useEventListener } from '@vueuse/core';
+import AppFixedButton from '@/components/AppFixedButton.vue';
 import type { ArticleCatalogItem } from '../composables/useArticleCatalog';
 
 defineOptions({
@@ -132,37 +134,6 @@ useEventListener(document, 'keydown', (event: KeyboardEvent) => {
 </script>
 
 <style lang="scss" scoped>
-// 侧栏拉开/关上的按钮
-.article-catalog-sidebar-button {
-	position: fixed;
-	left: 32px;
-	bottom: 32px;
-	width: 44px;
-	height: 44px;
-	border-radius: 9999px;
-	background-color: var(--app-surface);
-	color: var(--app-text-muted);
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	box-shadow: 0 0 4px rgb(0 0 0 / 20%);
-	transition:
-		transform 0.2s ease,
-		background-color 0.1s ease;
-
-	&:hover {
-		color: var(--app-main);
-	}
-
-	&:focus-visible {
-		outline: 2px solid var(--app-main);
-		outline-offset: 2px;
-	}
-
-	z-index: 999;
-	cursor: pointer;
-}
-
 // 侧栏
 .article-catalog-sidebar {
 	position: fixed;
@@ -184,6 +155,7 @@ useEventListener(document, 'keydown', (event: KeyboardEvent) => {
 	transform: translateX(var(--app-article-catalog-sidebar-width));
 }
 
+// 侧栏拉开/关上的按钮
 .article-catalog-sidebar-button-expanded {
 	transform: translateX(calc(var(--app-article-catalog-sidebar-width) - 16px));
 }

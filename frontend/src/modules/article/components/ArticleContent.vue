@@ -108,7 +108,7 @@
 					:disabled="updatingLike"
 					@click.stop="
 						(e) => {
-							triggerConfetti(e);
+							if (!article?.liked) triggerConfetti(e);
 							emit('toggle-like');
 						}
 					"
@@ -178,10 +178,31 @@
 	<ArticleLikeButton
 		v-if="article"
 		v-model:expanded="expanded"
-		:hasCatalog="catalogList.length > 0"
+		:offset-y="catalogList.length ? 190 : 122"
 		:is-liked="article.liked"
+		:like-count="article.likeCount"
 		@toggle="emit('toggle-like')"
 	/>
+
+	<AppFixedButton
+		v-if="article"
+		class="article-comment-button"
+		:class="{ 'article-comment-button-expanded': expanded }"
+		placement="bottom-left"
+		:offset-y="catalogList.length ? 100 : 32"
+		:height-multiplier="1.5"
+		aria-label="跳转到评论区"
+		aria-controls="article-comments"
+		@click="jumpToComments"
+	>
+		<div class="flex flex-col items-center">
+			<component
+				:is="getRouteIcon('comment')"
+				class="text-xl"
+			/>
+			<span class="article-comment-button__count text-xs">{{ article.commentCount }}</span>
+		</div>
+	</AppFixedButton>
 </template>
 
 <script setup lang="ts">
@@ -189,6 +210,7 @@ import { ref, watch, nextTick } from 'vue';
 import { formatDateTime } from '@/utils/datetime';
 import type { PublicArticleDetailData } from '../types/article';
 import AppImage from '@/components/AppImage.vue';
+import AppFixedButton from '@/components/AppFixedButton.vue';
 import AppUserAvatar from '@/components/AppUserAvatar.vue';
 import PublicUserProfilePopover from '@/components/PublicUserProfilePopover.vue';
 import getRouteIcon from '@/utils/getRouteIcon';
@@ -215,7 +237,10 @@ const props = defineProps<{
 	updatingLike?: boolean;
 }>();
 
-const emit = defineEmits<{ 'toggle-like': [] }>();
+const emit = defineEmits<{
+	'toggle-like': [];
+	'jump-to-comments': [];
+}>();
 
 // 控制目录侧栏是否展开
 const expanded = ref(false);
@@ -269,6 +294,11 @@ function closeCatalog() {
 	if (expanded.value) {
 		expanded.value = false;
 	}
+}
+
+function jumpToComments() {
+	closeCatalog();
+	emit('jump-to-comments');
 }
 </script>
 
@@ -364,6 +394,10 @@ function closeCatalog() {
 
 .article-author--deleted {
 	color: var(--app-text-muted-more);
+}
+
+.article-comment-button-expanded {
+	transform: translateX(calc(var(--app-article-catalog-sidebar-width) - 16px));
 }
 
 @media (width < 376px) {

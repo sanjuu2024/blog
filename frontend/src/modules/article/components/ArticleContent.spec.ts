@@ -5,6 +5,8 @@ import confetti from 'canvas-confetti';
 import type { PublicArticleDetailData } from '../types/article';
 import ArticleContent from './ArticleContent.vue';
 import ArticleLikeButton from './ArticleLikeButton.vue';
+import AppFixedButton from '@/components/AppFixedButton.vue';
+import { useArticleCatalog } from '../composables/useArticleCatalog';
 
 const refreshCatalog = vi.hoisted(() => vi.fn());
 
@@ -105,6 +107,58 @@ function article(): PublicArticleDetailData {
 describe('ArticleContent', () => {
 	beforeEach(() => vi.clearAllMocks());
 
+	it('keeps the left actions aligned and closes the catalog before requesting comments', async () => {
+		const currentArticle = { ...article(), allowComment: false };
+		const wrapper = mount(ArticleContent, {
+			props: { article: currentArticle, isLoading: false },
+			global: {
+				stubs: {
+					RouterLink: RouterLinkStub,
+					ArticleCatalogSidebar: ArticleCatalogSidebarStub,
+					AppUserAvatar: AppUserAvatarStub,
+					PublicUserProfilePopover: PublicUserProfilePopoverStub,
+				},
+			},
+		});
+		const commentButton = wrapper
+			.findAllComponents(AppFixedButton)
+			.find((button) => button.classes().includes('article-comment-button'))!;
+		const catalog = vi.mocked(useArticleCatalog).mock.results.at(-1)!.value;
+		const likeButton = wrapper.getComponent(ArticleLikeButton);
+
+		expect(likeButton.props('offsetY')).toBe(190);
+		expect(commentButton.props()).toMatchObject({ placement: 'bottom-left', offsetY: 100 });
+		expect(commentButton.get('button').element.style.height).toBe('66px');
+		expect(commentButton.attributes('aria-controls')).toBe('article-comments');
+		expect(commentButton.attributes('aria-label')).toBe('跳转到评论区');
+		expect(commentButton.get('.article-comment-button__count').text()).toBe('2');
+		await wrapper.get('.catalog-open').trigger('click');
+		expect(commentButton.classes()).toContain('article-comment-button-expanded');
+		expect(likeButton.get('button').classes()).toContain('article-like-button-expanded');
+
+		await commentButton.trigger('click');
+		expect(wrapper.emitted('jump-to-comments')).toHaveLength(1);
+		expect(commentButton.classes()).not.toContain('article-comment-button-expanded');
+		expect(likeButton.props('expanded')).toBe(false);
+		expect(wrapper.getComponent(ArticleCatalogSidebarStub).props('expanded')).toBe(false);
+		expect(wrapper.emitted('toggle-like')).toBeUndefined();
+
+		catalog.catalogList.value = [];
+		await wrapper.vm.$nextTick();
+		expect(likeButton.props('offsetY')).toBe(122);
+		expect(commentButton.props('offsetY')).toBe(32);
+		await commentButton.trigger('click');
+		expect(wrapper.emitted('jump-to-comments')).toHaveLength(2);
+
+		await wrapper.setProps({ article: { ...currentArticle, commentCount: 0 } });
+		expect(commentButton.get('.article-comment-button__count').text()).toBe('0');
+
+		await wrapper.setProps({ article: null });
+		expect(wrapper.find('.article-comment-button').exists()).toBe(false);
+		expect(wrapper.findComponent(ArticleLikeButton).exists()).toBe(false);
+		wrapper.unmount();
+	});
+
 	it('forwards the like button click without changing article state locally', async () => {
 		const currentArticle = article();
 		const wrapper = mount(ArticleContent, {
@@ -126,6 +180,7 @@ describe('ArticleContent', () => {
 
 		expect(wrapper.emitted('toggle-like')).toHaveLength(1);
 		expect(wrapper.getComponent(ArticleLikeButton).props('isLiked')).toBe(false);
+		expect(wrapper.get('.article-like-button__count').text()).toBe('1');
 		expect(currentArticle.likeCount).toBe(1);
 		expect(confetti).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ angle: 45 }));
 
@@ -147,6 +202,7 @@ describe('ArticleContent', () => {
 		expect(statsButton.attributes('aria-label')).toBe('取消文章点赞');
 		expect(statsButton.classes()).toContain('article-statis-like--liked');
 		expect(wrapper.getComponent(ArticleLikeButton).props('isLiked')).toBe(true);
+		expect(wrapper.get('.article-like-button__count').text()).toBe('2');
 		await wrapper.setProps({ updatingLike: true });
 		expect(statsButton.attributes('disabled')).toBeDefined();
 		await statsButton.trigger('click');
