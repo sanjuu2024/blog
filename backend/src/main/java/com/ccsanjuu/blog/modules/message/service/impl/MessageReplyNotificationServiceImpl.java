@@ -100,15 +100,17 @@ public class MessageReplyNotificationServiceImpl implements MessageReplyNotifica
                 + URLEncoder.encode(root.getUnsubscribeToken(), StandardCharsets.UTF_8);
         return ReplyMailContentFactory.create(blogProperties.getAppName(), new ReplyMailContent(
                 root.getEmail(),
-                "您在 " + blogProperties.getAppName() + " 留言有了新的回复",
-                "你的留言收到了新的管理员回复。",
+                root.getNickname(),
+                mailProperties.getFrontendBaseUrl(),
+                "你在留言板的评论有了新的回复",
+                "您曾在留言板上发表评论：",
                 null,
                 null,
-                "你的留言",
+                "",
                 root.getContent(),
-                "管理员回复",
+                "管理员给您的回复如下：",
                 reply.getContent(),
-                "查看留言",
+                "查看回复完整内容",
                 mailProperties.getFrontendBaseUrl() + "/messages",
                 unsubscribeUrl
         ));

@@ -4,6 +4,8 @@ package com.ccsanjuu.blog.modules.mail.model.bo;
  * 回复通知邮件的业务内容。
  *
  * @param recipient 收件地址
+ * @param recipientName 收件人展示名称
+ * @param homeUrl 站点首页地址
  * @param subject 邮件主题
  * @param intro 开场说明
  * @param contextLabel 上下文标题，为空时不展示
@@ -18,6 +20,8 @@ package com.ccsanjuu.blog.modules.mail.model.bo;
  */
 public record ReplyMailContent(
         String recipient,
+        String recipientName,
+        String homeUrl,
         String subject,
         String intro,
         String contextLabel,

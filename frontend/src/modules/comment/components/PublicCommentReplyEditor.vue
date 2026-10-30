@@ -2,7 +2,7 @@
 	<div class="reply-editor">
 		<p class="reply-editor-title">回复 {{ targetName }}：</p>
 		<el-checkbox
-			class="mb-2"
+			class="reply-editor-tip mb-2"
 			v-model="notifyOnReply"
 			:disabled="emailVerified === false"
 		>
@@ -16,7 +16,7 @@
 			:rows="3"
 			maxlength="1000"
 			show-word-limit
-			placeholder="写下你的回复吧"
+			placeholder="检测到访客信号......等待评论电波接入！ヾ(≧▽≦*)o"
 		/>
 		<div class="mt-2 flex justify-end">
 			<el-button @click="emit('cancel')">取消</el-button>
@@ -74,5 +74,10 @@ const emit = defineEmits<{
 	margin-bottom: 0.5rem;
 	color: var(--app-text-muted);
 	font-size: 0.9rem;
+}
+
+.reply-editor-tip span {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
 }
 </style>

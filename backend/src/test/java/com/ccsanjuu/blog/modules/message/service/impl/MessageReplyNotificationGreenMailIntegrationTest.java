@@ -115,12 +115,16 @@ class MessageReplyNotificationGreenMailIntegrationTest {
 
         assertEquals("notifications@sanjuu.test", received.getFrom()[0].toString());
         assertEquals("guest@example.test", received.getAllRecipients()[0].toString());
-        assertEquals("您在 集成测试站点 留言有了新的回复", received.getSubject());
+        assertEquals("你在留言板的评论有了新的回复", received.getSubject());
         assertTrue(plainText.contains("这是一条测试留言"));
         assertTrue(plainText.contains("这是管理员的测试回复"));
         assertTrue(plainText.contains("http://localhost:5173/messages"));
         assertTrue(html.contains("这是一条测试留言"));
         assertTrue(html.contains("这是管理员的测试回复"));
+        assertTrue(html.contains("您在 [集成测试站点] 的评论有了新的回复！"));
+        assertTrue(html.contains("查看回复完整内容"));
+        assertTrue(html.contains("href=\"http://localhost:5173\""));
+        assertFalse(html.contains("display:inline-block"));
         assertTrue(html.contains(
                 "http://localhost:5173/messages/unsubscribe?token=unsubscribe-token"
         ));
