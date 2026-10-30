@@ -20,7 +20,7 @@
 		<div class="comment-editor">
 			<template v-if="article.allowComment && authStore.isLogin">
 				<el-checkbox
-					class="mb-2"
+					class="comment-editor-tip mb-2"
 					v-model="notifyTopLevelReply"
 					:disabled="userStore.userInfo?.emailVerified === false"
 				>
@@ -33,7 +33,7 @@
 					:rows="4"
 					maxlength="1000"
 					show-word-limit
-					placeholder="写下你的评论吧"
+					placeholder="检测到访客信号......等待评论电波接入！ヾ(≧▽≦*)o"
 				/>
 				<div class="mt-3 flex justify-end">
 					<el-button
@@ -736,6 +736,11 @@ function getCommentStatusTagType(status: CommentStatus) {
 
 .comment-editor {
 	margin-bottom: 1.5rem;
+
+	.comment-editor-tip span {
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
 }
 
 .comment-login-tip {

@@ -84,14 +84,17 @@
 
 				<label class="message-editor__notify">
 					<el-checkbox
+						class="message-editor-tip"
 						v-model="form.notifyOnReply"
 						:disabled="props.isLogin && props.emailVerified === false"
 						@change="handleNotifyChange"
 					>
-						{{ props.isLogin ? '有回复时通过账号邮箱提醒我' : '有回复时通过邮箱提醒我'
-						}}<span v-if="props.isLogin && props.emailVerified === false"
-							>（邮箱未验证）</span
-						>
+						<span>{{
+							props.isLogin ? '有回复时通过账号邮箱提醒我' : '有回复时通过邮箱提醒我'
+						}}</span>
+						<span v-if="props.isLogin && props.emailVerified === false">
+							（邮箱未验证）
+						</span>
 					</el-checkbox>
 				</label>
 			</div>
@@ -107,7 +110,7 @@
 						:rows="3"
 						maxlength="1000"
 						show-word-limit
-						placeholder="写下你想说的话..."
+						placeholder="检测到访客信号......等待留言电波接入！ヾ(≧▽≦*)o"
 						aria-label="留言内容"
 					/>
 				</el-form-item>
@@ -365,6 +368,11 @@ defineExpose({ clear, resetTurnstile });
 	margin: 0 0 0.75rem;
 	color: var(--app-text-muted);
 	font-size: 0.9rem;
+
+	.message-editor-tip span {
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
 }
 
 .message-editor__login-hint {
