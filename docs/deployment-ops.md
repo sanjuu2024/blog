@@ -230,12 +230,12 @@ P1 留言回复通知和 P2 评论直接回复通知复用同一套 SMTP 配置�
 
 ```text
 BLOG_MAIL_ENABLED=true
-BLOG_MAIL_FROM=<发件邮箱>
+BLOG_MAIL_FROM="青禾边 <no-reply@mail.ccsanjuu.com>"
 BLOG_MAIL_FRONTEND_BASE_URL=https://blog.example.com
-BLOG_SMTP_HOST=<SMTP 服务地址>
+BLOG_SMTP_HOST=smtp.resend.com
 BLOG_SMTP_PORT=587
-BLOG_SMTP_USERNAME=<SMTP 用户名>
-BLOG_SMTP_PASSWORD=<SMTP 授权码或密码>
+BLOG_SMTP_USERNAME=resend
+BLOG_SMTP_PASSWORD=<Resend API Key>
 BLOG_SMTP_AUTH=true
 BLOG_SMTP_STARTTLS=true
 BLOG_SMTP_CONNECTION_TIMEOUT=5000
@@ -243,7 +243,9 @@ BLOG_SMTP_READ_TIMEOUT=10000
 BLOG_SMTP_WRITE_TIMEOUT=10000
 ```
 
-- `BLOG_MAIL_FROM` 应使用 SMTP 服务允许的发件地址，通常与 SMTP 账号一致。
+- 当前生产邮件服务使用 Resend SMTP；`mail.ccsanjuu.com` 必须在 Resend 控制台显示为已验证。
+- `BLOG_MAIL_FROM` 使用已验证域名下的 `no-reply@mail.ccsanjuu.com`，可带显示名称；`.env` 中建议整体加引号。
+- Resend SMTP 固定使用 `smtp.resend.com:587`、用户名 `resend`、STARTTLS；`BLOG_SMTP_PASSWORD` 填 Resend API Key，建议只授予发信权限。
 - 生产环境的 `BLOG_MAIL_FRONTEND_BASE_URL` 必须使用站点 HTTPS 地址，用于生成留言页和退订链接。
 - 密码或授权码只通过生产环境变量或密钥管理服务提供，不写入 Git、镜像或日志。
 - 生产环境默认启用邮件通知；配置不完整时后端拒绝启动，避免回复已创建但通知长期静默失败。
@@ -252,7 +254,8 @@ BLOG_SMTP_WRITE_TIMEOUT=10000
 - 开发环境默认关闭邮件；本地需要实际发信时，通过环境变量显式设置 `BLOG_MAIL_ENABLED=true` 并提供完整 SMTP 配置。
 - 生产环境启用邮件时，`BLOG_MAIL_FRONTEND_BASE_URL` 必须显式配置为完整 HTTPS 地址；缺失、使用 HTTP 或地址格式不合法时后端拒绝启动。
 - 留言与评论通知统一为 `multipart/alternative`，同时携带 `text/plain` 与 `text/html`。
-- HTML 邮件使用内联样式和兼容邮件客户端的简单布局，并为不支持 HTML 的客户端保留语义一致的纯文本版本。
+- HTML 邮件使用项目内集中模板、内联样式和兼容邮件客户端的简单布局，并为不支持 HTML 的客户端保留语义一致的纯文本版本；不依赖 Resend 托管模板，保证模板进入 Git、可本地测试和可回滚。
+- 回复通知 HTML 使用居中白色卡片、`#5f9d64` 顶部品牌区和同色文字链接；正文以收件人昵称开头，原留言、评论和回复内容使用图二风格的斜纹引用块，欢迎语中的站点名称链接到 `BLOG_MAIL_FRONTEND_BASE_URL` 首页。评论主题为“你在[文章标题]的评论有了新的回复”，留言主题为“你在留言板的评论有了新的回复”。
 - 模板必须对昵称、文章标题、留言、评论和回复内容执行 HTML 转义；不得包含 JavaScript、表单或依赖外部 CSS。
 
 ## 8. 域名与 HTTPS

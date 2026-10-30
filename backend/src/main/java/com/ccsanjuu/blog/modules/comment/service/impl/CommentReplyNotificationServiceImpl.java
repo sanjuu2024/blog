@@ -105,18 +105,24 @@ public class CommentReplyNotificationServiceImpl implements CommentReplyNotifica
                 + "?replyId=" + reply.getId() + "#article-comments";
         return ReplyMailContentFactory.create(blogProperties.getAppName(), new ReplyMailContent(
                 recipient.getEmail(),
-                blogProperties.getAppName() + " 评论收到新的回复",
-                "你的评论收到了新的直接回复。",
-                "文章",
-                article.getTitle(),
-                "你的评论",
+                resolveRecipientName(recipient.getNickname(), recipient.getUsername()),
+                mailProperties.getFrontendBaseUrl(),
+                "你在[" + article.getTitle() + "]的评论有了新的回复",
+                "您曾在文章《" + article.getTitle() + "》上发表评论：",
+                null,
+                null,
+                "",
                 parent.getContent(),
-                replyAuthor.getNickname() + " 的回复",
+                replyAuthor.getNickname() + " 给您的回复如下：",
                 reply.getContent(),
-                "查看回复",
+                "查看回复完整内容",
                 articleUrl,
                 unsubscribeUrl
         ));
+    }
+
+    private String resolveRecipientName(String nickname, String username) {
+        return nickname == null || nickname.isBlank() ? username : nickname;
     }
 
     private User getSubscribedRecipient(Comment comment) {
