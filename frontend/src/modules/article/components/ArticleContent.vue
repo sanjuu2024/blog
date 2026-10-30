@@ -178,8 +178,9 @@
 	<ArticleLikeButton
 		v-if="article"
 		v-model:expanded="expanded"
-		:offset-y="catalogList.length ? 168 : 100"
+		:offset-y="catalogList.length ? 190 : 122"
 		:is-liked="article.liked"
+		:like-count="article.likeCount"
 		@toggle="emit('toggle-like')"
 	/>
 
@@ -189,14 +190,18 @@
 		:class="{ 'article-comment-button-expanded': expanded }"
 		placement="bottom-left"
 		:offset-y="catalogList.length ? 100 : 32"
+		:height-multiplier="1.5"
 		aria-label="跳转到评论区"
 		aria-controls="article-comments"
 		@click="jumpToComments"
 	>
-		<component
-			:is="getRouteIcon('comment')"
-			class="text-xl"
-		/>
+		<div class="flex flex-col items-center">
+			<component
+				:is="getRouteIcon('comment')"
+				class="text-xl"
+			/>
+			<span class="article-comment-button__count text-xs">{{ article.commentCount }}</span>
+		</div>
 	</AppFixedButton>
 </template>
 

@@ -3,6 +3,7 @@
 		class="app-fixed-button"
 		:class="`app-fixed-button--${props.placement}`"
 		:style="{
+			height: `${44 * props.heightMultiplier}px`,
 			'--app-fixed-button-offset-x': `${props.offsetX}px`,
 			'--app-fixed-button-offset-y': `${props.offsetY}px`,
 		}"
@@ -23,11 +24,13 @@ const props = withDefaults(
 		placement?: 'bottom-left' | 'bottom-right';
 		offsetX?: number;
 		offsetY?: number;
+		heightMultiplier?: number;
 	}>(),
 	{
 		placement: 'bottom-right',
 		offsetX: 32,
 		offsetY: 32,
+		heightMultiplier: 1,
 	},
 );
 
@@ -41,7 +44,6 @@ const emit = defineEmits<{
 	position: fixed;
 	bottom: var(--app-fixed-button-offset-y);
 	width: 44px;
-	height: 44px;
 	border-radius: 9999px;
 	background-color: var(--app-surface);
 	color: var(--app-text-muted);

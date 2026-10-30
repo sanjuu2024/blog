@@ -6,6 +6,7 @@
 		}"
 		placement="bottom-left"
 		:offset-y="props.offsetY"
+		:height-multiplier="1.5"
 		aria-label="点赞文章"
 		@click="
 			(e) => {
@@ -14,10 +15,13 @@
 			}
 		"
 	>
-		<i-lucide-thumbs-up
-			class="text-xl"
-			:class="{ 'article-like-button--filled': isLiked }"
-		/>
+		<div class="flex flex-col items-center">
+			<i-lucide-thumbs-up
+				class="text-xl"
+				:class="{ 'article-like-button--filled': isLiked }"
+			/>
+			<span class="article-like-button__count text-sm">{{ props.likeCount }}</span>
+		</div>
 	</AppFixedButton>
 </template>
 
@@ -32,6 +36,7 @@ const { triggerConfetti } = useLikeConfetti();
 
 const props = defineProps<{
 	offsetY: number;
+	likeCount: number;
 }>();
 
 const emit = defineEmits<{ toggle: [] }>();

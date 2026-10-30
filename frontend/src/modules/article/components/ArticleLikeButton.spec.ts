@@ -13,7 +13,7 @@ describe('ArticleLikeButton', () => {
 		'emits toggle and only plays the angled burst for a new like with isLiked=%s',
 		async (isLiked) => {
 			const wrapper = mount(ArticleLikeButton, {
-				props: { expanded: false, offsetY: 168, isLiked },
+				props: { expanded: false, offsetY: 168, isLiked, likeCount: 0 },
 				global: { stubs: { ILucideThumbsUp: true } },
 			});
 
@@ -37,14 +37,17 @@ describe('ArticleLikeButton', () => {
 
 	it('uses the supplied position and keeps the expanded and liked states', async () => {
 		const wrapper = mount(ArticleLikeButton, {
-			props: { expanded: false, offsetY: 168, isLiked: false },
+			props: { expanded: false, offsetY: 168, isLiked: false, likeCount: 0 },
 			global: { stubs: { ILucideThumbsUp: true } },
 		});
 		const fixedButton = wrapper.getComponent(AppFixedButton);
 
 		expect(fixedButton.props()).toMatchObject({ placement: 'bottom-left', offsetY: 168 });
-		await wrapper.setProps({ offsetY: 100 });
+		expect(fixedButton.get('button').element.style.height).toBe('66px');
+		expect(wrapper.get('.article-like-button__count').text()).toBe('0');
+		await wrapper.setProps({ offsetY: 100, likeCount: 12 });
 		expect(fixedButton.props('offsetY')).toBe(100);
+		expect(wrapper.get('.article-like-button__count').text()).toBe('12');
 		await wrapper.setProps({ offsetY: 168, expanded: true, isLiked: true });
 		expect(fixedButton.props('offsetY')).toBe(168);
 		expect(fixedButton.classes()).toContain('article-like-button-expanded');

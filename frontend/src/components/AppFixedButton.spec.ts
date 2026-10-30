@@ -26,21 +26,30 @@ describe('AppFixedButton', () => {
 		wrapper.unmount();
 	});
 
-	it('updates placement and pixel offsets without adding a wrapper element', async () => {
+	it('updates height, placement and pixel offsets without adding a wrapper element', async () => {
 		const wrapper = mount(AppFixedButton);
 		const button = wrapper.get('button');
 
 		expect(wrapper.element).toBe(button.element);
+		expect(button.element.style.height).toBe('44px');
 		expect(button.classes()).toContain('app-fixed-button--bottom-right');
 		expect(button.element.style.getPropertyValue('--app-fixed-button-offset-x')).toBe('32px');
 		expect(button.element.style.getPropertyValue('--app-fixed-button-offset-y')).toBe('32px');
 
-		await wrapper.setProps({ placement: 'bottom-left', offsetX: 16, offsetY: 100 });
+		await wrapper.setProps({
+			placement: 'bottom-left',
+			offsetX: 16,
+			offsetY: 100,
+			heightMultiplier: 1.5,
+		});
 
+		expect(button.element.style.height).toBe('66px');
 		expect(button.classes()).toContain('app-fixed-button--bottom-left');
 		expect(button.classes()).not.toContain('app-fixed-button--bottom-right');
 		expect(button.element.style.getPropertyValue('--app-fixed-button-offset-x')).toBe('16px');
 		expect(button.element.style.getPropertyValue('--app-fixed-button-offset-y')).toBe('100px');
+		await wrapper.setProps({ heightMultiplier: 1 });
+		expect(button.element.style.height).toBe('44px');
 		wrapper.unmount();
 	});
 
