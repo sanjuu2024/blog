@@ -16,9 +16,22 @@ const Harness = defineComponent({
 function mountAnchor() {
 	const wrapper = mount(Harness, { attachTo: document.body });
 	const target = wrapper.get<HTMLElement>('section').element;
+	const page = wrapper.get<HTMLElement>('.app-layout > div').element;
+	let pageHeight = 1200;
+	vi.spyOn(page, 'getBoundingClientRect').mockImplementation(
+		() => ({ height: pageHeight }) as DOMRect,
+	);
 	const scrollIntoView = vi.fn();
 	target.scrollIntoView = scrollIntoView;
-	return { wrapper, target, scrollIntoView };
+	return {
+		wrapper,
+		target,
+		scrollIntoView,
+		resizePage(height: number) {
+			pageHeight = height;
+			resized([], {} as ResizeObserver);
+		},
+	};
 }
 
 describe('useArticleCommentAnchor', () => {
@@ -46,26 +59,44 @@ describe('useArticleCommentAnchor', () => {
 	});
 
 	it('realigns the target after images or comments change the page height', async () => {
-		const { wrapper, target, scrollIntoView } = mountAnchor();
+		const { wrapper, target, scrollIntoView, resizePage } = mountAnchor();
 		await wrapper.vm.locate(target);
 		expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({
 			block: 'start',
 			behavior: 'instant',
 		});
-		resized([], {} as ResizeObserver);
+		resizePage(1700);
 		expect(scrollIntoView).toHaveBeenCalledTimes(2);
 		expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'start', behavior: 'instant' });
+		wrapper.unmount();
+	});
+
+	it('keeps the initial smooth scroll until the page height actually changes', async () => {
+		const { wrapper, target, scrollIntoView, resizePage } = mountAnchor();
+		await wrapper.vm.locate(target, 'smooth');
+		expect(scrollIntoView).toHaveBeenCalledExactlyOnceWith({
+			block: 'start',
+			behavior: 'smooth',
+		});
+
+		resized([], {} as ResizeObserver);
+		expect(scrollIntoView).toHaveBeenCalledTimes(1);
+		resizePage(1700);
+		expect(scrollIntoView).toHaveBeenCalledTimes(2);
+		expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'start', behavior: 'instant' });
+		resized([], {} as ResizeObserver);
+		expect(scrollIntoView).toHaveBeenCalledTimes(2);
 		wrapper.unmount();
 	});
 
 	it.each(['wheel', 'touchstart', 'pointerdown', 'keydown'])(
 		'stops correcting after the user sends %s input',
 		async (event) => {
-			const { wrapper, target, scrollIntoView } = mountAnchor();
+			const { wrapper, target, scrollIntoView, resizePage } = mountAnchor();
 			await wrapper.vm.locate(target);
 			document.dispatchEvent(new Event(event));
 			await nextTick();
-			resized([], {} as ResizeObserver);
+			resizePage(1700);
 			expect(scrollIntoView).toHaveBeenCalledTimes(1);
 			expect(disconnect).toHaveBeenCalled();
 			wrapper.unmount();
@@ -73,14 +104,14 @@ describe('useArticleCommentAnchor', () => {
 	);
 
 	it('stops after the deadline and when navigation cancels the target', async () => {
-		const { wrapper, target, scrollIntoView } = mountAnchor();
+		const { wrapper, target, scrollIntoView, resizePage } = mountAnchor();
 		await wrapper.vm.locate(target);
 		await vi.advanceTimersByTimeAsync(10_000);
-		resized([], {} as ResizeObserver);
+		resizePage(1700);
 		expect(scrollIntoView).toHaveBeenCalledTimes(1);
 		await wrapper.vm.locate(target);
 		wrapper.vm.stop();
-		resized([], {} as ResizeObserver);
+		resizePage(2000);
 		expect(scrollIntoView).toHaveBeenCalledTimes(2);
 		wrapper.unmount();
 	});

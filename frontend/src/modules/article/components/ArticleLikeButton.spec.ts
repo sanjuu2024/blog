@@ -13,7 +13,7 @@ describe('ArticleLikeButton', () => {
 		'emits toggle and only plays the angled burst for a new like with isLiked=%s',
 		async (isLiked) => {
 			const wrapper = mount(ArticleLikeButton, {
-				props: { expanded: false, hasCatalog: true, isLiked },
+				props: { expanded: false, offsetY: 168, isLiked },
 				global: { stubs: { ILucideThumbsUp: true } },
 			});
 
@@ -35,18 +35,18 @@ describe('ArticleLikeButton', () => {
 		},
 	);
 
-	it('keeps the catalog-dependent position and expanded state on the shared button', async () => {
+	it('uses the supplied position and keeps the expanded and liked states', async () => {
 		const wrapper = mount(ArticleLikeButton, {
-			props: { expanded: false, hasCatalog: true, isLiked: false },
+			props: { expanded: false, offsetY: 168, isLiked: false },
 			global: { stubs: { ILucideThumbsUp: true } },
 		});
 		const fixedButton = wrapper.getComponent(AppFixedButton);
 
-		expect(fixedButton.props()).toMatchObject({ placement: 'bottom-left', offsetY: 100 });
-		await wrapper.setProps({ hasCatalog: false });
-		expect(fixedButton.props('offsetY')).toBe(32);
-		await wrapper.setProps({ hasCatalog: true, expanded: true, isLiked: true });
+		expect(fixedButton.props()).toMatchObject({ placement: 'bottom-left', offsetY: 168 });
+		await wrapper.setProps({ offsetY: 100 });
 		expect(fixedButton.props('offsetY')).toBe(100);
+		await wrapper.setProps({ offsetY: 168, expanded: true, isLiked: true });
+		expect(fixedButton.props('offsetY')).toBe(168);
 		expect(fixedButton.classes()).toContain('article-like-button-expanded');
 		expect(wrapper.find('.article-like-button--filled').exists()).toBe(true);
 		wrapper.unmount();

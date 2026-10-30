@@ -5,7 +5,7 @@
 			'article-like-button-expanded': expanded,
 		}"
 		placement="bottom-left"
-		:offset-y="hasCatalog ? 100 : 32"
+		:offset-y="props.offsetY"
 		aria-label="点赞文章"
 		@click="
 			(e) => {
@@ -30,13 +30,13 @@ defineOptions({
 
 const { triggerConfetti } = useLikeConfetti();
 
+const props = defineProps<{
+	offsetY: number;
+}>();
+
 const emit = defineEmits<{ toggle: [] }>();
 
 const expanded = defineModel<boolean>('expanded', {
-	required: true,
-});
-
-const hasCatalog = defineModel<boolean>('hasCatalog', {
 	required: true,
 });
 
