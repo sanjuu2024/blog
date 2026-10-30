@@ -108,6 +108,20 @@ paths:
           content:
             application/xml:
               schema: { type: string }
+  /rss.xml:
+    get:
+      tags: [Site Content]
+      summary: 获取公开文章 RSS 订阅
+      description: 无需登录。返回 RSS 2.0 XML，仅包含最近 20 篇仍公开的已发布文章，按发布时间倒序；每项包含标题、纯文本摘要、发布时间和文章规范地址，不输出全文或用户状态。响应不缓存。
+      responses:
+        '200':
+          description: RSS 2.0 feed
+          headers:
+            Cache-Control:
+              schema: { type: string, example: no-store }
+          content:
+            application/rss+xml:
+              schema: { type: string }
   /robots.txt:
     get:
       tags: [Site Content]
@@ -172,20 +186,6 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PublicFriendLinkSiteProfileResponse' }
-  /about:
-    get:
-      tags: [Site Content]
-      summary: 获取关于页首屏 HTML
-      responses:
-        '200': { $ref: '#/components/responses/PublicHtmlResponse' }
-        '503': { description: 前端入口模板不可用 }
-  /messages:
-    get:
-      tags: [Site Content]
-      summary: 获取留言板首屏 HTML
-      responses:
-        '200': { $ref: '#/components/responses/PublicHtmlResponse' }
-        '503': { description: 前端入口模板不可用 }
   /api/v1/admin/friend-links:
     get:
       tags: [Admin Friend Links]
@@ -5769,6 +5769,22 @@ components:
       content:
         text/html:
           schema: { type: string }
+    NoDataResponse:
+      description: 操作成功，无业务数据返回
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/NoDataResponse'
+          example:
+            code: 0
+            message: 成功
+            data: null
+    ConflictResponse:
+      description: 请求与当前业务状态冲突
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     BadRequestResponse:
       description: 请求参数不合法
       content:

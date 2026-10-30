@@ -17,22 +17,11 @@ export function useArticleCommentAnchor(pageRef: Ref<HTMLElement | null>) {
 			stop();
 			return;
 		}
-		const offset = Number.parseFloat(getComputedStyle(target.value).scrollMarginTop) || 0;
-		const container = pageRef.value?.closest<HTMLElement>('.app-layout');
-		if (container) {
-			container.scrollTo({
-				top: Math.max(
-					0,
-					container.scrollTop +
-						target.value.getBoundingClientRect().top -
-						container.getBoundingClientRect().top -
-						offset,
-				),
-				behavior: 'instant',
-			});
-		} else {
-			target.value.scrollIntoView({ block: 'start', behavior: 'instant' });
-		}
+
+		target.value.scrollIntoView({
+			block: 'start',
+			behavior: 'instant',
+		});
 	}
 
 	async function locate(element: HTMLElement) {

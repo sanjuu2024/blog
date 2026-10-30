@@ -18,6 +18,7 @@ export function seoPlugin(backendUrl: string): Plugin {
 						'/messages',
 						'/links',
 						'/sitemap.xml',
+						'/rss.xml',
 						'/robots.txt',
 					].includes(path) &&
 						!/^\/articles\/[^/]+$/.test(path))

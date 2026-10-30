@@ -178,6 +178,8 @@ watch(
 .category-page {
 	height: 100%;
 	display: flex;
+	min-height: 0;
+	overflow: hidden;
 }
 
 .category-list-wrapper {

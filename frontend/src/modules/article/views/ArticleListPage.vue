@@ -74,7 +74,6 @@
 					:loading="loading"
 					:has-next="pageParams.hasNext"
 					:thing-str="'文章'"
-					root-margin="0px"
 					@load-more="loadMoreArticles"
 				/>
 			</div>

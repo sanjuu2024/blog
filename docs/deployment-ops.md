@@ -264,6 +264,7 @@ BLOG_SMTP_WRITE_TIMEOUT=10000
   静态兜底页。仅页面代理 location 开启上游错误拦截，`/api/**` 保留 API 错误响应，不返回
   50x HTML。
 - 50x 页面不依赖 Vue 或后端，只提供重试和返回首页；静态图片占位后续资源放在 `frontend/public/img/errors/`，通过根路径 URL 加载。
+- `VITE_SITE_LAUNCHED_AT` 在生产 `.env` 中配置为带时区的首次正式公开运行时间，并通过 Compose build args 编入 Nginx 前端镜像；该值是公开前端配置，不是 Secret。首次上线后保持不变；调整时间需重新构建前端镜像。
 - Refresh Token 由后端通过 `Set-Cookie` 写入 `refresh_token` HttpOnly Cookie，`Nginx` 不应丢弃或改写该响应头。
 - `refresh_token` Cookie 路径固定为 `/api/v1/auth`，只随认证相关接口发送；生产 HTTPS 环境必须带 `Secure`，并保持 `HttpOnly`、`SameSite=Lax`。
 - 若后端需要根据请求协议决定是否添加 `Secure`，反向代理应正确传递 `X-Forwarded-Proto` 等代理头。
@@ -458,6 +459,7 @@ dev/test 使用各自 profile 的明确本地资料，站点地址允许 localho
 生产 nginx 容器启动时将本次构建的 `index.html` 原子写入共享模板卷，后端只读挂载并按请求读取，
 JS/CSS 静态资源仍由 nginx 提供；前端部署须保留上一版本带哈希的静态资源直到旧页面请求结束。
 nginx 将公开页面、文章详情、`/sitemap.xml` 和 `/robots.txt` 转发后端，不按 User-Agent 区分爬虫。
+`/rss.xml` 也由 nginx 转发后端并保留 `application/rss+xml` 响应类型；本地开发由 Vite SEO 中间件代理该 feed 路径。
 后端仅注入 HTML head 元信息，不生成正文；文章内容由 Vue 渲染。部署后检查页面源代码可见 canonical/OG，
 Vue 页面只请求一次文章详情且不会先展示另一套文章布局。
 模板尚未就绪时公开 HTML 返回 503；发布后检查模板与资源属于同一次前端构建。

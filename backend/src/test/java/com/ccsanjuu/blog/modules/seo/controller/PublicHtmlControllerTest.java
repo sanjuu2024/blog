@@ -81,9 +81,14 @@ class PublicHtmlControllerTest {
     @Test
     void sitemapAndRobotsShouldUseCorrectContentTypes() throws Exception {
         when(seoService.getSitemap()).thenReturn("<urlset />");
+        when(seoService.getRssFeed()).thenReturn("<rss version=\"2.0\" />");
         when(seoService.getRobots()).thenReturn("User-agent: *\n");
         mockMvc.perform(get("/sitemap.xml")).andExpect(status().isOk())
                 .andExpect(content().contentType("application/xml;charset=UTF-8"));
+        mockMvc.perform(get("/rss.xml")).andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(content().contentType("application/rss+xml;charset=UTF-8"))
+                .andExpect(content().string("<rss version=\"2.0\" />"));
         mockMvc.perform(get("/robots.txt")).andExpect(status().isOk())
                 .andExpect(content().contentType("text/plain;charset=UTF-8"));
     }

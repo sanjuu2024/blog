@@ -1,7 +1,7 @@
 package com.ccsanjuu.blog.modules.seo.service.impl;
 
-import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.common.api.ResultCode;
+import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.seo.support.SeoMetadataFactory;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
@@ -26,7 +26,9 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -52,7 +54,8 @@ class SeoServiceImplTest {
     @BeforeEach
     void setUp() throws Exception {
         template = directory.resolve("index.html");
-        Files.writeString(template, "<!doctype html><html><head><title>站点</title></head>"
+        Files.writeString(template, "<!doctype html><html><head><title>站点</title>"
+                + "<link rel=\"alternate\" type=\"application/rss+xml\" href=\"/rss.xml\"></head>"
                 + "<body><div id=\"app\"></div><script type=\"module\" src=\"/assets/app-123.js\"></script></body></html>");
         blogProperties = new BlogProperties();
         blogProperties.setAppName("青禾边");
@@ -73,12 +76,14 @@ class SeoServiceImplTest {
 
         assertEquals("文章 <标题> - 青禾边", html.title());
         assertEquals("https://blog.example.com/articles/34", html.selectFirst("link[rel=canonical]").attr("href"));
+        assertEquals("/rss.xml", html.selectFirst("link[rel=alternate][type=application/rss+xml]").attr("href"));
         assertEquals("摘要 & 描述", html.selectFirst("meta[name=description]").attr("content"));
         assertEquals("https://blog.example.com/covers/34.png", html.selectFirst("meta[property=og:image]").attr("content"));
         assertEquals("article", html.selectFirst("meta[property=og:type]").attr("content"));
         assertTrue(html.getElementById("app").html().isEmpty());
         assertTrue(html.select("main, article, nav").isEmpty());
         assertEquals("/assets/app-123.js", html.selectFirst("script").attr("src"));
+        assertEquals("/rss.xml", html.selectFirst("link[rel=alternate]").attr("href"));
         assertEquals("zh-CN", html.selectFirst("html").attr("lang"));
         assertEquals(1, html.select("link[rel=canonical]").size());
         verify(articleService).getPublicArticleDetail(34L, null, null);
@@ -152,7 +157,7 @@ class SeoServiceImplTest {
 
     @Test
     void sitemapShouldBeValidXmlWithCanonicalUrlsAndActualModificationTime() throws Exception {
-        when(articleMapper.selectPublicSeoArticles()).thenReturn(List.of(Article.builder()
+        when(articleMapper.selectPublicSyndicationArticles(null)).thenReturn(List.of(Article.builder()
                 .id(34L).updatedAt(OffsetDateTime.parse("2026-10-08T00:00:00Z")).build()));
         var factory = DocumentBuilderFactory.newInstance();
         factory.setNamespaceAware(true);
@@ -165,6 +170,37 @@ class SeoServiceImplTest {
         assertTrue(service.getSitemap().contains("https://blog.example.com/links"));
         assertTrue(service.getRobots().contains("Disallow: /admin"));
         assertTrue(service.getRobots().contains("Sitemap: https://blog.example.com/sitemap.xml"));
+    }
+
+    @Test
+    void rssShouldBeValidXmlWithEscapedSummariesAndLatestPublicQuery() throws Exception {
+        OffsetDateTime publishedAt = OffsetDateTime.parse("2026-10-08T00:00:00+08:00");
+        var article = Article.builder()
+                .id(34L)
+                .title("标题 < &")
+                .summary("摘要 < &")
+                .publishedAt(publishedAt)
+                .build();
+        when(articleMapper.selectPublicSyndicationArticles(20)).thenReturn(List.of(article));
+
+        var factory = DocumentBuilderFactory.newInstance();
+        var xml = factory.newDocumentBuilder().parse(
+                new ByteArrayInputStream(service.getRssFeed().getBytes(StandardCharsets.UTF_8))
+        );
+        var item = (org.w3c.dom.Element) xml.getElementsByTagName("item").item(0);
+
+        assertEquals("2.0", xml.getDocumentElement().getAttribute("version"));
+        assertEquals("青禾边", xml.getElementsByTagName("title").item(0).getTextContent());
+        assertEquals("标题 < &", item.getElementsByTagName("title").item(0).getTextContent());
+        assertEquals("摘要 < &", item.getElementsByTagName("description").item(0).getTextContent());
+        assertEquals("https://blog.example.com/articles/34",
+                item.getElementsByTagName("link").item(0).getTextContent());
+        assertEquals("https://blog.example.com/articles/34",
+                item.getElementsByTagName("guid").item(0).getTextContent());
+        assertEquals(Instant.parse("2026-10-07T16:00:00Z"),
+                DateTimeFormatter.RFC_1123_DATE_TIME.parse(
+                        item.getElementsByTagName("pubDate").item(0).getTextContent(), Instant::from));
+        verify(articleMapper).selectPublicSyndicationArticles(20);
     }
 
     @Test

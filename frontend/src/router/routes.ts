@@ -185,6 +185,7 @@ export const publicRoutes = [
 		component: () => import('@/modules/category/views/CategoryPage.vue'),
 		meta: {
 			title: '分类',
+			fullHeight: true,
 			nav: {
 				pos: 'left', // 在顶部导航栏左侧
 			},
@@ -208,6 +209,7 @@ export const publicRoutes = [
 		component: () => import('@/modules/message/views/MessageBoardPage.vue'),
 		meta: {
 			title: '留言',
+			fullHeight: true,
 			nav: {
 				pos: 'right',
 			},
@@ -261,6 +263,7 @@ export const publicRoutes = [
 		component: () => import('@/modules/message/views/MessageUnsubscribePage.vue'),
 		meta: {
 			title: '退订留言通知',
+			fullHeight: true,
 		},
 	},
 	{
@@ -269,6 +272,7 @@ export const publicRoutes = [
 		component: () => import('@/modules/comment/views/CommentUnsubscribePage.vue'),
 		meta: {
 			title: '退订评论通知',
+			fullHeight: true,
 		},
 	},
 ];

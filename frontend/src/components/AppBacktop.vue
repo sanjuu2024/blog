@@ -14,9 +14,7 @@ defineOptions({
 });
 
 function scrollToTop() {
-	const scrollContainer = document.querySelector<HTMLElement>('.app-layout');
-
-	scrollContainer?.scrollTo({
+	window.scrollTo({
 		top: 0,
 		behavior: 'smooth',
 	});
