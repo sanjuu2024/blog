@@ -108,7 +108,7 @@
 					:disabled="updatingLike"
 					@click.stop="
 						(e) => {
-							triggerConfetti(e);
+							if (!article?.liked) triggerConfetti(e);
 							emit('toggle-like');
 						}
 					"

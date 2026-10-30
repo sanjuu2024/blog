@@ -12,6 +12,7 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AppBacktop: typeof import('./components/AppBacktop.vue')['default']
+    AppFixedButton: typeof import('./components/AppFixedButton.vue')['default']
     AppImage: typeof import('./components/AppImage.vue')['default']
     AppLoading: typeof import('./components/AppLoading.vue')['default']
     AppLoadMoreTrigger: typeof import('./components/AppLoadMoreTrigger.vue')['default']
