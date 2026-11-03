@@ -34,9 +34,9 @@ const props = defineProps<{
 	category: PublicCategoryItem;
 }>();
 
-// 当直接访问 /categories/某个二级分类id 时，父级目录展开
+// 直接访问归档中的二级分类时，父级目录展开。
 watch(
-	() => route.params.categoryId,
+	() => route.query.categoryId,
 	(categoryIdParam) => {
 		const categoryIdStr = Array.isArray(categoryIdParam) ? categoryIdParam[0] : categoryIdParam;
 		const categoryId = Number(categoryIdStr);

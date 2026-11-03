@@ -146,7 +146,7 @@ class SeoServiceImplTest {
 
     @Test
     void publicPagesShouldOnlyInjectHeadWithoutReadingContentOrLinks() {
-        for (String path : List.of("/", "/articles", "/about", "/messages", "/links")) {
+        for (String path : List.of("/", "/articles", "/archives", "/about", "/messages", "/links")) {
             var html = Jsoup.parse(service.renderHtml(path));
             assertEquals("https://blog.example.com" + path, html.selectFirst("link[rel=canonical]").attr("href"));
             assertTrue(html.getElementById("app").html().isEmpty());
@@ -164,7 +164,7 @@ class SeoServiceImplTest {
         var xml = factory.newDocumentBuilder().parse(new ByteArrayInputStream(service.getSitemap().getBytes(StandardCharsets.UTF_8)));
 
         assertEquals("http://www.sitemaps.org/schemas/sitemap/0.9", xml.getDocumentElement().getNamespaceURI());
-        assertEquals(6, xml.getElementsByTagName("url").getLength());
+        assertEquals(7, xml.getElementsByTagName("url").getLength());
         assertEquals("2026-10-08T00:00Z", xml.getElementsByTagName("lastmod").item(0).getTextContent());
         assertTrue(service.getSitemap().contains("https://blog.example.com/articles/34"));
         assertTrue(service.getSitemap().contains("https://blog.example.com/links"));
@@ -206,8 +206,8 @@ class SeoServiceImplTest {
     @Test
     void robotsShouldAllowPublicRenderingApisWithoutAllowingPrivateApis() {
         String robots = service.getRobots();
-        for (String path : List.of("/api/v1/articles", "/api/v1/comments/", "/api/v1/categories", "/api/v1/tags",
-                "/api/v1/about", "/api/v1/messages", "/api/v1/friend-links", "/api/v1/seo",
+        for (String path : List.of("/api/v1/articles", "/api/v1/archives/", "/api/v1/comments/",
+                "/api/v1/categories", "/api/v1/tags", "/api/v1/about", "/api/v1/messages", "/api/v1/friend-links", "/api/v1/seo",
                 "/api/v1/users/*/public-profile")) {
             assertTrue(robots.lines().anyMatch(line -> line.equals("Allow: " + path)));
         }

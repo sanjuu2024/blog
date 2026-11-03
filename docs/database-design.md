@@ -471,6 +471,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_search_vector
 - 文章的 `category_id` 应指向 `Java`、`算法` 这类二级分类，而不是 `技术` 这类一级分类
 - 管理员保存文章时允许关联禁用分类、父分类和标签，不清除历史关联；分类与父分类必须存在且层级正确，标签必须存在。禁用状态只影响既有前台可见性规则，不新增表或字段
 - 保存或更新文章时，应用层应以 `content_md` 为源生成 `content_html` 与 `content_text`
+- 归档复用现有表和索引，不新增结构或改变时间存储。年份按浏览器传入并校验的 IANA 时区一次分组计数，SQL 使用绑定参数执行 `published_at AT TIME ZONE timeZone`；年份筛选按同一时区分别计算当年与下一年年初，再用绝对时间半开范围查询，正确应用各年份的夏令时规则。汇总和列表仅含 PUBLISHED、启用二级分类及启用父分类、作者存在的文章；列表联表返回分类路径，标签使用 EXISTS 过滤，不重复计数或执行 N+1 查询。
 - 公开文章列表和搜索结果的 `commentCount` 直接读取 `blog_article.comment_count`，沿用现有公开评论与回复统计口径，不新增表或逐篇聚合查询
 - P1 文章搜索使用 PostgreSQL `zhparser` 解析 `title`、`summary` 和 `content_text`，并通过生成列 `search_vector` 与 GIN 索引完成全文检索
 - `search_vector` 为标题、摘要、正文分别设置 A、B、C 权重；有关键词且使用默认排序时通过 `ts_rank` 计算相关度，权重影响标题、摘要和正文的匹配分数

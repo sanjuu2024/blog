@@ -71,7 +71,7 @@ describe('AppHeader', () => {
 		const wrapper = mountHeader();
 		const mobileNavigation = wrapper.get('.app-header__mobile-nav');
 
-		for (const label of ['首页', '文章', '分类', '留言', '关于', '后台']) {
+		for (const label of ['首页', '文章', '归档', '留言', '关于', '后台']) {
 			expect(mobileNavigation.text()).toContain(label);
 		}
 	});

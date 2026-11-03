@@ -5,13 +5,42 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ccsanjuu.blog.modules.article.model.bo.CategoryArticleCountBO;
 import com.ccsanjuu.blog.modules.article.model.bo.PublicArticleSearchBO;
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
+import com.ccsanjuu.blog.modules.article.model.vo.ArchiveArticleVO;
+import com.ccsanjuu.blog.modules.article.model.vo.ArchiveYearVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Mapper
 public interface ArticleMapper extends BaseMapper<Article> {
+
+    /**
+     * 一次聚合浏览器当地时区的公开文章年份。
+     *
+     * @param timeZone 已校验的浏览器 IANA 命名时区
+     * @return 年份倒序汇总
+     */
+    List<ArchiveYearVO> selectArchiveYears(@Param("timeZone") String timeZone);
+
+    /**
+     * 联表分页获取公开文章和分类路径。
+     *
+     * @param page 分页参数
+     * @param start 年份起点，未按年筛选时为空
+     * @param end 下一年起点，未按年筛选时为空
+     * @param categoryId 一级或二级分类 ID
+     * @param tagId 标签 ID
+     * @return 归档分页
+     */
+    Page<ArchiveArticleVO> selectArchivePage(
+            Page<ArchiveArticleVO> page,
+            @Param("start") OffsetDateTime start,
+            @Param("end") OffsetDateTime end,
+            @Param("categoryId") Long categoryId,
+            @Param("tagId") Long tagId
+    );
 
     /**
      * 查询符合公开可见规则的文章供站点地图和 RSS 使用，不改变浏览计数。

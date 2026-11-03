@@ -1,5 +1,5 @@
 <template>
-	<!-- data-category-id 用于分类侧栏自动定位中心（跳转分类时） -->
+	<!-- 分类侧栏中的分类项标识 -->
 	<div
 		class="category-list-item"
 		:data-category-id="category.id"
@@ -10,8 +10,13 @@
 		>
 			<RouterLink
 				class="category-list-item__link"
-				:class="{ 'category-list-item__link--border-left': borderLeft }"
-				:to="{ name: 'CategoryArticlesPage', params: { categoryId: category.id } }"
+				:class="{
+					'category-list-item__link--border-left': borderLeft,
+					'is-active':
+						route.query.mode === 'category' &&
+						Number(route.query.categoryId) === category.id,
+				}"
+				:to="{ name: 'Archive', query: { mode: 'category', categoryId: category.id } }"
 			>
 				<div class="category-list-item__up">
 					<h3 class="category-list-item__name">{{ category.name }}</h3>
@@ -41,6 +46,7 @@
 </template>
 
 <script setup lang="ts">
+import { useRoute } from 'vue-router';
 import type { PublicCategoryItem } from '../types/category';
 
 defineOptions({
@@ -51,6 +57,8 @@ defineProps<{
 	category: PublicCategoryItem;
 	borderLeft?: boolean;
 }>();
+
+const route = useRoute();
 
 const expanded = defineModel<boolean>('expanded', {
 	default: false,
@@ -95,8 +103,7 @@ function handleClickArrow() {
 				background-color: var(--app-router-hover);
 			}
 
-			&.router-link-active,
-			&.router-link-exact-active {
+			&.is-active {
 				background-color: var(--app-router-hover);
 				color: var(--app-text);
 			}

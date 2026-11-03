@@ -231,6 +231,8 @@ Authorization: Bearer <access_token>
 | 站点内容 | `GET` | `/api/v1/about` | `PUBLIC` | 获取关于页，未创建时返回“暂无内容” |
 | 站点内容 | `GET` | `/api/v1/privacy-policy` | `PUBLIC` | 获取隐私政策和内容哈希版本 |
 | 前台文章 | `GET` | `/api/v1/articles` | `PUBLIC` | 获取已发布文章分页列表 |
+| 前台归档 | `GET` | `/api/v1/archives/years` | `PUBLIC` | 一次聚合获取年份及完整篇数 |
+| 前台归档 | `GET` | `/api/v1/archives/articles` | `PUBLIC` | 获取紧凑文章分页 |
 | 前台文章 | `GET` | `/api/v1/articles/{articleId}` | `PUBLIC` | 获取文章详情 |
 | 前台评论 | `GET` | `/api/v1/articles/{articleId}/comments` | `PUBLIC` | 获取顶层评论分页列表，可选登录态用于返回本人评论 |
 | 前台评论 | `POST` | `/api/v1/articles/{articleId}/comments` | `LOGIN` | 发表评论或回复 |
@@ -554,6 +556,15 @@ Set-Cookie: refresh_token=; Max-Age=0; Path=/api/v1/auth; HttpOnly; SameSite=Lax
 ```
 
 ## 5. 前台公共接口
+
+### 5.0 归档
+
+- 两个归档接口均要求 `timeZone` query 参数，长度最多 100，使用浏览器 `Intl.DateTimeFormat().resolvedOptions().timeZone` 返回的 IANA 命名时区（如 `Asia/Shanghai`、`America/Los_Angeles`），允许 `UTC`；缺失、空白或非 JDK 支持的命名时区返回 400/199001，不使用服务器默认时区或固定偏移兜底。
+- `GET /api/v1/archives/years`：通用响应 data 为 `[{year:2026, articleCount:18}]`，年份倒序，无文章返回 `[]`；按 `timeZone` 对首次发布时间一次聚合。
+- `GET /api/v1/archives/articles`：除必传的 timeZone 外，pageNum 默认 1、最小 1；pageSize 默认 10、范围 1–20。year（1–9998）、categoryId（正整数，一级或二级）、tagId（正整数）均可选且最多传一个，不传为全部；冲突或非法参数返回 400/199001。
+- 分类/标签不存在或禁用时复用 103002/103004/103005/103006。合法但无文章年份返回空分页。复用 PageResult，每项只有 id、title、publishedAt、category:{id,name,level:2,parent:{id,name}}。
+- 汇总和列表只含 PUBLISHED、有效启用二级分类与父分类、作者存在的文章。分页按 publishedAt DESC、id DESC，忽略置顶，不增加浏览数；年份使用 timeZone 下年初至下一年年初的半开范围，两端分别应用当时的时区规则；分类联表返回，标签 EXISTS 过滤，查询次数不随年份和页内文章数增加。
+- `/archives` 为公开 HTML/SEO 页面，canonical 不含 query/hash，加入 sitemap；robots 允许 `/api/v1/archives/` 作为渲染例外，Nginx 对 JSON 保持 noindex。
 
 ## 5.1 获取已发布文章分页列表
 
@@ -2856,7 +2867,7 @@ Dashboard 不接收全局 `range` 或趋势模式参数。接口一次返回六�
 
 | 方法 | 路径 | 响应 | 说明 |
 | --- | --- | --- | --- |
-| `GET` | `/`、`/articles`、`/about`、`/messages`、`/links` | `text/html` | 前端入口 HTML 与公开页面元信息，正文由 Vue 渲染 |
+| `GET` | `/`、`/articles`、`/archives`、`/about`、`/messages`、`/links` | `text/html` | 前端入口 HTML 与公开页面元信息，正文由 Vue 渲染 |
 | `GET` | `/articles/{articleId}` | `text/html` | head 包含文章标题、摘要、canonical 和 OG，正文由 Vue 渲染；不存在、不可见或分类不可用时 HTTP 404 |
 | `GET` | `/sitemap.xml` | `application/xml` | 公开页面与公开可见文章的规范地址及文章更新时间 |
 | `GET` | `/rss.xml` | `application/rss+xml` | 最近 20 篇仍公开的已发布文章 RSS 2.0 feed；包含标题、摘要、发布时间和规范地址 |
@@ -2878,7 +2889,7 @@ HTML 模板不可读取时返回 HTTP 503，不降级为缺少前端资源的伪
 `BLOG_SITE_URL` 是唯一的站点地址来源，不含路径、查询、账号密码或片段；生产必须为 HTTPS origin，dev/test 可使用 localhost HTTP。
 站点名称、描述和头像图片或网站代表图地址分别复用站点级 `BLOG_APP_NAME`、`BLOG_DESC` 和 `BLOG_LOGO_URL`；生产环境四项配置均必须显式提供。
 
-robots 保留 `Disallow: /api/`，允许 `/api/v1/articles`、`/api/v1/comments/`、`/api/v1/categories`、
+robots 保留 `Disallow: /api/`，允许 `/api/v1/articles`、`/api/v1/archives/`、`/api/v1/comments/`、`/api/v1/categories`、
 `/api/v1/tags`、`/api/v1/about`、`/api/v1/messages`、`/api/v1/friend-links`（包含本站申请资料子路径）、`/api/v1/seo` 和 `/api/v1/users/*/public-profile`，
 确保执行 JavaScript 的爬虫能读取公开页面数据。robots 不区分 HTTP 方法，不改变现有权限或写入限制。
 生产 Nginx 的通用 `/api/` location 添加 `X-Robots-Tag: noindex`，

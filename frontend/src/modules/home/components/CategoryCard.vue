@@ -7,8 +7,9 @@
 		<div class="title">
 			<RouterLink
 				:to="{
-					name: 'CategoryArticlesPage',
-					params: {
+					name: 'Archive',
+					query: {
+						mode: 'category',
 						categoryId: category.id,
 					},
 				}"
@@ -26,8 +27,9 @@
 				v-for="child in category.children?.slice(0, 5) ?? []"
 				:key="child.id"
 				:to="{
-					name: 'CategoryArticlesPage',
-					params: {
+					name: 'Archive',
+					query: {
+						mode: 'category',
 						categoryId: child.id,
 					},
 				}"

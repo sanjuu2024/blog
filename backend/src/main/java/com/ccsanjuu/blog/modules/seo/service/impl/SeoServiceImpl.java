@@ -36,7 +36,13 @@ import java.util.Map;
 public class SeoServiceImpl implements SeoService {
 
     private static final Map<String, String> PUBLIC_PAGES = Map.of(
-            "/", "首页", "/articles", "文章", "/about", "关于", "/messages", "留言板", "/links", "友链");
+            "/", "首页",
+            "/articles", "文章",
+            "/archives", "归档",
+            "/about", "关于",
+            "/messages", "留言板",
+            "/links", "友链"
+    );
     private static final int RSS_ARTICLE_LIMIT = 20;
     private static final DateTimeFormatter RSS_DATE_FORMATTER = DateTimeFormatter.RFC_1123_DATE_TIME
             .withLocale(Locale.US)
@@ -207,7 +213,7 @@ public class SeoServiceImpl implements SeoService {
     public String getRobots() {
         // Vue 正文依赖公开 API，允许加载这些数据；JSON 本身由 Nginx 的 noindex 响应头禁止收录。
         return "User-agent: *\nDisallow: /admin\nDisallow: /auth\nDisallow: /user\nDisallow: /api/\n"
-                + "Allow: /api/v1/articles\nAllow: /api/v1/comments/\nAllow: /api/v1/categories\n"
+                + "Allow: /api/v1/articles\nAllow: /api/v1/archives/\nAllow: /api/v1/comments/\nAllow: /api/v1/categories\n"
                 + "Allow: /api/v1/tags\nAllow: /api/v1/about\nAllow: /api/v1/messages\n"
                 + "Allow: /api/v1/friend-links\n"
                 + "Allow: /api/v1/seo\nAllow: /api/v1/users/*/public-profile\n"

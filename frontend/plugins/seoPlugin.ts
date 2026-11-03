@@ -14,6 +14,7 @@ export function seoPlugin(backendUrl: string): Plugin {
 					(![
 						'/',
 						'/articles',
+						'/archives',
 						'/about',
 						'/messages',
 						'/links',

@@ -47,8 +47,9 @@
 							/>
 							<RouterLink
 								:to="{
-									name: 'CategoryArticlesPage',
-									params: {
+									name: 'Archive',
+									query: {
+										mode: 'category',
 										categoryId: article.category.parent.id,
 									},
 								}"
@@ -58,8 +59,9 @@
 							<span class="mx-2">/</span>
 							<RouterLink
 								:to="{
-									name: 'CategoryArticlesPage',
-									params: {
+									name: 'Archive',
+									query: {
+										mode: 'category',
 										categoryId: article.category.id,
 									},
 								}"

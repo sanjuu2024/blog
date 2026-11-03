@@ -462,6 +462,7 @@ dev/test 使用各自 profile 的明确本地资料，站点地址允许 localho
 生产 nginx 容器启动时将本次构建的 `index.html` 原子写入共享模板卷，后端只读挂载并按请求读取，
 JS/CSS 静态资源仍由 nginx 提供；前端部署须保留上一版本带哈希的静态资源直到旧页面请求结束。
 nginx 将公开页面、文章详情、`/sitemap.xml` 和 `/robots.txt` 转发后端，不按 User-Agent 区分爬虫。
+`/archives` 由 Nginx/Vite 转发后端生成首屏元信息，query 不生成独立 canonical；归档 API 允许爬虫渲染读取但 JSON 保持 noindex。
 `/rss.xml` 也由 nginx 转发后端并保留 `application/rss+xml` 响应类型；本地开发由 Vite SEO 中间件代理该 feed 路径。
 后端仅注入 HTML head 元信息，不生成正文；文章内容由 Vue 渲染。部署后检查页面源代码可见 canonical/OG，
 Vue 页面只请求一次文章详情且不会先展示另一套文章布局。
