@@ -10,6 +10,7 @@ import com.ccsanjuu.blog.common.util.TokenHashUtil;
 import com.ccsanjuu.blog.modules.auth.constants.AuthConstants;
 import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.auth.model.bo.AuthTokenPair;
+import com.ccsanjuu.blog.modules.auth.model.bo.RefreshTokenRetryBO;
 import com.ccsanjuu.blog.modules.auth.model.bo.ValidatedRefreshToken;
 import com.ccsanjuu.blog.modules.auth.model.dto.LoginRequestDTO;
 import com.ccsanjuu.blog.modules.auth.model.dto.LogoutRequestDTO;
@@ -24,6 +25,7 @@ import com.ccsanjuu.blog.modules.auth.model.vo.RefreshTokenVO;
 import com.ccsanjuu.blog.modules.auth.service.RegistrationEmailVerificationService;
 import com.ccsanjuu.blog.modules.auth.service.AuthService;
 import com.ccsanjuu.blog.modules.auth.support.LoginRateLimiter;
+import com.ccsanjuu.blog.modules.auth.support.RefreshTokenRetryCache;
 import com.ccsanjuu.blog.modules.privacy.service.PrivacyPolicyService;
 import com.ccsanjuu.blog.modules.security.model.bo.SecurityEventRecordBO;
 import com.ccsanjuu.blog.modules.security.model.enums.SecurityEventOutcome;
@@ -47,6 +49,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import javax.crypto.SecretKey;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
@@ -64,6 +67,7 @@ public class AuthServiceImpl implements AuthService {
     private final RegistrationEmailVerificationService registrationEmailVerificationService;
     private final SecurityEventService securityEventService;
     private final LoginRateLimiter loginRateLimiter;
+    private final RefreshTokenRetryCache refreshTokenRetryCache;
 
     /**
      * 用户注册
@@ -239,11 +243,11 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public RefreshTokenVO refresh(RefreshTokenRequestDTO refreshTokenRequestDTO) {
-        // 🍰1. 解析并验证 DTO 中的旧 RT 是否有效（包括判断token_type、是否存在、是否ACTIVE可用、是否没过期、是否和数据库中的token_hash相等）
+        // 🍰1. 解析并验证 DTO 中的旧 RT 是否有效（包括token_type、会话、有效期和token_hash）；近期撤销仅进入后续轮转重试校验。
         String refreshToken = refreshTokenRequestDTO.getRefreshToken();
         ValidatedRefreshToken validatedRefreshToken;
         try {
-            validatedRefreshToken = validateRefreshToken(refreshToken);
+            validatedRefreshToken = validateRefreshToken(refreshToken, true);
         } catch (RefreshTokenValidationException ex) {
             recordSecurityEvent(SecurityEventType.TOKEN_REFRESH, SecurityEventOutcome.FAILURE,
                     ex.userId, null, null, ex.description);
@@ -280,8 +284,21 @@ public class AuthServiceImpl implements AuthService {
         }
 
         // 等待用户行锁期间旧 RT 可能已被改密或另一次刷新撤销，需要在锁内重新校验。
+        AuthTokenPair authTokenPair;
         try {
-            validatedRefreshToken = validateRefreshToken(refreshToken);
+            validatedRefreshToken = validateRefreshToken(refreshToken, true);
+            if (validatedRefreshToken.getAuthSession().getStatus() == AuthSessionStatus.REVOKED) {
+                authTokenPair = resolveRetryTokens(validatedRefreshToken, user);
+            } else {
+                // 🍰3. 撤销旧 RT
+                revokeRefreshToken(validatedRefreshToken.getTokenJti());
+
+                // 🍰4. 颁发新的 RT 和 AT，并且将新 RT 存入数据库
+                authTokenPair = generateTokenPairAndSaveRT(user);
+                refreshTokenRetryCache.store(refreshToken,
+                        user.getTokenVersion() == null ? 0L : user.getTokenVersion(), authTokenPair,
+                        Instant.now().plus(RefreshTokenRetryCache.RETRY_WINDOW));
+            }
         } catch (RefreshTokenValidationException ex) {
             recordSecurityEvent(SecurityEventType.TOKEN_REFRESH, SecurityEventOutcome.FAILURE,
                     ex.userId, null, null, "等待用户锁后：" + ex.description);
@@ -289,12 +306,6 @@ public class AuthServiceImpl implements AuthService {
                     ex.reason, ex.userId);
             throw ex;
         }
-
-        // 🍰3. 撤销旧 RT
-        revokeRefreshToken(validatedRefreshToken.getTokenJti());
-
-        // 🍰4. 颁发新的 RT 和 AT，并且将新 RT 存入数据库
-        AuthTokenPair authTokenPair = generateTokenPairAndSaveRT(user);
 
         log.info("security_event=TOKEN_REFRESH_SUCCESS description=\"登录态刷新成功\" outcome=SUCCESS userId={}", user.getId());
         recordSecurityEvent(SecurityEventType.TOKEN_REFRESH, SecurityEventOutcome.SUCCESS,
@@ -315,13 +326,24 @@ public class AuthServiceImpl implements AuthService {
      * @param logoutRequestDTO
      */
     @Override
+    @Transactional
     public void logout(LogoutRequestDTO logoutRequestDTO) {
         if (logoutRequestDTO.getRefreshToken() == null || logoutRequestDTO.getRefreshToken().isBlank()) {
             return;
         }
 
         try {
-            ValidatedRefreshToken validatedRefreshToken = validateRefreshToken(logoutRequestDTO.getRefreshToken());
+            ValidatedRefreshToken validatedRefreshToken = validateRefreshToken(logoutRequestDTO.getRefreshToken(), true);
+            User user = userMapper.selectByIdForUpdate(validatedRefreshToken.getUserId());
+            if (user == null) {
+                return;
+            }
+            validatedRefreshToken = validateRefreshToken(logoutRequestDTO.getRefreshToken(), true);
+            if (validatedRefreshToken.getAuthSession().getStatus() == AuthSessionStatus.REVOKED) {
+                // 浏览器可能尚未收到轮转 Cookie，退出仍需撤销该旧 RT 对应的新会话。
+                AuthTokenPair tokens = resolveRetryTokens(validatedRefreshToken, user);
+                revokeRefreshToken(tokens.getRefreshTokenJti());
+            }
             revokeRefreshToken(validatedRefreshToken.getTokenJti());   // 该用户退出登录后撤销其 RT
             log.info(
                     "security_event=LOGOUT_SUCCESS description=\"用户退出登录成功\" outcome=SUCCESS userId={}",
@@ -545,10 +567,12 @@ public class AuthServiceImpl implements AuthService {
 
     /**
      * 解析并验证 RT 是否有效（包括判断token_type、是否存在、是否ACTIVE可用、是否没过期、是否和数据库中的token_hash相等）
+     * <p>允许重试时，近期 REVOKED 会话只通过初步校验，仍须在用户行锁内核对缓存和对应新会话。</p>
      * @param refreshToken
+     * @param allowRetry 是否允许近期撤销会话进入后续重试校验
      * @return
      */
-    private ValidatedRefreshToken validateRefreshToken(String refreshToken){
+    private ValidatedRefreshToken validateRefreshToken(String refreshToken, boolean allowRetry){
         if (refreshToken == null || refreshToken.isBlank()) {
             throw new RefreshTokenValidationException(null, "TOKEN_MISSING", "Refresh Token 缺失");
         }
@@ -577,19 +601,16 @@ public class AuthServiceImpl implements AuthService {
         if (jti == null || jti.isBlank()) {
             throw new RefreshTokenValidationException(userId, "JTI_MISSING", "Refresh Token 会话标识缺失");   // jti错误
         }
-        AuthSession authSession = authMapper.selectOne(
-                new LambdaQueryWrapper<AuthSession>()
-                        .eq(AuthSession::getTokenJti, jti)
-                        .eq(AuthSession::getTokenType, AuthSessionTokenType.REFRESH)
-                        .eq(AuthSession::getUserId, userId)
-        );
+        AuthSession authSession = authMapper.selectRefreshSession(jti, userId);
         if (authSession == null) {
             throw new RefreshTokenValidationException(userId, "SESSION_NOT_FOUND", "Refresh Token 会话不存在");
         }
-        if (authSession.getStatus() == AuthSessionStatus.REVOKED) {
+        boolean revoked = authSession.getStatus() == AuthSessionStatus.REVOKED;
+        if (revoked && (!allowRetry || authSession.getRevokedAt() == null
+                || !authSession.getRevokedAt().toInstant().plus(RefreshTokenRetryCache.RETRY_WINDOW).isAfter(Instant.now()))) {
             throw new RefreshTokenValidationException(userId, "SESSION_REVOKED", "Refresh Token 会话已撤销");
         }
-        if (authSession.getStatus() != AuthSessionStatus.ACTIVE || authSession.getExpiresAt() == null
+        if ((!revoked && authSession.getStatus() != AuthSessionStatus.ACTIVE) || authSession.getExpiresAt() == null
                 || !authSession.getExpiresAt().isAfter(OffsetDateTime.now(ZoneOffset.UTC))) {
             throw new RefreshTokenValidationException(userId, "SESSION_EXPIRED", "Refresh Token 会话已过期");
         }
@@ -603,6 +624,30 @@ public class AuthServiceImpl implements AuthService {
                 .tokenJti(jti)
                 .authSession(authSession)
                 .build();
+    }
+
+    /**
+     * 在用户行锁内恢复成功轮转的同一份结果，普通撤销或已失效的新会话不能恢复。
+     *
+     * @param previousToken 已撤销的旧令牌及数据库会话
+     * @param user 锁定后的当前用户
+     * @return 原轮转结果
+     */
+    private AuthTokenPair resolveRetryTokens(ValidatedRefreshToken previousToken, User user) {
+        RefreshTokenRetryBO result = refreshTokenRetryCache.find(previousToken.getRefreshToken());
+        if (result == null || user.getDeletedAt() != null || user.getStatus() != UserStatus.ACTIVE
+                || result.tokenVersion() != (user.getTokenVersion() == null ? 0L : user.getTokenVersion())
+                || !result.accessTokenExpiresAt().isAfter(OffsetDateTime.now(ZoneOffset.UTC))) {
+            throw new RefreshTokenValidationException(user.getId(), "SESSION_REVOKED", "Refresh Token 会话已撤销");
+        }
+        ValidatedRefreshToken successor = validateRefreshToken(result.refreshToken(), false);
+        if (!successor.getUserId().equals(user.getId())) {
+            throw new RefreshTokenValidationException(user.getId(), "SESSION_REVOKED", "Refresh Token 会话已撤销");
+        }
+        return AuthTokenPair.builder()
+                .accessToken(result.accessToken()).accessTokenExpiresAt(result.accessTokenExpiresAt())
+                .refreshToken(result.refreshToken()).refreshTokenExpiresAt(result.refreshTokenExpiresAt())
+                .refreshTokenJti(successor.getTokenJti()).build();
     }
 
     /**

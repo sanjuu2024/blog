@@ -512,12 +512,13 @@
 - P0 阶段 Refresh Token 以数据库会话表做存储与失效控制
 - P1 已使用 Redis 缓存 tokenVersion，用于降低鉴权查询成本，并支持权限变化后的旧 Access Token 立即失效；Refresh Token 会话仍以数据库为权威来源
 - Access Token 携带登录或刷新时的用户角色、状态快照和 tokenVersion；每次鉴权时与 Redis 或数据库中的当前版本比较
-- Refresh Token 使用轮转机制，每次刷新成功后旧 Refresh Token 立即失效，并签发新的 Refresh Token
+- Refresh Token 使用轮转机制，每次刷新成功后旧 Refresh Token 标记为已撤销，并签发新的 Refresh Token；首次轮转结果固定缓存 5 秒，供响应丢失或并发重试复用
 - 登录失败限流：Redis 按用户 ID 与来源 IP 组合限制 15 分钟内最多失败 5 次；未知账号只计入来源 IP，
   同一 IP 15 分钟内最多失败 30 次。成功登录后清除该用户/IP 组合的失败计数，超限返回通用 429 提示
 - P0 阶段 Refresh Token 缺失、格式错误、签名无效、已过期、已撤销或找不到对应会话时，统一视为刷新失败，前端清理本地登录态并引导重新登录
 - P0 阶段不因普通刷新失败自动撤销该用户全部活跃 Refresh Token；修改密码、用户禁用、管理员强制下线等明确安全事件可撤销全部会话
-- P1 阶段可为刚轮转的旧 Refresh Token 设置短暂宽限期，用于同一次刷新请求的幂等重试；也可结合 Redis 与 tokenVersion 增强重放检测
+- 只有成功轮转的旧 Refresh Token 可在固定 5 秒窗口内返回同一份轮转结果，重复请求不延长窗口、不创建新会话；必须在用户行锁内确认账号、tokenVersion 及对应新会话仍有效。退出、改密、改邮箱、禁用、注销或新会话再次轮转后，旧结果不再可用；Redis 不可用或结果过期时按原有刷新失败规则拒绝
+- 退出请求若携带处于上述窗口内的旧 Refresh Token，必须同时撤销其对应的仍有效新会话，避免退出后通过重试恢复登录
 - 用户退出登录时，Refresh Token 需失效
 - 退出登录接口不要求有效 Access Token，后端通过 `refresh_token` Cookie 尝试撤销当前会话；若 Refresh Token 缺失、已过期、已撤销或找不到对应会话，仍视为退出成功，前端清理本地登录态即可
 

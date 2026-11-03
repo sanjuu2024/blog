@@ -750,7 +750,7 @@ paths:
       tags:
         - Auth
       summary: 刷新登录态
-      description: 权限级别 `PUBLIC`。通过浏览器自动携带的 `refresh_token` HttpOnly Cookie 获取新令牌；刷新成功后只轮转当前会话的 Refresh Token，不影响同一用户其他设备上的活跃会话。Refresh Token 缺失、格式错误、签名无效、已过期、已撤销或找不到对应会话时返回 101004；P0 阶段不因普通刷新失败自动撤销该用户全部活跃 Refresh Token。
+      description: 权限级别 `PUBLIC`。只轮转当前会话。成功轮转的旧 RT 在固定 5 秒窗口内重试可返回同一份 AT、RT 和到期时间，不创建新会话、不延长窗口；必须在用户行锁内确认账号、tokenVersion 和对应新会话仍有效。普通撤销、退出、改密、改邮箱、禁用、注销及新会话再次轮转后不允许复用。结果仅在 Redis 加密短存；缓存缺失、过期或不可用时按 101004 拒绝。缺失、伪造、过期等普通刷新失败不会撤销其他设备会话。
       operationId: refreshToken
       parameters:
         - $ref: '#/components/parameters/RefreshTokenCookie'
@@ -786,7 +786,7 @@ paths:
       tags:
         - Auth
       summary: 用户退出登录
-      description: 权限级别 `PUBLIC`。退出当前会话不要求有效 Access Token；浏览器会自动携带 `refresh_token` HttpOnly Cookie，后端据此尝试撤销对应会话。该接口按幂等语义处理：如果 Refresh Token 缺失、已过期、已撤销或找不到对应会话，仍返回退出成功，前端只需清理本地登录态。
+      description: 权限级别 `PUBLIC`。退出当前会话不要求有效 Access Token；若携带成功轮转且尚在 5 秒重试窗口内的旧 RT，在用户行锁内撤销其对应的有效新会话，之后旧 RT 不能恢复登录。其他缺失、已过期、已撤销或不存在会话按幂等语义返回成功，并清除 Cookie。
       operationId: logoutUser
       parameters:
         - $ref: '#/components/parameters/RefreshTokenCookieOptional'

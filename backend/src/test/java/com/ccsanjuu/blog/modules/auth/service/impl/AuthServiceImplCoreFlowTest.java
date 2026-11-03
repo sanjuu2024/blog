@@ -15,6 +15,7 @@ import com.ccsanjuu.blog.modules.auth.model.vo.LoginVO;
 import com.ccsanjuu.blog.modules.auth.model.vo.RefreshTokenVO;
 import com.ccsanjuu.blog.modules.auth.service.RegistrationEmailVerificationService;
 import com.ccsanjuu.blog.modules.auth.support.LoginRateLimiter;
+import com.ccsanjuu.blog.modules.auth.support.RefreshTokenRetryCache;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
@@ -84,6 +85,9 @@ class AuthServiceImplCoreFlowTest {
     @Mock
     private LoginRateLimiter loginRateLimiter;
 
+    @Mock
+    private RefreshTokenRetryCache refreshTokenRetryCache;
+
     private AuthServiceImpl authService;
 
     @BeforeEach
@@ -103,7 +107,8 @@ class AuthServiceImplCoreFlowTest {
                 privacyPolicyService,
                 registrationEmailVerificationService,
                 securityEventService,
-                loginRateLimiter
+                loginRateLimiter,
+                refreshTokenRetryCache
         );
         lenient().when(privacyPolicyService.compareTo(any())).thenReturn(true);
     }
@@ -346,7 +351,7 @@ class AuthServiceImplCoreFlowTest {
                 .status(AuthSessionStatus.ACTIVE)
                 .expiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusDays(7))
                 .build();
-        when(authMapper.selectOne(any())).thenReturn(oldSession);
+        when(authMapper.selectRefreshSession(any(), any())).thenReturn(oldSession);
         when(userMapper.selectByIdForUpdate(USER_ID)).thenReturn(activeUser());
 
         RefreshTokenVO result = authService.refresh(
@@ -356,7 +361,7 @@ class AuthServiceImplCoreFlowTest {
         assertNotNull(result.getAccessToken());
         assertNotNull(result.getRefreshToken());
         assertNotEquals(oldRefreshToken, result.getRefreshToken());
-        verify(authMapper, org.mockito.Mockito.times(2)).selectOne(any());
+        verify(authMapper, org.mockito.Mockito.times(2)).selectRefreshSession(any(), any());
         verify(authMapper).update(any(AuthSession.class), any());
         verify(authMapper).insert(any(AuthSession.class));
         assertTrue(output.getOut().contains("security_event=TOKEN_REFRESH_SUCCESS"));
@@ -373,7 +378,7 @@ class AuthServiceImplCoreFlowTest {
                 USER_ID,
                 "disabled-user-session"
         );
-        when(authMapper.selectOne(any())).thenReturn(AuthSession.builder()
+        when(authMapper.selectRefreshSession(any(), any())).thenReturn(AuthSession.builder()
                 .userId(USER_ID)
                 .tokenJti("disabled-user-session")
                 .tokenHash(TokenHashUtil.sha256(refreshToken))
@@ -414,7 +419,7 @@ class AuthServiceImplCoreFlowTest {
                 .status(AuthSessionStatus.ACTIVE)
                 .expiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusDays(7))
                 .build();
-        when(authMapper.selectOne(any()))
+        when(authMapper.selectRefreshSession(any(), any()))
                 .thenReturn(activeSession)
                 .thenReturn((AuthSession) null);
         when(userMapper.selectByIdForUpdate(USER_ID)).thenReturn(activeUser());
@@ -496,7 +501,7 @@ class AuthServiceImplCoreFlowTest {
     void revokedSessionShouldHaveConcreteReasonAndUserId() {
         String token = JwtUtil.generateRefreshToken(SIGNING_KEY, "sanjuu-blog", Duration.ofDays(7),
                 USER_ID, "revoked-session");
-        when(authMapper.selectOne(any())).thenReturn(AuthSession.builder()
+        when(authMapper.selectRefreshSession(any(), any())).thenReturn(AuthSession.builder()
                 .userId(USER_ID).status(AuthSessionStatus.REVOKED).build());
 
         assertRefreshFailure(token, USER_ID, "Refresh Token 会话已撤销");
@@ -507,7 +512,7 @@ class AuthServiceImplCoreFlowTest {
     void sessionExpirationShouldBeDistinguishedFromJwtExpiration() {
         String token = JwtUtil.generateRefreshToken(SIGNING_KEY, "sanjuu-blog", Duration.ofDays(7),
                 USER_ID, "expired-session");
-        when(authMapper.selectOne(any())).thenReturn(AuthSession.builder()
+        when(authMapper.selectRefreshSession(any(), any())).thenReturn(AuthSession.builder()
                 .userId(USER_ID).status(AuthSessionStatus.ACTIVE)
                 .expiresAt(OffsetDateTime.now(ZoneOffset.UTC).minusMinutes(1)).build());
 
@@ -519,7 +524,7 @@ class AuthServiceImplCoreFlowTest {
     void mismatchedSessionHashShouldHaveConcreteReason() {
         String token = JwtUtil.generateRefreshToken(SIGNING_KEY, "sanjuu-blog", Duration.ofDays(7),
                 USER_ID, "mismatched-session");
-        when(authMapper.selectOne(any())).thenReturn(AuthSession.builder()
+        when(authMapper.selectRefreshSession(any(), any())).thenReturn(AuthSession.builder()
                 .userId(USER_ID).status(AuthSessionStatus.ACTIVE).tokenHash("another-hash")
                 .expiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusDays(7)).build());
 
