@@ -79,7 +79,9 @@ public class AuthServiceImpl implements AuthService {
 
         String normalizedUsername = registerRequestDTO.getUsername().toLowerCase(java.util.Locale.ROOT);
         String normalizedEmail = registerRequestDTO.getEmail().toLowerCase(java.util.Locale.ROOT);
-        if (normalizedUsername.startsWith("deleted_") || normalizedEmail.endsWith(".deleted.invalid")) {
+        if (normalizedUsername.startsWith("deleted_")
+                || normalizedEmail.endsWith("@deleted.invalid")
+                || normalizedEmail.endsWith(".deleted.invalid")) {
             throw new BizException(ResultCode.PARAM_INVALID);
         }
 

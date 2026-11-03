@@ -630,7 +630,7 @@ paths:
       tags:
         - Auth
       summary: 发送注册邮箱验证码
-      description: 权限级别 `PUBLIC`。验证码有效期 10 分钟；同一邮箱 60 秒内最多发送一次、每小时最多 5 次，同一客户端 IP 每小时最多 20 次。邮箱已注册时返回邮箱已存在，不生成或发送验证码。
+      description: 权限级别 `PUBLIC`。验证码有效期 10 分钟；同一邮箱 60 秒内最多发送一次、每小时最多 5 次，同一客户端 IP 每小时最多 20 次。邮箱已注册时返回邮箱已存在，不生成或发送验证码；`deleted.invalid` 保留域名及其子域名返回 199001 参数错误，不预占限流额度或发送邮件。
       operationId: sendRegistrationEmailVerificationCode
       requestBody:
         required: true
@@ -1417,7 +1417,7 @@ paths:
       tags:
         - Profile
       summary: 发送修改邮箱验证码
-      description: 权限级别 `LOGIN`。向未被占用的新邮箱发送 6 位验证码；验证码有效期 10 分钟，并与注册验证码用途隔离。
+      description: 权限级别 `LOGIN`。向未被占用的新邮箱发送 6 位验证码；验证码有效期 10 分钟，并与注册验证码用途隔离。`deleted.invalid` 保留域名及其子域名返回 199001 参数错误，不预占限流额度或发送邮件。
       operationId: sendCurrentUserEmailChangeCode
       security:
         - bearerAuth: []

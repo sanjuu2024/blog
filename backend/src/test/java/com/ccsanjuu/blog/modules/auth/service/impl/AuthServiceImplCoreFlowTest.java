@@ -38,6 +38,7 @@ import javax.crypto.SecretKey;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -152,6 +153,26 @@ class AuthServiceImplCoreFlowTest {
 
         assertEquals(ResultCode.USERNAME_EXISTS, exception.getResultCode());
         verify(userMapper, never()).insert(any(User.class));
+    }
+
+    @Test
+    void registerShouldRejectReservedDeletedEmailDomains() {
+        for (String email : List.of("asdf123@deleted.invalid", "asdf123@sub.deleted.invalid")) {
+            BizException exception = assertThrows(BizException.class, () -> authService.register(
+                    RegisterRequestDTO.builder()
+                            .username("valid_user")
+                            .email(email)
+                            .password(PASSWORD)
+                            .verificationCode("123456")
+                            .privacyPolicyVersion("sha256:" + "a".repeat(64))
+                            .build()
+            ));
+
+            assertEquals(ResultCode.PARAM_INVALID, exception.getResultCode());
+        }
+
+        verify(userMapper, never()).insert(any(User.class));
+        verify(registrationEmailVerificationService, never()).verifyCode(any(), any());
     }
 
     @Test

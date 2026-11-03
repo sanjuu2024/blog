@@ -133,6 +133,9 @@ public class RegistrationEmailVerificationServiceImpl implements RegistrationEma
     @Override
     public void sendCode(String email, String clientIp, EmailVerificationPurpose purpose) {
         String normalizedEmail = normalizeEmail(email);
+        if (normalizedEmail.endsWith("@deleted.invalid") || normalizedEmail.endsWith(".deleted.invalid")) {
+            throw new BizException(ResultCode.PARAM_INVALID);
+        }
         if (emailExists(normalizedEmail)) {
             recordSecurityEvent(SecurityEventOutcome.FAILURE, normalizedEmail, "邮箱已存在");
             log.info("security_event=EMAIL_VERIFICATION_REQUEST_REJECTED outcome=FAIL reason=EMAIL_EXISTS recipient={}",
