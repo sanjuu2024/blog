@@ -9,15 +9,14 @@ describe('P0 route contract', () => {
 		expect(publicNames).not.toContain('Notifications');
 		const authLayout = routes.find((route) => route.name === 'AuthLayout');
 		const authNames = authLayout?.children?.map((route) => route.name) ?? [];
-		const categoryRoute = publicRoutes.find((route) => route.name === 'Category');
-		const categoryNames = categoryRoute?.children?.map((route) => route.name) ?? [];
+		const archiveRoute = publicRoutes.find((route) => route.name === 'Archive');
 
 		expect(publicNames).toEqual(
 			expect.arrayContaining([
 				'Home',
 				'ArticleList',
 				'ArticleDetail',
-				'Category',
+				'Archive',
 				'UserProfile',
 				'MessageBoard',
 				'MessageUnsubscribe',
@@ -38,9 +37,8 @@ describe('P0 route contract', () => {
 		);
 		expect(rootNames).toContain('NotFound');
 		expect(authNames).toEqual(expect.arrayContaining(['Login', 'Register']));
-		expect(categoryNames).toEqual(
-			expect.arrayContaining(['CategoryAllArticles', 'CategoryArticlesPage']),
-		);
+		expect(archiveRoute?.path).toBe('/archives');
+		expect(publicRoutes.some((route) => route.path.startsWith('/categories'))).toBe(false);
 	});
 
 	it('places the links page between the message board and about page', () => {
@@ -70,7 +68,7 @@ describe('P0 route contract', () => {
 
 	it('marks internal-scroll public pages to preserve the full viewport below the header', () => {
 		for (const routeName of [
-			'Category',
+			'Archive',
 			'MessageBoard',
 			'MessageUnsubscribe',
 			'CommentUnsubscribe',

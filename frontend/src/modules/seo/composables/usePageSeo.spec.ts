@@ -110,6 +110,23 @@ describe('usePageSeo', () => {
 		);
 	});
 
+	it('loads metadata for the archive page', async () => {
+		vi.mocked(getSeoMetadata).mockResolvedValueOnce({
+			...metadata,
+			canonicalUrl: 'https://blog.example.com/archives',
+			title: '归档 - 青禾边',
+		});
+		route.path = '/archives';
+		start();
+		await flushPromises();
+
+		expect(getSeoMetadata).toHaveBeenCalledWith('/archives');
+		expect(document.title).toBe('归档 - 青禾边');
+		expect(document.querySelector('link[rel=canonical]')?.getAttribute('href')).toBe(
+			'https://blog.example.com/archives',
+		);
+	});
+
 	it('preserves matching server tags on startup without another SEO request', async () => {
 		applyPageSeo(metadata);
 		const canonical = document.querySelector('link[rel=canonical]');

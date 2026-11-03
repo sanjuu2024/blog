@@ -27,9 +27,10 @@ export function usePageSeo() {
 			// 文章页面从详情响应同步 SEO；query/hash 不改变规范地址，也不触发此监听。
 			if (
 				preserveInitial ||
-				!['/', '/articles', '/about', '/messages', '/links'].includes(path)
-			)
+				!['/', '/articles', '/archives', '/about', '/messages', '/links'].includes(path)
+			) {
 				return;
+			}
 			try {
 				const metadata = await getSeoMetadata(path);
 				// 快速跨文章导航时仅应用当前请求结果，query/hash 不改变规范地址。

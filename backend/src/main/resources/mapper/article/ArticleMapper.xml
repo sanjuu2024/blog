@@ -2,6 +2,60 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
 <mapper namespace="com.ccsanjuu.blog.modules.article.mapper.ArticleMapper">
+    <sql id="archivePublicArticles">
+        FROM blog_article a
+        INNER JOIN blog_category category ON category.id = a.category_id
+            AND category.level = 2 AND category.status = 'ENABLED'
+        INNER JOIN blog_category parent ON parent.id = category.parent_id
+            AND parent.level = 1 AND parent.status = 'ENABLED'
+        INNER JOIN blog_user author ON author.id = a.author_id
+        WHERE a.status = 'PUBLISHED' AND a.published_at IS NOT NULL
+    </sql>
+
+    <resultMap id="archiveArticle" type="com.ccsanjuu.blog.modules.article.model.vo.ArchiveArticleVO">
+        <id property="id" column="id"/>
+        <result property="title" column="title"/>
+        <result property="publishedAt" column="published_at"/>
+        <association property="category" javaType="com.ccsanjuu.blog.modules.article.model.vo.ArticleCategoryVO">
+            <id property="id" column="category_id"/>
+            <result property="name" column="category_name"/>
+            <result property="level" column="category_level"/>
+            <association property="parent" javaType="com.ccsanjuu.blog.modules.article.model.vo.ArticleCategoryParentVO">
+                <id property="id" column="parent_id"/>
+                <result property="name" column="parent_name"/>
+            </association>
+        </association>
+    </resultMap>
+
+    <select id="selectArchiveYears" resultType="com.ccsanjuu.blog.modules.article.model.vo.ArchiveYearVO">
+        SELECT EXTRACT(YEAR FROM a.published_at AT TIME ZONE #{timeZone})::integer AS year,
+               COUNT(*) AS article_count
+        <include refid="archivePublicArticles"/>
+        GROUP BY year
+        ORDER BY year DESC
+    </select>
+
+    <select id="selectArchivePage" resultMap="archiveArticle">
+        SELECT a.id, a.title, a.published_at, category.id AS category_id,
+               category.name AS category_name, category.level AS category_level,
+               parent.id AS parent_id, parent.name AS parent_name
+        <include refid="archivePublicArticles"/>
+        <if test="start != null">
+            AND a.published_at &gt;= #{start} AND a.published_at &lt; #{end}
+        </if>
+        <if test="categoryId != null">
+            AND (category.id = #{categoryId} OR parent.id = #{categoryId})
+        </if>
+        <if test="tagId != null">
+            AND EXISTS (
+                SELECT 1
+                FROM blog_article_tag atag
+                WHERE atag.article_id = a.id AND atag.tag_id = #{tagId}
+            )
+        </if>
+        ORDER BY a.published_at DESC, a.id DESC
+    </select>
+
     <select id="selectPublicSyndicationArticles" resultType="com.ccsanjuu.blog.modules.article.model.entity.Article">
         SELECT a.id, a.title, a.summary, a.published_at, a.updated_at
         FROM blog_article a

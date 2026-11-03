@@ -16,6 +16,8 @@ describe('router scroll behavior', () => {
 		['/articles', '/articles?tagIds=30001&tagIds=30002'],
 		['/articles?keyword=Vue&categoryId=21001&tagIds=30001', '/articles'],
 		['/articles?keyword=Vue#results', '/articles?keyword=Spring#results'],
+		['/archives?mode=time&year=2026', '/archives?mode=category&categoryId=21001'],
+		['/archives?mode=category&categoryId=21001', '/archives?mode=tag&tagId=30001'],
 	])('preserves scrolling when filters change from %s to %s', (from, to) => {
 		expect(scrollBehavior(resolveRoute(to), resolveRoute(from), null)).toBe(false);
 	});

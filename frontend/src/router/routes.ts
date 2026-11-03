@@ -180,28 +180,16 @@ export const publicRoutes = [
 		},
 	},
 	{
-		path: '/categories',
-		name: 'Category',
-		component: () => import('@/modules/category/views/CategoryPage.vue'),
+		path: '/archives',
+		name: 'Archive',
+		component: () => import('@/modules/archive/views/ArchivePage.vue'),
 		meta: {
-			title: '分类',
+			title: '归档',
 			fullHeight: true,
 			nav: {
 				pos: 'left', // 在顶部导航栏左侧
 			},
 		},
-		children: [
-			{
-				path: '',
-				name: 'CategoryAllArticles',
-				component: () => import('@/modules/category/views/CategoryArticlesPage.vue'),
-			},
-			{
-				path: ':categoryId',
-				name: 'CategoryArticlesPage',
-				component: () => import('@/modules/category/views/CategoryArticlesPage.vue'),
-			},
-		],
 	},
 	{
 		path: '/messages',
