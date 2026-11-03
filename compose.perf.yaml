@@ -1,0 +1,52 @@
+# Resource override for isolated P2 performance testing.
+# Always combine with compose.prod.yaml, a dedicated test env file, and -p blog-p2-perf.
+# Unchanged services, settings, and environment variables are inherited from compose.prod.yaml.
+# This limits containers only; it does not constrain the host or Docker Desktop VM.
+# No Turnstile or OSS test double is provided by this overlay.
+services:
+  postgres:
+    cpus: "2.0"
+    mem_limit: 1g
+    environment:
+      POSTGRES_DB: blog_performance
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - max_connections=40
+
+  redis:
+    cpus: "0.5"
+    mem_limit: 320m
+    # This password appears in process metadata; use a disposable test-only value.
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      - --maxmemory
+      - 128mb
+      - --maxmemory-policy
+      - noeviction
+
+  backend:
+    cpus: "2.0"
+    mem_limit: 1280m
+    environment:
+      BLOG_DB_URL: jdbc:postgresql://postgres:5432/blog_performance
+      BLOG_REDIS_DATABASE: "2"
+      BLOG_MAIL_ENABLED: "false"
+      BLOG_SMTP_HOST: ""
+      BLOG_SMTP_USERNAME: ""
+      BLOG_SMTP_PASSWORD: ""
+      BLOG_SMTP_AUTH: "false"
+      JAVA_TOOL_OPTIONS: >-
+        -Xms256m
+        -Xmx768m
+        -XX:MaxMetaspaceSize=192m
+
+  nginx:
+    cpus: "0.5"
+    mem_limit: 128m

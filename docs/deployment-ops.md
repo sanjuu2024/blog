@@ -388,6 +388,67 @@ docker compose \
 第二次运行 bootstrap 必须因“系统中已存在管理员”而失败，这属于预期的一次性保护，不能通过
 删除或降级现有管理员来绕过。管理员凭据遗失时应走受控的密码恢复流程，而不是重复执行初始化。
 
+`compose.bootstrap.yaml` 只用于首次初始化管理员，不参与日常启动、升级或性能测试。它额外定义
+一次性 `admin-bootstrap` 服务，并通过 file secret 读取临时密码；以 `run --rm` 启动时，该次任务容器完成后会被移除。
+数据库已有管理员时任务会拒绝执行，不能用它重置或覆盖管理员账号。
+
+### 8.2 P2 性能测试资源覆盖
+
+`compose.perf.yaml` 是 `compose.prod.yaml` 的资源覆盖文件，不单独启动服务，也不代表最终生产规格。
+因此文件只写与基准配置不同的字段：服务镜像、端口、健康检查、卷、网络以及未覆盖的环境变量均继承自
+`compose.prod.yaml`；环境变量按键合并，`command` 则由覆盖文件整体替换，所以 Redis 命令需要在覆盖中重列。
+只运行 `compose.perf.yaml` 会缺少服务定义所需的镜像、环境和网络配置，不能单独启动。
+它为 4 核 / 4 GB 候选测试档设置 CPU / 内存上限、JVM heap 起始值、PostgreSQL 连接数和 Redis内存策略，并将应用连接到独立的 `blog_performance` 数据库。每次使用独立 Compose 项目名，确保
+PostgreSQL、Redis 卷和网络不与 prodtest 或日常开发环境复用。
+
+这些是容器上限，不会限制宿主机或 Docker Desktop 的 WSL 虚拟机总资源；要验证 4 核 / 4 GB 整机，
+还需在对应 Linux 主机 / VM 上测试，或单独限制 Docker Desktop VM。该覆盖文件关闭邮件发送，但不伪造
+Turnstile / OSS；不要对 Cloudflare、OSS 或真实收件地址执行高并发压测。游客留言的高并发场景须先有
+测试替身；在此之前只做低频人工 / 集成验收，不能将它计为已通过的负载场景。
+
+在仓库外准备专用 `.env.perf`：复用所需变量名，但必须使用测试专用数据库密码、JWT 密钥、Redis
+密码、对象存储测试 bucket 和 Turnstile 配置，不得填入生产密钥。设置 `POSTGRES_DB=blog_performance`、
+`BLOG_REDIS_DATABASE=2`、`NGINX_HTTP_PORT=127.0.0.1:18088` 和
+`NGINX_HTTPS_PORT=127.0.0.1:18443`。Compose 基础文件仍要求其它必填配置存在；性能覆盖会禁用邮件发送。
+
+`.env.perf` 至少要提供以下基准 Compose 所要求的变量；尖括号内容是说明，不是可直接使用的值。密钥只存放在仓库外，不复制到验收报告：
+
+| 用途 | 变量 | 测试值要求 |
+| --- | --- | --- |
+| 隔离数据库 / Redis | `POSTGRES_DB`、`POSTGRES_USER`、`POSTGRES_PASSWORD`、`REDIS_PASSWORD` | DB 固定为 `blog_performance`；用户名、密码仅供本次隔离环境 |
+| 站点配置 | `BLOG_APP_NAME`、`BLOG_SITE_URL`、`BLOG_DESC`、`BLOG_LOGO_URL`、`BLOG_MAIL_FRONTEND_BASE_URL` | 受控测试域名；生产 profile 的站点和 Logo 地址使用 HTTPS |
+| JWT | `BLOG_JWT_SECRET` | 单独生成的测试密钥，不复用生产密钥 |
+| 对象存储 | `BLOG_OBJECT_STORAGE_ENDPOINT`、`BLOG_OBJECT_STORAGE_BUCKET`、`BLOG_OBJECT_STORAGE_ACCESS_KEY_ID`、`BLOG_OBJECT_STORAGE_ACCESS_KEY_SECRET`、`BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL` | 专用测试 bucket 和最小权限凭据；性能测试不对真实 OSS 执行高并发上传 |
+| Turnstile | `BLOG_TURNSTILE_SECRET_KEY`、`BLOG_TURNSTILE_EXPECTED_HOSTNAME`、`VITE_TURNSTILE_SITE_KEY`、`VITE_SITE_LAUNCHED_AT` | 绑定测试 hostname 的站点密钥；hostname 与访问域名一致，action 使用 `guest_message` |
+| TLS 与本机端口 | `NGINX_TLS_CERT_DIR`、`NGINX_HTTP_PORT`、`NGINX_HTTPS_PORT` | 测试证书目录；端口绑定到 `127.0.0.1`，除非另行设置受控私网压测入口 |
+| Redis 逻辑库 | `BLOG_REDIS_DATABASE` | 使用 `2`；独立 Compose 项目仍会创建自己的 Redis 容器和数据卷 |
+
+`BLOG_MAIL_ENABLED` 在覆盖中固定为 `false`，因此性能环境不需要 Resend 凭据，也不会向真实邮箱发信。
+Resend 真实邮件验收另在低频、隔离的 HTTPS 环境进行；自动化使用 GreenMail。当前 Compose 不含 OSS / Turnstile 测试替身，不将真实第三方服务用于高并发测试。
+
+先检查合并配置，再启动独立性能环境：
+
+```bash
+docker compose \
+  --env-file /path/outside/repository/.env.perf \
+  -p blog-p2-perf \
+  -f compose.prod.yaml \
+  -f compose.perf.yaml \
+  config -q
+
+docker compose \
+  --env-file /path/outside/repository/.env.perf \
+  -p blog-p2-perf \
+  -f compose.prod.yaml \
+  -f compose.perf.yaml \
+  up -d --build --wait --wait-timeout 180
+```
+
+测试前确认目标数据库名为 `blog_performance`，容器卷来自 `blog-p2-perf` 项目，Nginx 只绑定本机
+测试端口；再用 `docker stats` 检查资源限制确实生效。远程压测机需要访问时，只能在隔离测试网络中
+将端口绑定改为受控的私网地址并配置防火墙规则，禁止直接暴露到公网。性能测试结束时使用相同参数运行
+`down` 停止容器；不要加 `-v`，避免无意删除性能测试数据卷。
+
 ## 9. 日志与监控
 
 P0 阶段至少需要关注：
