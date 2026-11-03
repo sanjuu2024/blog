@@ -248,7 +248,7 @@ describe('ArticleContent', () => {
 			avatarUrl: '',
 			name: '管理员',
 			userId: 10001,
-			size: 30,
+			size: 32,
 		});
 		expect(wrapper.get('.public-profile-popover-stub').text()).toContain('管理员');
 		wrapper.unmount();
