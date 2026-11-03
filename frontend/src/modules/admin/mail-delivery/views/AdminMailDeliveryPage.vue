@@ -113,6 +113,15 @@
 						align="center"
 					/>
 					<el-table-column
+						label="最近尝试时间"
+						min-width="170"
+						align="center"
+					>
+						<template #default="{ row }">
+							{{ formatDateTime(row.lastAttemptAt) }}
+						</template>
+					</el-table-column>
+					<el-table-column
 						label="最近失败摘要"
 						min-width="180"
 						align="center"
