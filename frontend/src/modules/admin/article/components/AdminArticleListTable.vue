@@ -115,6 +115,13 @@
 				</el-table-column>
 
 				<el-table-column
+					prop="id"
+					label="文章 ID"
+					align="center"
+					width="100"
+				/>
+
+				<el-table-column
 					label="文章操作"
 					align="center"
 					width="320"
