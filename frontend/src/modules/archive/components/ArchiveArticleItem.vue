@@ -61,7 +61,7 @@ const publishedDate = computed(() => formatDateTime(props.article.publishedAt, '
 	grid-template-columns: 5rem minmax(0, 1fr) auto;
 	align-items: center;
 	gap: 1.25rem;
-	padding: 1rem;
+	padding-block: 1rem;
 	border-bottom: 1px solid var(--app-border);
 }
 

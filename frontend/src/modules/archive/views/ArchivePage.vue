@@ -428,6 +428,7 @@ watch(
 	margin-left: 1rem;
 	height: 100%;
 	overflow-y: auto;
+	padding-inline: 0.75rem;
 }
 
 .archive-page__mobile-header {

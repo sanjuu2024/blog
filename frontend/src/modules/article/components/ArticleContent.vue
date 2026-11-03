@@ -222,6 +222,7 @@ import { useLikeConfetti } from '../composables/useLikeConfetti.ts';
 // 语法高亮渲染器
 import { highlightCodeUnder } from '@/utils/prism';
 import ArticleLikeButton from './ArticleLikeButton.vue';
+import { renderImageCaptions } from '../utils/renderImageCaptions';
 
 // import { useTheme } from '@/composables/useTheme';
 // const { resolvedTheme: ResolvedThemeName } = useTheme();
@@ -261,11 +262,8 @@ watch(
 
 		if (contentRef.value) {
 			const contentElement = contentRef.value;
-			// 需要额外处理 img 标签上的 title，否则文章正文的图片悬浮默认会显示 title。
-			// 只移除正文图片的 title，保留 alt 和作者指定的尺寸。
-			contentElement
-				.querySelectorAll('img[title]')
-				.forEach((image) => image.removeAttribute('title'));
+			// 将图片 title 转成图注并移除原生悬浮提示，保留 alt、尺寸和链接。
+			renderImageCaptions(contentElement);
 			const contentText = contentElement.textContent || '';
 			if (
 				contentText.includes('$') ||
@@ -283,6 +281,7 @@ watch(
 					],
 					throwOnError: false,
 					trust: false,
+					ignoredClasses: ['article-image__caption'],
 				});
 			}
 			highlightCodeUnder(contentElement);
