@@ -736,7 +736,7 @@ GET /api/v1/articles/40001
 | `id` | `Long` | 文章 ID | `40001` |
 | `title` | `String` | 文章标题 | `Spring Boot 双 Token 登录实践` |
 | `summary` | `String` | 文章摘要 | `本文记录双 Token 的实现思路与接口设计` |
-| `contentHtml` | `String` | HTML 正文，由 Markdown 转译并经白名单清洗；公式分隔符及 LaTeX 源保留在 HTML 文本中，由文章详情前端使用 KaTeX 排版，不改写接口或存储内容 | `<h1>公式</h1><p>$2^3$</p>` |
+| `contentHtml` | `String` | HTML 正文，由 Markdown 转译并经白名单清洗；保留图片 title，前台以纯文本图注展示。公式分隔符及 LaTeX 源保留在 HTML 文本中，由文章详情前端使用 KaTeX 排版，不改写接口或存储内容 | `<h1>公式</h1><p>$2^3$</p>` |
 | `coverUrl` | `String` | 封面地址 | `https://cdn.example.com/cover/token.png` |
 | `isTop` | `Boolean` | 是否置顶 | `true` |
 | `allowComment` | `Boolean` | 是否允许新增评论和回复；关闭后已有 APPROVED 评论仍可展示 | `true` |

@@ -453,8 +453,9 @@ const handleContentImageUpload: UploadImgEvent = async (files, callback) => {
 	);
 
 	callback(
+		// 编辑器回调要求 title 字段；留空以便作者按需填写图注。
 		images.flatMap((image) =>
-			image ? [{ url: image.url, alt: image.originalName, title: image.originalName }] : [],
+			image ? [{ url: image.url, alt: image.originalName, title: '' }] : [],
 		),
 	);
 };

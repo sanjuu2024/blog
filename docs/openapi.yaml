@@ -3995,7 +3995,7 @@ components:
           example: 本文记录双 Token 的实现思路与接口设计
         contentHtml:
           type: string
-          description: 由 Markdown 转译并经白名单清洗的 HTML 正文；链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL。公式分隔符及 LaTeX 源保留在 HTML 文本中，公开文章详情前端使用 KaTeX 排版，接口不返回或存储排版器生成的 HTML。
+          description: 由 Markdown 转译并经白名单清洗的 HTML 正文；链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL。保留图片 title，公开文章详情前端将非空 title 作为纯文本图注展示并移除图片悬浮提示，不回写存储内容。公式分隔符及 LaTeX 源保留在 HTML 文本中，前端使用 KaTeX 排版，接口不返回或存储排版器生成的 HTML。
           example: "<h1>公式</h1><p>$2^3$</p>"
         coverUrl:
           type: string
@@ -4730,7 +4730,7 @@ components:
           example: 本文记录双 Token 的实现思路与接口设计
         contentMd:
           type: string
-          description: Markdown 正文。`contentHtml` 与 `contentText` 由后端自动生成
+          description: Markdown 正文。`contentHtml` 与 `contentText` 由后端自动生成；图片可用可选 title 填写图注，alt 保留为替代文本，前台不从 alt 推断图注。
           example: "# 一、背景\n\n这里是正文"
         categoryId:
           type: integer

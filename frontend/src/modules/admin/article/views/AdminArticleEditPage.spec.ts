@@ -11,6 +11,7 @@ const route = vi.hoisted(() => ({ params: {} as { articleId?: string } }));
 const routeLeave = vi.hoisted(() => ({ guard: undefined as (() => Promise<boolean>) | undefined }));
 const confirmLeave = vi.hoisted(() => vi.fn());
 const createArticle = vi.hoisted(() => vi.fn());
+const uploadAdminImage = vi.hoisted(() => vi.fn());
 
 let upsertRequest: ArticleUpsertRequestFilter;
 let categories: AdminCategoryItem[] = [];
@@ -80,12 +81,12 @@ vi.mock('@/composables/useTheme', () => ({
 vi.mock('@/modules/admin/file/composables/useAdminImageUpload', () => ({
 	useAdminImageUpload: () => ({
 		imageUploading: ref(false),
-		handleUploadAdminImage: vi.fn(),
+		handleUploadAdminImage: uploadAdminImage,
 	}),
 }));
 
 vi.mock('md-editor-v3', () => ({
-	MdEditor: { template: '<div />' },
+	MdEditor: { name: 'MdEditor', emits: ['onUploadImg'], template: '<div />' },
 }));
 
 vi.mock('element-plus', async (importOriginal) => ({
@@ -123,6 +124,7 @@ async function mountPage() {
 describe('AdminArticleEditPage', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		uploadAdminImage.mockReset();
 		route.params = {};
 		routeLeave.guard = undefined;
 		createArticle.mockResolvedValue(true);
@@ -130,6 +132,28 @@ describe('AdminArticleEditPage', () => {
 		categories = [];
 		tags = [];
 		existingArticle = {};
+	});
+
+	it('inserts uploaded images with filename alt text and leaves title for author captions', async () => {
+		const files = [new File(['image'], '架构图.png'), new File(['image'], '上传失败.png')];
+		uploadAdminImage
+			.mockResolvedValueOnce({
+				url: 'https://img.example.com/architecture.png',
+				originalName: '架构图.png',
+			})
+			.mockResolvedValueOnce(undefined);
+		const wrapper = await mountPage();
+		const callback = vi.fn();
+
+		wrapper.getComponent({ name: 'MdEditor' }).vm.$emit('onUploadImg', files, callback);
+		await flushPromises();
+
+		expect(uploadAdminImage).toHaveBeenNthCalledWith(1, 'ARTICLE_CONTENT', files[0]);
+		expect(uploadAdminImage).toHaveBeenNthCalledWith(2, 'ARTICLE_CONTENT', files[1]);
+		expect(callback).toHaveBeenCalledExactlyOnceWith([
+			{ url: 'https://img.example.com/architecture.png', alt: '架构图.png', title: '' },
+		]);
+		wrapper.unmount();
 	});
 
 	it('allows leaving without confirmation when the form is unchanged', async () => {

@@ -254,7 +254,7 @@ describe('ArticleContent', () => {
 		wrapper.unmount();
 	});
 
-	it('removes only image title tooltips after rendering and updating article HTML', async () => {
+	it('shows title captions without image tooltips and replaces them when article HTML changes', async () => {
 		const currentArticle = article();
 		currentArticle.contentHtml =
 			'<p><img src="https://img.example.com/test.png" title="图片标题" alt="图片说明" width="320" height="180"></p><a href="https://example.com" title="链接说明">链接</a>';
@@ -278,8 +278,11 @@ describe('ArticleContent', () => {
 		expect(image.attributes('alt')).toBe('图片说明');
 		expect(image.attributes('width')).toBe('320');
 		expect(image.attributes('height')).toBe('180');
+		expect(wrapper.get('.article-image__caption').text()).toBe('图片标题');
 		expect(wrapper.get('.article-markdown a').attributes('title')).toBe('链接说明');
 		expect(currentArticle.contentHtml).toContain('title="图片标题"');
+		await wrapper.setProps({ article: { ...currentArticle, likeCount: 2 } });
+		expect(wrapper.findAll('.article-image__caption')).toHaveLength(1);
 		await wrapper.setProps({
 			article: {
 				...currentArticle,
@@ -290,13 +293,23 @@ describe('ArticleContent', () => {
 		await wrapper.vm.$nextTick();
 		expect(wrapper.get('.article-markdown img').attributes('title')).toBeUndefined();
 		expect(wrapper.get('.article-markdown img').attributes('alt')).toBe('新图片');
+		expect(wrapper.findAll('.article-image__caption')).toHaveLength(1);
+		expect(wrapper.get('.article-image__caption').text()).toBe('新图片标题');
+		await wrapper.setProps({
+			article: {
+				...currentArticle,
+				contentHtml: '<p><img src="/plain.png" alt="仅替代文本"></p>',
+			},
+		});
+		await wrapper.vm.$nextTick();
+		expect(wrapper.find('.article-image__caption').exists()).toBe(false);
 		wrapper.unmount();
 	});
 
 	it('renders TeX formulas after article HTML updates and leaves code blocks untouched', async () => {
 		const currentArticle = article();
 		currentArticle.contentHtml =
-			'<p>Inline $2^3$ and \\(x^2\\)</p><p>$$\\frac{1}{2}$$</p><p>Invalid $\\notARealCommand$</p><pre><code>$2^3$</code></pre>';
+			'<p>Inline $2^3$ and \\(x^2\\)</p><p>$$\\frac{1}{2}$$</p><p>Invalid $\\notARealCommand$</p><pre><code>$2^3$</code></pre><p><img src="/formula.png" title="$x^2$ 示例"></p>';
 		const wrapper = mount(ArticleContent, {
 			props: { article: currentArticle, isLoading: false },
 			global: {
@@ -319,6 +332,8 @@ describe('ArticleContent', () => {
 		expect(wrapper.findAll('.article-markdown .katex-display')).toHaveLength(1);
 		expect(wrapper.get('.article-markdown pre code').text()).toBe('$2^3$');
 		expect(wrapper.find('.article-markdown pre .katex').exists()).toBe(false);
+		expect(wrapper.get('.article-image__caption').text()).toBe('$x^2$ 示例');
+		expect(wrapper.find('.article-image__caption .katex').exists()).toBe(false);
 		expect(wrapper.get('.article-markdown p:nth-of-type(3)').text()).toContain(
 			'notARealCommand',
 		);
