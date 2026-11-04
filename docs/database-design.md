@@ -277,6 +277,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_auth_session_expires_at
 - Access Token 携带签发时的 `tokenVersion`；鉴权时优先与 Redis 缓存比较，缓存未命中或 Redis 不可用时回源 `blog_user.token_version`。数据库是持久化权威来源，Redis 只保存可重建缓存。
 - 登录、刷新登录态、修改密码、禁用用户和修改角色时锁定同一条 `blog_user` 记录；登录取得锁后使用最新密码和账号状态继续校验，刷新请求取得锁后必须重新校验旧 Refresh Token，避免并发账号安全操作重新产生有效会话。
 - 定期维护：可将 `expires_at` 早于当前时间且仍为 `ACTIVE` 的记录更新为 `EXPIRED`。
+- 系统每日分批删除 `expires_at` 早于当前时间 7 天的会话；未到期的 `REVOKED` 会话保留，避免影响轮转重试及异常识别。
 
 ## 3.3 表名：`blog_category`
 
@@ -766,7 +767,9 @@ CREATE TABLE blog_mail_delivery (
         CHECK (mail_type IN ('COMMENT_REPLY', 'MESSAGE_REPLY')),
     source_id BIGINT NOT NULL,
     reply_id BIGINT NOT NULL,
-    recipient_masked VARCHAR(255) NOT NULL,
+    recipient_masked VARCHAR(255) NOT NULL DEFAULT '',
+    recipient_email VARCHAR(255),
+    recipient_user_id BIGINT,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
         CHECK (status IN ('PENDING', 'SENT', 'FAILED')),
     attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
@@ -782,8 +785,9 @@ CREATE INDEX idx_blog_mail_delivery_status_created
     ON blog_mail_delivery (status, created_at DESC, id DESC);
 ```
 
-投递记录只保存脱敏地址和安全错误摘要。手动重试根据 `source_id`、`reply_id` 读取当前业务数据
-重新生成正文；不保存完整邮件正文、SMTP 凭据、验证码或异常堆栈。
+`V1.2.13` 增加 `recipient_email` 和 `recipient_user_id`：完整收件地址保存创建时的目标，每次实际发送尝试前更新；用户 ID 来自评论或留言作者，不根据邮箱猜测身份。查询时联表读取用户当前资料，与安全事件展示一致，不保存昵称 / 用户名快照。游客的用户 ID 为空。
+旧记录只回填可信业务关联的用户 ID，不回填无法确认的历史完整地址。`recipient_masked` 作为历史兼容字段保留，默认空字符串，新投递不再写入；查询可返回该历史值，并另外返回关联账号或游客留言的当前邮箱，不能用当前值覆盖历史完整地址。
+手动重试根据 `source_id`、`reply_id` 读取当前业务数据重新生成正文；不保存完整邮件正文、SMTP 凭据、验证码或异常堆栈。
 
 ## 4.9 P2 安全事件表：`blog_security_event`
 
@@ -804,7 +808,7 @@ CREATE TABLE blog_security_event (
 );
 ```
 
-安全事件表只追加，不提供更新和删除接口。记录事件类型、结果、可信关联的目标用户、管理员操作者、
+安全事件表不提供更新和删除接口；系统每日分批清理超过 90 天的事件。正常刷新成功及 RT 缺失不写入，其他异常刷新失败逐条保留。记录事件类型、结果、可信关联的目标用户、管理员操作者、
 原始账号、来源 IP、原始 User-Agent、请求方法、请求路径、原因描述和创建时间，仅管理员可查询。
 `actor_id` 仅用于管理员操作其他用户，自身操作为空。请求路径不含 query 参数；来源 IP 使用服务端
 请求的 remote address，由已有可信反向代理配置处理转发头，不直接信任客户端自报的 IP。

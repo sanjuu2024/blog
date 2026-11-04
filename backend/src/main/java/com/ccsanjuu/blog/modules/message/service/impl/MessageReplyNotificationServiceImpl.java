@@ -8,7 +8,9 @@ import com.ccsanjuu.blog.modules.mail.service.MailNotificationSender;
 import com.ccsanjuu.blog.modules.mail.service.ReplyMailContentFactory;
 import com.ccsanjuu.blog.modules.message.mapper.MessageMapper;
 import com.ccsanjuu.blog.modules.message.model.entity.Message;
+import com.ccsanjuu.blog.modules.message.model.enums.MessageStatus;
 import com.ccsanjuu.blog.modules.message.service.MessageReplyNotificationService;
+import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.properties.BlogProperties;
 import com.ccsanjuu.blog.properties.BlogMailProperties;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,7 @@ public class MessageReplyNotificationServiceImpl implements MessageReplyNotifica
     private final MailDeliveryService mailDeliveryService;
     private final MailNotificationSender mailNotificationSender;
     private final MessageMapper messageMapper;
+    private final UserMapper userMapper;
 
     /**
      * 在业务事务提交后异步发送留言回复邮件。
@@ -52,9 +55,9 @@ public class MessageReplyNotificationServiceImpl implements MessageReplyNotifica
         Runnable task = () -> {
             try {
                 MailDelivery delivery = mailDeliveryService.createPending(
-                        "MESSAGE_REPLY", rootMessage.getId(), replyMessage.getId(), rootMessage.getEmail());
+                        "MESSAGE_REPLY", rootMessage.getId(), replyMessage.getId(), rootMessage.getEmail(), rootMessage.getUserId());
                 mailNotificationSender.submit(delivery,
-                        () -> buildMailContent(rootMessage, replyMessage));
+                        () -> buildMailContent(rootMessage.getId(), replyMessage.getId()));
             } catch (RuntimeException exception) {
                 log.error("留言回复邮件调度失败: messageId={}, replyId={}, exceptionType={}",
                         rootMessage.getId(), replyMessage.getId(), exception.getClass().getSimpleName());
@@ -79,21 +82,30 @@ public class MessageReplyNotificationServiceImpl implements MessageReplyNotifica
      */
     @Override
     public void retry(MailDelivery delivery) {
-        mailNotificationSender.submit(delivery, () -> {
-            Message root = messageMapper.selectById(delivery.getSourceId());
-            Message reply = messageMapper.selectById(delivery.getReplyId());
-            if (root == null || reply == null) throw new IllegalStateException("关联留言不可用");
-            return buildMailContent(root, reply);
-        });
+        mailNotificationSender.submit(delivery, () -> buildMailContent(delivery.getSourceId(), delivery.getReplyId()));
     }
 
     private MailMessageContent buildMailContent(
-            Message root,
-            Message reply
+            Long sourceId,
+            Long replyId
     ) {
-        if (root.getEmail() == null || root.getEmail().isBlank()
+        Message root = messageMapper.selectById(sourceId);
+        Message reply = messageMapper.selectById(replyId);
+        if (root == null || reply == null || root.getParentId() != null
+                || !root.getId().equals(reply.getParentId())
+                || root.getStatus() != MessageStatus.APPROVED || reply.getStatus() != MessageStatus.APPROVED) {
+            throw new IllegalStateException("关联留言不可用");
+        }
+        if (!Boolean.TRUE.equals(root.getNotifyOnReply())
+                || root.getEmail() == null || root.getEmail().isBlank()
                 || root.getUnsubscribeToken() == null || root.getUnsubscribeToken().isBlank()) {
             throw new IllegalStateException("关联留言或收件地址不可用");
+        }
+        if (root.getUserId() != null) {
+            var recipient = userMapper.selectById(root.getUserId());
+            if (recipient == null || recipient.getDeletedAt() != null || !Boolean.TRUE.equals(recipient.getEmailVerified())) {
+                throw new IllegalStateException("留言收件账号不可用");
+            }
         }
         String unsubscribeUrl = mailProperties.getFrontendBaseUrl()
                 + "/messages/unsubscribe?token="

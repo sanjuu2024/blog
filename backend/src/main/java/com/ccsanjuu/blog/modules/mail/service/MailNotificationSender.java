@@ -91,6 +91,7 @@ public class MailNotificationSender {
         for (int attempt = 1; attempt <= RETRY_DELAYS_SECONDS.length + 1; attempt++) {
             try {
                 MailMessageContent content = contentSupplier.get();
+                mailDeliveryService.updateRecipient(delivery.getId(), content.recipient());
                 var mimeMessage = mailSender.createMimeMessage();
                 mimeMessage.setFrom(new InternetAddress(mailProperties.getFrom()));
                 mimeMessage.setRecipients(Message.RecipientType.TO,

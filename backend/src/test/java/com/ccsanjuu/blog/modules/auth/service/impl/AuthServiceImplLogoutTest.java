@@ -1,5 +1,6 @@
 package com.ccsanjuu.blog.modules.auth.service.impl;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import com.ccsanjuu.blog.common.util.JwtUtil;
 import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.auth.model.dto.LogoutRequestDTO;
@@ -63,7 +64,8 @@ class AuthServiceImplLogoutTest {
                 registrationEmailVerificationService,
                 org.mockito.Mockito.mock(com.ccsanjuu.blog.modules.security.service.SecurityEventService.class),
                 org.mockito.Mockito.mock(LoginRateLimiter.class),
-                org.mockito.Mockito.mock(RefreshTokenRetryCache.class)
+                org.mockito.Mockito.mock(RefreshTokenRetryCache.class),
+                new SimpleMeterRegistry()
         );
     }
 

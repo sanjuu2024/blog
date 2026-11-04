@@ -1,5 +1,8 @@
 package com.ccsanjuu.blog.modules.notification;
 
+import com.ccsanjuu.blog.common.api.ResultCode;
+import com.ccsanjuu.blog.common.exception.BizException;
+import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.message.mapper.MessageMapper;
 import com.ccsanjuu.blog.modules.message.model.dto.CreateMessageRequestDTO;
 import com.ccsanjuu.blog.modules.message.model.dto.MessagePageQueryDTO;
@@ -24,16 +27,21 @@ import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
 import com.ccsanjuu.blog.modules.user.model.enums.UserStatus;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
@@ -58,6 +66,9 @@ class NotificationIntegrationTest {
 
     @Autowired
     private CommentMapper commentMapper;
+
+    @Autowired
+    private ArticleMapper articleMapper;
 
     @Autowired
     private UserMapper userMapper;
@@ -90,7 +101,9 @@ class NotificationIntegrationTest {
         notificationService.markAllRead(recipient.getId(), "ADMIN_MESSAGE");
         assertEquals(0L, notificationService.getUnreadCount(recipient.getId()).getTotal());
         NotificationQueryDTO query = new NotificationQueryDTO();
-        assertTrue(notificationService.getUserNotifications(recipient.getId(), query).getRecords().getFirst().getRead());
+        var notification = notificationService.getUserNotifications(recipient.getId(), query).getRecords().getFirst();
+        assertTrue(notification.getRead());
+        assertNull(notification.getArticleTitle());
 
         disabledRecipient.setStatus(UserStatus.ACTIVE);
         userMapper.updateById(disabledRecipient);
@@ -140,6 +153,51 @@ class NotificationIntegrationTest {
         assertTrue(recipientUserIds(draft.getId()).contains(recipient.getId()));
     }
 
+    @ParameterizedTest
+    @EnumSource(value = NotificationStatus.class, names = {"DRAFT", "PUBLISHED"})
+    void deletedRecipientShouldBeRejectedWithSpecificReason(NotificationStatus status) {
+        User admin = createUser("deleted_target_admin", UserRole.ADMIN);
+        User recipient = createUser("deleted_target_user", UserRole.USER);
+        recipient.setDeletedAt(OffsetDateTime.now());
+        userMapper.updateById(recipient);
+        CreateAdminNotificationRequestDTO request = new CreateAdminNotificationRequestDTO();
+        request.setTargetScope(NotificationTargetScope.SELECTED_USERS);
+        request.setUserId(recipient.getId());
+        request.setStatus(status);
+        request.setTitle("非法收件人测试");
+        request.setContent("正文");
+
+        BizException error = assertThrows(BizException.class, () -> notificationService.createAdminMessage(admin.getId(), request));
+
+        assertEquals(ResultCode.PARAM_INVALID, error.getResultCode());
+        assertEquals("指定用户已注销，无法接收管理员消息", error.getMessage());
+        assertEquals(0L, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM blog_notification WHERE created_by = ?", Long.class, admin.getId()));
+    }
+
+    @Test
+    void selectedDraftShouldNotPublishAfterRecipientWasDeleted() {
+        User admin = createUser("deleted_draft_admin", UserRole.ADMIN);
+        User recipient = createUser("deleted_draft_user", UserRole.USER);
+        CreateAdminNotificationRequestDTO request = new CreateAdminNotificationRequestDTO();
+        request.setTargetScope(NotificationTargetScope.SELECTED_USERS);
+        request.setUserId(recipient.getId());
+        request.setStatus(NotificationStatus.DRAFT);
+        request.setTitle("待发布消息");
+        request.setContent("正文");
+        var draft = notificationService.createAdminMessage(admin.getId(), request);
+        recipient.setDeletedAt(OffsetDateTime.now());
+        userMapper.updateById(recipient);
+
+        BizException error = assertThrows(BizException.class,
+                () -> notificationService.updateAdminMessageStatus(draft.getId(), "PUBLISHED"));
+
+        assertEquals(ResultCode.PARAM_INVALID, error.getResultCode());
+        assertEquals("指定用户已注销，无法接收管理员消息", error.getMessage());
+        assertEquals(NotificationStatus.DRAFT, notificationMapper.selectById(draft.getId()).getStatus());
+        assertTrue(recipientUserIds(draft.getId()).isEmpty());
+    }
+
     @Test
     void notificationMapperShouldStoreReplySource() {
         Notification notification = Notification.builder()
@@ -163,6 +221,9 @@ class NotificationIntegrationTest {
     void replyNotificationsShouldIncludeAuthorOriginalContentAndDestination() {
         User recipient = createUser("notify_reader", UserRole.USER);
         User author = createUser("notify_writer", UserRole.ADMIN);
+        var article = articleMapper.selectById(40001L);
+        article.setTitle("通知关联的文章");
+        articleMapper.updateById(article);
         Comment originalComment = Comment.builder()
                 .articleId(40001L)
                 .userId(recipient.getId())
@@ -223,15 +284,23 @@ class NotificationIntegrationTest {
         assertEquals(author.getNickname(), commentNotification.getAuthorName());
         assertEquals("我的原评论", commentNotification.getOriginalContent());
         assertEquals(40001L, commentNotification.getArticleId());
+        assertEquals("通知关联的文章", commentNotification.getArticleTitle());
         assertEquals(originalComment.getId(), commentNotification.getParentId());
         var messageNotification = records.stream().filter(item -> item.getType() == NotificationType.MESSAGE_REPLY)
                 .findFirst().orElseThrow();
         assertEquals(author.getNickname(), messageNotification.getAuthorName());
         assertEquals("我的原留言", messageNotification.getOriginalContent());
         assertEquals(originalMessage.getId(), messageNotification.getParentId());
+        assertNull(messageNotification.getArticleTitle());
         assertEquals(null, messageNotification.getLiked());
         assertEquals(null, messageNotification.getCanInteract());
         assertEquals(null, messageNotification.getLikeCount());
+
+        article.setTitle("更新后的文章标题");
+        articleMapper.updateById(article);
+        query.setType(NotificationType.COMMENT_REPLY);
+        assertEquals("更新后的文章标题", notificationService.getUserNotifications(recipient.getId(), query)
+                .getRecords().getFirst().getArticleTitle());
     }
 
     @Test

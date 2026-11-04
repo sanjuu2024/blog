@@ -485,6 +485,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdminNotificationResponse'
+        '400':
+          $ref: '#/components/responses/AdminNotificationBadRequestResponse'
   /api/v1/admin/notifications/{notificationId}/status:
     patch:
       tags: [Admin Notifications]
@@ -508,6 +510,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdminNotificationResponse'
+        '400':
+          $ref: '#/components/responses/AdminNotificationBadRequestResponse'
   /api/v1/admin/notifications/{notificationId}:
     put:
       tags: [Admin Notifications]
@@ -531,6 +535,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdminNotificationResponse'
+        '400':
+          $ref: '#/components/responses/AdminNotificationBadRequestResponse'
   /api/v1/about:
     get:
       tags:
@@ -3215,6 +3221,10 @@ components:
         authorName: { type: string, nullable: true }
         originalContent: { type: string, nullable: true }
         articleId: { type: integer, format: int64, nullable: true }
+        articleTitle:
+          type: string
+          nullable: true
+          description: 评论回复关联文章的当前标题；文章信息缺失、留言回复或管理员消息时为 null
         parentId: { type: integer, format: int64, nullable: true }
         likeCount:
           type: integer
@@ -3326,13 +3336,19 @@ components:
               $ref: '#/components/schemas/AdminNotificationItem'
     MailDeliveryItem:
       type: object
-      required: [id, mailType, sourceId, replyId, recipientMasked, status, attemptCount, createdAt]
+      required: [id, mailType, sourceId, replyId, recipientEmail, recipientMasked, currentRecipientEmail, userId, userUsername, userNickname, userDeleted, status, attemptCount, createdAt]
       properties:
         id: { type: integer, format: int64 }
         mailType: { type: string, enum: [COMMENT_REPLY, MESSAGE_REPLY] }
         sourceId: { type: integer, format: int64 }
         replyId: { type: integer, format: int64 }
-        recipientMasked: { type: string }
+        recipientEmail: { type: string, nullable: true, description: 创建时或最近发送尝试的完整目标邮箱；旧记录未保存时为 null }
+        recipientMasked: { type: string, nullable: true, description: 旧记录保存的脱敏地址，新记录为空 }
+        currentRecipientEmail: { type: string, nullable: true, description: 关联账号或游客留言的当前邮箱，仅供排错参考，不代表历史实际投递地址；注销账号为空 }
+        userId: { type: integer, format: int64, nullable: true, description: 业务关联的收件用户，游客为空 }
+        userUsername: { type: string, nullable: true, description: 当前用户名，注销时为占位用户名 }
+        userNickname: { type: string, nullable: true, description: 当前昵称，注销后为空 }
+        userDeleted: { type: boolean, nullable: true, description: 当前注销状态；游客或用户资料不存在时为空 }
         status: { type: string, enum: [PENDING, SENT, FAILED] }
         attemptCount: { type: integer }
         lastErrorType: { type: string, nullable: true }
@@ -5887,6 +5903,28 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+    AdminNotificationBadRequestResponse:
+      description: 管理员消息参数或收件范围不合法；创建、修改及首次发布均校验指定用户
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            invalidParameters:
+              value:
+                code: 199001
+                message: 请求参数不合法
+                data: null
+            recipientNotFound:
+              value:
+                code: 199001
+                message: 指定用户不存在
+                data: null
+            recipientDeleted:
+              value:
+                code: 199001
+                message: 指定用户已注销，无法接收管理员消息
+                data: null
     BadRequestResponse:
       description: 请求参数不合法
       content:

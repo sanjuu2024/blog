@@ -40,6 +40,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.security.SignatureException;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -68,6 +69,7 @@ public class AuthServiceImpl implements AuthService {
     private final SecurityEventService securityEventService;
     private final LoginRateLimiter loginRateLimiter;
     private final RefreshTokenRetryCache refreshTokenRetryCache;
+    private final MeterRegistry meterRegistry;
 
     /**
      * 用户注册
@@ -249,6 +251,8 @@ public class AuthServiceImpl implements AuthService {
         try {
             validatedRefreshToken = validateRefreshToken(refreshToken, true);
         } catch (RefreshTokenValidationException ex) {
+            // 游客初始化没有 RT 属于预期情况，仍返回原错误码，但不生成安全事件。
+            if ("TOKEN_MISSING".equals(ex.reason)) throw ex;
             recordSecurityEvent(SecurityEventType.TOKEN_REFRESH, SecurityEventOutcome.FAILURE,
                     ex.userId, null, null, ex.description);
             log.warn("security_event=TOKEN_REFRESH_FAILED outcome=FAIL reason={} userId={}", ex.reason, ex.userId);
@@ -307,9 +311,7 @@ public class AuthServiceImpl implements AuthService {
             throw ex;
         }
 
-        log.info("security_event=TOKEN_REFRESH_SUCCESS description=\"登录态刷新成功\" outcome=SUCCESS userId={}", user.getId());
-        recordSecurityEvent(SecurityEventType.TOKEN_REFRESH, SecurityEventOutcome.SUCCESS,
-                user.getId(), null, null, "登录态刷新成功");
+        meterRegistry.counter("blog.auth.refresh.success").increment();
 
         // 🍰5. 封装返回
         return RefreshTokenVO.builder()

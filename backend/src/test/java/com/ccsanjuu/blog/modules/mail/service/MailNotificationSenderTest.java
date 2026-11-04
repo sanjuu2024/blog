@@ -18,6 +18,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class MailNotificationSenderTest {
@@ -42,7 +44,7 @@ class MailNotificationSenderTest {
         sender = new MailNotificationSender(mailSenderProvider, properties, Runnable::run, mailDeliveryService);
         mimeMessage = new MimeMessage(Session.getInstance(System.getProperties()));
         when(mailSenderProvider.getIfAvailable()).thenReturn(mailSender);
-        when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
+        lenient().when(mailSender.createMimeMessage()).thenReturn(mimeMessage);
     }
 
     @Test
@@ -53,6 +55,7 @@ class MailNotificationSenderTest {
         );
 
         verify(mailSender).send(mimeMessage);
+        verify(mailDeliveryService).updateRecipient(1L, "user@example.com");
         verify(mailDeliveryService).markSent(1L);
         mimeMessage.saveChanges();
         assertTrue(mimeMessage.getContentType().toLowerCase().contains("multipart/alternative"));
@@ -69,5 +72,17 @@ class MailNotificationSenderTest {
 
         verify(mailDeliveryService).markAttempt(1L, MailDeliveryStatus.FAILED,
                 "MailPreparationException", "邮件准备失败");
+    }
+
+    @Test
+    void shouldNotSendOrOverwriteRecipientWhenSourceValidationFails() {
+        sender.submit(MailDelivery.builder().id(1L).build(), () -> {
+            throw new IllegalStateException("订阅已关闭");
+        });
+
+        verify(mailSender, never()).send(any(MimeMessage.class));
+        verify(mailDeliveryService, never()).updateRecipient(any(), any());
+        verify(mailDeliveryService).markAttempt(1L, MailDeliveryStatus.FAILED,
+                "IllegalStateException", "邮件发送过程中发生运行时错误");
     }
 }

@@ -89,6 +89,7 @@ public class NotificationServiceImpl implements NotificationService {
                         .authorName(item.getAuthorName())
                         .originalContent(item.getOriginalContent())
                         .articleId(item.getArticleId())
+                        .articleTitle(item.getArticleTitle())
                         .parentId(item.getParentId())
                         .likeCount(item.getLikeCount())
                         .liked(item.getLiked())
@@ -258,6 +259,7 @@ public class NotificationServiceImpl implements NotificationService {
             if (current.getTargetScope() == NotificationTargetScope.ALL_USERS) {
                 insertRecipientsForAllUsers(notificationId, current.getCreatedBy());
             } else {
+                validateSelectedUser(current.getSelectedUserId());
                 insertSelectedRecipient(notificationId, current.getSelectedUserId(), current.getCreatedBy());
             }
         }
@@ -401,8 +403,11 @@ public class NotificationServiceImpl implements NotificationService {
     private void validateSelectedUser(Long userId) {
         if (userId != null) {
             User user = userMapper.selectById(userId);
-            if (user == null || user.getDeletedAt() != null) {
-                throw new BizException(ResultCode.PARAM_INVALID);
+            if (user == null) {
+                throw new BizException(ResultCode.PARAM_INVALID, "指定用户不存在");
+            }
+            if (user.getDeletedAt() != null) {
+                throw new BizException(ResultCode.PARAM_INVALID, "指定用户已注销，无法接收管理员消息");
             }
         }
     }

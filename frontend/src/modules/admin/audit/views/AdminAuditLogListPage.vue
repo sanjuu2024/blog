@@ -194,7 +194,17 @@
 						<template #default="{ row }: { row: AdminAuditLogItem }">
 							<strong>{{ getActionLabel(row.action, row.resourceType) }}</strong>
 							<p
-								v-if="row.actionDetail"
+								v-if="
+									row.resourceType === AUDIT_RESOURCE_TYPE.MESSAGE &&
+									row.action === AUDIT_ACTION.CREATE &&
+									row.requestPath === '/api/v1/admin/messages/announcements'
+								"
+								class="admin-audit-log__secondary"
+							>
+								公告
+							</p>
+							<p
+								v-else-if="row.actionDetail"
 								class="admin-audit-log__secondary"
 							>
 								{{ getDetailLabel(row.actionDetail) }}

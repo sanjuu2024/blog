@@ -1,5 +1,6 @@
 package com.ccsanjuu.blog.modules.auth.service.impl;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.common.util.JwtUtil;
@@ -89,6 +90,7 @@ class AuthServiceImplCoreFlowTest {
     private RefreshTokenRetryCache refreshTokenRetryCache;
 
     private AuthServiceImpl authService;
+    private SimpleMeterRegistry meterRegistry;
 
     @BeforeEach
     void setUp() {
@@ -98,6 +100,7 @@ class AuthServiceImplCoreFlowTest {
                 Duration.ofMinutes(15),
                 Duration.ofDays(7)
         );
+        meterRegistry = new SimpleMeterRegistry();
         authService = new AuthServiceImpl(
                 userMapper,
                 passwordEncoder,
@@ -108,7 +111,8 @@ class AuthServiceImplCoreFlowTest {
                 registrationEmailVerificationService,
                 securityEventService,
                 loginRateLimiter,
-                refreshTokenRetryCache
+                refreshTokenRetryCache,
+                meterRegistry
         );
         lenient().when(privacyPolicyService.compareTo(any())).thenReturn(true);
     }
@@ -364,8 +368,9 @@ class AuthServiceImplCoreFlowTest {
         verify(authMapper, org.mockito.Mockito.times(2)).selectRefreshSession(any(), any());
         verify(authMapper).update(any(AuthSession.class), any());
         verify(authMapper).insert(any(AuthSession.class));
-        assertTrue(output.getOut().contains("security_event=TOKEN_REFRESH_SUCCESS"));
-        assertTrue(output.getOut().contains("description=\"登录态刷新成功\""));
+        assertFalse(output.getOut().contains("security_event=TOKEN_REFRESH_SUCCESS"));
+        verifyNoInteractions(securityEventService);
+        assertEquals(1.0, meterRegistry.get("blog.auth.refresh.success").counter().count());
         assertFalse(output.getOut().contains(oldRefreshToken));
     }
 
@@ -483,8 +488,11 @@ class AuthServiceImplCoreFlowTest {
     }
 
     @Test
-    void missingTokenShouldHaveConcreteReasonWithoutUserId() {
-        assertRefreshFailure(null, null, "Refresh Token 缺失");
+    void missingTokenShouldFailWithoutCreatingSecurityEvent() {
+        BizException error = assertThrows(BizException.class, () -> authService.refresh(
+                RefreshTokenRequestDTO.builder().refreshToken(null).build()));
+        assertEquals(ResultCode.REFRESH_TOKEN_INVALID_OR_EXPIRED, error.getResultCode());
+        verifyNoInteractions(securityEventService);
         verifyNoSessionChanges();
     }
 

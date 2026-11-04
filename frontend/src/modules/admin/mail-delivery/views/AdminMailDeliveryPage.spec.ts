@@ -24,7 +24,13 @@ describe('AdminMailDeliveryPage', () => {
 			mailType: 'MESSAGE_REPLY',
 			sourceId: 10,
 			replyId: 11,
-			recipientMasked: 't***@example.com',
+			recipientEmail: 'test@example.com',
+			recipientMasked: null,
+			currentRecipientEmail: null,
+			userId: 10002,
+			userUsername: 'test-user',
+			userNickname: '测试用户',
+			userDeleted: false,
 			status: 'SENT',
 			attemptCount: 1,
 			lastErrorType: null,
@@ -85,5 +91,58 @@ describe('AdminMailDeliveryPage', () => {
 		await flushPromises();
 
 		expect(wrapper.get('[data-label="最近尝试时间"]').text()).toBe('-');
+	});
+
+	it('shows the full recipient address and the current user profile', async () => {
+		const wrapper = mountPage();
+		await flushPromises();
+
+		expect(wrapper.get('[data-label="收件地址"]').text()).toBe('test@example.com');
+		const user = wrapper.get('[data-label="收件用户"]');
+		expect(user.text()).toContain('测试用户');
+		expect(user.text()).toContain('test-user');
+		expect(user.text()).toContain('10002');
+	});
+
+	it('shows a deleted identity without reusing the previous nickname', async () => {
+		mailDelivery.userDeleted = true;
+		mailDelivery.userUsername = 'deleted_10002';
+		const wrapper = mountPage();
+		await flushPromises();
+
+		expect(wrapper.get('[data-label="收件用户"]').text()).toContain('账号已注销');
+		expect(wrapper.get('[data-label="收件用户"]').text()).toContain('deleted_10002');
+		expect(wrapper.get('[data-label="收件用户"]').text()).not.toContain('测试用户');
+	});
+
+	it('shows guests and explicitly identifies missing historical addresses', async () => {
+		mailDelivery.userId = null;
+		mailDelivery.recipientEmail = null;
+		const wrapper = mountPage();
+		await flushPromises();
+
+		expect(wrapper.get('[data-label="收件用户"]').text()).toBe('游客');
+		expect(wrapper.get('[data-label="收件地址"]').text()).toBe('未记录');
+	});
+
+	it('keeps the historical masked address and labels the current address as a reference', async () => {
+		mailDelivery.recipientEmail = null;
+		mailDelivery.recipientMasked = 'o***@example.com';
+		mailDelivery.currentRecipientEmail = 'current@example.com';
+		const wrapper = mountPage();
+		await flushPromises();
+
+		const address = wrapper.get('[data-label="收件地址"]');
+		expect(address.text()).toContain('current@example.com');
+		expect(address.text()).toContain('当前邮箱，历史地址未记录');
+		expect(address.text()).toContain('历史脱敏地址：o***@example.com');
+	});
+
+	it('prioritizes the recorded recipient over a changed current address', async () => {
+		mailDelivery.currentRecipientEmail = 'current@example.com';
+		const wrapper = mountPage();
+		await flushPromises();
+
+		expect(wrapper.get('[data-label="收件地址"]').text()).toBe('test@example.com');
 	});
 });

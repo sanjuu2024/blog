@@ -26,6 +26,7 @@ export interface NotificationItem {
 	authorName: string | null;
 	originalContent: string | null;
 	articleId: number | null;
+	articleTitle: string | null;
 	parentId: number | null;
 	likeCount?: number;
 	liked?: boolean;

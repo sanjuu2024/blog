@@ -481,6 +481,21 @@ P2 功能、自动化测试和全量验收稳定后再锁定正式服务器变�
 - 至少监控 HTTPS 可用性、容器停止、磁盘阈值、备份失败和邮件持续失败，并配置外部告警渠道
 - Prometheus + Grafana 作为上线后迭代，不阻塞首次上线；上线前不得完全依赖人工查看日志
 
+Grafana 负责展示和告警，不执行数据库备份或业务表清理。数据库备份由服务器 cron / systemd timer 调用 `pg_dump`，配套异机保存、任务失败告警及恢复演练；本次不新增备份执行脚本。
+
+应用在非 test、非 bootstrap-admin 环境启用每日 UTC 03:30 的安全数据维护：安全事件保留 90 天，认证会话在 `expires_at` 过期超过 7 天后删除，未到期的撤销会话不删除。每表每次最多删除 100 批、每批 1000 条，积压留待下一轮；不清理后台操作审计。可用 `blog.security-maintenance.enabled=false` 关闭调度，保留期和 cron 可由同前缀配置调整。普通刷新成功只累计 `blog.auth.refresh.success` 指标，RT 缺失不写安全事件；其他异常暂不聚合。数据库删除后的空间通常供后续写入复用，不保证立即归还操作系统，仍需监控表、索引和备份大小。
+
+以下配置已在 `backend/src/main/resources/application.yaml` 中显式列出；生产环境继承通用配置，可通过 Spring Boot 配置覆盖。`test` 和 `bootstrap-admin` profile 始终不启用定时调度。
+
+```yaml
+blog:
+  security-maintenance:
+    enabled: true
+    cron: "0 30 3 * * *" # UTC，北京时间 11:30
+    event-retention-days: 90
+    session-retention-days: 7
+```
+
 P2 上线新增配置至少包括：
 
 ```text

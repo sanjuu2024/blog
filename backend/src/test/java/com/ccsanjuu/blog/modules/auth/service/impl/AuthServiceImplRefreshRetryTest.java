@@ -1,5 +1,6 @@
 package com.ccsanjuu.blog.modules.auth.service.impl;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
@@ -85,7 +86,8 @@ class AuthServiceImplRefreshRetryTest {
                 new JwtProperties("blog-test", "unused", Duration.ofMinutes(15), Duration.ofDays(7)),
                 KEY, authMapper, mock(PrivacyPolicyService.class),
                 mock(RegistrationEmailVerificationService.class), mock(SecurityEventService.class),
-                mock(LoginRateLimiter.class), retryCache);
+                mock(LoginRateLimiter.class), retryCache,
+                new SimpleMeterRegistry());
         previousToken = JwtUtil.generateRefreshToken(KEY, "blog-test", Duration.ofDays(7), USER_ID, "previous");
         successorToken = JwtUtil.generateRefreshToken(KEY, "blog-test", Duration.ofDays(7), USER_ID, "successor");
         previousSession = session(previousToken, "previous", AuthSessionStatus.REVOKED);

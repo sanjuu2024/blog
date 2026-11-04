@@ -9,6 +9,7 @@
                COALESCE(reply_user.nickname, reply_message.nickname) AS author_name,
                COALESCE(parent_comment.content, parent_message.content) AS original_content,
                reply_comment.article_id,
+               article.title AS article_title,
                COALESCE(reply_comment.parent_id, reply_message.parent_id) AS parent_id,
                CASE WHEN n.type = 'COMMENT_REPLY' THEN reply_comment.like_count ELSE NULL END AS like_count,
                CASE WHEN n.type = 'COMMENT_REPLY' THEN comment_like.id IS NOT NULL ELSE NULL END AS liked,

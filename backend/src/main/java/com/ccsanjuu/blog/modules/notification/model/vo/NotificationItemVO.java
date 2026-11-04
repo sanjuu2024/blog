@@ -31,6 +31,8 @@ public class NotificationItemVO {
 
     private Long articleId;
 
+    private String articleTitle;
+
     private Long parentId;
 
     @JsonInclude(JsonInclude.Include.NON_NULL)

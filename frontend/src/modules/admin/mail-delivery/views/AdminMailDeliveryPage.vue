@@ -87,10 +87,55 @@
 						</template>
 					</el-table-column>
 					<el-table-column
-						prop="recipientMasked"
+						label="收件用户"
+						min-width="220"
+					>
+						<template #default="{ row }: { row: AdminMailDeliveryItem }">
+							<template v-if="row.userId !== null">
+								<p :class="{ 'admin-mail-delivery__deleted': row.userDeleted }">
+									{{
+										row.userDeleted
+											? '账号已注销'
+											: row.userNickname ||
+												row.userUsername ||
+												'用户资料不存在'
+									}}
+									<span v-if="row.userUsername">（{{ row.userUsername }}）</span>
+								</p>
+								<p class="admin-mail-delivery__secondary">ID：{{ row.userId }}</p>
+							</template>
+							<span v-else>游客</span>
+						</template>
+					</el-table-column>
+					<el-table-column
 						label="收件地址"
+						min-width="220"
 						align="center"
-					/>
+						show-overflow-tooltip
+					>
+						<template #default="{ row }: { row: AdminMailDeliveryItem }">
+							<template v-if="row.recipientEmail">{{ row.recipientEmail }}</template>
+							<template v-else>
+								<p>
+									{{
+										row.currentRecipientEmail || row.recipientMasked || '未记录'
+									}}
+								</p>
+								<p
+									v-if="row.currentRecipientEmail"
+									class="admin-mail-delivery__secondary"
+								>
+									当前邮箱，历史地址未记录
+								</p>
+								<p
+									v-if="row.recipientMasked"
+									class="admin-mail-delivery__secondary"
+								>
+									历史脱敏地址：{{ row.recipientMasked }}
+								</p>
+							</template>
+						</template>
+					</el-table-column>
 					<el-table-column
 						label="状态"
 						align="center"
@@ -195,8 +240,39 @@
 				<el-descriptions-item label="类型">
 					{{ getMailTypeLabel(detail.mailType) }}
 				</el-descriptions-item>
-				<el-descriptions-item label="脱敏收件地址">
-					{{ detail.recipientMasked }}
+				<el-descriptions-item label="收件用户">
+					<template v-if="detail.userId !== null">
+						<p :class="{ 'admin-mail-delivery__deleted': detail.userDeleted }">
+							{{
+								detail.userDeleted
+									? '账号已注销'
+									: detail.userNickname || detail.userUsername || '用户资料不存在'
+							}}
+							<span v-if="detail.userUsername">（{{ detail.userUsername }}）</span>
+						</p>
+						<p class="admin-mail-delivery__secondary">ID：{{ detail.userId }}</p>
+					</template>
+					<span v-else>游客</span>
+				</el-descriptions-item>
+				<el-descriptions-item label="收件地址">
+					<template v-if="detail.recipientEmail">{{ detail.recipientEmail }}</template>
+					<template v-else>
+						<p>
+							{{ detail.currentRecipientEmail || detail.recipientMasked || '未记录' }}
+						</p>
+						<p
+							v-if="detail.currentRecipientEmail"
+							class="admin-mail-delivery__secondary"
+						>
+							当前邮箱，历史地址未记录
+						</p>
+						<p
+							v-if="detail.recipientMasked"
+							class="admin-mail-delivery__secondary"
+						>
+							历史脱敏地址：{{ detail.recipientMasked }}
+						</p>
+					</template>
 				</el-descriptions-item>
 				<el-descriptions-item label="投递状态">
 					<el-tag
@@ -345,6 +421,15 @@ onMounted(() => void load(1));
 </script>
 
 <style scoped lang="scss">
+.admin-mail-delivery__secondary {
+	color: var(--app-text-muted);
+	font-size: 0.8rem;
+}
+
+.admin-mail-delivery__deleted {
+	color: var(--app-text-muted-more);
+}
+
 .admin-mail-delivery {
 	height: 100%;
 	min-height: 0;
