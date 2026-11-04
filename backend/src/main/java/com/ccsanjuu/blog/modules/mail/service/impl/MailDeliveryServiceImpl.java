@@ -1,6 +1,6 @@
 package com.ccsanjuu.blog.modules.mail.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ccsanjuu.blog.common.api.PageResult;
 import com.ccsanjuu.blog.common.api.ResultCode;
@@ -16,6 +16,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.ccsanjuu.blog.modules.message.service.MessageReplyNotificationService;
 import com.ccsanjuu.blog.modules.comment.service.CommentReplyNotificationService;
 
@@ -39,16 +42,9 @@ public class MailDeliveryServiceImpl implements MailDeliveryService {
     @Override
     @Transactional(readOnly = true)
     public PageResult<MailDeliveryItemVO> getPage(MailDeliveryQueryDTO queryDTO) {
-        Page<MailDelivery> page = Page.of(queryDTO.getPageNum(), queryDTO.getPageSize());
-        mailDeliveryMapper.selectPage(page, new LambdaQueryWrapper<MailDelivery>()
-                .eq(queryDTO.getMailType() != null, MailDelivery::getMailType, queryDTO.getMailType())
-                .eq(queryDTO.getStatus() != null, MailDelivery::getStatus, queryDTO.getStatus())
-                .ge(queryDTO.getCreatedAtFrom() != null, MailDelivery::getCreatedAt, queryDTO.getCreatedAtFrom())
-                .le(queryDTO.getCreatedAtTo() != null, MailDelivery::getCreatedAt, queryDTO.getCreatedAtTo())
-                .orderByDesc(MailDelivery::getCreatedAt)
-                .orderByDesc(MailDelivery::getId));
-        return PageResult.of(page.getTotal(), page.getCurrent(), page.getSize(),
-                page.getRecords().stream().map(this::toVO).toList());
+        Page<MailDeliveryItemVO> page = Page.of(queryDTO.getPageNum(), queryDTO.getPageSize());
+        mailDeliveryMapper.selectAdminPage(page, queryDTO);
+        return PageResult.of(page);
     }
 
     /**
@@ -60,9 +56,9 @@ public class MailDeliveryServiceImpl implements MailDeliveryService {
     @Override
     @Transactional(readOnly = true)
     public MailDeliveryItemVO getDetail(Long deliveryId) {
-        MailDelivery delivery = mailDeliveryMapper.selectById(deliveryId);
+        MailDeliveryItemVO delivery = mailDeliveryMapper.selectAdminDetail(deliveryId);
         if (delivery == null) throw new BizException(ResultCode.RESOURCE_NOT_FOUND);
-        return toVO(delivery);
+        return delivery;
     }
 
     /**
@@ -80,11 +76,27 @@ public class MailDeliveryServiceImpl implements MailDeliveryService {
         delivery.setStatus(MailDeliveryStatus.PENDING);
         delivery.setLastErrorType(null);
         delivery.setLastErrorMessage(null);
-        mailDeliveryMapper.updateById(delivery);
-        if (delivery.getMailType() == MailType.MESSAGE_REPLY) {
-            messageReplyNotificationService.getObject().retry(delivery);
-        } else if (delivery.getMailType() == MailType.COMMENT_REPLY) {
-            commentReplyNotificationService.getObject().retry(delivery);
+        mailDeliveryMapper.update(delivery, new LambdaUpdateWrapper<MailDelivery>()
+                .eq(MailDelivery::getId, deliveryId)
+                .set(MailDelivery::getLastErrorType, null)
+                .set(MailDelivery::getLastErrorMessage, null));
+        Runnable task = () -> {
+            if (delivery.getMailType() == MailType.MESSAGE_REPLY) {
+                messageReplyNotificationService.getObject().retry(delivery);
+            } else if (delivery.getMailType() == MailType.COMMENT_REPLY) {
+                commentReplyNotificationService.getObject().retry(delivery);
+            }
+        };
+        // 先提交状态及审计，再启动任务，避免未提交时发信或事务回滚后仍发送。
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    task.run();
+                }
+            });
+        } else {
+            task.run();
         }
     }
 
@@ -94,22 +106,37 @@ public class MailDeliveryServiceImpl implements MailDeliveryService {
      * @param mailType 邮件类型
      * @param sourceId 原始业务 ID
      * @param replyId 回复 ID
-     * @param recipient 原始收件地址，仅用于生成脱敏地址
+     * @param recipient 完整收件地址
+     * @param userId 收件用户 ID，游客为空
      * @return
      */
     @Override
-    @Transactional
-    public MailDelivery createPending(String mailType, Long sourceId, Long replyId, String recipient) {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public MailDelivery createPending(String mailType, Long sourceId, Long replyId, String recipient, Long userId) {
         MailDelivery delivery = MailDelivery.builder()
                 .mailType(MailType.valueOf(mailType.toUpperCase(Locale.ROOT)))
                 .sourceId(sourceId)
                 .replyId(replyId)
-                .recipientMasked(maskRecipient(recipient))
+                .recipientEmail(recipient)
+                .recipientUserId(userId)
                 .status(MailDeliveryStatus.PENDING)
                 .attemptCount(0)
                 .build();
         mailDeliveryMapper.insert(delivery);
         return delivery;
+    }
+
+    /**
+     * 在实际发送前保存本次收件目标。
+     *
+     * @param deliveryId 投递记录 ID
+     * @param recipient 完整收件地址
+     */
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void updateRecipient(Long deliveryId, String recipient) {
+        mailDeliveryMapper.update(MailDelivery.builder().recipientEmail(recipient).build(),
+                new LambdaUpdateWrapper<MailDelivery>().eq(MailDelivery::getId, deliveryId));
     }
 
     /**
@@ -121,7 +148,7 @@ public class MailDeliveryServiceImpl implements MailDeliveryService {
      * @param errorMessage 安全错误摘要
      */
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markAttempt(Long deliveryId, MailDeliveryStatus status, String errorType, String errorMessage) {
         MailDelivery delivery = mailDeliveryMapper.selectById(deliveryId);
         if (delivery == null) return;
@@ -139,7 +166,7 @@ public class MailDeliveryServiceImpl implements MailDeliveryService {
      * @param deliveryId 投递记录 ID
      */
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markSent(Long deliveryId) {
         MailDelivery delivery = mailDeliveryMapper.selectById(deliveryId);
         if (delivery == null) return;
@@ -148,23 +175,5 @@ public class MailDeliveryServiceImpl implements MailDeliveryService {
         delivery.setLastAttemptAt(OffsetDateTime.now(ZoneOffset.UTC));
         delivery.setAttemptCount((delivery.getAttemptCount() == null ? 0 : delivery.getAttemptCount()) + 1);
         mailDeliveryMapper.updateById(delivery);
-    }
-
-    private MailDeliveryItemVO toVO(MailDelivery delivery) {
-        return MailDeliveryItemVO.builder()
-                .id(delivery.getId()).mailType(delivery.getMailType()).sourceId(delivery.getSourceId())
-                .replyId(delivery.getReplyId()).recipientMasked(delivery.getRecipientMasked())
-                .status(delivery.getStatus()).attemptCount(delivery.getAttemptCount())
-                .lastErrorType(delivery.getLastErrorType()).lastErrorMessage(delivery.getLastErrorMessage())
-                .sentAt(delivery.getSentAt()).lastAttemptAt(delivery.getLastAttemptAt())
-                .createdAt(delivery.getCreatedAt()).build();
-    }
-
-    private String maskRecipient(String recipient) {
-        if (recipient == null || recipient.isBlank()) return "***";
-        int at = recipient.indexOf('@');
-        if (at <= 0) return "***";
-        String local = recipient.substring(0, at);
-        return (local.length() <= 2 ? "*" : local.charAt(0) + "***") + recipient.substring(at);
     }
 }

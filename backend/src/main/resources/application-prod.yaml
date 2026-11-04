@@ -11,6 +11,9 @@ blog:
   auth:
     refresh-cookie:
       secure: true
+  jwt:
+    access-ttl: 15m
+    refresh-ttl: 30d
   mail:
     enabled: ${BLOG_MAIL_ENABLED:true}
     frontend-base-url: ${BLOG_MAIL_FRONTEND_BASE_URL:}

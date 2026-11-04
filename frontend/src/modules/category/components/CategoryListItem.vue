@@ -80,7 +80,7 @@ function handleClickArrow() {
 		width: 100%;
 
 		&.category-list-item__inner--border-left {
-			border-left: 4px solid var(--app-router-hover);
+			border-left: 4px solid var(--app-archive-router-hover);
 		}
 
 		.category-list-item__arrow {
@@ -100,11 +100,11 @@ function handleClickArrow() {
 			color: var(--app-text-muted);
 
 			&:hover {
-				background-color: var(--app-router-hover);
+				background-color: var(--app-archive-router-hover);
 			}
 
 			&.is-active {
-				background-color: var(--app-router-hover);
+				background-color: var(--app-archive-router-hover);
 				color: var(--app-text);
 			}
 

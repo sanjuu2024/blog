@@ -3,6 +3,7 @@ package com.ccsanjuu.blog.modules.auth.service.impl;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.common.util.JwtUtil;
+import com.ccsanjuu.blog.modules.auth.model.enums.EmailVerificationPurpose;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.properties.BlogProperties;
 import com.ccsanjuu.blog.properties.BlogMailProperties;
@@ -94,6 +95,27 @@ class RegistrationEmailVerificationServiceImplTest {
                 () -> service.sendCode("alice@example.com", "127.0.0.1"));
 
         assertEquals(ResultCode.EMAIL_EXISTS, exception.getResultCode());
+        verify(stringRedisTemplate, never()).execute(any(RedisScript.class), anyList(), any(Object[].class));
+        verify(mailSenderProvider, never()).getIfAvailable();
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    void sendCodeShouldRejectReservedDeletedEmailDomainBeforeConsumingQuota() {
+        List<String> reservedEmails = List.of(
+                "asdf123@DELETED.INVALID",
+                "asdf123@sub.deleted.invalid"
+        );
+        for (EmailVerificationPurpose purpose : EmailVerificationPurpose.values()) {
+            for (String email : reservedEmails) {
+                BizException exception = assertThrows(BizException.class,
+                        () -> service.sendCode(email, "127.0.0.1", purpose));
+
+                assertEquals(ResultCode.PARAM_INVALID, exception.getResultCode());
+            }
+        }
+
+        verify(userMapper, never()).selectCount(any());
         verify(stringRedisTemplate, never()).execute(any(RedisScript.class), anyList(), any(Object[].class));
         verify(mailSenderProvider, never()).getIfAvailable();
         verify(mailSender, never()).send(any(SimpleMailMessage.class));

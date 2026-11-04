@@ -72,6 +72,11 @@ blog:
   auth:
     refresh-cookie:
       secure: true   # 默认为 true 作为安全兜底
+  security-maintenance:
+    enabled: true   # test 和 bootstrap-admin profile 不启用定时调度
+    cron: "0 30 3 * * *"   # 每日 UTC 03:30，北京时间 11:30
+    event-retention-days: 90   # 安全事件保留天数
+    session-retention-days: 7   # 认证会话过期后继续保留的天数
   object-storage:
     provider: ${BLOG_OBJECT_STORAGE_PROVIDER:aliyun}
     endpoint: ${BLOG_OBJECT_STORAGE_ENDPOINT}

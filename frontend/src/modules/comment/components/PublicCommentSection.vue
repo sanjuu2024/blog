@@ -84,7 +84,7 @@
 							:user-id="comment.author.id"
 							:deleted="comment.author.deleted"
 							:is-admin="comment.author.role === 'ADMIN'"
-							:size="36"
+							:size="44"
 							class="mr-3 shrink-0 self-start"
 						/>
 					</PublicUserProfilePopover>
@@ -219,7 +219,7 @@
 										:user-id="reply.author.id"
 										:deleted="reply.author.deleted"
 										:is-admin="reply.author.role === 'ADMIN'"
-										:size="36"
+										:size="44"
 										class="mr-3 shrink-0 self-start"
 									/>
 								</PublicUserProfilePopover>

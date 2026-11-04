@@ -248,7 +248,7 @@ describe('ArticleContent', () => {
 			avatarUrl: '',
 			name: '管理员',
 			userId: 10001,
-			size: 30,
+			size: 32,
 		});
 		expect(wrapper.get('.public-profile-popover-stub').text()).toContain('管理员');
 		wrapper.unmount();
@@ -303,6 +303,36 @@ describe('ArticleContent', () => {
 		});
 		await wrapper.vm.$nextTick();
 		expect(wrapper.find('.article-image__caption').exists()).toBe(false);
+		wrapper.unmount();
+	});
+
+	it('renders bracket-delimited formulas when there are no dollar-delimited formulas', async () => {
+		const currentArticle = article();
+		currentArticle.contentHtml =
+			'<p>\\(a*b=2^{14}\\)</p><p>\\[c*d=2^{23}\\]</p><pre><code>\\(代码中的公式\\)</code></pre>';
+		const wrapper = mount(ArticleContent, {
+			props: { article: currentArticle, isLoading: false },
+			global: {
+				stubs: {
+					RouterLink: RouterLinkStub,
+					ArticleCatalogSidebar: ArticleCatalogSidebarStub,
+					AppImage: true,
+					AppTagCapsule: true,
+					AppUserAvatar: AppUserAvatarStub,
+					PublicUserProfilePopover: PublicUserProfilePopoverStub,
+					ILucideThumbsUp: true,
+				},
+			},
+		});
+
+		await wrapper.vm.$nextTick();
+		await vi.dynamicImportSettled();
+		await flushPromises();
+
+		expect(wrapper.findAll('.article-markdown .katex')).toHaveLength(2);
+		expect(wrapper.findAll('.article-markdown .katex-display')).toHaveLength(1);
+		expect(wrapper.get('.article-markdown pre code').text()).toBe('\\(代码中的公式\\)');
+		expect(wrapper.find('.article-markdown pre .katex').exists()).toBe(false);
 		wrapper.unmount();
 	});
 

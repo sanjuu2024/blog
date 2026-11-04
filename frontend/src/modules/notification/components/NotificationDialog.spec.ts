@@ -84,6 +84,7 @@ describe('NotificationDialog', () => {
 					authorName: '回复者',
 					originalContent: '我的评论',
 					articleId: 40001,
+					articleTitle: 'Vue 与 Spring Boot',
 					parentId: 30000,
 					likeCount: 0,
 					liked: false,
@@ -106,10 +107,24 @@ describe('NotificationDialog', () => {
 		await wrapper.setProps({ modelValue: true });
 		await flushPromises();
 		expect(listNotifications).toHaveBeenCalledOnce();
-		expect(wrapper.text()).toContain('@回复者回复了我的评论');
+		expect(wrapper.text()).toContain('@回复者回复了我在《Vue 与 Spring Boot》中的评论');
 		expect(wrapper.text()).toContain('回复内容');
 		expect(wrapper.text()).toContain('我的评论');
 		expect(wrapper.text()).toContain('2026-09-28');
+	});
+
+	it('shows the article context without empty brackets when the title is unavailable', async () => {
+		const data = await vi.mocked(listNotifications).getMockImplementation()!();
+		data.records[0]!.articleTitle = null;
+		vi.mocked(listNotifications).mockResolvedValueOnce(data);
+		const wrapper = mount(NotificationDialog, {
+			props: { modelValue: true },
+			global: { stubs },
+		});
+		await flushPromises();
+
+		expect(wrapper.text()).toContain('@回复者回复了我在文章中的评论');
+		expect(wrapper.text()).not.toContain('《》');
 	});
 
 	it('navigates to the article comment section from a reply notification', async () => {
@@ -166,6 +181,7 @@ describe('NotificationDialog', () => {
 					authorName: '管理员',
 					originalContent: '我的留言',
 					articleId: null,
+					articleTitle: null,
 					parentId: 90001,
 					read: false,
 					createdAt: '',
@@ -177,6 +193,7 @@ describe('NotificationDialog', () => {
 			global: { stubs },
 		});
 		await flushPromises();
+		expect(wrapper.text()).toContain('@管理员回复了我在留言板的评论');
 		await wrapper.find('.notification-item__content').trigger('click');
 
 		expect(push).toHaveBeenCalledWith({

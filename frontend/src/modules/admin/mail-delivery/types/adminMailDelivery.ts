@@ -8,7 +8,13 @@ export interface AdminMailDeliveryItem {
 	mailType: MailType;
 	sourceId: number;
 	replyId: number;
-	recipientMasked: string;
+	recipientEmail: string | null;
+	recipientMasked: string | null;
+	currentRecipientEmail: string | null;
+	userId: number | null;
+	userUsername: string | null;
+	userNickname: string | null;
+	userDeleted: boolean | null;
 	status: MailDeliveryStatus;
 	attemptCount: number;
 	lastErrorType: string | null;

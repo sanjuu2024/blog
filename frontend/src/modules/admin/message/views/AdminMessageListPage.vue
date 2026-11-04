@@ -182,7 +182,7 @@
 								v-if="row.isAnnouncement"
 								size="small"
 								type="warning"
-								class="mb-1"
+								class="message-announcement-tag mb-1"
 							>
 								{{ row.isPinned ? '置顶公告' : '公告' }}
 							</el-tag>

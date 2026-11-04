@@ -2,8 +2,12 @@ package com.ccsanjuu.blog.modules.comment.service.impl;
 
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
+import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
+import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
+import com.ccsanjuu.blog.modules.category.model.enums.CategoryStatus;
 import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
 import com.ccsanjuu.blog.modules.comment.model.entity.Comment;
+import com.ccsanjuu.blog.modules.comment.model.enums.CommentStatus;
 import com.ccsanjuu.blog.modules.comment.service.CommentReplyNotificationService;
 import com.ccsanjuu.blog.modules.mail.model.bo.MailMessageContent;
 import com.ccsanjuu.blog.modules.mail.model.bo.ReplyMailContent;
@@ -40,6 +44,7 @@ public class CommentReplyNotificationServiceImpl implements CommentReplyNotifica
     private final CommentMapper commentMapper;
     private final ArticleMapper articleMapper;
     private final UserMapper userMapper;
+    private final CategoryMapper categoryMapper;
 
     /**
      * 在事务提交后创建评论回复邮件投递记录，避免回滚事务发送邮件。
@@ -55,9 +60,9 @@ public class CommentReplyNotificationServiceImpl implements CommentReplyNotifica
         Runnable task = () -> {
             try {
                 MailDelivery delivery = mailDeliveryService.createPending(
-                        MailType.COMMENT_REPLY.name(), parentComment.getId(), replyComment.getId(), recipient.getEmail());
+                        MailType.COMMENT_REPLY.name(), parentComment.getId(), replyComment.getId(), recipient.getEmail(), recipient.getId());
                 mailNotificationSender.submit(delivery,
-                        () -> buildMailContent(parentComment, replyComment, recipient));
+                        () -> buildMailContent(parentComment.getId(), replyComment.getId()));
             } catch (RuntimeException exception) {
                 log.error("评论回复邮件调度失败: commentId={}, replyId={}, exceptionType={}",
                         parentComment.getId(), replyComment.getId(), exception.getClass().getSimpleName());
@@ -82,20 +87,36 @@ public class CommentReplyNotificationServiceImpl implements CommentReplyNotifica
      */
     @Override
     public void retry(MailDelivery delivery) {
-        mailNotificationSender.submit(delivery, () -> {
-            Comment parent = commentMapper.selectById(delivery.getSourceId());
-            Comment reply = commentMapper.selectById(delivery.getReplyId());
-            if (parent == null || reply == null) throw new IllegalStateException("评论回复关联数据不可用");
-            User recipient = getSubscribedRecipient(parent);
-            if (recipient == null) throw new IllegalStateException("评论订阅或收件地址不可用");
-            return buildMailContent(parent, reply, recipient);
-        });
+        mailNotificationSender.submit(delivery, () -> buildMailContent(delivery.getSourceId(), delivery.getReplyId()));
     }
 
-    private MailMessageContent buildMailContent(Comment parent, Comment reply, User recipient) {
+    private MailMessageContent buildMailContent(Long sourceId, Long replyId) {
+        Comment parent = commentMapper.selectById(sourceId);
+        Comment reply = commentMapper.selectById(replyId);
+        if (parent == null || reply == null || !parent.getId().equals(reply.getParentId())
+                || !parent.getArticleId().equals(reply.getArticleId())
+                || parent.getStatus() != CommentStatus.APPROVED || reply.getStatus() != CommentStatus.APPROVED) {
+            throw new IllegalStateException("评论回复关联数据不可用");
+        }
+        if (parent.getRootId() != null) {
+            Comment root = commentMapper.selectById(parent.getRootId());
+            if (root == null || root.getStatus() != CommentStatus.APPROVED) {
+                throw new IllegalStateException("所属顶层评论不可见");
+            }
+        }
+        User recipient = getSubscribedRecipient(parent);
+        if (recipient == null) throw new IllegalStateException("评论订阅或收件地址不可用");
         Article article = articleMapper.selectById(reply.getArticleId());
         User replyAuthor = userMapper.selectById(reply.getUserId());
-        if (article == null || replyAuthor == null) throw new IllegalStateException("评论回复关联数据不可用");
+        if (article == null || article.getStatus() != ArticleStatus.PUBLISHED || replyAuthor == null) {
+            throw new IllegalStateException("评论回复关联数据不可用");
+        }
+        var category = categoryMapper.selectById(article.getCategoryId());
+        var parentCategory = category == null ? null : categoryMapper.selectById(category.getParentId());
+        if (category == null || parentCategory == null
+                || category.getStatus() != CategoryStatus.ENABLED || parentCategory.getStatus() != CategoryStatus.ENABLED) {
+            throw new IllegalStateException("评论所属文章不可见");
+        }
 
         String unsubscribeUrl = mailProperties.getFrontendBaseUrl()
                 + "/comments/unsubscribe?token="
@@ -133,6 +154,7 @@ public class CommentReplyNotificationServiceImpl implements CommentReplyNotifica
         }
         User user = userMapper.selectById(comment.getUserId());
         return user != null
+                && user.getDeletedAt() == null
                 && Boolean.TRUE.equals(user.getEmailVerified())
                 && user.getEmail() != null && !user.getEmail().isBlank()
                 ? user : null;

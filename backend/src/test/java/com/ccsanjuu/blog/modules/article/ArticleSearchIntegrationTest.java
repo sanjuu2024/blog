@@ -48,6 +48,37 @@ class ArticleSearchIntegrationTest {
     private TagMapper tagMapper;
 
     @Test
+    void savingArticleShouldPreserveLatexSourceAndRegeneratePreviouslyBrokenHtml() {
+        Long articleId = jdbcTemplate.queryForObject("select id from blog_article where status = 'PUBLISHED' order by id limit 1", Long.class);
+        Article existing = articleMapper.selectById(articleId);
+        String markdown = """
+                \\(a*b=2^{14}\\)
+
+                \\[c*d=2^{23}\\]
+
+                ```cpp
+                int a = 1;
+                ```
+                """;
+        ArticleUpsertRequestDTO request = ArticleUpsertRequestDTO.builder()
+                .title("公式渲染回归").contentMd(markdown).categoryId(existing.getCategoryId())
+                .tagIds(java.util.List.of()).status(ArticleStatus.PUBLISHED).build();
+
+        var created = articleService.createArticle(existing.getAuthorId(), request);
+        Article saved = articleMapper.selectById(created.getId());
+        assertEquals(markdown, saved.getContentMd());
+        assertTrue(saved.getContentHtml().contains("\\(a*b=2^{14}\\)"));
+        assertTrue(saved.getContentHtml().contains("\\[c*d=2^{23}\\]"));
+        assertTrue(saved.getContentText().contains("a*b=2^{14}"));
+
+        articleMapper.updateById(Article.builder().id(created.getId()).contentHtml("<p>(a*b=2^{14})</p>").build());
+        articleService.updateArticle(created.getId(), existing.getAuthorId(), request);
+
+        assertTrue(articleService.getArticleDetail(created.getId()).getContentHtml().contains("\\(a*b=2^{14}\\)"));
+        assertTrue(articleService.getArticleDetail(created.getId()).getContentHtml().contains("\\[c*d=2^{23}\\]"));
+    }
+
+    @Test
     void disabledAssociationsShouldAllowAdminSaveWhileKeepingPublicVisibilityRules() {
         Long articleId = jdbcTemplate.queryForObject("select id from blog_article where status = 'PUBLISHED' order by id limit 1", Long.class);
         Article existing = articleMapper.selectById(articleId);

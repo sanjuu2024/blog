@@ -91,6 +91,41 @@ class SeoServiceImplTest {
     }
 
     @Test
+    void notFoundHtmlShouldKeepBuildAssetsWithoutStaleMetadataOrSeparateErrorBody() throws Exception {
+        Files.writeString(template, "<html><head><title>旧文章</title>"
+                + "<link rel=\"canonical\" href=\"https://blog.example.com/articles/34\">"
+                + "<meta name=\"description\" content=\"旧摘要\"><meta name=\"robots\" content=\"index, follow\">"
+                + "<meta property=\"og:title\" content=\"旧文章\"><meta property=\"article:published_time\" content=\"2026-10-08\">"
+                + "<link rel=\"stylesheet\" href=\"/assets/app-123.css\">"
+                + "<link rel=\"alternate\" type=\"application/rss+xml\" href=\"/rss.xml\"></head>"
+                + "<body><div id=\"app\"><p>旧内容</p></div>"
+                + "<script type=\"module\" src=\"/assets/app-123.js\"></script></body></html>");
+
+        var html = Jsoup.parse(service.renderNotFoundHtml());
+
+        assertEquals("文章不存在 - 青禾边", html.title());
+        assertEquals("noindex, follow", html.selectFirst("meta[name=robots][data-seo]").attr("content"));
+        assertEquals(1, html.select("meta[name=robots]").size());
+        assertTrue(html.select("link[rel=canonical], meta[name=description], meta[property^=og:], meta[property^=article:]").isEmpty());
+        assertTrue(html.getElementById("app").html().isEmpty());
+        assertTrue(html.select("h1, main, article, nav").isEmpty());
+        assertEquals("/assets/app-123.js", html.selectFirst("script[type=module]").attr("src"));
+        assertEquals("/assets/app-123.css", html.selectFirst("link[rel=stylesheet]").attr("href"));
+        assertEquals("/rss.xml", html.selectFirst("link[rel=alternate]").attr("href"));
+        verifyNoInteractions(articleService, articleMapper);
+    }
+
+    @Test
+    void notFoundHtmlShouldReadCurrentBuildAndFailWhenTemplateOrMountPointIsMissing() throws Exception {
+        Files.writeString(template, "<div id=app></div><script src=\"/assets/new.js\"></script>");
+        assertTrue(service.renderNotFoundHtml().contains("/assets/new.js"));
+        Files.writeString(template, "<html><body>缺少挂载容器</body></html>");
+        assertEquals(503, assertThrows(ResponseStatusException.class, service::renderNotFoundHtml).getStatusCode().value());
+        Files.delete(template);
+        assertEquals(503, assertThrows(ResponseStatusException.class, service::renderNotFoundHtml).getStatusCode().value());
+    }
+
+    @Test
     void invalidPathsShouldNeverExposeArticleOrPrivatePageMetadata() {
         for (String path : List.of("/admin", "/auth/login", "/articles/0", "/articles/034", "/articles/34-slug",
                 "/articles/34?replyId=51", "/articles/34#article-comments", "/articles/99999999999999999999999")) {

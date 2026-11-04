@@ -133,6 +133,13 @@
 						height="100%"
 					>
 						<el-table-column
+							prop="id"
+							label="分类 ID"
+							align="center"
+							width="100"
+						/>
+
+						<el-table-column
 							prop="level"
 							align="center"
 							width="100"

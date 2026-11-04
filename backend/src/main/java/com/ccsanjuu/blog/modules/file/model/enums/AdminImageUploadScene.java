@@ -9,6 +9,7 @@ public enum AdminImageUploadScene {
 
     ARTICLE_COVER("articles/covers"),
     ARTICLE_CONTENT("articles/content"),
+    ABOUT_CONTENT("about/content"),
     PROJECT_COVER("projects/covers");
 
     private final String objectKeyPrefix;

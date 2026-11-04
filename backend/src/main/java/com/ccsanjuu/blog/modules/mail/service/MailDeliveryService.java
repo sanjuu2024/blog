@@ -36,10 +36,19 @@ public interface MailDeliveryService {
      * @param mailType 邮件类型
      * @param sourceId 原始业务 ID
      * @param replyId 回复 ID
-     * @param recipient 原始收件地址，仅用于生成脱敏地址
+     * @param recipient 完整收件地址
+     * @param userId 收件用户 ID，游客为空
      * @return 待发送投递记录
      */
-    MailDelivery createPending(String mailType, Long sourceId, Long replyId, String recipient);
+    MailDelivery createPending(String mailType, Long sourceId, Long replyId, String recipient, Long userId);
+
+    /**
+     * 在实际发送前保存本次收件目标，避免重试后仍展示旧地址。
+     *
+     * @param deliveryId 投递记录 ID
+     * @param recipient 完整收件地址
+     */
+    void updateRecipient(Long deliveryId, String recipient);
 
     /**
      * 更新一次失败尝试及其安全错误摘要。

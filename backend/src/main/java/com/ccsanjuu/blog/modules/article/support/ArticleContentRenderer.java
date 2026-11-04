@@ -97,7 +97,8 @@ public class ArticleContentRenderer {
         options.set(Parser.EXTENSIONS, List.of(
                 TablesExtension.create(),
                 TaskListExtension.create(),
-                StrikethroughExtension.create()
+                StrikethroughExtension.create(),
+                new LatexSourceExtension()
         ));
 
         // 创建解析器和渲染器

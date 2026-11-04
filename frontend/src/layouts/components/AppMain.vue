@@ -11,8 +11,17 @@
 				<transition
 					name="fade"
 					mode="out-in"
+					@before-leave="setPageViewPending(true)"
+					@enter="setPageViewPending(false)"
+					@enter-cancelled="setPageViewPending(false)"
+					@leave-cancelled="setPageViewPending(false)"
 				>
-					<component :is="Component" />
+					<KeepAlive
+						include="ArticleListPage"
+						:max="1"
+					>
+						<component :is="Component" />
+					</KeepAlive>
 				</transition>
 			</RouterView>
 		</div>
@@ -20,13 +29,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
+import { setPageViewPending } from '@/router/articleListScroll';
 
 const route = useRoute();
 const isFullHeightPage = computed(() =>
 	route.matched.some((record) => record.meta.fullHeight === true),
 );
+
+onMounted(() => setPageViewPending(false));
+onUnmounted(() => setPageViewPending(false));
 
 defineOptions({
 	name: 'AppMain',

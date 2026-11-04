@@ -128,4 +128,22 @@ describe('useArticleList', () => {
 
 		expect(filterForm).toEqual({ keyword: '', categoryId: undefined, tagIds: [] });
 	});
+
+	it('keeps pagination on the applied filters while search input is still a draft', async () => {
+		vi.mocked(listArticles).mockResolvedValue(articlePage({ hasNext: true }));
+		const { filterForm, resetPageParamsAndGetPublishedArticles, loadMoreArticles } =
+			useArticleList();
+		filterForm.keyword = 'Vue';
+		filterForm.tagIds = [30001];
+		await resetPageParamsAndGetPublishedArticles();
+		filterForm.keyword = '尚未提交';
+		filterForm.tagIds.push(30002);
+
+		await loadMoreArticles();
+
+		expect(listArticles).toHaveBeenLastCalledWith(
+			expect.objectContaining({ pageNum: 2, keyword: 'Vue', tagIds: [30001] }),
+			expect.any(Object),
+		);
+	});
 });

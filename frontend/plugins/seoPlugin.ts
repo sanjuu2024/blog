@@ -13,6 +13,7 @@ export function seoPlugin(backendUrl: string): Plugin {
 					!['GET', 'HEAD'].includes(request.method || '') ||
 					(![
 						'/',
+						'/home',
 						'/articles',
 						'/archives',
 						'/about',
@@ -34,6 +35,7 @@ export function seoPlugin(backendUrl: string): Plugin {
 					target.search = incoming.search;
 					const upstream = await fetch(target, {
 						method: request.method,
+						redirect: 'manual',
 						signal: AbortSignal.timeout(10000),
 					});
 					const contentType = upstream.headers.get('content-type') || 'text/html';
@@ -41,10 +43,14 @@ export function seoPlugin(backendUrl: string): Plugin {
 					response.statusCode = upstream.status;
 					response.setHeader('Content-Type', contentType);
 					response.setHeader('Cache-Control', 'no-store');
+					// 将重定向交给浏览器，避免旧首页 URL 留在地址栏。
+					const location = upstream.headers.get('location');
+					if (location) response.setHeader('Location', location);
 					response.end(
 						request.method === 'HEAD'
 							? undefined
-							: contentType.includes('text/html') && upstream.ok
+							: contentType.includes('text/html') &&
+								  (upstream.ok || upstream.status === 404)
 								? await server.transformIndexHtml(url, body)
 								: body,
 					);

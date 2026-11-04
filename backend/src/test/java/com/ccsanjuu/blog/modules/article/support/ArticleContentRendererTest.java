@@ -94,6 +94,104 @@ class ArticleContentRendererTest {
     }
 
     @Test
+    void markdownConversionShouldPreserveLatexDelimitersAndFormulaSource() {
+        String markdown = """
+                都 1 1 1
+
+                ```cpp
+                int a = 1;
+                ```
+
+                \\(a*b=2^{14}\\)
+
+                \\[c*d=2^{23}\\]
+
+                \\(a*b*c + x_1_y + \\frac{1}{2}\\)
+
+                $a*b*c + x_1_y$
+
+                $$a*b*c + x_1_y$$
+
+                \\(这里是错误公式，祟拜你）
+
+                $不是
+
+                $asdf$
+
+                $$
+                yes！
+                $$
+
+                ddddd
+
+                $dsaf但是 测试$
+                """;
+
+        var body = Jsoup.parseBodyFragment(articleContentRenderer.convertMarkdownToHtml(markdown)).body();
+
+        assertTrue(body.wholeText().contains("\\(a*b=2^{14}\\)"));
+        assertTrue(body.wholeText().contains("\\[c*d=2^{23}\\]"));
+        assertTrue(body.wholeText().contains("\\(a*b*c + x_1_y + \\frac{1}{2}\\)"));
+        assertTrue(body.wholeText().contains("$a*b*c + x_1_y$"));
+        assertTrue(body.wholeText().contains("$$a*b*c + x_1_y$$"));
+        assertTrue(body.select("em, strong").isEmpty());
+        assertEquals("int a = 1;\n", body.selectFirst("pre code").wholeText());
+        assertTrue(body.text().contains("ddddd"));
+    }
+
+    @Test
+    void formulaParsingShouldLeaveCodeAndNormalMarkdownEscapesUntouched() {
+        String markdown = """
+                **正常加粗** 和 \\*普通星号\\*
+
+                `\\(a*b\\)` 与 `$x_1$`
+
+                ```text
+                \\[c*d\\]
+                $$x_1$$
+                ```
+
+                [普通链接](https://example.com)
+
+                <img src="https://img.example.com/test.png" alt="图片" title="手动图注">
+                """;
+        var body = Jsoup.parseBodyFragment(articleContentRenderer.convertMarkdownToHtml(markdown)).body();
+
+        assertEquals("正常加粗", body.selectFirst("strong").text());
+        assertTrue(body.text().contains("*普通星号*"));
+        assertEquals("\\(a*b\\)", body.select("p code").getFirst().text());
+        assertEquals("$x_1$", body.select("p code").get(1).text());
+        assertTrue(body.selectFirst("pre code").wholeText().contains("\\[c*d\\]"));
+        assertEquals("https://example.com", body.selectFirst("a").attr("href"));
+        assertEquals("手动图注", body.selectFirst("img").attr("title"));
+    }
+
+    @Test
+    void multilineFormulasShouldPreserveLatexCommandsAndRemainSafeText() {
+        String markdown = """
+                \\[
+                \\begin{aligned}
+                a_1 &= b \\\\
+                c &= d
+                \\end{aligned}
+                \\]
+
+                \\(\\text{<img src=x onerror=alert(1)> & <script>bad</script>}\\)
+                """;
+        var body = Jsoup.parseBodyFragment(articleContentRenderer.convertMarkdownToHtml(markdown)).body();
+
+        assertTrue(body.wholeText().contains("\\["));
+        assertTrue(body.wholeText().contains("\\begin{aligned}"));
+        assertTrue(body.wholeText().contains("a_1 &= b \\\\"));
+        assertTrue(body.wholeText().contains("\\end{aligned}"));
+        assertTrue(body.select("img, script").isEmpty());
+        assertTrue(body.text().contains("<img src=x onerror=alert(1)>"));
+        String text = articleContentRenderer.convertToText("公式 \\(x_1^2\\) 和 $a*b*c$ 后文");
+        assertTrue(text.contains("\\(x_1^2\\)"));
+        assertTrue(text.contains("$a*b*c$"));
+    }
+
+    @Test
     void blankMarkdownShouldReturnEmptyContent() {
         assertEquals("", articleContentRenderer.convertMarkdownToHtml(" "));
         assertEquals("", articleContentRenderer.convertToText(null));

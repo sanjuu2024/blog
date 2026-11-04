@@ -3,6 +3,40 @@
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.ccsanjuu.blog.modules.mail.mapper.MailDeliveryMapper">
+    <sql id="adminDelivery">
+        SELECT delivery.id, delivery.mail_type, delivery.source_id, delivery.reply_id,
+               delivery.recipient_email, NULLIF(delivery.recipient_masked, '') AS recipient_masked,
+               CASE WHEN delivery.recipient_user_id IS NOT NULL THEN
+                   CASE WHEN recipient.deleted_at IS NULL THEN recipient.email ELSE NULL END
+                   ELSE original_message.email END AS current_recipient_email,
+               delivery.recipient_user_id AS user_id,
+               recipient.username AS user_username,
+               CASE WHEN recipient.deleted_at IS NULL THEN recipient.nickname ELSE NULL END AS user_nickname,
+               CASE WHEN recipient.id IS NOT NULL THEN recipient.deleted_at IS NOT NULL ELSE NULL END AS user_deleted,
+               delivery.status, delivery.attempt_count, delivery.last_error_type, delivery.last_error_message,
+               delivery.sent_at, delivery.last_attempt_at, delivery.created_at
+        FROM blog_mail_delivery delivery
+        LEFT JOIN blog_user recipient ON recipient.id = delivery.recipient_user_id
+        LEFT JOIN blog_message_board original_message
+            ON delivery.mail_type = 'MESSAGE_REPLY' AND original_message.id = delivery.source_id
+    </sql>
+
+    <select id="selectAdminPage" resultType="com.ccsanjuu.blog.modules.mail.model.vo.MailDeliveryItemVO">
+        <include refid="adminDelivery"/>
+        <where>
+            <if test="query.mailType != null">AND delivery.mail_type = #{query.mailType}</if>
+            <if test="query.status != null">AND delivery.status = #{query.status}</if>
+            <if test="query.createdAtFrom != null">AND delivery.created_at &gt;= #{query.createdAtFrom}</if>
+            <if test="query.createdAtTo != null">AND delivery.created_at &lt;= #{query.createdAtTo}</if>
+        </where>
+        ORDER BY delivery.created_at DESC, delivery.id DESC
+    </select>
+
+    <select id="selectAdminDetail" resultType="com.ccsanjuu.blog.modules.mail.model.vo.MailDeliveryItemVO">
+        <include refid="adminDelivery"/>
+        WHERE delivery.id = #{deliveryId}
+    </select>
+
     <select id="selectByIdForUpdate"
             resultType="com.ccsanjuu.blog.modules.mail.model.entity.MailDelivery">
         SELECT * FROM blog_mail_delivery WHERE id = #{deliveryId} FOR UPDATE

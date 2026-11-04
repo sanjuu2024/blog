@@ -97,20 +97,8 @@ public class SeoServiceImpl implements SeoService {
     @Override
     public String renderHtml(String path) {
         SeoMetadataVO metadata = getMetadata(path);
-        Document document;
-        // 每次读取模板，使前端更新后的带哈希资源路径立即生效。
-        try (var input = resourceLoader.getResource(seoProperties.getHtmlTemplate()).getInputStream()) {
-            document = Jsoup.parse(input, StandardCharsets.UTF_8.name(), baseUrl());
-        } catch (IOException exception) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "前端入口模板不可用", exception);
-        }
-        Element app = document.getElementById("app");
-        if (app == null) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "前端入口模板缺少 app 容器");
-        }
-        document.select("html").attr("lang", "zh-CN");
+        Document document = readHtmlTemplate();
         document.title(metadata.getTitle());
-        document.head().select("meta[name=description], meta[name=robots], link[rel=canonical], meta[property^=og:], meta[property^=article:]").remove();
         document.head().appendElement("link").attr("rel", "canonical")
                 .attr("href", metadata.getCanonicalUrl()).attr("data-seo", "true");
         addMeta(document, "name", "description", metadata.getDescription());
@@ -124,7 +112,19 @@ public class SeoServiceImpl implements SeoService {
         addMeta(document, "property", "og:image", metadata.getImageUrl());
         addMeta(document, "property", "article:published_time", metadata.getPublishedAt());
         addMeta(document, "property", "article:modified_time", metadata.getUpdatedAt());
-        app.empty();
+        return document.outerHtml();
+    }
+
+    /**
+     * 保留应用入口和原构建资源，使无效文章仍由 Vue 在前台布局中显示错误。
+     *
+     * @return 不可收录的前端入口 HTML
+     */
+    @Override
+    public String renderNotFoundHtml() {
+        Document document = readHtmlTemplate();
+        document.title("文章不存在 - " + blogProperties.getAppName());
+        addMeta(document, "name", "robots", "noindex, follow");
         return document.outerHtml();
     }
 
@@ -227,6 +227,29 @@ public class SeoServiceImpl implements SeoService {
      */
     private String baseUrl() {
         return blogProperties.getSiteUrl().toString().replaceAll("/$", "");
+    }
+
+    /**
+     * 读取当前入口模板并清理旧元信息，保留应用资源和空挂载容器。
+     *
+     * @return 可注入页面元信息的文档
+     */
+    private Document readHtmlTemplate() {
+        Document document;
+        // 每次读取模板，使前端更新后的带哈希资源路径立即生效。
+        try (var input = resourceLoader.getResource(seoProperties.getHtmlTemplate()).getInputStream()) {
+            document = Jsoup.parse(input, StandardCharsets.UTF_8.name(), baseUrl());
+        } catch (IOException exception) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "前端入口模板不可用", exception);
+        }
+        Element app = document.getElementById("app");
+        if (app == null) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "前端入口模板缺少 app 容器");
+        }
+        document.select("html").attr("lang", "zh-CN");
+        document.head().select("meta[name=description], meta[name=robots], link[rel=canonical], meta[property^=og:], meta[property^=article:]").remove();
+        app.empty();
+        return document;
     }
 
     /**

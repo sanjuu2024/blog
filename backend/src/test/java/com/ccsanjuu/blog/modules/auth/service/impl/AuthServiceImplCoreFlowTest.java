@@ -1,5 +1,6 @@
 package com.ccsanjuu.blog.modules.auth.service.impl;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.common.util.JwtUtil;
@@ -15,6 +16,7 @@ import com.ccsanjuu.blog.modules.auth.model.vo.LoginVO;
 import com.ccsanjuu.blog.modules.auth.model.vo.RefreshTokenVO;
 import com.ccsanjuu.blog.modules.auth.service.RegistrationEmailVerificationService;
 import com.ccsanjuu.blog.modules.auth.support.LoginRateLimiter;
+import com.ccsanjuu.blog.modules.auth.support.RefreshTokenRetryCache;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
@@ -38,6 +40,7 @@ import javax.crypto.SecretKey;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -83,7 +86,11 @@ class AuthServiceImplCoreFlowTest {
     @Mock
     private LoginRateLimiter loginRateLimiter;
 
+    @Mock
+    private RefreshTokenRetryCache refreshTokenRetryCache;
+
     private AuthServiceImpl authService;
+    private SimpleMeterRegistry meterRegistry;
 
     @BeforeEach
     void setUp() {
@@ -93,6 +100,7 @@ class AuthServiceImplCoreFlowTest {
                 Duration.ofMinutes(15),
                 Duration.ofDays(7)
         );
+        meterRegistry = new SimpleMeterRegistry();
         authService = new AuthServiceImpl(
                 userMapper,
                 passwordEncoder,
@@ -102,7 +110,9 @@ class AuthServiceImplCoreFlowTest {
                 privacyPolicyService,
                 registrationEmailVerificationService,
                 securityEventService,
-                loginRateLimiter
+                loginRateLimiter,
+                refreshTokenRetryCache,
+                meterRegistry
         );
         lenient().when(privacyPolicyService.compareTo(any())).thenReturn(true);
     }
@@ -152,6 +162,26 @@ class AuthServiceImplCoreFlowTest {
 
         assertEquals(ResultCode.USERNAME_EXISTS, exception.getResultCode());
         verify(userMapper, never()).insert(any(User.class));
+    }
+
+    @Test
+    void registerShouldRejectReservedDeletedEmailDomains() {
+        for (String email : List.of("asdf123@deleted.invalid", "asdf123@sub.deleted.invalid")) {
+            BizException exception = assertThrows(BizException.class, () -> authService.register(
+                    RegisterRequestDTO.builder()
+                            .username("valid_user")
+                            .email(email)
+                            .password(PASSWORD)
+                            .verificationCode("123456")
+                            .privacyPolicyVersion("sha256:" + "a".repeat(64))
+                            .build()
+            ));
+
+            assertEquals(ResultCode.PARAM_INVALID, exception.getResultCode());
+        }
+
+        verify(userMapper, never()).insert(any(User.class));
+        verify(registrationEmailVerificationService, never()).verifyCode(any(), any());
     }
 
     @Test
@@ -325,7 +355,7 @@ class AuthServiceImplCoreFlowTest {
                 .status(AuthSessionStatus.ACTIVE)
                 .expiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusDays(7))
                 .build();
-        when(authMapper.selectOne(any())).thenReturn(oldSession);
+        when(authMapper.selectRefreshSession(any(), any())).thenReturn(oldSession);
         when(userMapper.selectByIdForUpdate(USER_ID)).thenReturn(activeUser());
 
         RefreshTokenVO result = authService.refresh(
@@ -335,11 +365,12 @@ class AuthServiceImplCoreFlowTest {
         assertNotNull(result.getAccessToken());
         assertNotNull(result.getRefreshToken());
         assertNotEquals(oldRefreshToken, result.getRefreshToken());
-        verify(authMapper, org.mockito.Mockito.times(2)).selectOne(any());
+        verify(authMapper, org.mockito.Mockito.times(2)).selectRefreshSession(any(), any());
         verify(authMapper).update(any(AuthSession.class), any());
         verify(authMapper).insert(any(AuthSession.class));
-        assertTrue(output.getOut().contains("security_event=TOKEN_REFRESH_SUCCESS"));
-        assertTrue(output.getOut().contains("description=\"登录态刷新成功\""));
+        assertFalse(output.getOut().contains("security_event=TOKEN_REFRESH_SUCCESS"));
+        verifyNoInteractions(securityEventService);
+        assertEquals(1.0, meterRegistry.get("blog.auth.refresh.success").counter().count());
         assertFalse(output.getOut().contains(oldRefreshToken));
     }
 
@@ -352,7 +383,7 @@ class AuthServiceImplCoreFlowTest {
                 USER_ID,
                 "disabled-user-session"
         );
-        when(authMapper.selectOne(any())).thenReturn(AuthSession.builder()
+        when(authMapper.selectRefreshSession(any(), any())).thenReturn(AuthSession.builder()
                 .userId(USER_ID)
                 .tokenJti("disabled-user-session")
                 .tokenHash(TokenHashUtil.sha256(refreshToken))
@@ -393,7 +424,7 @@ class AuthServiceImplCoreFlowTest {
                 .status(AuthSessionStatus.ACTIVE)
                 .expiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusDays(7))
                 .build();
-        when(authMapper.selectOne(any()))
+        when(authMapper.selectRefreshSession(any(), any()))
                 .thenReturn(activeSession)
                 .thenReturn((AuthSession) null);
         when(userMapper.selectByIdForUpdate(USER_ID)).thenReturn(activeUser());
@@ -457,8 +488,11 @@ class AuthServiceImplCoreFlowTest {
     }
 
     @Test
-    void missingTokenShouldHaveConcreteReasonWithoutUserId() {
-        assertRefreshFailure(null, null, "Refresh Token 缺失");
+    void missingTokenShouldFailWithoutCreatingSecurityEvent() {
+        BizException error = assertThrows(BizException.class, () -> authService.refresh(
+                RefreshTokenRequestDTO.builder().refreshToken(null).build()));
+        assertEquals(ResultCode.REFRESH_TOKEN_INVALID_OR_EXPIRED, error.getResultCode());
+        verifyNoInteractions(securityEventService);
         verifyNoSessionChanges();
     }
 
@@ -475,7 +509,7 @@ class AuthServiceImplCoreFlowTest {
     void revokedSessionShouldHaveConcreteReasonAndUserId() {
         String token = JwtUtil.generateRefreshToken(SIGNING_KEY, "sanjuu-blog", Duration.ofDays(7),
                 USER_ID, "revoked-session");
-        when(authMapper.selectOne(any())).thenReturn(AuthSession.builder()
+        when(authMapper.selectRefreshSession(any(), any())).thenReturn(AuthSession.builder()
                 .userId(USER_ID).status(AuthSessionStatus.REVOKED).build());
 
         assertRefreshFailure(token, USER_ID, "Refresh Token 会话已撤销");
@@ -486,7 +520,7 @@ class AuthServiceImplCoreFlowTest {
     void sessionExpirationShouldBeDistinguishedFromJwtExpiration() {
         String token = JwtUtil.generateRefreshToken(SIGNING_KEY, "sanjuu-blog", Duration.ofDays(7),
                 USER_ID, "expired-session");
-        when(authMapper.selectOne(any())).thenReturn(AuthSession.builder()
+        when(authMapper.selectRefreshSession(any(), any())).thenReturn(AuthSession.builder()
                 .userId(USER_ID).status(AuthSessionStatus.ACTIVE)
                 .expiresAt(OffsetDateTime.now(ZoneOffset.UTC).minusMinutes(1)).build());
 
@@ -498,7 +532,7 @@ class AuthServiceImplCoreFlowTest {
     void mismatchedSessionHashShouldHaveConcreteReason() {
         String token = JwtUtil.generateRefreshToken(SIGNING_KEY, "sanjuu-blog", Duration.ofDays(7),
                 USER_ID, "mismatched-session");
-        when(authMapper.selectOne(any())).thenReturn(AuthSession.builder()
+        when(authMapper.selectRefreshSession(any(), any())).thenReturn(AuthSession.builder()
                 .userId(USER_ID).status(AuthSessionStatus.ACTIVE).tokenHash("another-hash")
                 .expiresAt(OffsetDateTime.now(ZoneOffset.UTC).plusDays(7)).build());
 

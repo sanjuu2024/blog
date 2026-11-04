@@ -24,6 +24,8 @@ public class NotificationItemBO {
 
     private Long articleId;
 
+    private String articleTitle;
+
     private Long parentId;
 
     /** 仅评论回复通知返回。 */

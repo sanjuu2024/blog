@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ElMessage } from 'element-plus';
 import { getArticleDetails, likeArticle, unlikeArticle } from '../api/articleApi';
 import type { ArticleLikeData, PublicArticleDetailData } from '../types/article';
 import { useArticleDetail } from './useArticleDetail';
@@ -179,5 +180,81 @@ describe('useArticleDetail article likes', () => {
 			'noindex, follow',
 		);
 		expect(document.title).toContain('文章加载失败');
+	});
+
+	it.each(['40001', 40001, ['40001'], '9007199254740991'])(
+		'loads a canonical safe integer ID %s',
+		async (id) => {
+			vi.mocked(getArticleDetails).mockResolvedValue(article());
+			const detail = useArticleDetail();
+
+			await detail.getArticleDetail(id);
+
+			expect(getArticleDetails).toHaveBeenCalledExactlyOnceWith(
+				Number(Array.isArray(id) ? id[0] : id),
+			);
+			expect(detail.errorMessage.value).toBe('');
+		},
+	);
+
+	it.each([
+		'040001',
+		'40001.0',
+		'4e4',
+		'0x22',
+		'+40001',
+		' 40001',
+		'40001 ',
+		'40001\n',
+		'0',
+		'-1',
+		'',
+		[],
+		'9007199254740992',
+	])(
+		'rejects the raw ID %s without loading another article or preserving its SEO',
+		async (id) => {
+			vi.mocked(getArticleDetails).mockResolvedValue(article());
+			const detail = useArticleDetail();
+			await detail.getArticleDetail(40001);
+			vi.mocked(getArticleDetails).mockClear();
+
+			await detail.getArticleDetail(id);
+
+			expect(getArticleDetails).not.toHaveBeenCalled();
+			expect(detail.article.value).toBeNull();
+			expect(detail.errorMessage.value).toBe('文章 ID 不合法');
+			expect(detail.isLoading.value).toBe(false);
+			expect(ElMessage.error).toHaveBeenCalledExactlyOnceWith('文章 ID 不合法');
+			expect(document.title).toContain('文章 ID 不合法');
+			expect(document.querySelector('link[rel=canonical], meta[property^="og:"]')).toBeNull();
+			expect(document.querySelector('meta[name=robots]')?.getAttribute('content')).toBe(
+				'noindex, follow',
+			);
+		},
+	);
+
+	it('ignores a pending valid article after navigating to an invalid raw ID', async () => {
+		let resolveOld!: (value: PublicArticleDetailData) => void;
+		vi.mocked(getArticleDetails).mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					resolveOld = resolve;
+				}),
+		);
+		const detail = useArticleDetail();
+		const pending = detail.getArticleDetail(40001);
+		await detail.getArticleDetail('040001');
+		resolveOld(article());
+		await pending;
+
+		expect(getArticleDetails).toHaveBeenCalledExactlyOnceWith(40001);
+		expect(detail.article.value).toBeNull();
+		expect(detail.errorMessage.value).toBe('文章 ID 不合法');
+		expect(detail.isLoading.value).toBe(false);
+		expect(document.querySelector('link[rel=canonical], meta[property^="og:"]')).toBeNull();
+		expect(document.querySelector('meta[name=robots]')?.getAttribute('content')).toBe(
+			'noindex, follow',
+		);
 	});
 });

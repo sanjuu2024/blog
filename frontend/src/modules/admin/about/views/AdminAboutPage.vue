@@ -6,8 +6,8 @@
 					<span class="text-xl font-bold">关于页内容编辑</span>
 					<el-button
 						type="primary"
-						:loading="submitting"
-						:disabled="submitting || !hasUnsavedChanges"
+						:loading="submitting || imageUploading"
+						:disabled="submitting || imageUploading || !hasUnsavedChanges"
 						@click="saveAboutPage"
 					>
 						保存
@@ -36,6 +36,7 @@
 					:theme="resolvedTheme"
 					:maxlength="100000"
 					show-code-row-number
+					@onUploadImg="handleContentImageUpload"
 				/>
 			</AppLoading>
 
@@ -54,18 +55,21 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
 import { onBeforeRouteLeave } from 'vue-router';
-import { ElMessageBox } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import 'element-plus/es/components/message-box/style/css';
-import { MdEditor } from 'md-editor-v3';
+import { MdEditor, type UploadImgEvent } from 'md-editor-v3';
 import { useTheme } from '@/composables/useTheme';
 import { formatDateTime } from '@/utils/datetime';
 import { useAdminAboutPage } from '../composables/useAdminAboutPage';
+import { useAdminImageUpload } from '@/modules/admin/file/composables/useAdminImageUpload';
+import { ADMIN_IMAGE_UPLOAD_SCENE } from '@/modules/admin/file/types/adminFile';
 
 defineOptions({
 	name: 'AdminAboutPage',
 });
 
 const { resolvedTheme } = useTheme();
+const { imageUploading, handleUploadAdminImage } = useAdminImageUpload();
 const {
 	aboutPage,
 	contentMd,
@@ -77,11 +81,27 @@ const {
 	saveAboutPage,
 } = useAdminAboutPage();
 
+// 只把成功的上传结果交给编辑器，title 留空供作者手动填写图注。
+const handleContentImageUpload: UploadImgEvent = async (files, callback) => {
+	const images = await Promise.all(
+		files.map((file) => handleUploadAdminImage(ADMIN_IMAGE_UPLOAD_SCENE.ABOUT_CONTENT, file)),
+	);
+	callback(
+		images.flatMap((image) =>
+			image ? [{ url: image.url, alt: image.originalName, title: '' }] : [],
+		),
+	);
+};
+
 onMounted(() => {
 	getAdminAboutPage();
 });
 
 onBeforeRouteLeave(async () => {
+	if (imageUploading.value) {
+		ElMessage.warning('图片上传中，请稍后再离开');
+		return false;
+	}
 	if (!hasUnsavedChanges.value || submitting.value) return true;
 
 	try {

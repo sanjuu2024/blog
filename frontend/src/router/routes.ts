@@ -149,7 +149,7 @@ export const adminRoutes = [
 // 前台路由
 export const publicRoutes = [
 	{
-		path: '/home',
+		path: '/',
 		name: 'Home',
 		component: () => import('@/modules/home/views/HomePage.vue'),
 		meta: {
@@ -271,9 +271,12 @@ export const routes = [
 	{
 		path: '/',
 		name: 'MainLayout',
-		redirect: '/home',
 		component: () => import('@/layouts/MainLayout.vue'), // 路由懒加载
 		children: publicRoutes,
+	},
+	{
+		path: '/home',
+		redirect: { name: 'Home' },
 	},
 	// 认证相关页面
 	{

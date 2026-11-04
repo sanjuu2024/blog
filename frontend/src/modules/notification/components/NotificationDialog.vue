@@ -54,13 +54,17 @@
 									>@{{ notification.authorName }}</span
 								>
 								<span v-if="notification.type === NOTIFICATION_TYPE.COMMENT_REPLY"
-									>回复了我的评论</span
+									>回复了我在{{
+										notification.articleTitle
+											? `《${notification.articleTitle}》`
+											: '文章'
+									}}中的评论</span
 								>
 								<span
 									v-else-if="
 										notification.type === NOTIFICATION_TYPE.MESSAGE_REPLY
 									"
-									>回复了我的留言</span
+									>回复了我在留言板的评论</span
 								>
 							</div>
 						</div>
@@ -70,6 +74,10 @@
 					<div class="notification-item__body">
 						<div
 							class="notification-item__content"
+							:class="{
+								'notification-item__content--link':
+									notification.type !== NOTIFICATION_TYPE.ADMIN_MESSAGE,
+							}"
 							@click.stop="openSource(notification)"
 						>
 							<NotificationContent :content="notification.content" />
@@ -313,6 +321,7 @@ async function submitReply(notification: NotificationItem) {
 		min-width: 0;
 		flex: 1;
 		font-weight: bold;
+		overflow-wrap: anywhere;
 	}
 
 	time {
@@ -327,7 +336,11 @@ async function submitReply(notification: NotificationItem) {
 	margin-left: 0.5rem;
 
 	.notification-item__content {
-		cursor: pointer;
+		cursor: auto;
+
+		&--link {
+			cursor: pointer;
+		}
 	}
 
 	.notification-item__quote {

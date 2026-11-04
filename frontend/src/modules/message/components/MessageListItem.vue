@@ -22,7 +22,7 @@
 						:user-id="item.author.id"
 						:deleted="item.author.deleted"
 						:is-admin="item.author.role === 'ADMIN'"
-						:size="34"
+						:size="36"
 						class="self-start"
 					/>
 				</PublicUserProfilePopover>
@@ -46,6 +46,7 @@
 					v-if="item.isAnnouncement"
 					type="warning"
 					size="large"
+					class="message-announcement-tag"
 				>
 					<div class="flex items-center gap-1 text-[0.9rem]">
 						<i-lucide-megaphone />
@@ -107,7 +108,7 @@
 					:user-id="reply.author?.id"
 					:deleted="reply.author?.deleted"
 					:is-admin="reply.author?.role === 'ADMIN'"
-					:size="28"
+					:size="36"
 					class="self-start"
 				/>
 				<div>

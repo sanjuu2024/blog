@@ -15,8 +15,12 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.net.URI;
+
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,6 +35,30 @@ class PublicHtmlControllerTest {
     void setUp() {
         mockMvc = MockMvcBuilders.standaloneSetup(new PublicHtmlController(seoService), new SeoController(seoService))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
+    }
+
+    @Test
+    void legacyHomeShouldRedirectToRootWithoutLoadingMetadata() throws Exception {
+        mockMvc.perform(get("/home"))
+                .andExpect(status().isPermanentRedirect())
+                .andExpect(header().string("Location", "/"))
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(content().string(""));
+        verifyNoInteractions(seoService);
+    }
+
+    @Test
+    void legacyHomeShouldPreserveEncodedQueryAndKeepRedirectLocal() throws Exception {
+        String query = "tag=1&from=mail&name=%E9%9D%92%E7%A6%BE&redirect=https%3A%2F%2Fexample.com%2F&tag=2";
+        mockMvc.perform(get(URI.create("/home?" + query)))
+                .andExpect(status().isPermanentRedirect())
+                .andExpect(header().string("Location", "/?" + query))
+                .andExpect(content().string(""));
+        mockMvc.perform(head(URI.create("/home?" + query)))
+                .andExpect(status().isPermanentRedirect())
+                .andExpect(header().string("Location", "/?" + query))
+                .andExpect(content().string(""));
+        verifyNoInteractions(seoService);
     }
 
     @Test
@@ -65,11 +93,26 @@ class PublicHtmlControllerTest {
     }
 
     @Test
-    void disabledCategoryShouldReturnReal404Html() throws Exception {
+    void disabledCategoryShouldReturnReal404WithVueEntry() throws Exception {
         when(seoService.renderHtml("/articles/34")).thenThrow(new BizException(ResultCode.ARTICLE_CATEGORY_DISABLED));
+        String html = "<head><meta name=\"robots\" content=\"noindex, follow\"></head>"
+                + "<body><div id=\"app\"></div><script type=\"module\" src=\"/assets/app.js\"></script></body>";
+        when(seoService.renderNotFoundHtml()).thenReturn(html);
         mockMvc.perform(get("/articles/34")).andExpect(status().isNotFound())
+                .andExpect(header().string("Cache-Control", "no-store"))
                 .andExpect(content().contentType("text/html;charset=UTF-8"))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("noindex")));
+                .andExpect(content().string(html));
+    }
+
+    @Test
+    void unavailableTemplateForMissingArticleShouldStillReturn503WithoutLeakingDetails() throws Exception {
+        when(seoService.renderHtml("/articles/34")).thenThrow(new BizException(ResultCode.ARTICLE_NOT_FOUND));
+        when(seoService.renderNotFoundHtml())
+                .thenThrow(new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "/private/path"));
+
+        mockMvc.perform(get("/articles/34")).andExpect(status().isServiceUnavailable())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("/private/path"))));
     }
 
     @Test

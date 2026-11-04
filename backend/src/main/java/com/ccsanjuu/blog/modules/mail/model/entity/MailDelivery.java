@@ -27,7 +27,9 @@ public class MailDelivery {
 
     private Long replyId;
 
-    private String recipientMasked;
+    private String recipientEmail;
+
+    private Long recipientUserId;
 
     private MailDeliveryStatus status;
 

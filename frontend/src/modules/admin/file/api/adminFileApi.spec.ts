@@ -14,16 +14,19 @@ describe('admin file API contracts', () => {
 		vi.clearAllMocks();
 	});
 
-	it('uploads an admin image with its scene', () => {
-		const file = new File(['cover'], 'cover.png', { type: 'image/png' });
+	it.each(['ARTICLE_COVER', 'ABOUT_CONTENT'] as const)(
+		'uploads an admin image with scene %s',
+		(scene) => {
+			const file = new File(['cover'], 'cover.png', { type: 'image/png' });
 
-		uploadAdminImage(ADMIN_IMAGE_UPLOAD_SCENE.ARTICLE_COVER, file);
+			uploadAdminImage(ADMIN_IMAGE_UPLOAD_SCENE[scene], file);
 
-		expect(request.post).toHaveBeenCalledWith('admin/files/images', expect.any(FormData), {
-			timeout: 30000,
-		});
-		const formData = vi.mocked(request.post).mock.calls[0]?.[1] as FormData;
-		expect(formData.get('file')).toBe(file);
-		expect(formData.get('scene')).toBe('ARTICLE_COVER');
-	});
+			expect(request.post).toHaveBeenCalledWith('admin/files/images', expect.any(FormData), {
+				timeout: 30000,
+			});
+			const formData = vi.mocked(request.post).mock.calls[0]?.[1] as FormData;
+			expect(formData.get('file')).toBe(file);
+			expect(formData.get('scene')).toBe(scene);
+		},
+	);
 });

@@ -1,11 +1,15 @@
 package com.ccsanjuu.blog.modules.notification.service.impl;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.notification.mapper.NotificationMapper;
 import com.ccsanjuu.blog.modules.notification.mapper.NotificationRecipientMapper;
+import com.ccsanjuu.blog.modules.notification.model.bo.NotificationItemBO;
 import com.ccsanjuu.blog.modules.notification.model.bo.NotificationUnreadCountBO;
 import com.ccsanjuu.blog.modules.notification.model.dto.CreateAdminNotificationRequestDTO;
+import com.ccsanjuu.blog.modules.notification.model.dto.NotificationQueryDTO;
+import com.ccsanjuu.blog.modules.notification.model.dto.UpdateAdminNotificationRequestDTO;
 import com.ccsanjuu.blog.modules.notification.model.entity.Notification;
 import com.ccsanjuu.blog.modules.notification.model.entity.NotificationRecipient;
 import com.ccsanjuu.blog.modules.notification.model.enums.NotificationStatus;
@@ -15,6 +19,9 @@ import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -22,10 +29,12 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -47,6 +56,31 @@ class NotificationServiceImplTest {
 
     @Mock
     private PlatformTransactionManager transactionManager;
+
+    @Test
+    void shouldReturnArticleTitleOnlyForCommentReplyNotifications() {
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
+        NotificationItemBO commentReply = new NotificationItemBO();
+        commentReply.setType(NotificationType.COMMENT_REPLY);
+        commentReply.setArticleId(40001L);
+        commentReply.setArticleTitle("Vue 与 Spring Boot");
+        NotificationItemBO messageReply = new NotificationItemBO();
+        messageReply.setType(NotificationType.MESSAGE_REPLY);
+        NotificationItemBO adminMessage = new NotificationItemBO();
+        adminMessage.setType(NotificationType.ADMIN_MESSAGE);
+        when(notificationMapper.selectUserPage(any(), any(), any(), any())).thenAnswer(invocation -> {
+            Page<NotificationItemBO> page = invocation.getArgument(0);
+            page.setTotal(3);
+            page.setRecords(List.of(commentReply, messageReply, adminMessage));
+            return page;
+        });
+
+        var records = service.getUserNotifications(10001L, new NotificationQueryDTO()).getRecords();
+
+        assertEquals("Vue 与 Spring Boot", records.getFirst().getArticleTitle());
+        assertNull(records.get(1).getArticleTitle());
+        assertNull(records.get(2).getArticleTitle());
+    }
 
     @Test
     void shouldCreateAdminMessageForAllUsers() {
@@ -149,6 +183,81 @@ class NotificationServiceImplTest {
 
         BizException error = assertThrows(BizException.class, () -> service.createAdminMessage(10001L, request));
         assertEquals(ResultCode.PARAM_INVALID, error.getResultCode());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"DRAFT, false", "DRAFT, true", "PUBLISHED, false", "PUBLISHED, true"})
+    void shouldRejectInvalidRecipientBeforeCreatingMessage(NotificationStatus status, boolean deleted) {
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
+        when(userMapper.selectById(10002L)).thenReturn(deleted
+                ? User.builder().id(10002L).deletedAt(OffsetDateTime.now()).build() : null);
+        CreateAdminNotificationRequestDTO request = new CreateAdminNotificationRequestDTO();
+        request.setTargetScope(NotificationTargetScope.SELECTED_USERS);
+        request.setUserId(10002L);
+        request.setTitle("系统消息");
+        request.setContent("正文");
+        request.setStatus(status);
+
+        BizException error = assertThrows(BizException.class, () -> service.createAdminMessage(10001L, request));
+
+        assertEquals(ResultCode.PARAM_INVALID, error.getResultCode());
+        assertEquals(deleted ? "指定用户已注销，无法接收管理员消息" : "指定用户不存在", error.getMessage());
+        verify(notificationMapper, never()).insert(any(Notification.class));
+        verify(notificationRecipientMapper, never()).insert(any(NotificationRecipient.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldKeepDraftWhenUpdatedRecipientIsInvalid(boolean deleted) {
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
+        Notification draft = Notification.builder()
+                .id(70002L)
+                .type(NotificationType.ADMIN_MESSAGE)
+                .targetScope(NotificationTargetScope.ALL_USERS)
+                .title("原标题")
+                .status(NotificationStatus.DRAFT)
+                .build();
+        when(notificationMapper.selectNotificationByIdForUpdate(70002L)).thenReturn(draft);
+        when(userMapper.selectById(10002L)).thenReturn(deleted
+                ? User.builder().id(10002L).deletedAt(OffsetDateTime.now()).build() : null);
+        UpdateAdminNotificationRequestDTO request = new UpdateAdminNotificationRequestDTO();
+        request.setTargetScope(NotificationTargetScope.SELECTED_USERS);
+        request.setUserId(10002L);
+        request.setTitle("新标题");
+        request.setContent("正文");
+
+        BizException error = assertThrows(BizException.class, () -> service.updateAdminMessage(70002L, request));
+
+        assertEquals(ResultCode.PARAM_INVALID, error.getResultCode());
+        assertEquals(deleted ? "指定用户已注销，无法接收管理员消息" : "指定用户不存在", error.getMessage());
+        assertEquals("原标题", draft.getTitle());
+        assertEquals(NotificationTargetScope.ALL_USERS, draft.getTargetScope());
+        verify(notificationMapper, never()).updateById(any(Notification.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldRevalidateRecipientBeforePublishingDraft(boolean deleted) {
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
+        Notification draft = Notification.builder()
+                .id(70002L)
+                .type(NotificationType.ADMIN_MESSAGE)
+                .targetScope(NotificationTargetScope.SELECTED_USERS)
+                .selectedUserId(10002L)
+                .createdBy(10001L)
+                .status(NotificationStatus.DRAFT)
+                .build();
+        when(notificationMapper.selectNotificationByIdForUpdate(70002L)).thenReturn(draft);
+        when(userMapper.selectById(10002L)).thenReturn(deleted
+                ? User.builder().id(10002L).deletedAt(OffsetDateTime.now()).build() : null);
+
+        BizException error = assertThrows(BizException.class, () -> service.updateAdminMessageStatus(70002L, "PUBLISHED"));
+
+        assertEquals(ResultCode.PARAM_INVALID, error.getResultCode());
+        assertEquals(deleted ? "指定用户已注销，无法接收管理员消息" : "指定用户不存在", error.getMessage());
+        assertEquals(NotificationStatus.DRAFT, draft.getStatus());
+        verify(notificationMapper, never()).updateById(any(Notification.class));
+        verify(notificationRecipientMapper, never()).insert(any(NotificationRecipient.class));
     }
 
     @Test

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.server.ResponseStatusException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 
 /** 网站根路径的公开文档接口，不使用 REST API 的版本前缀。 */
@@ -24,6 +25,21 @@ public class PublicHtmlController {
     private final SeoService seoService;
 
     /**
+     * 将旧首页地址永久重定向到规范首页，保留查询参数。
+     *
+     * @param request 当前请求
+     * @return 指向根路径的重定向响应
+     */
+    @GetMapping("/home")
+    public ResponseEntity<Void> redirectHome(HttpServletRequest request) {
+        String query = request.getQueryString();
+        return ResponseEntity.status(HttpStatus.PERMANENT_REDIRECT)
+                .cacheControl(CacheControl.noStore())
+                .location(URI.create(query == null ? "/" : "/?" + query))
+                .build();
+    }
+
+    /**
      * 返回包含公开元信息的入口 HTML，正文统一由 Vue 渲染，浏览器与爬虫使用相同内容。
      *
      * @param request 当前请求
@@ -32,8 +48,14 @@ public class PublicHtmlController {
     @GetMapping(value = {"/", "/articles", "/archives", "/about", "/messages", "/links", "/articles/{articleId}"},
             produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<String> getHtml(HttpServletRequest request) {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
-                .contentType(HTML_UTF8).body(seoService.renderHtml(request.getRequestURI()));
+        try {
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                    .contentType(HTML_UTF8).body(seoService.renderHtml(request.getRequestURI()));
+        } catch (BizException exception) {
+            // 保留真实 404，同时让 Vue 启动后在原文章路由中显示已有错误状态。
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).cacheControl(CacheControl.noStore())
+                    .contentType(HTML_UTF8).body(seoService.renderNotFoundHtml());
+        }
     }
 
     /**
@@ -68,20 +90,6 @@ public class PublicHtmlController {
     public ResponseEntity<String> getRobots() {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore())
                 .contentType(new MediaType("text", "plain", StandardCharsets.UTF_8)).body(seoService.getRobots());
-    }
-
-    /**
-     * 文章不可公开时返回真正的 404 HTML，避免全局 JSON 错误或 SPA 的软 404。
-     *
-     * @param exception 公开内容查询失败
-     * @return 不可收录的错误页
-     */
-    @ExceptionHandler(BizException.class)
-    public ResponseEntity<String> handleNotFound(BizException exception) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).cacheControl(CacheControl.noStore())
-                .contentType(HTML_UTF8).body("<!doctype html><html lang=\"zh-CN\"><head>"
-                        + "<meta charset=\"UTF-8\"><meta name=\"robots\" content=\"noindex\">"
-                        + "<title>页面不存在</title></head><body><h1>页面不存在</h1><a href=\"/\">返回首页</a></body></html>");
     }
 
     /**

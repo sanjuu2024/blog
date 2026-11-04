@@ -3,6 +3,7 @@ import type { ApiResult } from '@/types/api';
 export const ADMIN_IMAGE_UPLOAD_SCENE = {
 	ARTICLE_COVER: 'ARTICLE_COVER',
 	ARTICLE_CONTENT: 'ARTICLE_CONTENT',
+	ABOUT_CONTENT: 'ABOUT_CONTENT',
 	PROJECT_COVER: 'PROJECT_COVER',
 } as const;
 

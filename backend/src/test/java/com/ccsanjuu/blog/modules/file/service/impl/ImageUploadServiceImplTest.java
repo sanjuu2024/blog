@@ -9,6 +9,8 @@ import com.ccsanjuu.blog.modules.file.service.ObjectStorageService;
 import com.ccsanjuu.blog.modules.file.support.AvatarUploadRateLimiter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -74,14 +76,15 @@ class ImageUploadServiceImplTest {
         assertEquals(content.length, result.getSize());
     }
 
-    @Test
-    void uploadAdminImageShouldUseSceneObjectKeyPrefix() {
+    @ParameterizedTest
+    @CsvSource({"ARTICLE_COVER, articles/covers", "ABOUT_CONTENT, about/content"})
+    void uploadAdminImageShouldUseSceneObjectKeyPrefix(AdminImageUploadScene scene, String expectedPrefix) {
         byte[] content = pngImage();
         MockMultipartFile file = new MockMultipartFile("file", "cover.png", "image/png", content);
         when(objectStorageService.upload(any(), any(), anyLong(), any()))
                 .thenReturn("https://img.example.com/cover.png");
 
-        imageUploadService.uploadAdminImage(AdminImageUploadScene.ARTICLE_COVER, file);
+        imageUploadService.uploadAdminImage(scene, file);
 
         ArgumentCaptor<String> objectKeyCaptor = ArgumentCaptor.forClass(String.class);
         verify(objectStorageService).upload(
@@ -91,7 +94,7 @@ class ImageUploadServiceImplTest {
                 eq("image/png")
         );
         assertTrue(objectKeyCaptor.getValue().matches(
-                "articles/covers/\\d{4}/\\d{2}/[0-9a-f]{32}\\.png"
+                expectedPrefix + "/\\d{4}/\\d{2}/[0-9a-f]{32}\\.png"
         ));
         verifyNoInteractions(avatarUploadRateLimiter);
     }

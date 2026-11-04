@@ -21,6 +21,8 @@ import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
 import com.ccsanjuu.blog.modules.user.model.enums.UserStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -97,29 +99,32 @@ class AdminFileControllerTest {
         when(tokenVersionService.getCurrentVersion(anyLong())).thenReturn(0L);
     }
 
-    @Test
-    void uploadImageShouldRejectUnauthenticatedRequest() throws Exception {
+    @ParameterizedTest
+    @EnumSource(AdminImageUploadScene.class)
+    void uploadImageShouldRejectUnauthenticatedRequest(AdminImageUploadScene scene) throws Exception {
         mockMvc.perform(multipart("/api/v1/admin/files/images")
                         .file(imageFile())
-                        .param("scene", "ARTICLE_COVER"))
+                        .param("scene", scene.name()))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(101001));
     }
 
-    @Test
-    void uploadImageShouldRejectNonAdminUser() throws Exception {
+    @ParameterizedTest
+    @EnumSource(AdminImageUploadScene.class)
+    void uploadImageShouldRejectNonAdminUser(AdminImageUploadScene scene) throws Exception {
         mockMvc.perform(multipart("/api/v1/admin/files/images")
                         .file(imageFile())
-                        .param("scene", "ARTICLE_COVER")
+                        .param("scene", scene.name())
                         .header("Authorization", "Bearer " + accessToken(USER_ID, UserRole.USER)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(101003));
     }
 
-    @Test
-    void uploadImageShouldReturnUploadedImageForAdmin() throws Exception {
+    @ParameterizedTest
+    @EnumSource(AdminImageUploadScene.class)
+    void uploadImageShouldReturnUploadedImageForAdmin(AdminImageUploadScene scene) throws Exception {
         MockMultipartFile file = imageFile();
-        when(imageUploadService.uploadAdminImage(eq(AdminImageUploadScene.ARTICLE_COVER), eq(file)))
+        when(imageUploadService.uploadAdminImage(eq(scene), eq(file)))
                 .thenReturn(UploadedImageVO.builder()
                         .url("https://img.example.com/cover.png")
                         .originalName("cover.png")
@@ -129,7 +134,7 @@ class AdminFileControllerTest {
 
         mockMvc.perform(multipart("/api/v1/admin/files/images")
                         .file(file)
-                        .param("scene", "ARTICLE_COVER")
+                        .param("scene", scene.name())
                         .header("Authorization", "Bearer " + accessToken(ADMIN_ID, UserRole.ADMIN)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.url").value("https://img.example.com/cover.png"))
@@ -137,7 +142,7 @@ class AdminFileControllerTest {
                 .andExpect(jsonPath("$.data.contentType").value("image/png"))
                 .andExpect(jsonPath("$.data.size").value(8));
 
-        verify(imageUploadService).uploadAdminImage(AdminImageUploadScene.ARTICLE_COVER, file);
+        verify(imageUploadService).uploadAdminImage(scene, file);
     }
 
     @Test

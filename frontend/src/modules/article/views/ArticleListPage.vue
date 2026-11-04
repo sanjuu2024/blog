@@ -70,7 +70,7 @@
 
 				<!-- 滚动加载更多的触发器 -->
 				<AppLoadMoreTrigger
-					v-if="!hasLoaded || articles.length > 0"
+					v-if="!loadMoreDisabled && (!hasLoaded || articles.length > 0)"
 					:loading="loading"
 					:has-next="pageParams.hasNext"
 					:thing-str="'文章'"
@@ -85,7 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue';
+import { computed, nextTick, onActivated, onDeactivated, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ArticleListItem from '../components/ArticleListItem.vue';
 import AppLoadMoreTrigger from '@/components/AppLoadMoreTrigger.vue';
@@ -94,6 +94,7 @@ import ArticleFilterPanel from '../components/ArticleFilterPanel.vue';
 import { useArticleList } from '../composables/useArticleList';
 import { useEnabledCategoryList } from '@/modules/category/composables/useEnabledCategoryList';
 import { useEnabledTagList } from '@/modules/tag/composables/useEnabledTagList';
+import { articleListScrollPending, markArticleListReady } from '@/router/articleListScroll';
 
 const {
 	articles,
@@ -103,7 +104,7 @@ const {
 	filterForm,
 	loading,
 	resetFilterForm,
-	loadMoreArticles,
+	loadMoreArticles: fetchMoreArticles,
 	resetPageParamsAndGetPublishedArticles,
 } = useArticleList();
 
@@ -114,6 +115,12 @@ const { enabledTagList, getEnabledTagList } = useEnabledTagList();
 const route = useRoute();
 const router = useRouter();
 const activeKeyword = computed(() => parseKeyword(route.query.keyword));
+const active = ref(false);
+const loadMoreDisabled = computed(
+	() => !active.value || route.name !== 'ArticleList' || articleListScrollPending.value,
+);
+let currentFilterKey: string | undefined;
+let pendingListRequest: Promise<void> | null = null;
 
 defineOptions({
 	name: 'ArticleListPage',
@@ -177,14 +184,46 @@ async function resetFilterAndRoute() {
 	await applyFilterToRoute();
 }
 
+async function loadMoreArticles() {
+	if (loadMoreDisabled.value) return;
+	await fetchMoreArticles();
+}
+
 watch(
-	() => [route.query.keyword, route.query.categoryId, route.query.tagIds],
-	async () => {
-		syncFilterFormFromRoute();
-		await resetPageParamsAndGetPublishedArticles();
+	() => (route.name === 'ArticleList' ? route.fullPath : null),
+	async (fullPath, _previousPath, onCleanup) => {
+		if (fullPath === null) return;
+		let cancelled = false;
+		onCleanup(() => {
+			cancelled = true;
+		});
+		const filterKey = JSON.stringify([
+			parseKeyword(route.query.keyword),
+			parsePositiveInteger(route.query.categoryId),
+			parseTagIds(route.query.tagIds),
+		]);
+		const reuseLoadedList = filterKey === currentFilterKey && hasLoaded.value;
+		// 缓存失活时仍会观察全局路由，只在列表条件真正变化时清空已加载分页。
+		if (filterKey !== currentFilterKey || (!hasLoaded.value && !pendingListRequest)) {
+			currentFilterKey = filterKey;
+			syncFilterFormFromRoute();
+			pendingListRequest = resetPageParamsAndGetPublishedArticles();
+		}
+		const request = pendingListRequest;
+		await request;
+		if (pendingListRequest === request) pendingListRequest = null;
+		await nextTick();
+		if (!cancelled) markArticleListReady(fullPath, reuseLoadedList);
 	},
-	{ immediate: true },
+	{ immediate: true, flush: 'post' },
 );
+
+onActivated(() => {
+	active.value = true;
+});
+onDeactivated(() => {
+	active.value = false;
+});
 
 onMounted(() => {
 	getEnabledCategoryList();

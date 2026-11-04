@@ -52,12 +52,12 @@
 
 - P0 阶段 `Refresh Token` 以数据库会话表为准，刷新、退出、修改密码、禁用用户等安全事件通过会话表做失效控制；修改用户角色不直接撤销 Refresh Token
 - P1 已使用 Redis 缓存用户 `tokenVersion`，用于降低 Access Token 鉴权时的数据库查询成本；缓存未命中或 Redis 不可用时回源数据库，缓存有效期与 Access Token 有效期一致
-- Refresh Token 会话仍以 `blog_auth_session` 为权威来源，Redis 运行态会话与刷新宽限期不在本次 `tokenVersion` 实现范围内
+- Refresh Token 会话仍以 `blog_auth_session` 为权威来源；Redis 仅以固定 5 秒 TTL 加密缓存成功轮转的令牌结果，不替代数据库会话和 tokenVersion 校验
 - P1 阶段后台管理操作审计日志建议使用独立审计表，记录操作者、目标资源、操作类型、操作结果和操作时间
 - `blog_admin_audit_log` 只允许应用追加和管理员查询，不提供修改或删除接口；成功日志与业务操作同事务提交，失败日志在业务回滚后独立提交
 - `Refresh Token` 使用轮转机制；每次刷新成功后，旧会话记录标记为 `REVOKED`，新 Refresh Token 对应新的 `ACTIVE` 会话记录
 - P0 阶段不因普通刷新失败自动撤销用户全部活跃 Refresh Token；修改密码、用户禁用、管理员强制下线等明确安全事件可按业务规则撤销全部会话
-- 短暂宽限期用于处理网络波动下的幂等重试；P1 接入 Redis 后，可由 Redis 记录旧 `token_jti` 到新令牌结果的短 TTL 映射，数据库继续保留审计状态
+- 宽限缓存 key 使用旧 Refresh Token 摘要，value 使用 Spring Security AES-GCM 加密的轮转结果及签发时 tokenVersion，携带固定截止时间；不存明文令牌，不新增数据库字段。数据库回滚、账号安全变更、新会话撤销或过期时，即使缓存仍存在也不能使用
 - 评论、点赞等互动能力虽然不在 P0 落地，但数据库结构先预留；P1 启用评论表并通过新 migration 扩展审核、根评论和逻辑删除字段；历史版本遗留的收藏结构单独说明
 - 统计字段如 `comment_count`、`like_count` 放在主表冗余，行为明细拆分到独立表
 - P2 浏览去重使用 Redis 一小时 key，PostgreSQL 只保存文章总量和每日聚合，不保存完整访问轨迹
@@ -268,14 +268,16 @@ CREATE INDEX IF NOT EXISTS idx_blog_auth_session_expires_at
 - 登录成功：创建一条 `ACTIVE` 的 Refresh Token 会话记录。
 - 刷新成功：在同一事务中将旧会话记录更新为 `REVOKED`，设置 `revoked_at` 和 `updated_at`，并为新 Refresh Token 创建新的 `ACTIVE` 会话记录。
 - 刷新失败：Refresh Token 缺失、格式错误、签名无效、已过期、已撤销或找不到对应会话时，统一返回 `Refresh Token 无效或已过期`；P0 阶段不因普通刷新失败自动撤销该用户全部 `ACTIVE` 会话记录。
-- 宽限期重试：P1 接入 Redis 后，若旧 Refresh Token 已 `REVOKED` 且仍处于 Redis 宽限期内，后端可返回第一次刷新时生成的新令牌结果，不再创建新的会话记录。
+- 宽限期重试：仅在成功轮转时建立旧 RT 摘要到新令牌结果的 5 秒加密缓存。旧会话必须为 `REVOKED`，且在用户行锁内校验旧令牌摘要、缓存截止时间、当前 tokenVersion、账号和对应 `ACTIVE` 新会话；复用结果不续期缓存、不再创建会话。对应新会话已再次轮转时拒绝旧结果，不沿缓存链延长旧 RT 的能力。
+- 缓存写入在轮转事务持有用户行锁期间执行；并发重试取得同一用户锁后才读取会话及缓存，因此不能接受未提交或已回滚的新会话。Redis 不可用时保留严格轮转能力，无法恢复丢失响应时要求重新登录。
 - 重放检测：P1 可结合 Redis 短 TTL 宽限期、`token_jti` 状态和 `tokenVersion` 识别高风险重放；确认高风险后再撤销该用户全部 `ACTIVE` 会话记录。
-- 主动退出登录：将当前 Refresh Token 对应会话记录更新为 `REVOKED`。
+- 主动退出登录：在同一用户行锁内将当前 RT 对应会话更新为 `REVOKED`；若请求携带成功轮转且尚在重试窗口内的旧 RT，则撤销缓存指向的有效新会话。普通撤销没有轮转结果缓存，不享有宽限期。
 - 修改密码或禁用用户：将该用户全部 `ACTIVE` Refresh Token 会话更新为 `REVOKED`，同时原子递增 `blog_user.token_version`，使已签发 Access Token 立即失效。
 - 修改用户角色：不直接撤销 Refresh Token，但原子递增 `blog_user.token_version`，使旧 Access Token 立即失效；使用现有 Refresh Token 刷新或重新登录后取得携带新角色的新 Access Token。
 - Access Token 携带签发时的 `tokenVersion`；鉴权时优先与 Redis 缓存比较，缓存未命中或 Redis 不可用时回源 `blog_user.token_version`。数据库是持久化权威来源，Redis 只保存可重建缓存。
 - 登录、刷新登录态、修改密码、禁用用户和修改角色时锁定同一条 `blog_user` 记录；登录取得锁后使用最新密码和账号状态继续校验，刷新请求取得锁后必须重新校验旧 Refresh Token，避免并发账号安全操作重新产生有效会话。
 - 定期维护：可将 `expires_at` 早于当前时间且仍为 `ACTIVE` 的记录更新为 `EXPIRED`。
+- 系统每日分批删除 `expires_at` 早于当前时间 7 天的会话；未到期的 `REVOKED` 会话保留，避免影响轮转重试及异常识别。
 
 ## 3.3 表名：`blog_category`
 
@@ -765,7 +767,9 @@ CREATE TABLE blog_mail_delivery (
         CHECK (mail_type IN ('COMMENT_REPLY', 'MESSAGE_REPLY')),
     source_id BIGINT NOT NULL,
     reply_id BIGINT NOT NULL,
-    recipient_masked VARCHAR(255) NOT NULL,
+    recipient_masked VARCHAR(255) NOT NULL DEFAULT '',
+    recipient_email VARCHAR(255),
+    recipient_user_id BIGINT,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
         CHECK (status IN ('PENDING', 'SENT', 'FAILED')),
     attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
@@ -781,8 +785,9 @@ CREATE INDEX idx_blog_mail_delivery_status_created
     ON blog_mail_delivery (status, created_at DESC, id DESC);
 ```
 
-投递记录只保存脱敏地址和安全错误摘要。手动重试根据 `source_id`、`reply_id` 读取当前业务数据
-重新生成正文；不保存完整邮件正文、SMTP 凭据、验证码或异常堆栈。
+`V1.2.13` 增加 `recipient_email` 和 `recipient_user_id`：完整收件地址保存创建时的目标，每次实际发送尝试前更新；用户 ID 来自评论或留言作者，不根据邮箱猜测身份。查询时联表读取用户当前资料，与安全事件展示一致，不保存昵称 / 用户名快照。游客的用户 ID 为空。
+旧记录只回填可信业务关联的用户 ID，不回填无法确认的历史完整地址。`recipient_masked` 作为历史兼容字段保留，默认空字符串，新投递不再写入；查询可返回该历史值，并另外返回关联账号或游客留言的当前邮箱，不能用当前值覆盖历史完整地址。
+手动重试根据 `source_id`、`reply_id` 读取当前业务数据重新生成正文；不保存完整邮件正文、SMTP 凭据、验证码或异常堆栈。
 
 ## 4.9 P2 安全事件表：`blog_security_event`
 
@@ -803,7 +808,7 @@ CREATE TABLE blog_security_event (
 );
 ```
 
-安全事件表只追加，不提供更新和删除接口。记录事件类型、结果、可信关联的目标用户、管理员操作者、
+安全事件表不提供更新和删除接口；系统每日分批清理超过 90 天的事件。正常刷新成功及 RT 缺失不写入，其他异常刷新失败逐条保留。记录事件类型、结果、可信关联的目标用户、管理员操作者、
 原始账号、来源 IP、原始 User-Agent、请求方法、请求路径、原因描述和创建时间，仅管理员可查询。
 `actor_id` 仅用于管理员操作其他用户，自身操作为空。请求路径不含 query 参数；来源 IP 使用服务端
 请求的 remote address，由已有可信反向代理配置处理转发头，不直接信任客户端自报的 IP。

@@ -43,6 +43,7 @@ export function useArticleList() {
 
 	// 查询参数
 	const filterForm = reactive<ArticleFilterForm>({ ...createInitialFilterForm() });
+	let appliedFilters: ArticleFilterForm | null = null;
 
 	// 用于滚动页面自动获取接下来的分页列表
 	const loading = ref(false);
@@ -63,12 +64,13 @@ export function useArticleList() {
 
 	// 构造 获取已发表文章分页列表 请求参数
 	function buildArticleListQueryParams() {
+		const filters = appliedFilters ?? filterForm;
 		const queryParams: PublicArticleListQuery = {
 			pageNum: pageParams.pageNum,
 			pageSize: pageParams.pageSize,
-			keyword: filterForm.keyword || undefined,
-			categoryId: filterForm.categoryId,
-			tagIds: filterForm.tagIds,
+			keyword: filters.keyword || undefined,
+			categoryId: filters.categoryId,
+			tagIds: filters.tagIds,
 		};
 		return queryParams;
 	}
@@ -136,6 +138,8 @@ export function useArticleList() {
 
 	// 🍉重置分页后重新获取文章列表
 	async function resetPageParamsAndGetPublishedArticles() {
+		// 后续翻页复用已应用的条件，未提交的表单草稿不能混入同一列表。
+		appliedFilters = { ...filterForm, tagIds: [...(filterForm.tagIds ?? [])] };
 		Object.assign(pageParams, initPageParams);
 		articles.value = [];
 		total.value = 0;

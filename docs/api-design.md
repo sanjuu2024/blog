@@ -217,7 +217,7 @@ Authorization: Bearer <access_token>
 | `messageStatus` | `PENDING`、`APPROVED`、`REJECTED`、`HIDDEN`、`DELETED` | 留言状态 |
 | `messageType` | `TOP_LEVEL`、`REPLY` | 留言层级 |
 | `messageModerationAction` | `APPROVE`、`REJECT`、`HIDE`、`DELETE` | 后台留言处理动作 |
-| `imageUploadScene` | `ARTICLE_COVER`、`ARTICLE_CONTENT`、`PROJECT_COVER` | 后台图片使用场景 |
+| `imageUploadScene` | `ARTICLE_COVER`、`ARTICLE_CONTENT`、`ABOUT_CONTENT`、`PROJECT_COVER` | 后台图片使用场景 |
 
 ## 3. 接口总览
 
@@ -301,7 +301,7 @@ Authorization: Bearer <access_token>
 请求体只包含合法的 `email`。验证码为 6 位数字，有效期 10 分钟；同一邮箱 60 秒内最多发送一次、
 每小时最多 5 次，同一客户端 IP 每小时最多 20 次。Redis key 不保存明文邮箱或 IP，只保存身份摘要；
 验证码只保存带服务端密钥的摘要和失败次数。SMTP 接受邮件后才返回成功；发送失败会清除本次验证码并
-归还限流额度。邮箱已注册时直接返回 `102004`“邮箱已存在”，不生成或发送验证码。
+归还限流额度。邮箱已注册时直接返回 `102004`“邮箱已存在”，不生成或发送验证码；注册和邮箱修改用途均拒绝 `deleted.invalid` 保留域名及其子域名，返回 `199001`，不预占限流额度、不保存验证码或发送邮件。
 
 ### 4.1.2 提交注册
 
@@ -458,7 +458,7 @@ P0 阶段，Refresh Token 缺失、格式错误、签名无效、已过期、已
 
 登录、刷新登录态、修改密码、禁用用户和修改角色通过同一条用户记录的行锁串行执行。登录取得锁后使用最新密码和账号状态继续校验；刷新请求取得锁后会重新校验旧 Refresh Token，避免这些请求在等待锁期间账号或会话已经发生变化，却仍然签发新会话。
 
-P1 阶段可结合 Redis 短 TTL 宽限期、`token_jti` 状态和 `tokenVersion` 做更精细的幂等重试与重放检测；只有在明确识别为高风险重放或管理员强制下线等安全事件时，才撤销该用户全部活跃 Refresh Token。
+成功轮转的结果在 Redis 中加密缓存固定 5 秒，以旧 RT 摘要作为 key；同一旧 RT 在窗口内重试返回相同的 AT、RT 及到期时间，不生成新会话、不延长窗口。仅缓存所对应的新会话仍为 ACTIVE 且未过期、账号仍有效、签发时 tokenVersion 仍匹配时允许复用。普通撤销、退出、改密、改邮箱、禁用、注销及新会话再次轮转后不能通过旧 RT 恢复登录。所有校验在同一用户行锁内执行；缓存缺失、过期、不可解密或 Redis 不可用时仍返回 101004，不将所有 REVOKED 会话当作可重试会话。
 
 ### 请求参数
 
@@ -519,6 +519,7 @@ Set-Cookie: refresh_token=<new_refresh_token>; Max-Age=604800; Path=/api/v1/auth
 - 浏览器自动携带 `refresh_token` Cookie，后端据此定位并撤销当前会话对应的 Refresh Token
 - 该接口按幂等语义处理：如果 Refresh Token 缺失、已过期、已撤销或找不到对应会话，后端也返回成功，前端只需清理本地登录态即可
 - 退出成功后后端会通过 `Set-Cookie` 清除 `refresh_token` Cookie
+- 若请求携带刚成功轮转且尚在 5 秒重试窗口内的旧 RT，后端在用户行锁内撤销其对应的有效新会话，之后旧 RT 和新 RT 都不能恢复登录
 
 ### 请求参数
 
@@ -1147,6 +1148,7 @@ avatar=avatar.webp（可选）
 - 权限：`LOGIN`
 
 请求体只包含合法的新邮箱。新邮箱必须未被其他账号占用，验证码有效期 10 分钟；邮箱和客户端 IP 继续使用现有验证码发送限流规则。验证码用途与注册验证码隔离，不能交叉使用。
+新邮箱属于 `deleted.invalid` 保留域名及其子域名时返回 `199001`，不预占限流额度、不保存验证码或发送邮件。
 
 ## 6.4 修改当前用户邮箱
 
@@ -2554,6 +2556,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - `browser`、`operatingSystem`、`device` 为 User-Agent 的可读解析结果；历史记录没有原始字段时返回 null，后台显示“未记录”。原始 User-Agent 可完整查看。
 - `userId` 为可信关联的目标用户；`actorId` 仅为管理员操作其他用户时的操作者，自身操作为空。刷新失败区分缺失、格式/签名错误、过期、类型或声明错误、会话不存在、已撤销、会话过期和摘要不匹配；仅签名可信且为 Refresh Token 时关联用户 ID，公开错误码不变。
 - 安全事件只允许追加和查询，不提供修改、删除或导出接口；不得保存密码、验证码、Token、Authorization、Cookie、SMTP/OSS 密钥、完整请求/响应正文或异常堆栈。
+- 正常刷新成功仅计运行时指标，RT 缺失不记录安全事件；其他刷新失败仍逐条记录。系统自动清理超过 90 天的事件，以及已过期超过 7 天的认证会话；接口错误码及 RT 轮转语义不变。
 
 ## 13. 图片上传接口
 
@@ -2579,7 +2582,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | 位置 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- | --- |
 | Form Data | `file` | `binary` | 是 | 图片文件，最大 10 MB |
-| Form Data | `scene` | `String` | 是 | `ARTICLE_COVER` 或 `ARTICLE_CONTENT`；`PROJECT_COVER` 为未来项目模块预留 |
+| Form Data | `scene` | `String` | 是 | `ARTICLE_COVER`、`ARTICLE_CONTENT` 或 `ABOUT_CONTENT`；`PROJECT_COVER` 为未来项目模块预留 |
 
 缺少图片时返回 `107001`；`scene` 缺失或枚举值不合法时返回 `199001`。
 
@@ -2598,7 +2601,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 }
 ```
 
-文章封面上传后由前端把 URL 回填至原有封面输入框；文章正文图片上传后由 `md-editor-v3` 插入 Markdown 图片语法。该接口仅创建 OSS 对象，不直接修改文章或项目数据。
+文章封面上传后由前端把 URL 回填至原有封面输入框；文章和关于页正文图片上传后由 `md-editor-v3` 插入 Markdown 图片语法，以原文件名填写 alt，title 留空供作者手动添加图注。`ABOUT_CONTENT` 使用 `about/content/YYYY/MM/UUID.扩展名` 对象 key，其余校验及返回结构不变。该接口仅创建 OSS 对象，不直接修改文章、关于页或项目数据。
 
 ## 14. 业务规则补充
 
@@ -2714,7 +2717,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 `description`（可空，最长 255 字符）、`logoUrl`（可空，头像图片或网站代表图地址，HTTP(S) 绝对 URL，最长 500 字符；建议使用清晰的正方形图片）、
 `section`（必填，`FRIENDS`/`EXPERTS`/`PEERS`）、`sortNo`（32 位整数）和 `status`（`ENABLED`/`DISABLED`）。
 创建时状态默认 `ENABLED`、排序默认 100；排序值越小越靠前，可预留间隔便于后续插入。后台列表仍按创建时间和 ID 倒序；未填写的可空文本字段规范化为空字符串。
-名称和描述按纯文本展示，不解析 HTML 或 Markdown；头像图片或网站代表图由浏览器直接加载，不经本站代理。
+名称和描述按纯文本展示，不解析 HTML 或 Markdown；头像图片或网站代表图由浏览器直接请求填写的 URL，后端不代理图片、不自动下载或转存到 OSS。可填写申请者提供的外站图片地址，也可填写管理员人工上传后的 OSS 地址，不要求必须使用本站 OSS。
 重复网站地址返回 HTTP 409、业务码 `109002`；目标不存在返回 HTTP 404、业务码 `109001`。
 其他字段校验失败使用 `199001`。
 
@@ -2825,9 +2828,10 @@ Dashboard 不接收全局 `range` 或趋势模式参数。接口一次返回六�
 前端通知由头像菜单中的弹窗展示，没有独立路由；每条通知可展开或收起，展开时标记已读。
 目标范围只允许单个指定用户和全部未逻辑删除用户。公告不使用通知收件模型，而是通过留言板公开展示。
 创建管理员消息可指定 `DRAFT` 或 `PUBLISHED`，默认直接发布；草稿可修改标题、正文与收件范围。草稿只保存单个指定用户 ID，不生成正式收件记录；首次发布草稿时才生成收件记录。指定用户必须存在且未逻辑删除。已发布消息只能下线，下线后可重新发布，不能退回草稿。用户禁用期间不能读取通知，恢复后可以看到禁用期间收到的通知。
+创建、修改和首次发布指定用户消息时均校验收件人；用户不存在时返回 HTTP `400`、`199001`，消息为“指定用户不存在”；用户已注销时返回相同状态和业务码，消息为“指定用户已注销，无法接收管理员消息”。校验失败不创建消息或收件记录，修改和发布失败时保留原草稿。
 
 评论直接回复审核通过后创建 `COMMENT_REPLY`；登录用户或管理员回复登录用户留言后创建 `MESSAGE_REPLY`。
-回复通知列表同时返回回复来源 ID、回复作者昵称、被回复的原文、评论所属文章 ID、直接父评论或留言 ID。`COMMENT_REPLY` 额外返回 `liked`、`likeCount` 和 `canInteract`；`canInteract` 表示当前评论回复是否仍允许点赞或快捷回复。`MESSAGE_REPLY` 和管理员消息不返回这些评论互动字段。
+回复通知列表同时返回回复来源 ID、回复作者昵称、被回复的原文、评论所属文章 ID、直接父评论或留言 ID。新增可空的 `articleTitle`，仅评论回复返回关联文章的当前标题，文章信息缺失、留言回复或管理员消息时为 `null`；复用通知分页的文章联表查询，不逐条请求文章。前端据此显示“xxx 回复了我在《文章标题》中的评论”，标题缺失时显示“xxx 回复了我在文章中的评论”；留言回复显示“xxx 回复了我在留言板的评论”。`COMMENT_REPLY` 额外返回 `liked`、`likeCount` 和 `canInteract`；`canInteract` 表示当前评论回复是否仍允许点赞或快捷回复。`MESSAGE_REPLY` 和管理员消息不返回这些评论互动字段。
 站内通知不依赖邮件订阅，邮件失败也不回滚通知。公告通过留言板展示，不生成通知收件记录和未读红点。
 
 ### 16.6 邮件投递管理
@@ -2838,8 +2842,9 @@ Dashboard 不接收全局 `range` 或趋势模式参数。接口一次返回六�
 | `GET` | `/api/v1/admin/mail-deliveries/{deliveryId}` | `ADMIN` | 查看尝试次数和安全失败摘要 |
 | `POST` | `/api/v1/admin/mail-deliveries/{deliveryId}/retry` | `ADMIN` | 手动重试 `FAILED` 回复通知 |
 
-响应只返回脱敏收件地址。手动重试必须锁定投递记录，只允许一个任务执行，并根据业务关联重新
-生成正文；不保存或返回完整正文、邮箱、SMTP 密码、验证码及异常堆栈。
+管理员列表和详情返回 `recipientEmail`（完整收件地址，可空）、`recipientMasked`（历史脱敏地址，可空）、`currentRecipientEmail`（排错参考的当前邮箱，可空）及 `userId`、`userUsername`、`userNickname`、`userDeleted`。完整地址为创建时或最近发送尝试的目标，实际尝试前更新；旧记录无法确认时为 null，保留历史脱敏值，不以当前邮箱伪造历史地址。当前邮箱来自关联账号，游客留言来自原留言保存的邮箱；已注销账号不返回当前邮箱。用户资料联表读取当前值，注销时返回占位用户名及注销状态，不返回旧昵称；游客 userId 为空，存在 ID 但资料缺失时显示资料不存在，不根据邮箱关联用户。
+手动重试必须锁定投递记录，只允许一个任务执行，并根据业务关联重新生成正文；不保存或返回完整正文、SMTP 密码、验证码及异常堆栈。应用日志不输出完整收件地址。
+投递记录创建使用独立事务，业务提交后先提交投递记录再调度；重试先提交 `PENDING` 状态再调度，回滚不启动任务。首次及每次重试发送均重新查询：留言原文 / 回复须为 `APPROVED` 且关联正确，订阅仍有效；评论还要求文章及两级分类公开可见。登录收件人必须存在、未注销且邮箱已验证；留言仍使用原留言保存的收件邮箱，游客不关联账号。校验失败不调用 SMTP，投递标记 `FAILED`，保留既有收件地址供排错。
 
 ### 16.7 评论回复通知和排序
 
@@ -2868,6 +2873,7 @@ Dashboard 不接收全局 `range` 或趋势模式参数。接口一次返回六�
 | 方法 | 路径 | 响应 | 说明 |
 | --- | --- | --- | --- |
 | `GET` | `/`、`/articles`、`/archives`、`/about`、`/messages`、`/links` | `text/html` | 前端入口 HTML 与公开页面元信息，正文由 Vue 渲染 |
+| `GET` | `/home` | HTTP `308` | 首页兼容入口，Location 指向 `/` 并保留查询参数，响应使用 no-store；首页只以 `/` 输出 canonical |
 | `GET` | `/articles/{articleId}` | `text/html` | head 包含文章标题、摘要、canonical 和 OG，正文由 Vue 渲染；不存在、不可见或分类不可用时 HTTP 404 |
 | `GET` | `/sitemap.xml` | `application/xml` | 公开页面与公开可见文章的规范地址及文章更新时间 |
 | `GET` | `/rss.xml` | `application/rss+xml` | 最近 20 篇仍公开的已发布文章 RSS 2.0 feed；包含标题、摘要、发布时间和规范地址 |
@@ -2875,6 +2881,8 @@ Dashboard 不接收全局 `range` 或趋势模式参数。接口一次返回六�
 | `GET` | `/api/v1/seo?path=...` | 通用 JSON 响应 | 非文章公开页面内部导航时按需获取元信息；保留文章路径读取能力，但文章页复用详情响应的 seo；非规范文章 ID 或未知页面返回 404 |
 
 SEO JSON 的 data 为 `{title, description, canonicalUrl, imageUrl, type, publishedAt, updatedAt}`。
+
+前端 Home 路由固定为 `/`，不再从 `/` 跳到 `/home`；站内 `/home` 跳转保留 query/hash 后规范化为 `/`。HTTP 重定向不接收片段，浏览器沿用原片段；Vite 和生产 Nginx 将 `/home` 交给后端返回重定向，开发代理不自动跟随上游 308，以便浏览器地址同步更新。
 `type` 为 `website` 或 `article`，图片和事件时间可为 null；无封面时不伪造 OG 图片。
 标题、描述和地址由后端统一生成，canonical 不含 query/hash，封面只接受 HTTP(S) 绝对地址或站内相对地址。
 友链页标题为“友链 - {BLOG_APP_NAME}”，description 使用“{BLOG_APP_NAME}的友链”，canonical 为 `BLOG_SITE_URL + /links`；
@@ -2884,6 +2892,8 @@ HTML、元信息和 sitemap 使用 `Cache-Control: no-store`，避免下线内�
 文章详情中的 `seo` 与首屏使用同一套生成逻辑，详情成功后同步标签，失败时清理并设置 noindex。
 普通公开页面首次已有标签时不重复请求，后续内部导航按需请求；文章切换只发详情请求，过滤过期结果。
 query/hash 不触发标签清理或重复 SEO 请求；离开公开页面后清理并设置 noindex。
+无效文章的 HTML 请求返回 HTTP 404、`Cache-Control: no-store` 和带 `data-seo` 的 `robots=noindex, follow`；正文使用与有效页面相同的前端入口模板，保留原 JS/CSS 等资源及空 Vue 挂载容器，移除 canonical、description、OG 和文章专属标签。Vue 启动后在原文章路由中复用详情 API 的错误状态，保留 MainLayout、AppHeader 和页脚，不跳转 `/404`。站内导航沿用同一页面错误状态；该情况下原文档状态码不变，详情 API 按自身契约返回错误。
+开发 Vite 对有效页面及上述 404 HTML 均执行入口转换，保留上游状态码；重定向、5xx 和非 HTML 文档不参与该转换。生产 Nginx 透传 404 应用入口，不替换为独立错误页。
 HTML 模板不可读取时返回 HTTP 503，不降级为缺少前端资源的伪成功页面。
 
 `BLOG_SITE_URL` 是唯一的站点地址来源，不含路径、查询、账号密码或片段；生产必须为 HTTPS origin，dev/test 可使用 localhost HTTP。

@@ -194,7 +194,17 @@
 						<template #default="{ row }: { row: AdminAuditLogItem }">
 							<strong>{{ getActionLabel(row.action, row.resourceType) }}</strong>
 							<p
-								v-if="row.actionDetail"
+								v-if="
+									row.resourceType === AUDIT_RESOURCE_TYPE.MESSAGE &&
+									row.action === AUDIT_ACTION.CREATE &&
+									row.requestPath === '/api/v1/admin/messages/announcements'
+								"
+								class="admin-audit-log__secondary"
+							>
+								公告
+							</p>
+							<p
+								v-else-if="row.actionDetail"
 								class="admin-audit-log__secondary"
 							>
 								{{ getDetailLabel(row.actionDetail) }}
@@ -362,6 +372,7 @@ function getDetailLabel(detail: string) {
 		ENABLED: '启用',
 		ARTICLE_COVER: '文章封面',
 		ARTICLE_CONTENT: '文章正文',
+		ABOUT_CONTENT: '关于页正文',
 		PROJECT_COVER: '项目封面',
 		'1': '一级分类',
 		'2': '二级分类',
