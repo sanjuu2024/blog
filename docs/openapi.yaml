@@ -151,6 +151,20 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/PublicHtmlResponse' }
         '503': { description: 前端入口模板不可用 }
+  /home:
+    get:
+      tags: [Site Content]
+      summary: 重定向旧首页地址
+      description: 首页规范地址为 /。旧 /home 永久重定向到 /，保留查询参数；不生成独立首页 HTML 或 canonical。
+      responses:
+        '308':
+          description: 永久重定向至规范首页
+          headers:
+            Location:
+              description: 根路径 /，附带原查询参数（如有）
+              schema: { type: string, example: / }
+            Cache-Control:
+              schema: { type: string, example: no-store }
   /articles:
     get:
       tags: [Site Content]
@@ -188,7 +202,14 @@ paths:
         - $ref: '#/components/parameters/ArticleId'
       responses:
         '200': { $ref: '#/components/responses/PublicHtmlResponse' }
-        '404': { description: 文章不存在、不可见或分类不可用 }
+        '404':
+          description: 文章不存在、不可见或分类不可用；返回带 noindex 的前端入口模板，由 Vue 在 MainLayout 中显示文章错误状态，保留原资源及空挂载容器，无 canonical、description、OG 或文章专属标签
+          headers:
+            Cache-Control:
+              schema: { type: string, example: no-store }
+          content:
+            text/html:
+              schema: { type: string }
         '503': { description: 前端入口模板不可用 }
   /sitemap.xml:
     get:

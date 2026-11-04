@@ -21,6 +21,13 @@ public interface SeoService {
     String renderHtml(String path);
 
     /**
+     * 生成不可收录的前端入口，文章错误状态仍由 Vue 渲染。
+     *
+     * @return 保留原构建资源及空 Vue 挂载容器的 HTML
+     */
+    String renderNotFoundHtml();
+
+    /**
      * 生成公开页面站点地图。
      *
      * @return sitemap XML

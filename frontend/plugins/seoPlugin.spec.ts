@@ -15,15 +15,20 @@ type RequestHandler = (
 describe('seoPlugin', () => {
 	afterEach(() => vi.unstubAllGlobals());
 
-	it.each(['/links', '/archives?mode=tag&tagId=30001'])(
-		'proxies public HTML for %s and preserves the URL for Vite transformation',
-		async (path) => {
+	it.each([
+		{ path: '/links', status: 200, transformed: true },
+		{ path: '/archives?mode=tag&tagId=30001', status: 200, transformed: true },
+		{ path: '/articles/333?replyId=51', status: 404, transformed: true },
+		{ path: '/articles/333', status: 503, transformed: false },
+	])(
+		'proxies $path with status $status and the expected HTML transformation',
+		async ({ path, status, transformed }) => {
 			const html = '<html><body><div id="app"></div></body></html>';
 			const fetchMock = vi.fn().mockResolvedValue({
-				headers: { get: () => 'text/html; charset=UTF-8' },
+				headers: new Headers({ 'Content-Type': 'text/html; charset=UTF-8' }),
 				text: async () => html,
-				ok: true,
-				status: 200,
+				ok: status === 200,
+				status,
 			});
 			vi.stubGlobal('fetch', fetchMock);
 
@@ -59,16 +64,17 @@ describe('seoPlugin', () => {
 				new URL(path, 'http://localhost:8080'),
 				expect.objectContaining({ method: 'GET' }),
 			);
-			expect(transformIndexHtml).toHaveBeenCalledWith(path, html);
-			expect(response.statusCode).toBe(200);
-			expect(response.end).toHaveBeenCalledWith(`transformed:${html}`);
+			if (transformed) expect(transformIndexHtml).toHaveBeenCalledWith(path, html);
+			else expect(transformIndexHtml).not.toHaveBeenCalled();
+			expect(response.statusCode).toBe(status);
+			expect(response.end).toHaveBeenCalledWith(transformed ? `transformed:${html}` : html);
 		},
 	);
 
 	it('proxies the RSS document without transforming it as HTML', async () => {
 		const rss = '<?xml version="1.0"?><rss version="2.0"></rss>';
 		const fetchMock = vi.fn().mockResolvedValue({
-			headers: { get: () => 'application/rss+xml; charset=UTF-8' },
+			headers: new Headers({ 'Content-Type': 'application/rss+xml; charset=UTF-8' }),
 			text: async () => rss,
 			ok: true,
 			status: 200,

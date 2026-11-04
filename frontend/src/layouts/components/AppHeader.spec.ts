@@ -1,6 +1,8 @@
 import { mount } from '@vue/test-utils';
 import { defineComponent } from 'vue';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMemoryHistory, createRouter, type RouteRecordRaw, type Router } from 'vue-router';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { routes } from '@/router/routes';
 import AppHeader from './AppHeader.vue';
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
@@ -39,11 +41,14 @@ const ElDropdownStub = defineComponent({
 	template: '<div><slot /><slot name="dropdown" /></div>',
 });
 
-function mountHeader() {
+function mountHeader(navigationRouter?: Router) {
 	return mount(AppHeader, {
 		global: {
+			plugins: navigationRouter ? [navigationRouter] : [],
 			stubs: {
-				RouterLink: { props: ['to'], template: '<a><slot /></a>' },
+				RouterLink: navigationRouter
+					? false
+					: { props: ['to'], template: '<a><slot /></a>' },
 				AppLogo: true,
 				AppUserMenu: {
 					props: ['pxRem'],
@@ -58,6 +63,16 @@ function mountHeader() {
 				ILucideList: true,
 			},
 		},
+	});
+}
+
+// 保留真实路由匹配，只替换页面组件，避免导航测试加载完整业务页面。
+function stubPageComponents(records: RouteRecordRaw[]): RouteRecordRaw[] {
+	return records.map((record) => {
+		const stubbed = { ...record };
+		if ('component' in stubbed) stubbed.component = defineComponent(() => () => null);
+		if (stubbed.children) stubbed.children = stubPageComponents(stubbed.children);
+		return stubbed;
 	});
 }
 
@@ -83,5 +98,62 @@ describe('AppHeader', () => {
 		await wrapper.vm.$nextTick();
 
 		expect(router.push).toHaveBeenCalledWith('/articles');
+	});
+
+	describe('navigation highlighting', () => {
+		let wrapper: ReturnType<typeof mountHeader>;
+		let navigationRouter: Router;
+
+		beforeEach(() => {
+			navigationRouter = createRouter({
+				history: createMemoryHistory(),
+				routes: stubPageComponents(routes),
+			});
+		});
+
+		afterEach(() => wrapper?.unmount());
+
+		it.each(['/', '/?from=mail#content', '/home?from=mail#content'])(
+			'highlights the homepage after navigation to %s',
+			async (path) => {
+				await navigationRouter.push(path);
+				wrapper = mountHeader(navigationRouter);
+
+				const homeLink = wrapper.get('.app-header__link[href="/"]');
+				expect(homeLink.classes()).toContain('router-link-active');
+				expect(homeLink.attributes('aria-current')).toBe('page');
+				expect(wrapper.findAll('.app-header__link.router-link-active')).toHaveLength(1);
+			},
+		);
+
+		it.each([
+			['/articles', '文章'],
+			['/articles?keyword=Vue', '文章'],
+			['/archives?mode=tag&tagId=30001', '归档'],
+			['/messages', '留言'],
+			['/links', '友链'],
+			['/about', '关于'],
+			['/articles/40001', null],
+			['/users/me', null],
+			['/admin/articles/list', '后台'],
+		])('clears homepage highlighting after navigation to %s', async (path, activeLabel) => {
+			await navigationRouter.push('/');
+			wrapper = mountHeader(navigationRouter);
+			const homeLink = wrapper.get('.app-header__link[href="/"]');
+			expect(homeLink.classes()).toContain('router-link-active');
+
+			await navigationRouter.push(path);
+			await wrapper.vm.$nextTick();
+
+			expect(homeLink.classes()).not.toContain('router-link-active');
+			expect(homeLink.attributes('aria-current')).toBeUndefined();
+			expect(
+				wrapper.findAll('.app-header__link.router-link-active').map((link) => link.text()),
+			).toEqual(activeLabel ? [activeLabel] : []);
+
+			await navigationRouter.push({ name: 'Home' });
+			await wrapper.vm.$nextTick();
+			expect(homeLink.classes()).toContain('router-link-active');
+		});
 	});
 });

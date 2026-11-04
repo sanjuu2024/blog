@@ -2717,7 +2717,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 `description`（可空，最长 255 字符）、`logoUrl`（可空，头像图片或网站代表图地址，HTTP(S) 绝对 URL，最长 500 字符；建议使用清晰的正方形图片）、
 `section`（必填，`FRIENDS`/`EXPERTS`/`PEERS`）、`sortNo`（32 位整数）和 `status`（`ENABLED`/`DISABLED`）。
 创建时状态默认 `ENABLED`、排序默认 100；排序值越小越靠前，可预留间隔便于后续插入。后台列表仍按创建时间和 ID 倒序；未填写的可空文本字段规范化为空字符串。
-名称和描述按纯文本展示，不解析 HTML 或 Markdown；头像图片或网站代表图由浏览器直接加载，不经本站代理。
+名称和描述按纯文本展示，不解析 HTML 或 Markdown；头像图片或网站代表图由浏览器直接请求填写的 URL，后端不代理图片、不自动下载或转存到 OSS。可填写申请者提供的外站图片地址，也可填写管理员人工上传后的 OSS 地址，不要求必须使用本站 OSS。
 重复网站地址返回 HTTP 409、业务码 `109002`；目标不存在返回 HTTP 404、业务码 `109001`。
 其他字段校验失败使用 `199001`。
 
@@ -2873,6 +2873,7 @@ Dashboard 不接收全局 `range` 或趋势模式参数。接口一次返回六�
 | 方法 | 路径 | 响应 | 说明 |
 | --- | --- | --- | --- |
 | `GET` | `/`、`/articles`、`/archives`、`/about`、`/messages`、`/links` | `text/html` | 前端入口 HTML 与公开页面元信息，正文由 Vue 渲染 |
+| `GET` | `/home` | HTTP `308` | 首页兼容入口，Location 指向 `/` 并保留查询参数，响应使用 no-store；首页只以 `/` 输出 canonical |
 | `GET` | `/articles/{articleId}` | `text/html` | head 包含文章标题、摘要、canonical 和 OG，正文由 Vue 渲染；不存在、不可见或分类不可用时 HTTP 404 |
 | `GET` | `/sitemap.xml` | `application/xml` | 公开页面与公开可见文章的规范地址及文章更新时间 |
 | `GET` | `/rss.xml` | `application/rss+xml` | 最近 20 篇仍公开的已发布文章 RSS 2.0 feed；包含标题、摘要、发布时间和规范地址 |
@@ -2880,6 +2881,8 @@ Dashboard 不接收全局 `range` 或趋势模式参数。接口一次返回六�
 | `GET` | `/api/v1/seo?path=...` | 通用 JSON 响应 | 非文章公开页面内部导航时按需获取元信息；保留文章路径读取能力，但文章页复用详情响应的 seo；非规范文章 ID 或未知页面返回 404 |
 
 SEO JSON 的 data 为 `{title, description, canonicalUrl, imageUrl, type, publishedAt, updatedAt}`。
+
+前端 Home 路由固定为 `/`，不再从 `/` 跳到 `/home`；站内 `/home` 跳转保留 query/hash 后规范化为 `/`。HTTP 重定向不接收片段，浏览器沿用原片段；Vite 和生产 Nginx 将 `/home` 交给后端返回重定向，开发代理不自动跟随上游 308，以便浏览器地址同步更新。
 `type` 为 `website` 或 `article`，图片和事件时间可为 null；无封面时不伪造 OG 图片。
 标题、描述和地址由后端统一生成，canonical 不含 query/hash，封面只接受 HTTP(S) 绝对地址或站内相对地址。
 友链页标题为“友链 - {BLOG_APP_NAME}”，description 使用“{BLOG_APP_NAME}的友链”，canonical 为 `BLOG_SITE_URL + /links`；
@@ -2889,6 +2892,8 @@ HTML、元信息和 sitemap 使用 `Cache-Control: no-store`，避免下线内�
 文章详情中的 `seo` 与首屏使用同一套生成逻辑，详情成功后同步标签，失败时清理并设置 noindex。
 普通公开页面首次已有标签时不重复请求，后续内部导航按需请求；文章切换只发详情请求，过滤过期结果。
 query/hash 不触发标签清理或重复 SEO 请求；离开公开页面后清理并设置 noindex。
+无效文章的 HTML 请求返回 HTTP 404、`Cache-Control: no-store` 和带 `data-seo` 的 `robots=noindex, follow`；正文使用与有效页面相同的前端入口模板，保留原 JS/CSS 等资源及空 Vue 挂载容器，移除 canonical、description、OG 和文章专属标签。Vue 启动后在原文章路由中复用详情 API 的错误状态，保留 MainLayout、AppHeader 和页脚，不跳转 `/404`。站内导航沿用同一页面错误状态；该情况下原文档状态码不变，详情 API 按自身契约返回错误。
+开发 Vite 对有效页面及上述 404 HTML 均执行入口转换，保留上游状态码；重定向、5xx 和非 HTML 文档不参与该转换。生产 Nginx 透传 404 应用入口，不替换为独立错误页。
 HTML 模板不可读取时返回 HTTP 503，不降级为缺少前端资源的伪成功页面。
 
 `BLOG_SITE_URL` 是唯一的站点地址来源，不含路径、查询、账号密码或片段；生产必须为 HTTPS origin，dev/test 可使用 localhost HTTP。

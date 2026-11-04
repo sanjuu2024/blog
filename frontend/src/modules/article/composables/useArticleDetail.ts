@@ -26,7 +26,8 @@ export function useArticleDetail() {
 	async function getArticleDetail(articleId: string | string[] | number) {
 		const version = ++requestVersion;
 		const rawId = Array.isArray(articleId) ? articleId[0] : articleId;
-		const id = Number(rawId);
+		// 与服务端规范地址一致，避免 Number() 将前导零、小数等别名转成合法 ID。
+		const id = /^[1-9][0-9]*$/.test(String(rawId)) ? Number(rawId) : Number.NaN;
 
 		if (!Number.isSafeInteger(id) || id <= 0) {
 			article.value = null;

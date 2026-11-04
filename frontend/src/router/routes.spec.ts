@@ -50,6 +50,16 @@ describe('P0 route contract', () => {
 		expect(navigationNames.indexOf('About')).toBe(navigationNames.indexOf('Link') + 1);
 	});
 
+	it('uses the root path as the only homepage navigation entry', () => {
+		const home = publicRoutes.find((route) => route.name === 'Home');
+		const mainLayout = routes.find((route) => route.name === 'MainLayout');
+
+		expect(home?.path).toBe('/');
+		expect(home?.meta.nav).toEqual({ pos: 'left' });
+		expect(mainLayout).not.toHaveProperty('redirect');
+		expect(publicRoutes.some((route) => route.path === '/home')).toBe(false);
+	});
+
 	it('does not expose tags as a top navigation entry', () => {
 		const navigationRoutes = publicRoutes.filter((route) => route.meta?.nav);
 

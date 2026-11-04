@@ -12,10 +12,13 @@
 					aria-label="主导航"
 					class="app-header__nav app-header__desktop-nav"
 				>
+					<!-- 首页与布局共用根路径，仅使用精确激活状态高亮首页。 -->
 					<RouterLink
 						v-for="r in leftNavItems"
 						:key="r.path"
 						:to="r.path"
+						:active-class="r.name === 'Home' ? '' : undefined"
+						:exact-active-class="r.name === 'Home' ? 'router-link-active' : undefined"
 						class="app-header__link"
 					>
 						{{ r.meta.title }}

@@ -36,7 +36,7 @@ describe('router scroll behavior', () => {
 	});
 
 	it.each([
-		['/articles?keyword=Vue', '/home'],
+		['/articles?keyword=Vue', '/'],
 		['/articles/40001', '/articles/40002'],
 	])('scrolls to the top for navigation from %s to %s', (from, to) => {
 		expect(scrollBehavior(resolveRoute(to), resolveRoute(from), null)).toEqual({
@@ -46,7 +46,7 @@ describe('router scroll behavior', () => {
 	});
 
 	it.each([
-		['/home', '/articles?keyword=Vue'],
+		['/', '/articles?keyword=Vue'],
 		['/articles?keyword=Vue', '/articles?keyword=Vue#results'],
 	])(
 		'waits for the list before scrolling a normal navigation from %s to %s',
