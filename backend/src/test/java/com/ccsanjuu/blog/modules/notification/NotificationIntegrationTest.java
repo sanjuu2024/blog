@@ -3,6 +3,11 @@ package com.ccsanjuu.blog.modules.notification;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
+import com.ccsanjuu.blog.modules.article.model.entity.Article;
+import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
+import com.ccsanjuu.blog.modules.category.mapper.CategoryMapper;
+import com.ccsanjuu.blog.modules.category.model.entity.Category;
+import com.ccsanjuu.blog.modules.category.model.enums.CategoryStatus;
 import com.ccsanjuu.blog.modules.message.mapper.MessageMapper;
 import com.ccsanjuu.blog.modules.message.model.dto.CreateMessageRequestDTO;
 import com.ccsanjuu.blog.modules.message.model.dto.MessagePageQueryDTO;
@@ -36,6 +41,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -69,6 +75,9 @@ class NotificationIntegrationTest {
 
     @Autowired
     private ArticleMapper articleMapper;
+
+    @Autowired
+    private CategoryMapper categoryMapper;
 
     @Autowired
     private UserMapper userMapper;
@@ -221,18 +230,28 @@ class NotificationIntegrationTest {
     void replyNotificationsShouldIncludeAuthorOriginalContentAndDestination() {
         User recipient = createUser("notify_reader", UserRole.USER);
         User author = createUser("notify_writer", UserRole.ADMIN);
-        var article = articleMapper.selectById(40001L);
-        article.setTitle("通知关联的文章");
-        articleMapper.updateById(article);
+        // 自行创建来源文章，避免依赖开发数据库中特定 ID 的种子数据。
+        Category parent = Category.builder().name("通知测试分类").level(1)
+                .status(CategoryStatus.ENABLED).sortNo(0).build();
+        categoryMapper.insert(parent);
+        Category category = Category.builder().name("通知测试文章").parentId(parent.getId()).level(2)
+                .status(CategoryStatus.ENABLED).sortNo(0).build();
+        categoryMapper.insert(category);
+        Article article = Article.builder().title("通知关联的文章").summary("通知测试摘要")
+                .contentMd("通知测试正文").contentHtml("<p>通知测试正文</p>").contentText("通知测试正文")
+                .coverUrl("").categoryId(category.getId()).authorId(author.getId())
+                .status(ArticleStatus.PUBLISHED).isTop(false).allowComment(true)
+                .viewCount(0).likeCount(0).commentCount(0).publishedAt(OffsetDateTime.now(ZoneOffset.UTC)).build();
+        articleMapper.insert(article);
         Comment originalComment = Comment.builder()
-                .articleId(40001L)
+                .articleId(article.getId())
                 .userId(recipient.getId())
                 .content("我的原评论")
                 .status(CommentStatus.APPROVED)
                 .build();
         commentMapper.insert(originalComment);
         Comment replyComment = Comment.builder()
-                .articleId(40001L)
+                .articleId(article.getId())
                 .userId(author.getId())
                 .parentId(originalComment.getId())
                 .rootId(originalComment.getId())
@@ -283,7 +302,7 @@ class NotificationIntegrationTest {
                 .findFirst().orElseThrow();
         assertEquals(author.getNickname(), commentNotification.getAuthorName());
         assertEquals("我的原评论", commentNotification.getOriginalContent());
-        assertEquals(40001L, commentNotification.getArticleId());
+        assertEquals(article.getId(), commentNotification.getArticleId());
         assertEquals("通知关联的文章", commentNotification.getArticleTitle());
         assertEquals(originalComment.getId(), commentNotification.getParentId());
         var messageNotification = records.stream().filter(item -> item.getType() == NotificationType.MESSAGE_REPLY)
