@@ -297,13 +297,9 @@ watch(
 				background-color 0.2s ease,
 				color 0.2s ease;
 
-			&:hover {
-				background-color: var(--app-router-hover);
-			}
-
+			&:hover,
 			&.is-active {
-				background-color: var(--app-router-hover);
-				color: var(--app-text);
+				background-color: var(--app-archive-router-hover);
 			}
 
 			.all-article-item__name {
@@ -325,13 +321,9 @@ watch(
 				background-color 0.2s ease,
 				color 0.2s ease;
 
-			&:hover {
-				background-color: var(--app-router-hover);
-			}
-
+			&:hover,
 			&.is-active {
-				background-color: var(--app-router-hover);
-				color: var(--app-text);
+				background-color: var(--app-archive-router-hover);
 			}
 
 			.year-article-nav-item__name {

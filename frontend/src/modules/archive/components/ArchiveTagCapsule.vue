@@ -34,7 +34,7 @@ withDefaults(
 	max-width: 100%;
 	padding: 0.25rem 0.5rem;
 	border-radius: 8px;
-	background-color: var(--app-tag-capsule-bg-color);
+	background-color: var(--app-archive-tag-capsule-bg-color);
 	color: var(--app-tag-capsule-text-color);
 	font-size: 0.875rem;
 	transition:
@@ -44,7 +44,7 @@ withDefaults(
 	&:hover,
 	&:focus-visible,
 	&.is-active {
-		background-color: var(--app-router-hover);
+		background-color: var(--app-archive-router-hover);
 		color: var(--app-text);
 	}
 }

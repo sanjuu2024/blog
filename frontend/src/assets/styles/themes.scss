@@ -26,6 +26,7 @@
 	--app-pagination-bg: #f3f4f6;
 	--app-pagination-bg-muted: #f5f5f5;
 	--app-tag-capsule-bg-color: #f3f4f6;
+	--app-archive-tag-capsule-bg-color: #f3f4f6;
 	--app-tag-capsule-text-color: #6a7282;
 	--app-default-img-bg-color: #f3f4f6;
 	--app-default-img-text-color: #99a1af;
@@ -39,6 +40,7 @@
 	--app-icon-gray-color: #656564;
 	--app-footer-bg: #212121;
 	--app-footer-text: #cccccc;
+	--app-archive-router-hover: #e7f6ed;
 
 	--el-color-primary: var(--app-button-bg);
 	--el-color-primary-rgb: 88, 127, 92;
@@ -147,7 +149,8 @@
 	--app-table-row-hover-bg-color: #262626;
 	--app-pagination-bg: #333333;
 	--app-pagination-bg-muted: #212121;
-	--app-tag-capsule-bg-color: #444444;
+	--app-tag-capsule-bg-color: #404040;
+	--app-archive-tag-capsule-bg-color: #222222;
 	--app-tag-capsule-text-color: #ababad;
 	--app-default-img-bg-color: #333333;
 	--app-default-img-text-color: #ababad;
@@ -159,6 +162,7 @@
 	--app-icon-gray-color: #656564;
 	--app-footer-bg: #111111;
 	--app-footer-text: #9c9c9c;
+	--app-archive-router-hover: #363636;
 
 	.el-table {
 		--el-table-border-color: var(--app-border);
@@ -246,6 +250,12 @@
 	--el-overlay-color: rgb(0 0 0 / 78%);
 	--el-overlay-color-light: rgb(0 0 0 / 58%);
 	--el-overlay-color-lighter: rgb(0 0 0 / 38%);
+
+	.message-announcement-tag.el-tag {
+		--el-tag-bg-color: color-mix(in srgb, var(--el-color-warning) 14%, var(--app-bg));
+		--el-tag-border-color: color-mix(in srgb, var(--el-color-warning) 40%, var(--app-border));
+		--el-tag-text-color: var(--el-color-warning-light-5);
+	}
 
 	.el-message--success {
 		--el-message-bg-color: var(--el-color-success);

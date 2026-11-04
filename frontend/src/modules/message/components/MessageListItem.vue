@@ -46,6 +46,7 @@
 					v-if="item.isAnnouncement"
 					type="warning"
 					size="large"
+					class="message-announcement-tag"
 				>
 					<div class="flex items-center gap-1 text-[0.9rem]">
 						<i-lucide-megaphone />

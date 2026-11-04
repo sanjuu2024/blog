@@ -35,7 +35,15 @@
 				width="110"
 				align="center"
 			>
-				<template #default="{ row }">{{ statusLabel(row.status) }}</template>
+				<template #default="{ row }: { row: AdminNotificationItem }">
+					<el-tag
+						effect="plain"
+						:type="statusTagType(row.status)"
+						class="font-bold"
+					>
+						{{ statusLabel(row.status) }}
+					</el-tag>
+				</template>
 			</el-table-column>
 			<el-table-column
 				prop="createdAt"
@@ -173,6 +181,12 @@ const form = reactive<CreateAdminNotificationRequest>({
 
 function statusLabel(status: NotificationStatus) {
 	return { DRAFT: '草稿', PUBLISHED: '已发布', OFFLINE: '已下线' }[status];
+}
+
+function statusTagType(status: NotificationStatus) {
+	if (status === 'PUBLISHED') return 'success';
+	if (status === 'OFFLINE') return 'warning';
+	return 'info';
 }
 
 async function load() {
