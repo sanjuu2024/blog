@@ -2,12 +2,21 @@
 	<div class="card-wrapper">
 		<div class="card-wrapper__inner">
 			<div class="img">
-				<AppImage
-					:url="article.coverUrl"
-					alt="文章封面图片"
-					:rounded="false"
-					class="h-full rounded-none border border-(--app-border)"
-				/>
+				<RouterLink
+					:to="{
+						name: 'ArticleDetail',
+						params: {
+							articleId: article.id,
+						},
+					}"
+				>
+					<AppImage
+						:url="article.coverUrl"
+						alt="文章封面图片"
+						:rounded="false"
+						class="h-full rounded-none border border-(--app-border)"
+					/>
+				</RouterLink>
 			</div>
 
 			<div class="content">

@@ -107,7 +107,7 @@
 		<section class="home-section home-category">
 			<div class="home-section__title">
 				<i-solar-folder-outline class="home-section__title-icon" />
-				<p>分类归档</p>
+				<p>分类一览</p>
 			</div>
 			<AppLoading
 				:loading="loadingCategories"
@@ -117,7 +117,7 @@
 					v-if="categoriesLoadFailed"
 					class="home-section-state"
 				>
-					<p>分类归档加载失败</p>
+					<p>分类一览加载失败</p>
 					<el-button
 						type="primary"
 						@click="getEnabledCategoryList"
@@ -176,14 +176,16 @@
 					:words="tagCloudWords"
 					:spacing="0.3"
 				>
-					<template v-slot="{ text }">
-						<div
+					<template v-slot="{ text, word }">
+						<RouterLink
+							class="home-tags__link"
+							:to="{ name: 'Archive', query: { mode: 'tag', tagId: word.id } }"
 							:style="{
 								color: getColor(text),
 							}"
 						>
 							{{ text }}
-						</div>
+						</RouterLink>
 					</template>
 				</VueWordCloud>
 			</AppLoading>
@@ -256,7 +258,11 @@ const homeBgUrls = [
 const homeBgUrl = homeBgUrls[new Date().getDay() % homeBgUrls.length]; // 根据星期几来显示背景图
 
 const tagCloudWords = computed(() => {
-	return enabledTagList.value.map((tag) => [tag.name, tag.articleCount]);
+	return enabledTagList.value.map((tag) => ({
+		id: tag.id,
+		text: tag.name,
+		weight: tag.articleCount,
+	}));
 });
 
 const colorList = ['#74482A', '#D1B022', 'var(--app-main)']; //  'Indigo' 也不错，不过不算同个氛围
@@ -368,6 +374,16 @@ const getColor = (str: string) => {
 	display: grid;
 	grid-template-columns: repeat(4, minmax(0, 1fr));
 	gap: 1rem;
+}
+
+.home-tags__link {
+	display: block;
+
+	&:hover,
+	&:focus-visible {
+		text-decoration: underline;
+		text-underline-offset: 0.15em;
+	}
 }
 
 @media (width < 768px) {
