@@ -425,7 +425,7 @@ watch(
 .article-list-wrapper {
 	flex: 1;
 	min-width: 0;
-	margin-left: 1rem;
+	margin-left: 2rem;
 	height: 100%;
 	overflow-y: auto;
 	padding-inline: 0.75rem;
