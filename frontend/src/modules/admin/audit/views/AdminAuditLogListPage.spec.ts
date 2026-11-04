@@ -76,6 +76,12 @@ describe('AdminAuditLogListPage', () => {
 					action: AUDIT_ACTION.DELETE,
 					actionDetail: null,
 				}),
+				log({
+					id: 6,
+					resourceType: AUDIT_RESOURCE_TYPE.FILE,
+					action: AUDIT_ACTION.UPLOAD,
+					actionDetail: 'ABOUT_CONTENT',
+				}),
 			]),
 			loading: ref(false),
 			pageMeta: reactive({ total: 1, totalPages: 1, hasNext: false }),
@@ -122,6 +128,7 @@ describe('AdminAuditLogListPage', () => {
 
 		expect(wrapper.text()).toContain('admin');
 		expect(wrapper.text()).toContain('审核处理');
+		expect(wrapper.text()).toContain('关于页正文');
 		expect(wrapper.findAll('strong').filter((item) => item.text() === '注销')).toHaveLength(1);
 		expect(wrapper.findAll('strong').filter((item) => item.text() === '删除')).toHaveLength(1);
 		expect(wrapper.find('el-option-stub[label="删除 / 注销"]').exists()).toBe(true);

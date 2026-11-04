@@ -39,6 +39,25 @@ describe('AboutPage', () => {
 		expect(wrapper.get('.about-content').text()).toBe('暂无内容');
 	});
 
+	it('renders manually entered title captions without using file names as captions', async () => {
+		const contentHtml =
+			'<p><img src="/about/cat.png" alt="cat.png" title="手动填写的图注"></p><p><img src="/about/plain.png" alt="plain.png" title=""></p>';
+		vi.mocked(getAboutPage).mockResolvedValueOnce({
+			exists: true,
+			contentHtml,
+			contentText: '',
+			updatedAt: null,
+		});
+		const wrapper = mount(AboutPage);
+		await flushPromises();
+
+		expect(wrapper.get('.article-image__caption').text()).toBe('手动填写的图注');
+		expect(wrapper.findAll('.article-image__caption')).toHaveLength(1);
+		expect(wrapper.get('img[src="/about/cat.png"]').attributes('alt')).toBe('cat.png');
+		expect(wrapper.find('img[title]').exists()).toBe(false);
+		expect(contentHtml).toContain('title="手动填写的图注"');
+	});
+
 	it('allows retrying after the about request fails', async () => {
 		vi.mocked(getAboutPage).mockRejectedValueOnce(new Error('network failed'));
 		const wrapper = mount(AboutPage);

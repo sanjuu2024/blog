@@ -372,6 +372,7 @@ function getDetailLabel(detail: string) {
 		ENABLED: '启用',
 		ARTICLE_COVER: '文章封面',
 		ARTICLE_CONTENT: '文章正文',
+		ABOUT_CONTENT: '关于页正文',
 		PROJECT_COVER: '项目封面',
 		'1': '一级分类',
 		'2': '二级分类',

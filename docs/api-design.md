@@ -217,7 +217,7 @@ Authorization: Bearer <access_token>
 | `messageStatus` | `PENDING`、`APPROVED`、`REJECTED`、`HIDDEN`、`DELETED` | 留言状态 |
 | `messageType` | `TOP_LEVEL`、`REPLY` | 留言层级 |
 | `messageModerationAction` | `APPROVE`、`REJECT`、`HIDE`、`DELETE` | 后台留言处理动作 |
-| `imageUploadScene` | `ARTICLE_COVER`、`ARTICLE_CONTENT`、`PROJECT_COVER` | 后台图片使用场景 |
+| `imageUploadScene` | `ARTICLE_COVER`、`ARTICLE_CONTENT`、`ABOUT_CONTENT`、`PROJECT_COVER` | 后台图片使用场景 |
 
 ## 3. 接口总览
 
@@ -2582,7 +2582,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | 位置 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- | --- |
 | Form Data | `file` | `binary` | 是 | 图片文件，最大 10 MB |
-| Form Data | `scene` | `String` | 是 | `ARTICLE_COVER` 或 `ARTICLE_CONTENT`；`PROJECT_COVER` 为未来项目模块预留 |
+| Form Data | `scene` | `String` | 是 | `ARTICLE_COVER`、`ARTICLE_CONTENT` 或 `ABOUT_CONTENT`；`PROJECT_COVER` 为未来项目模块预留 |
 
 缺少图片时返回 `107001`；`scene` 缺失或枚举值不合法时返回 `199001`。
 
@@ -2601,7 +2601,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 }
 ```
 
-文章封面上传后由前端把 URL 回填至原有封面输入框；文章正文图片上传后由 `md-editor-v3` 插入 Markdown 图片语法。该接口仅创建 OSS 对象，不直接修改文章或项目数据。
+文章封面上传后由前端把 URL 回填至原有封面输入框；文章和关于页正文图片上传后由 `md-editor-v3` 插入 Markdown 图片语法，以原文件名填写 alt，title 留空供作者手动添加图注。`ABOUT_CONTENT` 使用 `about/content/YYYY/MM/UUID.扩展名` 对象 key，其余校验及返回结构不变。该接口仅创建 OSS 对象，不直接修改文章、关于页或项目数据。
 
 ## 14. 业务规则补充
 
