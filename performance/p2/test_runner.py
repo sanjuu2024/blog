@@ -15,7 +15,7 @@ import threading
 import unittest
 from unittest import mock
 import re
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 import xml.etree.ElementTree as ET
 
 import collect_resources as collector
@@ -491,6 +491,14 @@ class JMeterSmokeTests(unittest.TestCase):
                 view_cookies = [cookie for method, path, cookie in FakeBackend.requests_seen if path == "/api/v1/articles/3"]
                 self.assertEqual(len(view_cookies), 10)
                 self.assertEqual(set(view_cookies), {"visitor_id=bootstrap-test"})
+                archive_requests = [path for _, path, _ in FakeBackend.requests_seen if path.startswith('/api/v1/archives/')]
+                self.assertTrue(archive_requests)
+                archive_time_zones = {
+                    value
+                    for path in archive_requests
+                    for value in parse_qs(urlsplit(path).query).get('timeZone', [])
+                }
+                self.assertEqual(archive_time_zones, {'Asia/Shanghai', 'UTC', 'America/Los_Angeles'})
                 self.assertTrue(next((root / "reports").rglob("report/index.html")).exists())
         finally:
             server.shutdown()
