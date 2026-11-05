@@ -120,6 +120,9 @@ BLOG_REDIS_HOST
 BLOG_REDIS_PORT
 BLOG_REDIS_PASSWORD
 BLOG_REDIS_DATABASE
+BLOG_EDGE_NETWORK
+BLOG_WEB_ALIAS
+BLOG_INGRESS_IP
 BLOG_TEST_REDIS_DATABASE
 POSTGRES_DB
 POSTGRES_USER
@@ -261,7 +264,7 @@ BLOG_SMTP_WRITE_TIMEOUT=10000
 ## 8. 域名与 HTTPS
 
 - 生产环境必须启用 HTTPS。
-- `Nginx` 负责证书终止和反向代理。
+- 独立共享 Nginx 容器负责公网 80/443、TLS 和按域名分流；项目 Nginx 通过独立 Docker 入口网络接收内部 HTTP，并负责前端和 API。
 - 前端静态资源与后端 API 按同域部署设计；生产环境由 `Nginx` 托管前端产物，并将 `/api/**` 反向代理到后端服务。
 - 前端构建产物包含 `public/50x.html`；Nginx 对面向用户的页面请求配置 HTTP 500、502、503、504
   静态兜底页。仅页面代理 location 开启上游错误拦截，`/api/**` 保留 API 错误响应，不返回
@@ -280,12 +283,11 @@ BLOG_SMTP_WRITE_TIMEOUT=10000
 - 域名解析 TTL 不要设得太长，推荐先使用 `300s` 到 `600s`，迁移稳定后可按需调高。
 - 迁移服务器、切换负载均衡或更换 CDN 前，提前降低 TTL。
 
-生产环境使用标准的宿主机端口 `80 -> 80`、`443 -> 443` 时，HTTP 重定向应为
-`https://$host$request_uri`。本机 WSL 演练若使用 Compose 的 `8088:80`、`8443:443`，
-该重定向会默认丢失 `8443`，浏览器会跳到 `https://localhost` 的 443 端口。应使用单独的
-prodtest Nginx 配置，将重定向写成 `https://$host:8443$request_uri`，并只在演练 Compose
-中挂载它；正式生产继续使用不带端口的配置。另一种简单方案是确保宿主机可绑定 80/443，
-这样演练也使用标准端口，不需要修改重定向逻辑。
+公网端口由 `compose.ingress.yaml` 的共享 Nginx 独占，映射 `80:80`、`443:443`。
+`compose.prod.yaml` 中的项目 Nginx 只监听容器内 HTTP 80，不发布宿主机端口，也不再挂载证书。
+原 `NGINX_HTTP_PORT`、`NGINX_HTTPS_PORT`、`NGINX_TLS_CERT_DIR` 不再使用。
+HTTP 到 HTTPS 的重定向由共享入口完成；内部 HTTP 代理仍向后端传递 `X-Forwarded-Proto: https`，
+保持生产 Secure Cookie 与站点 URL 语义。入口与项目均使用 12m 请求体上限。
 
 Refresh Token Cookie 的 `Secure` 属性通过后端配置区分环境：
 
@@ -299,7 +301,11 @@ blog:
 - 开发环境如果使用本地 HTTP，可配置为 `false`，避免浏览器因 `Secure` 拒绝发送 Cookie。
 - 生产环境启用 HTTPS 后必须配置为 `true`，确保 `refresh_token` 只随 HTTPS 请求发送。
 
-生产式 Compose 使用 Spring Boot Actuator 的 `/actuator/health/readiness` 作为 backend 健康检查；该端点只返回健康状态，不展示数据库、Redis 或其他内部细节。Nginx 使用独立的 `/nginx-health` 端点检查自身是否已正常提供服务，并等待 backend 通过 readiness 后再启动流量代理。
+生产式 Compose 使用 Spring Boot Actuator 的 `/actuator/health/readiness` 作为 backend 健康检查；该端点只返回健康状态，不展示数据库、Redis 或其他内部细节。项目 Nginx 使用内部 HTTP `/nginx-health` 检查自身服务，并等待 backend 通过 readiness 后再启动流量代理。共享入口的健康检查独立于项目状态。
+
+共享入口使用独立项目 `blog-ingress`，管理 `blog-prod-edge`、`blog-staging-edge` 两个网络，分别只接入对应项目的 Nginx。参考子网为 `172.30.10.0/29`、`172.30.11.0/29`，入口地址分别为 `.2`；部署前检查与现有 Docker/VPN/主机路由是否重叠，若改网段需同步项目可信代理地址。项目通过 `BLOG_EDGE_NETWORK`、`BLOG_WEB_ALIAS`、`BLOG_INGRESS_IP` 选择网络、唯一 DNS 别名及可信入口 IP；不信任整个私网或任意客户端提供的地址头。共享入口先删除外来的 `Forwarded` 并覆盖 X-Forwarded-*，项目 Nginx 恢复真实 IP 后重新生成给后端的头。
+
+完整安装、首次签证、续期和启停步骤见 [共享 Nginx 容器操作手册](./shared-nginx-ingress.md)。证书仅挂载到共享入口，挂载整个 `/etc/letsencrypt` 以保留 live/archive 链接；宿主机 Certbot 使用 webroot 验证，续期成功后只 reload 共享入口。生产与 staging 分别签证，先上线 staging 不要求正式域名已准备好。
 
 ### 8.1 一次性生产管理员初始化
 
@@ -307,6 +313,10 @@ blog:
 `compose.bootstrap.yaml` 中的 `admin-bootstrap` 一次性任务创建。普通生产部署只读取
 `compose.prod.yaml`，不会解析 bootstrap 服务或密码 Secret，也不会创建或重置管理员。
 Flyway、镜像和仓库中均不保存固定的 `admin/123456`。
+
+先按共享入口手册启动 `blog-ingress`，创建 edge 网络；项目环境文件须提供
+`BLOG_EDGE_NETWORK`、`BLOG_WEB_ALIAS`、`BLOG_INGRESS_IP`。首次 bootstrap 不依赖公网证书，
+完整项目对外验收前需为对应域名启用共享入口 HTTPS 模板。
 
 先在部署目录外创建临时密码文件。使用 `read -s` 避免密码进入 Shell 历史：
 
@@ -388,66 +398,31 @@ docker compose \
 第二次运行 bootstrap 必须因“系统中已存在管理员”而失败，这属于预期的一次性保护，不能通过
 删除或降级现有管理员来绕过。管理员凭据遗失时应走受控的密码恢复流程，而不是重复执行初始化。
 
-`compose.bootstrap.yaml` 只用于首次初始化管理员，不参与日常启动、升级或性能测试。它额外定义
+`compose.bootstrap.yaml` 只用于每个独立环境首次初始化管理员，不参与日常启动或压测负载。它额外定义
 一次性 `admin-bootstrap` 服务，并通过 file secret 读取临时密码；以 `run --rm` 启动时，该次任务容器完成后会被移除。
 数据库已有管理员时任务会拒绝执行，不能用它重置或覆盖管理员账号。
 
-### 8.2 P2 性能测试资源覆盖
+### 8.2 参考容器资源配置与 P2 服务器验收
 
-`compose.perf.yaml` 是 `compose.prod.yaml` 的资源覆盖文件，不单独启动服务，也不代表最终生产规格。
-因此文件只写与基准配置不同的字段：服务镜像、端口、健康检查、卷、网络以及未覆盖的环境变量均继承自
-`compose.prod.yaml`；环境变量按键合并，`command` 则由覆盖文件整体替换，所以 Redis 命令需要在覆盖中重列。
-只运行 `compose.perf.yaml` 会缺少服务定义所需的镜像、环境和网络配置，不能单独启动。
-它为 4 核 / 4 GB 候选测试档设置 CPU / 内存上限、JVM heap 起始值、PostgreSQL 连接数和 Redis内存策略，并将应用连接到独立的 `blog_performance` 数据库。每次使用独立 Compose 项目名，确保
-PostgreSQL、Redis 卷和网络不与 prodtest 或日常开发环境复用。
+4 vCPU / 8 GB / 50 GB SSD 是一组资源参考规格，不是硬性服务器要求；实际 CPU、内存、磁盘和带宽以部署环境及测试记录为准。`compose.prod.yaml` 统一维护容器 CPU、内存和进程限制，验收和正式运行使用相同参数；旧 compose.perf.yaml 已由仅隔离行为的 compose.acceptance.yaml 替代。
 
-这些是容器上限，不会限制宿主机或 Docker Desktop 的 WSL 虚拟机总资源；要验证 4 核 / 4 GB 整机，
-还需在对应 Linux 主机 / VM 上测试，或单独限制 Docker Desktop VM。该覆盖文件关闭邮件发送，但不伪造
-Turnstile / OSS；不要对 Cloudflare、OSS 或真实收件地址执行高并发压测。游客留言的高并发场景须先有
-测试替身；在此之前只做低频人工 / 集成验收，不能将它计为已通过的负载场景。
+| 服务 | CPU 上限 | 内存上限 | 进程配置 |
+| --- | --- | --- | --- |
+| backend | 2 | 2560m | Xms512m / Xmx1536m / metaspace256m / direct128m；Hikari 最大 10、最小空闲 2 |
+| PostgreSQL | 1.5 | 2g | shared_buffers=512MB，max_connections=60 |
+| Redis | 0.25 | 512m | maxmemory=256mb、noeviction；保留 AOF 与密码认证 |
+| Nginx | 0.25 | 256m | 静态资源及 HTTPS 代理 |
+| 共享入口 Nginx | 0.5 | 256m | 公网 TLS、域名分流；单独 Compose 项目 |
 
-在仓库外准备专用 `.env.perf`：复用所需变量名，但必须使用测试专用数据库密码、JWT 密钥、Redis
-密码、对象存储测试 bucket 和 Turnstile 配置，不得填入生产密钥。设置 `POSTGRES_DB=blog_performance`、
-`BLOG_REDIS_DATABASE=2`、`NGINX_HTTP_PORT=127.0.0.1:18088` 和
-`NGINX_HTTPS_PORT=127.0.0.1:18443`。Compose 基础文件仍要求其它必填配置存在；性能覆盖会禁用邮件发送。
+一套项目容器内存上限约 5.25 GiB，加共享入口约 5.5 GiB；两套项目的上限不能简单看成一套预算。剩余内存供 Linux / Docker、文件缓存、构建短时开销和后续监控使用。CPU 上限不是专用核或资源预留；这些参数应结合实际服务器和压测结果复核。未部署 Prometheus/Grafana 时，本轮只能证明无监控负载下的表现；监控接入后应复测稳定性。构建镜像和备份不要与正式压测同时进行。
 
-`.env.perf` 至少要提供以下基准 Compose 所要求的变量；尖括号内容是说明，不是可直接使用的值。密钥只存放在仓库外，不复制到验收报告：
+验收使用独立 `blog-p2-acceptance` 项目，数据库固定 `blog_p2_performance`、Redis DB 2、项目私有卷与测试凭据。功能预发布时允许两套项目短时并行，但需监控整机资源；不要在正式业务同机运行时直接进行容量极限压测。记录其他实例与监控负载，必要时改用独立压测主机。测试数据不进入正式业务库；正式项目使用新凭据及正式库初始化。
 
-| 用途 | 变量 | 测试值要求 |
-| --- | --- | --- |
-| 隔离数据库 / Redis | `POSTGRES_DB`、`POSTGRES_USER`、`POSTGRES_PASSWORD`、`REDIS_PASSWORD` | DB 固定为 `blog_performance`；用户名、密码仅供本次隔离环境 |
-| 站点配置 | `BLOG_APP_NAME`、`BLOG_SITE_URL`、`BLOG_DESC`、`BLOG_LOGO_URL`、`BLOG_MAIL_FRONTEND_BASE_URL` | 受控测试域名；生产 profile 的站点和 Logo 地址使用 HTTPS |
-| JWT | `BLOG_JWT_SECRET` | 单独生成的测试密钥，不复用生产密钥 |
-| 对象存储 | `BLOG_OBJECT_STORAGE_ENDPOINT`、`BLOG_OBJECT_STORAGE_BUCKET`、`BLOG_OBJECT_STORAGE_ACCESS_KEY_ID`、`BLOG_OBJECT_STORAGE_ACCESS_KEY_SECRET`、`BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL` | 专用测试 bucket 和最小权限凭据；性能测试不对真实 OSS 执行高并发上传 |
-| Turnstile | `BLOG_TURNSTILE_SECRET_KEY`、`BLOG_TURNSTILE_EXPECTED_HOSTNAME`、`VITE_TURNSTILE_SITE_KEY`、`VITE_SITE_LAUNCHED_AT` | 绑定测试 hostname 的站点密钥；hostname 与访问域名一致，action 使用 `guest_message` |
-| TLS 与本机端口 | `NGINX_TLS_CERT_DIR`、`NGINX_HTTP_PORT`、`NGINX_HTTPS_PORT` | 测试证书目录；端口绑定到 `127.0.0.1`，除非另行设置受控私网压测入口 |
-| Redis 逻辑库 | `BLOG_REDIS_DATABASE` | 使用 `2`；独立 Compose 项目仍会创建自己的 Redis 容器和数据卷 |
+完整从零步骤、TLS、bootstrap 顺序与压测命令见 [P2 服务器验收操作手册](./P2-server-acceptance.md)，P2 独立脚本见 [performance/p2](../performance/p2/README.md)。运行配置示例位于 performance/p2；仅示例可提交，实际 .env / properties / Token / Cookie / 报告保存在仓库外。
 
-`BLOG_MAIL_ENABLED` 在覆盖中固定为 `false`，因此性能环境不需要 Resend 凭据，也不会向真实邮箱发信。
-Resend 真实邮件验收另在低频、隔离的 HTTPS 环境进行；自动化使用 GreenMail。当前 Compose 不含 OSS / Turnstile 测试替身，不将真实第三方服务用于高并发测试。
+验收的 HTML/API 读取经受控 HTTPS 入口；应用原子限流经 SSH 隧道到 `127.0.0.1:18080`，不对公网暴露数据库、Redis或 backend。compose.acceptance.yaml 关闭真实邮件，OSS/Turnstile 仍需独立测试配置，不能对真实第三方服务并发压测。外部服务性能替身未准备的场景应明确留空，不把验证码失败视为限流通过。
 
-先检查合并配置，再启动独立性能环境：
-
-```bash
-docker compose \
-  --env-file /path/outside/repository/.env.perf \
-  -p blog-p2-perf \
-  -f compose.prod.yaml \
-  -f compose.perf.yaml \
-  config -q
-
-docker compose \
-  --env-file /path/outside/repository/.env.perf \
-  -p blog-p2-perf \
-  -f compose.prod.yaml \
-  -f compose.perf.yaml \
-  up -d --build --wait --wait-timeout 180
-```
-
-测试前确认目标数据库名为 `blog_performance`，容器卷来自 `blog-p2-perf` 项目，Nginx 只绑定本机
-测试端口；再用 `docker stats` 检查资源限制确实生效。远程压测机需要访问时，只能在隔离测试网络中
-将端口绑定改为受控的私网地址并配置防火墙规则，禁止直接暴露到公网。性能测试结束时使用相同参数运行
-`down` 停止容器；不要加 `-v`，避免无意删除性能测试数据卷。
+50 GB 系统盘起步时尽量留 10～15 GB 空闲，监控磁盘和 inode；Docker 日志已轮转，定期检查镜像与构建缓存，不使用删除全部卷的命令清理空间。后续 Prometheus 可先用 7 天历史 / 约 3 GB 历史容量，WAL/head 还需额外空间；备份需要异机或 OSS 副本，同机数据盘不能代替备份。
 
 ## 9. 日志与监控
 

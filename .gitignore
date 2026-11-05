@@ -72,3 +72,4 @@ deploy/*
 
 # performance
 blog-p1-acceptance/
+performance/**/__pycache__/

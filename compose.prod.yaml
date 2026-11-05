@@ -41,9 +41,16 @@ x-backend-environment: &backend-environment
   BLOG_TURNSTILE_SECRET_KEY: ${BLOG_TURNSTILE_SECRET_KEY:?BLOG_TURNSTILE_SECRET_KEY is required}
   BLOG_TURNSTILE_EXPECTED_HOSTNAME: ${BLOG_TURNSTILE_EXPECTED_HOSTNAME:?BLOG_TURNSTILE_EXPECTED_HOSTNAME is required}
   BLOG_TURNSTILE_EXPECTED_ACTION: ${BLOG_TURNSTILE_EXPECTED_ACTION:-guest_message}
+  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "10"
+  SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "2"
+  JAVA_TOOL_OPTIONS: >-
+    -Xms512m -Xmx1536m -XX:MaxMetaspaceSize=256m -XX:MaxDirectMemorySize=128m
 
 services:
   postgres:
+    cpus: "1.5"
+    mem_limit: 2g
+    command: ["postgres", "-c", "shared_buffers=512MB", "-c", "max_connections=60"]
     build:
       context: .
       dockerfile: docker/postgres/Dockerfile
@@ -72,6 +79,8 @@ services:
       - backend_net
 
   redis:
+    cpus: "0.25"
+    mem_limit: 512m
     image: redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
     restart: unless-stopped
     logging:
@@ -79,7 +88,7 @@ services:
       options:
         max-size: 10m
         max-file: "5"
-    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"]
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD is required}", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
     environment:
       TZ: UTC
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
@@ -95,6 +104,8 @@ services:
       - backend_net
 
   backend:
+    cpus: "2.0"
+    mem_limit: 2560m
     image: ${BLOG_BACKEND_IMAGE:-blog-backend:prodtest}
     build: *backend-build
     restart: unless-stopped
@@ -121,6 +132,8 @@ services:
       - backend_net
 
   nginx:
+    cpus: "0.25"
+    mem_limit: 256m
     build:
       context: frontend
       dockerfile: Dockerfile
@@ -134,28 +147,33 @@ services:
       options:
         max-size: 10m
         max-file: "5"
-    ports:
-      - "${NGINX_HTTP_PORT:-8088}:80"
-      - "${NGINX_HTTPS_PORT:-8443}:443"
+    environment:
+      BLOG_INGRESS_IP: ${BLOG_INGRESS_IP:?BLOG_INGRESS_IP is required}
+      NGINX_ENVSUBST_FILTER: "^BLOG_INGRESS_IP$"
     volumes:
       - frontend_template:/seo-template
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - ${NGINX_TLS_CERT_DIR:?NGINX_TLS_CERT_DIR is required}:/etc/nginx/certs:ro
+      - ./docker/nginx/default.conf:/etc/nginx/templates/default.conf.template:ro
     depends_on:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O - https://127.0.0.1/nginx-health --no-check-certificate | grep -q '^ok$'"]
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/nginx-health | grep -q '^ok$'"]
       interval: 10s
       timeout: 5s
       retries: 12
       start_period: 15s
     networks:
-      - backend_net
+      backend_net:
+      edge:
+        aliases:
+          - ${BLOG_WEB_ALIAS:?BLOG_WEB_ALIAS is required}
 
 networks:
   backend_net:
     driver: bridge
+  edge:
+    external: true
+    name: ${BLOG_EDGE_NETWORK:?BLOG_EDGE_NETWORK is required}
 
 volumes:
   frontend_template:

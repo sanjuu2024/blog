@@ -9,6 +9,8 @@ services:
     # This one-shot task needs root only to read the 0600 password file.
     user: "0:0"
     restart: "no"
+    cpus: "2.0"
+    mem_limit: 2560m
     environment:
       SPRING_PROFILES_ACTIVE: prod,bootstrap-admin
       BLOG_APP_NAME: ${BLOG_APP_NAME:?BLOG_APP_NAME is required}
@@ -31,10 +33,13 @@ services:
       BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL: ${BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL:?BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL is required}
       BLOG_MAIL_ENABLED: false
       BLOG_MAIL_FRONTEND_BASE_URL: ${BLOG_MAIL_FRONTEND_BASE_URL:?BLOG_MAIL_FRONTEND_BASE_URL is required}
+      BLOG_TURNSTILE_ENABLED: false
       BLOG_BOOTSTRAP_ADMIN_USERNAME: ${BLOG_BOOTSTRAP_ADMIN_USERNAME:-}
       BLOG_BOOTSTRAP_ADMIN_NICKNAME: ${BLOG_BOOTSTRAP_ADMIN_NICKNAME:-站点管理员}
       BLOG_BOOTSTRAP_ADMIN_EMAIL: ${BLOG_BOOTSTRAP_ADMIN_EMAIL:-}
       BLOG_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/bootstrap_admin_password
+      JAVA_TOOL_OPTIONS: >-
+        -Xms512m -Xmx1536m -XX:MaxMetaspaceSize=256m -XX:MaxDirectMemorySize=128m
     depends_on:
       postgres:
         condition: service_healthy
