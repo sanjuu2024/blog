@@ -16,7 +16,7 @@
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y ca-certificates curl git openssl python3 certbot sysstat
+sudo apt-get install -y ca-certificates curl git openssl python3 certbot sysstat procps
 uname -a
 cat /etc/os-release
 lscpu
@@ -83,7 +83,7 @@ chmod 600 /opt/blog-platform/acceptance/.env.acceptance
 - 邮件默认关闭；真实邮件、OSS 上传和 Turnstile 只做受控低频功能验收，性能替身未准备的并发场景保持未勾选。
 - bootstrap 管理员示例为 `acceptance-admin`，部署者须确认邮箱归自己控制；初始化会直接标记邮箱已验证并记录 UTC 确认时间，不发送验证码，不自动修改已有管理员。密码放临时文件；seed 自动选择有效管理员。
 - `VITE_SITE_LAUNCHED_AT` 填验收站起算时间；正式站首次公开运行起点另定，后续部署不重置。
-- 所有 `CHANGE_ME` 和 example.com 项按实际配置处理。实际环境文件和压测 properties 保存在仓库外。
+- 所有 `CHANGE_ME` 和 example.com 项按实际配置处理。实际环境文件按本手册放仓库外；压测 properties 也可使用仓库内已忽略且未跟踪的路径。
 
 依次生成数据库密码、Redis 密码和 JWT 密钥，填入对应变量；不要把结果放进报告或提交仓库：
 
@@ -183,9 +183,10 @@ dc exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d blog_p2_performance -f /t
 
 ## 8. 开始资源采样
 
-服务器另开 SSH，以同一普通用户进入仓库，先完成该终端的 sudo 认证：
+服务器只需另开一个 SSH 终端，以同一普通用户进入仓库，先确认时钟已同步，再完成该终端的 sudo 认证：
 
 ```bash
+timedatectl status
 sudo -v
 python3 performance/p2/collect_resources.py \
   --sudo-docker --project blog-p2-acceptance \
@@ -196,23 +197,11 @@ python3 performance/p2/collect_resources.py \
 
 采样期间不构建、不备份；结束 Ctrl+C。CSV 包含整机、容器、Java RSS、数据库连接和 Redis 内存，限制 JSON 便于复核配置。GC/heap 可通过私有覆盖追加 `-Xlog:gc*:stdout:time,uptime,level,tags`，保持已有四个 JVM 限制，并重建 backend 后记录这组参数。GC 日志保存到仓库外；Java RSS 不能代替堆。
 
-共享入口也占用整机资源；另用 `ing stats --no-stream`、`ing ps` 记录入口的内存、CPU 与状态。`ing` 定义见共享入口手册，整机采样包含其开销，不把项目四个容器之和当成整机总占用。
+采样器默认同时记录共享入口 `blog-ingress` 的 nginx；如改过项目名，追加 `--ingress-project 实际项目名`。整机采样包含其他实例开销，不把项目容器之和当成整机总占用。
 
-磁盘等待、交换活动和网卡吞吐在另外三个服务器终端采集，完成后各按 Ctrl+C；首次报告可能是开机以来平均值，分析时使用后续区间：
+同一命令会自动启动 iostat、vmstat 和 sar，不需要另外三个终端；缺少工具会明确报错，请先完成第 1 节安装。每次输出一个独立采样目录，包含 UTC 时间、采样间隔与工具状态的 `collection.json`、容器限额 JSON、资源 CSV 和三个原始日志。Ctrl+C 自动停止这些子进程；日志首次报告可能是开机以来平均值，分析时使用后续区间。看到 `Sample saved; JMeter may start` 后再开始压测，全部压测结束后再等一轮并 Ctrl+C；不要在每个 JMX 之间重启采样器。采样失败会在终端提示，并保留 CSV 中的 `collectionError`。
 
-```bash
-iostat -xz 5 > /opt/blog-platform/acceptance/evidence/iostat.txt
-```
-
-```bash
-vmstat 5 > /opt/blog-platform/acceptance/evidence/vmstat.txt
-```
-
-```bash
-sar -n DEV 5 > /opt/blog-platform/acceptance/evidence/network.txt
-```
-
-三条命令分别持续运行，不能在同一个终端依次等待它们自动结束。结束时再记录 df -h / df -i 和服务商流量面板；报告文件不放仓库。
+确认压测机也开启自动校时。服务器与压测机的时区可以不同，脚本以 UTC 关联，但时间偏差会导致匹配错位。结束时再记录 df -h / df -i 和服务商流量面板。第 13 节给出复制和自动关联命令。
 
 ## 9. 压测机安装工具和配置
 
@@ -224,7 +213,7 @@ python3 --version
 jmeter --version
 ```
 
-压测机检出同一个 Commit，在仓库外复制 `performance/p2/p2.properties.example` 并填写：host=staging.example.com、protocol=https、port=443、layer=nginx、管理员凭据、seed 真实 ID、targetCommit=服务器 SHA。`year=2026` 可命中当前种子，默认时区包含上海/UTC/洛杉矶。配置和结果不能放仓库内；Linux 配置设 600。自己的电脑/WSL 运行 JMeter 不需要 sudo。
+压测机检出同一个 Commit，复制 `performance/p2/p2.properties.example` 并填写：host=staging.example.com、protocol=https、port=443、layer=nginx、管理员凭据、seed 真实 ID、targetCommit=服务器 SHA。`year=2026` 可命中当前种子，默认时区包含上海/UTC/洛杉矶。配置与结果可放仓库外，也可放仓库内已被 Git 忽略且未跟踪的路径；有已跟踪文件的输出目录会被拒绝，不能只添加忽略规则掩盖已跟踪文件。Linux 配置设 600。自己的电脑/WSL 运行 JMeter 不需要 sudo。
 
 从压测机仓库根目录先短测：
 
@@ -235,6 +224,14 @@ python3 performance/p2/run.py --properties /home/loadtester/blog-p2/p2.propertie
 ```
 
 短测不作为验收结果。Windows PowerShell 使用 `python`，示例路径换成 `C:/blog-p2/p2.properties`、`C:/blog-p2/results`；JMeter 不在 PATH 时增加 `--jmeter D:/Tools/apache-jmeter-5.6.3/bin/jmeter.bat`。其余参数相同。
+
+也可直接使用仓库内路径；当前 `.gitignore` 已忽略以下配置和输出目录，PowerShell 示例：
+
+```powershell
+python performance/p2/run.py --properties ./performance/p2/p2.properties `
+  --out ./blog-p2-acceptance/results --scenarios P2-PERF-01,P2-PERF-02 `
+  --warmup-seconds 2 --run-seconds 5 --formal-runs 1 --ramp-seconds 1
+```
 
 ## 10. 正式读取：全部重新执行
 
@@ -291,7 +288,17 @@ python3 performance/p2/run.py --properties /home/loadtester/blog-p2/p2.propertie
 
 ## 13. 填表与结束验收
 
-压测机每次输出 run-results.csv、summary.csv、summary.md、JTL、日志；指定 --html-report 后另有 HTML 仪表板。资源采样在服务器，按时间关联；把 summary.md 行复制到 20.5，补资源、SQL 数量、数据库差值与证据路径。原始报告/凭据不提交；未执行项不勾选。
+压测机每次输出 run-results.csv、summary.csv、summary.md、JTL、日志；指定 --html-report 后另有 HTML 仪表板。`run-results.csv` 中每轮的 `startedAt` / `endedAt` 是目标请求的 UTC 起止时间，不包含登录和报告生成。服务器只负责连续采样；停止采样后在压测机仓库根目录执行（Windows 将 python3 换成 python，续行改用反引号或写成一行）。若尚无 `blog-p2-acceptance` 目录，先创建：Bash 用 `mkdir -p ./blog-p2-acceptance`，PowerShell 用 `New-Item -ItemType Directory -Force ./blog-p2-acceptance`。
+
+```bash
+scp -r deploy@SERVER_IP:/opt/blog-platform/acceptance/evidence/resources ./blog-p2-acceptance/server-resources
+python3 performance/p2/run.py --summarize ./blog-p2-acceptance/results/实际时间戳目录 \
+  --resources ./blog-p2-acceptance/server-resources
+```
+
+把地址、服务器路径与结果目录换成自己的实际值。同一份服务器采样可分别关联多批结果，只需对各时间戳目录重跑第二条。汇总自动按每轮时间窗口匹配，不混入预热及轮间空闲；生成 `resource-results.csv`、`resource-summary.csv` / `.md`，并回填 HTTP 汇总表中的资源摘要。旧结果缺起止时间时从原 JTL 补回；JTL 也缺失则显示 `NO_WINDOW`。
+
+`SAMPLED` 只表示取得采样数据，不表示资源阈值通过；`PARTIAL` / `NO_SAMPLES` / `NO_WINDOW` / `INSUFFICIENT` 需补采或人工核对，短于采样间隔的并发批次不能据此推断瞬时峰值。自动汇总 CPU、内存/swap、容器内存、Java RSS、DB 连接、Redis、重启增量与 OOM；堆 / GC、磁盘等待、交换活动、网卡吞吐、SQL 数量与数据库差值仍需结合原始日志/快照核对。三个原始日志也使用 UTC，可按每轮起止时间定位。将更新的 summary.md 行复制到 20.5，补剩余指标与证据路径。原始报告/凭据不提交；未执行项不勾选。
 
 按第21～23节继续完成升级/备份恢复、TLS续证、真实少量邮件与OSS/Turnstile、故障恢复和上线告警。Prometheus/Grafana 尚未配置时不能记录“带监控运行通过”。
 

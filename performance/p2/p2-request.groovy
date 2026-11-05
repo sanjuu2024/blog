@@ -1,7 +1,9 @@
 import groovy.json.JsonOutput
 // All scenarios belong to this P2 baseline, including the basic browsing workload.
+import java.net.URLDecoder
 import org.apache.jmeter.protocol.http.control.Header
 import org.apache.jmeter.protocol.http.control.HeaderManager
+import org.apache.jmeter.protocol.http.util.HTTPArgument
 
 def scenario = props.getProperty('scenario')
 def phase = props.getProperty('phase')
@@ -83,9 +85,21 @@ if (token) headers.add(new Header('Authorization', 'Bearer ' + token))
 if (visitor) headers.add(new Header('Cookie', 'visitor_id=' + visitor))
 if (body != null) headers.add(new Header('Content-Type', 'application/json'))
 sampler.setHeaderManager(headers)
-sampler.setPath(path)
+def querySeparator = path.indexOf('?')
+def query = querySeparator >= 0 ? path.substring(querySeparator + 1) : ''
+sampler.setPath(querySeparator >= 0 ? path.substring(0, querySeparator) : path)
 sampler.setMethod(method)
 sampler.getArguments().removeAllArguments()
+if (query) {
+    query.split('&').each { pair ->
+        def parts = pair.split('=', 2)
+        def argument = new HTTPArgument(
+                URLDecoder.decode(parts[0], 'UTF-8'),
+                URLDecoder.decode(parts.length > 1 ? parts[1] : '', 'UTF-8'))
+        argument.setAlwaysEncoded(true)
+        sampler.getArguments().addArgument(argument)
+    }
+}
 sampler.setPostBodyRaw(body != null)
 if (body != null) sampler.addNonEncodedArgument('', JsonOutput.toJson(body), '')
 vars.put('requestPath', path)

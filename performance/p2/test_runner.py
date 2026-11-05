@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import datetime as dt
 import importlib.util
 import ipaddress
 import json
@@ -12,9 +13,13 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest import mock
 import re
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 import xml.etree.ElementTree as ET
+
+import collect_resources as collector
+import resource_report
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -56,6 +61,205 @@ class ResultTests(unittest.TestCase):
             self.assertEqual(metrics["expectedRejections"], 1)
             self.assertEqual(metrics["p99Ms"], 10)
             self.assertEqual(metrics["unexpectedErrors"], 0)
+            self.assertEqual(metrics['startedAt'], '1970-01-01T00:00:05.000+00:00')
+            self.assertEqual(metrics['endedAt'], '1970-01-01T00:00:05.010+00:00')
+
+    def test_private_paths_allow_ignored_files_but_reject_tracked_descendants(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            subprocess.run(['git', 'init', '-q', str(root)], check=True, capture_output=True)
+            (root / '.gitignore').write_text('private/\n*.properties\n', encoding='utf-8')
+            private = root / 'private'
+            private.mkdir()
+            tracked = private / 'tracked.txt'
+            tracked.write_text('fixture', encoding='utf-8')
+            with mock.patch.object(runner, 'REPO_DIR', root):
+                self.assertEqual(runner.private_path(root / 'local.properties'), root / 'local.properties')
+                self.assertEqual(runner.private_path(private / 'new', directory=True), private / 'new')
+                self.assertEqual(runner.private_path(root.parent / 'outside'), root.parent / 'outside')
+                for path in (root, root / 'public.txt'):
+                    with self.assertRaises(ValueError):
+                        runner.private_path(path)
+                subprocess.run(['git', 'add', '-f', 'private/tracked.txt'], cwd=root, check=True, capture_output=True)
+                for path in (private, tracked):
+                    with self.assertRaises(ValueError):
+                        runner.private_path(path, directory=path.is_dir())
+                with mock.patch.object(runner.subprocess, 'run', side_effect=FileNotFoundError):
+                    with self.assertRaisesRegex(ValueError, 'Git is required'):
+                        runner.private_path(root / 'local.properties')
+
+    def test_legacy_copied_reports_recover_target_times_without_setup(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            row = {key: 0 for key in runner.FIELDS}
+            row.update(scenario='P2-PERF-01', phase='read', run=1, warmup=False, sha='test',
+                       httpResult='HTTP_PASS', jtl='C:/old-machine/results.jtl', startedAt='', endedAt='')
+            jtl = root / 'P2-PERF-01-read-1/results.jtl'
+            jtl.parent.mkdir()
+            jtl.write_text('label,timeStamp,elapsed\nSETUP login,0,5000\nTARGET read,5000,20\n', encoding='utf-8')
+            runner.export_results(root, [row])
+            restored = runner.read_results(root)[0]
+            self.assertEqual(restored['startedAt'], '1970-01-01T00:00:05.000+00:00')
+            self.assertEqual(restored['endedAt'], '1970-01-01T00:00:05.020+00:00')
+            jtl.unlink()
+            self.assertEqual(runner.read_results(root)[0]['startedAt'], '')
+
+    def test_resource_windows_exclude_warmup_and_gaps_and_export_via_cli(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            source, output = root / 'resources', root / 'reports'
+            source.mkdir()
+            output.mkdir()
+            samples = []
+            for second in range(0, 91, 5):
+                for service in resource_report.SERVICES:
+                    sample = self.resource_sample(second, service)
+                    sample['hostCpuPct'] = 20 if 10 <= second <= 30 or 60 <= second <= 80 else 999
+                    sample['restartCount'] = 1 if second >= 20 else 0
+                    samples.append(sample)
+            resource_report.write_csv(source / 'resources-test.csv', samples)
+            (source / 'collection.json').write_text('{"intervalSeconds":5}', encoding='utf-8')
+            rows = []
+            for run, start, end, warmup in [(0, 0, 5, True), (1, 10, 30, False), (2, 60, 80, False)]:
+                row = {key: '' for key in runner.FIELDS}
+                row.update(scenario='P2-PERF-01', phase='read', run=run, warmup=warmup, sha='test',
+                           startedAt=self.resource_time(start), endedAt=self.resource_time(end),
+                           samples=100, actualRps=5, targetRps=5, unexpectedErrors=0, errorPct=0,
+                           expectedRejections=0, meanMs=10, p50Ms=10, p95Ms=10, p99Ms=10,
+                           httpResult='HTTP_PASS', dataVerification='CONTENT_AND_RESOURCES_PENDING')
+                rows.append(row)
+            runner.export_results(output, rows)
+            command = [sys.executable, str(SCRIPT_DIR / 'run.py'), '--summarize', str(output)]
+            result = subprocess.run([*command, '--resources', str(source)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            with (output / 'resource-summary.csv').open(encoding='utf-8-sig', newline='') as handle:
+                summaries = list(csv.DictReader(handle))
+            self.assertEqual(len(summaries), 5)
+            self.assertTrue(all(row['hostCpuPct'] == '20.0' for row in summaries))
+            self.assertTrue(all(row['status'] == 'SAMPLED' for row in summaries))
+            self.assertTrue(all(row['restartDelta'] == '1.0' for row in summaries))
+            self.assertTrue(all(row['containerMemoryMiB'] == '512.0' for row in summaries))
+            self.assertTrue((output / 'resource-summary.md').exists())
+            before = (output / 'summary.md').read_text(encoding='utf-8')
+            self.assertIn('整机CPU 20.0%', before)
+            self.assertIn('nginx 0.0%', before)
+            self.assertEqual(subprocess.run(command, capture_output=True).returncode, 0)
+            self.assertEqual((output / 'summary.md').read_text(encoding='utf-8'), before)
+
+    @staticmethod
+    def resource_time(second):
+        return (dt.datetime(2026, 11, 5, tzinfo=dt.timezone.utc) + dt.timedelta(seconds=second)).isoformat()
+
+    def resource_sample(self, second, service='backend'):
+        return dict(time=self.resource_time(second), service=service, hostCpuPct=20, hostMemoryUsedPct=30,
+                    swapUsedKiB=0, containerCpuPct='0%', containerMemory='512MiB / 2GiB', javaRssKiB=1024,
+                    dbConnections=4, dbActive=0, redisUsedBytes=1048576, redisPeakBytes=2097152,
+                    restartCount=0, oomKilled='false', collectionError='')
+
+    def test_resource_gaps_failures_and_short_batches_are_not_complete(self):
+        row = dict(scenario='P2-PERF-01', phase='read', run=1, warmup=False,
+                   startedAt=self.resource_time(10), endedAt=self.resource_time(50))
+        samples = [self.resource_sample(second) for second in range(0, 61, 5)]
+        for sample in samples:
+            sample.update(_time=resource_report.timestamp(sample['time']), _interval=5)
+        self.assertEqual(resource_report.round_resources(row, 'backend', samples)['status'], 'SAMPLED')
+        # A different UTC offset represents the same instant.
+        row['startedAt'] = '2026-11-05T08:00:10+08:00'
+        self.assertEqual(resource_report.round_resources(row, 'backend', samples)['status'], 'SAMPLED')
+        samples[5]['collectionError'] = 'failed'
+        self.assertEqual(resource_report.round_resources(row, 'backend', samples)['status'], 'PARTIAL')
+        samples[5]['collectionError'] = ''
+        sparse = [sample for sample in samples if sample['_time'] not in [resource_report.timestamp(self.resource_time(n)) for n in (20, 25, 30, 35)]]
+        self.assertEqual(resource_report.round_resources(row, 'backend', sparse)['status'], 'PARTIAL')
+        self.assertEqual(resource_report.round_resources(row, 'redis', [])['status'], 'NO_SAMPLES')
+        row['endedAt'] = self.resource_time(11)
+        self.assertEqual(resource_report.round_resources(row, 'backend', samples)['status'], 'INSUFFICIENT')
+        row['startedAt'] = ''
+        self.assertEqual(resource_report.round_resources(row, 'backend', samples)['status'], 'NO_WINDOW')
+
+    def test_auxiliary_collectors_stop_and_close_logs_on_partial_start_failure(self):
+        with tempfile.TemporaryDirectory() as folder:
+            process = mock.Mock()
+            process.poll.return_value = None
+            with mock.patch.object(collector.subprocess, 'Popen', side_effect=[process, OSError('missing tool')]) as popen:
+                with self.assertRaises(OSError):
+                    collector.start_helpers(Path(folder), 5)
+                process.terminate.assert_called_once()
+                process.wait.assert_called_once_with(timeout=5)
+                self.assertTrue(popen.call_args_list[0].kwargs['stdout'].closed)
+                self.assertEqual(popen.call_args_list[0].kwargs['env']['TZ'], 'UTC')
+
+    def test_auxiliary_collectors_are_killed_if_they_ignore_termination(self):
+        with tempfile.TemporaryDirectory() as folder:
+            process = mock.Mock()
+            process.poll.return_value = None
+            process.wait.side_effect = [subprocess.TimeoutExpired('iostat', 5), 0]
+            with mock.patch.object(collector.subprocess, 'Popen', return_value=process):
+                helpers = collector.start_helpers(Path(folder), 5)
+            # Stop one helper; the real collector creates a distinct process for each tool.
+            collector.stop_helpers(helpers[:1])
+            process.kill.assert_called_once()
+            self.assertTrue(helpers[0]['log'].closed)
+            for helper in helpers[1:]:
+                helper['log'].close()
+
+    def test_container_sampling_batches_stats_and_retains_partial_errors(self):
+        containers = {'backend': 'backend-id', 'nginx': 'nginx-id'}
+        stats = '\n'.join(json.dumps({'ID': value, 'CPUPerc': '0%', 'MemUsage': '1MiB / 2GiB'}) for value in containers.values())
+        def command(arguments):
+            if 'stats' in arguments:
+                return stats
+            if 'inspect' in arguments:
+                return '{"restartCount":0,"oomKilled":false}'
+            raise RuntimeError('backend unavailable')
+        with mock.patch.object(collector, 'command', side_effect=command) as execute:
+            samples = list(collector.sample_containers(['sudo', '-n', 'docker'], containers, {'hostCpuPct': 10}))
+            self.assertEqual(sum('stats' in call.args[0] for call in execute.call_args_list), 1)
+        self.assertTrue(samples[0]['collectionError'])
+        self.assertNotIn('collectionError', samples[1])
+        self.assertEqual(samples[0]['restartCount'], 0)
+        self.assertIn('+00:00', samples[1]['time'])
+
+    def test_collector_main_flushes_a_round_and_saves_metadata_when_interrupted(self):
+        with tempfile.TemporaryDirectory() as folder:
+            def command(arguments):
+                if 'ps' in arguments:
+                    return 'container-' + str(sum(ord(char) for char in ' '.join(arguments)))
+                return '{"memoryBytes":1024,"nanoCpus":1000,"restartCount":0,"oomKilled":false}'
+            real_exists = Path.exists
+            real_read = Path.read_text
+            def exists(path):
+                return True if str(path).replace('\\', '/') == '/proc/meminfo' else real_exists(path)
+            def read(path, *args, **kwargs):
+                if str(path).replace('\\', '/') == '/proc/meminfo':
+                    return 'MemTotal: 8192 kB\nMemAvailable: 4096 kB\nSwapTotal: 0 kB\nSwapFree: 0 kB\n'
+                return real_read(path, *args, **kwargs)
+            row = dict(time=self.resource_time(0), service='backend', hostCpuPct=10,
+                       containerCpuPct='0%', containerMemory='1MiB / 2GiB', javaRssKiB=1024,
+                       restartCount=0, oomKilled=False)
+            with (mock.patch.object(sys, 'argv', ['collect_resources.py', '--out', folder]),
+                  mock.patch.object(collector.shutil, 'which', side_effect=lambda tool: tool),
+                  mock.patch.object(Path, 'exists', exists), mock.patch.object(Path, 'read_text', read),
+                  mock.patch.object(collector, 'command', side_effect=command),
+                  mock.patch.object(collector, 'cpu_snapshot', side_effect=[(100, 50), (200, 100)]),
+                  mock.patch.object(collector, 'sample_containers', return_value=iter([row])),
+                  mock.patch.object(collector, 'start_helpers', return_value=[]),
+                  mock.patch.object(collector, 'stop_helpers') as stop,
+                  mock.patch.object(collector.signal, 'SIGHUP', 1, create=True),
+                  mock.patch.object(collector.signal, 'signal', return_value=0),
+                  mock.patch.object(collector.time, 'sleep', side_effect=KeyboardInterrupt),
+                  mock.patch('builtins.print')):
+                collector.main()
+                stop.assert_called_once_with([])
+            manifest = next(Path(folder).glob('*/collection.json'))
+            metadata = json.loads(manifest.read_text(encoding='utf-8'))
+            self.assertIn('endedAt', metadata)
+            self.assertEqual(metadata['timezone'], 'UTC')
+            self.assertEqual(metadata['intervalSeconds'], 5)
+            limits = json.loads(manifest.with_name('container-limits.json').read_text(encoding='utf-8'))
+            self.assertEqual(set(limits), set(resource_report.SERVICES))
+            with next(manifest.parent.glob('resources-*.csv')).open(encoding='utf-8-sig', newline='') as handle:
+                self.assertEqual(len(list(csv.DictReader(handle))), 1)
 
     def test_plans_have_external_script_files_and_no_embedded_credentials(self):
         for name in ("read.jmx", "concurrency.jmx"):
@@ -287,6 +491,14 @@ class JMeterSmokeTests(unittest.TestCase):
                 view_cookies = [cookie for method, path, cookie in FakeBackend.requests_seen if path == "/api/v1/articles/3"]
                 self.assertEqual(len(view_cookies), 10)
                 self.assertEqual(set(view_cookies), {"visitor_id=bootstrap-test"})
+                archive_requests = [path for _, path, _ in FakeBackend.requests_seen if path.startswith('/api/v1/archives/')]
+                self.assertTrue(archive_requests)
+                archive_time_zones = {
+                    value
+                    for path in archive_requests
+                    for value in parse_qs(urlsplit(path).query).get('timeZone', [])
+                }
+                self.assertEqual(archive_time_zones, {'Asia/Shanghai', 'UTC', 'America/Los_Angeles'})
                 self.assertTrue(next((root / "reports").rglob("report/index.html")).exists())
         finally:
             server.shutdown()
@@ -321,6 +533,11 @@ class JMeterSmokeTests(unittest.TestCase):
                     rows = list(csv.DictReader(handle))
                 self.assertEqual(len(rows), 1)
                 self.assertEqual(rows[0]["result"], "HTTP_PASS")
+                with (summary.parent / 'run-results.csv').open(encoding='utf-8-sig', newline='') as handle:
+                    rounds = list(csv.DictReader(handle))
+                self.assertEqual(len(rounds), 2)
+                self.assertTrue(all(resource_report.timestamp(row['endedAt']) >= resource_report.timestamp(row['startedAt']) for row in rounds))
+                self.assertTrue(all(not Path(row['jtl']).is_absolute() for row in rounds))
         finally:
             FakeBackend.add_noindex = False
             server.shutdown()
