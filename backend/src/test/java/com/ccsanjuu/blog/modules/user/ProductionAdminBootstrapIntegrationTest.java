@@ -10,10 +10,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -41,7 +44,9 @@ class ProductionAdminBootstrapIntegrationTest {
                 "StrongPass1!"
         );
 
+        OffsetDateTime beforeBootstrap = OffsetDateTime.now(ZoneOffset.UTC);
         Long userId = bootstrapService.bootstrap(request);
+        OffsetDateTime afterBootstrap = OffsetDateTime.now(ZoneOffset.UTC);
 
         Map<String, Object> admin = jdbcTemplate.queryForMap(
                 "select username, nickname, email, password_hash, role, status, token_version, email_verified "
@@ -54,9 +59,19 @@ class ProductionAdminBootstrapIntegrationTest {
         assertEquals("ADMIN", admin.get("role"));
         assertEquals("ACTIVE", admin.get("status"));
         assertEquals(0L, admin.get("token_version"));
-        assertEquals(false, admin.get("email_verified"));
+        assertEquals(true, admin.get("email_verified"));
+        OffsetDateTime emailVerifiedAt = jdbcTemplate.queryForObject(
+                "select email_verified_at from blog_user where id = ?", OffsetDateTime.class, userId
+        );
+        assertNotNull(emailVerifiedAt);
+        // PostgreSQL 按微秒存储，允许写入时的精度舍入。
+        assertFalse(emailVerifiedAt.isBefore(beforeBootstrap.minusNanos(1_000)));
+        assertFalse(emailVerifiedAt.isAfter(afterBootstrap.plusNanos(1_000)));
         assertFalse("StrongPass1!".equals(admin.get("password_hash")));
         assertTrue(passwordEncoder.matches("StrongPass1!", admin.get("password_hash").toString()));
         assertThrows(IllegalStateException.class, () -> bootstrapService.bootstrap(request));
+        assertEquals(emailVerifiedAt, jdbcTemplate.queryForObject(
+                "select email_verified_at from blog_user where id = ?", OffsetDateTime.class, userId
+        ));
     }
 }

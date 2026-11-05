@@ -173,8 +173,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_user_role_status
 | `token_version` | `BIGINT` | Access Token 版本号；修改密码、禁用用户或修改角色时原子递增，使旧 Access Token 立即失效 | `0`、`1` |
 | `avatar_url` | `VARCHAR(500)` | 用户头像地址，P0 可为空；P1 保存 OSS 自定义域名的公开 URL | `https://img.example.com/avatars/10002/avatar.jpg` |
 | `bio` | `VARCHAR(100)` | 用户个人简介，换行和空行均计入长度 | `专注后端和前端工程化` |
-| `email_verified` | `BOOLEAN` | 邮箱是否完成验证；P2 注册成功的账号固定为已验证 | `true` |
-| `email_verified_at` | `TIMESTAMPTZ` | 邮箱验证完成时间 | `2026-05-01 10:00:00+08` |
+| `email_verified` | `BOOLEAN` | 邮箱是否已验证；P2 注册成功及部署者确认邮箱归属后 bootstrap 创建的管理员均为已验证 | `true` |
+| `email_verified_at` | `TIMESTAMPTZ` | 邮箱验证完成时间；bootstrap 管理员记录初始化时部署者确认邮箱归属的时间 | `2026-05-01 10:00:00+08` |
 | `privacy_policy_version` | `VARCHAR(71)` | 注册时接受的隐私政策内容哈希版本；历史用户可为空 | `sha256:012345...` |
 | `privacy_policy_accepted_at` | `TIMESTAMPTZ` | 注册时接受隐私政策的时间；历史用户可为空 | `2026-05-01 10:00:00+08` |
 | `last_login_at` | `TIMESTAMPTZ` | 最近一次登录时间 | `2026-04-22 22:10:00+08` |
@@ -197,6 +197,7 @@ P2 通过新 migration 为 `blog_user` 增加：
 
 - `privacy_policy_version VARCHAR(71)`、`privacy_policy_accepted_at TIMESTAMPTZ`，记录注册时接受的 `sha256:` 内容哈希
 - 注册成功时直接写入 `email_verified=true` 和 `email_verified_at`；修改邮箱成功后同样更新这两个字段；验证码只在 Redis 中保存哈希和失败次数，不落数据库
+- 首位管理员的一次性 bootstrap 信任部署者对邮箱归属的确认，直接写入 `email_verified=true`，由 Service 显式设置 UTC `email_verified_at`；不发送邮箱验证码，不自动回填已有管理员，历史账号的确认只针对部署者指定的账号执行。
 
 隐私政策版本使用独立不可变快照表：
 

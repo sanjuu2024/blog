@@ -16,6 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -51,6 +53,7 @@ public class ProductionAdminBootstrapServiceImpl implements ProductionAdminBoots
             throw new IllegalStateException("生产管理员初始化失败：邮箱已存在");
         }
 
+        // 受控 bootstrap 信任部署者已确认邮箱归属，不经过注册验证码流程。
         User admin = User.builder()
                 .username(request.getUsername())
                 .nickname(request.getNickname())
@@ -61,7 +64,8 @@ public class ProductionAdminBootstrapServiceImpl implements ProductionAdminBoots
                 .tokenVersion(0L)
                 .avatarUrl("")
                 .bio("")
-                .emailVerified(false)
+                .emailVerified(true)
+                .emailVerifiedAt(OffsetDateTime.now(ZoneOffset.UTC))
                 .build();
         if (userMapper.insert(admin) != 1 || admin.getId() == null) {
             throw new IllegalStateException("生产管理员初始化失败：管理员记录未成功写入");

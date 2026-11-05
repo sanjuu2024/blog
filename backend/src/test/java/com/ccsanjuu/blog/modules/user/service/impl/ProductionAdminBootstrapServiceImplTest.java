@@ -14,7 +14,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -54,7 +59,9 @@ class ProductionAdminBootstrapServiceImplTest {
             return 1;
         });
 
+        OffsetDateTime beforeBootstrap = OffsetDateTime.now(ZoneOffset.UTC);
         Long userId = bootstrapService.bootstrap(validRequest());
+        OffsetDateTime afterBootstrap = OffsetDateTime.now(ZoneOffset.UTC);
 
         assertEquals(42L, userId);
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
@@ -69,7 +76,11 @@ class ProductionAdminBootstrapServiceImplTest {
         assertEquals(0L, admin.getTokenVersion());
         assertEquals("", admin.getAvatarUrl());
         assertEquals("", admin.getBio());
-        assertEquals(false, admin.getEmailVerified());
+        assertEquals(true, admin.getEmailVerified());
+        assertNotNull(admin.getEmailVerifiedAt());
+        assertEquals(ZoneOffset.UTC, admin.getEmailVerifiedAt().getOffset());
+        assertFalse(admin.getEmailVerifiedAt().isBefore(beforeBootstrap));
+        assertFalse(admin.getEmailVerifiedAt().isAfter(afterBootstrap));
         verify(userMapper, times(3)).selectCount(any());
     }
 

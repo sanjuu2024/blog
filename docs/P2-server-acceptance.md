@@ -81,7 +81,7 @@ chmod 600 /opt/blog-platform/acceptance/.env.acceptance
 - OSS 配置在 Compose 与后端启动时必填，即使读取压测不上传。纯读取阶段可保留格式合法的 HTTPS endpoint、非空 bucket、凭据占位和 HTTP(S) public URL；图片上传验收需专用测试 bucket 的真实最小权限凭据，不用生产密钥。
 - 读取阶段 Turnstile 关闭，无需有效 Cloudflare 密钥；Compose 与前端构建仍要求非空 secret、hostname 和 site key，保留验收占位值。占位值不能用于验收真实游客留言挑战。
 - 邮件默认关闭；真实邮件、OSS 上传和 Turnstile 只做受控低频功能验收，性能替身未准备的并发场景保持未勾选。
-- bootstrap 管理员示例为 `acceptance-admin`，邮箱填自己控制的测试邮箱，密码放临时文件；seed 自动选择有效管理员。
+- bootstrap 管理员示例为 `acceptance-admin`，部署者须确认邮箱归自己控制；初始化会直接标记邮箱已验证并记录 UTC 确认时间，不发送验证码，不自动修改已有管理员。密码放临时文件；seed 自动选择有效管理员。
 - `VITE_SITE_LAUNCHED_AT` 填验收站起算时间；正式站首次公开运行起点另定，后续部署不重置。
 - 所有 `CHANGE_ME` 和 example.com 项按实际配置处理。实际环境文件和压测 properties 保存在仓库外。
 
