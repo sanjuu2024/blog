@@ -37,7 +37,7 @@ READS = {
 WRITES = {"P2-BASE-07", "P2-BASE-08", *(f"P2-PERF-{n:02}" for n in range(6, 11))}
 DEFAULTS = [f"P2-BASE-{n:02}" for n in range(1, 7)] + [f"P2-PERF-{n:02}" for n in (1, 2, 3, 4, 5, 11)]
 FIELDS = [
-    "scenario", "phase", "run", "warmup", "sha", "samples", "actualRps", "targetRps",
+    "scenario", "phase", "run", "warmup", "sha", "startedAt", "endedAt", "samples", "actualRps", "targetRps",
     "unexpectedErrors", "errorPct", "expectedRejections", "meanMs", "p50Ms", "p95Ms", "p99Ms",
     "httpResult", "jtl", "cpuRssHeap", "dbRedisGc", "dataVerification",
 ]
@@ -48,11 +48,33 @@ def percentile(values, fraction):
     return ordered[max(0, math.ceil(len(ordered) * fraction) - 1)] if ordered else 0
 
 
-def outside_repository(path):
+def private_path(path, directory=False):
+    """Allow private artifacts outside Git or in ignored, untracked repository paths."""
     resolved = Path(path).expanduser().resolve()
     if resolved == REPO_DIR or REPO_DIR in resolved.parents:
-        raise ValueError("Keep properties and reports outside the repository")
+        if resolved == REPO_DIR:
+            raise ValueError("The repository root cannot be a private artifact directory")
+        relative = resolved.relative_to(REPO_DIR).as_posix()
+        try:
+            tracked = subprocess.run(["git", "--literal-pathspecs", "ls-files", "--cached", "-z", "--", relative],
+                                     cwd=REPO_DIR, capture_output=True, check=False)
+            ignored = subprocess.run(["git", "check-ignore", "-q", "--", relative + ("/" if directory else "")],
+                                     cwd=REPO_DIR, capture_output=True, check=False)
+        except OSError as error:
+            raise ValueError("Git is required to validate private paths inside the repository") from error
+        if tracked.returncode or tracked.stdout or ignored.returncode:
+            raise ValueError("Repository paths must be Git-ignored and contain no tracked files: " + relative)
     return resolved
+
+
+def target_window(rows):
+    start = min((float(row["timeStamp"]) for row in rows), default=0)
+    end = max((float(row["timeStamp"]) + float(row["elapsed"]) for row in rows), default=0)
+    return start, end
+
+
+def utc_timestamp(milliseconds):
+    return dt.datetime.fromtimestamp(milliseconds / 1000, dt.timezone.utc).isoformat(timespec="milliseconds")
 
 
 def read_properties(path):
@@ -76,14 +98,14 @@ def metrics(jtl, scenario, phase, run, warmup, target, sha, exit_code):
     setup_errors = sum(row.get("success") != "true" for row in all_rows if not row["label"].startswith("TARGET "))
     errors = sum(row.get("success") != "true" for row in rows) + setup_errors
     elapsed = [float(row["elapsed"]) for row in rows]
-    start = min((float(row["timeStamp"]) for row in rows), default=0)
-    end = max((float(row["timeStamp"]) + float(row["elapsed"]) for row in rows), default=0)
+    start, end = target_window(rows)
     # A single concurrent batch has no useful throughput target.
     rps = len(rows) / max((end - start) / 1000, 0.001) if rows else 0
     if exit_code or not rows:
         errors = max(errors, 1)
     return {
         "scenario": scenario, "phase": phase, "run": run, "warmup": warmup, "sha": sha,
+        "startedAt": utc_timestamp(start) if rows else "", "endedAt": utc_timestamp(end) if rows else "",
         "samples": len(rows), "actualRps": round(rps, 3), "targetRps": target,
         "unexpectedErrors": errors, "errorPct": round(100 * errors / max(len(rows), 1), 3),
         "expectedRejections": sum(row.get("responseMessage", "").startswith("EXPECTED_REJECTION") for row in rows),
@@ -105,7 +127,7 @@ def evaluate(row):
     return True
 
 
-def export_results(directory, rows):
+def export_results(directory, rows, resources=None):
     with (directory / "run-results.csv").open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, FIELDS)
         writer.writeheader()
@@ -131,21 +153,49 @@ def export_results(directory, rows):
             "cpuRssHeap": "待填写", "dbRedisGc": "待填写",
             "dataVerification": group[0]["dataVerification"],
         })
+        if resources and (scenario, phase) in resources:
+            summary.update(resources[(scenario, phase)])
         summaries.append(summary)
     if summaries:
         with (directory / "summary.csv").open("w", encoding="utf-8-sig", newline="") as handle:
             writer = csv.DictWriter(handle, list(summaries[0]))
             writer.writeheader()
             writer.writerows(summaries)
-    lines = ["# P2 HTTP 压测汇总", "", "数值为正式轮次中位数；任一轮失败会保留。资源及数据库核对需人工补充。", "",
+    lines = ["# P2 HTTP 压测汇总", "", "HTTP 数值为正式轮次中位数；任一轮失败会保留。资源为各轮峰值，堆/GC、磁盘/网络及数据库差值需人工核对。", "",
              "| 编号 / 阶段 | SHA | 轮数 / 样本数中位数 / RPS | 非预期错误 / 最差轮错误率 | p50 / p95 / p99 ms | 最差 p95 / p99 | CPU / RSS / 堆 | DB / Redis / GC | 结论与数据核对 |",
              "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"]
     for row in summaries:
         lines.append(f"| {row['scenario']} / {row['phase']} | {row['sha']} | {row['runs']} / {row['samples']} / {row['actualRps']} | "
                      f"{row['unexpectedErrors']} / {row['maxErrorPct']}% | {row['p50Ms']} / {row['p95Ms']} / {row['p99Ms']} | "
-                     f"{row['worstP95Ms']} / {row['worstP99Ms']} | 待填写 | 待填写 | {row['result']}; {row['dataVerification']} |")
+                     f"{row['worstP95Ms']} / {row['worstP99Ms']} | {row['cpuRssHeap']} | {row['dbRedisGc']} | {row['result']}; {row['dataVerification']} |")
     (directory / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
     return summaries
+
+
+def read_results(directory):
+    with (directory / "run-results.csv").open(encoding="utf-8-sig", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    numeric = ("samples", "actualRps", "targetRps", "unexpectedErrors", "errorPct", "expectedRejections", "meanMs", "p50Ms", "p95Ms", "p99Ms")
+    for row in rows:
+        for key in numeric:
+            row[key] = float(row[key])
+        row["warmup"] = row["warmup"].lower() == "true"
+        if not row.get("startedAt") or not row.get("endedAt"):
+            # Legacy exports used absolute JTL paths; also support copied result directories.
+            name = f"{row['scenario']}-{row['phase']}-{'warmup' if row['warmup'] else row['run']}"
+            jtl = directory / name / "results.jtl"
+            if not jtl.is_file():
+                jtl = Path(row["jtl"])
+                if not jtl.is_absolute():
+                    jtl = directory / jtl
+            row["startedAt"], row["endedAt"] = "", ""
+            if jtl.is_file():
+                with jtl.open(encoding="utf-8-sig", newline="") as handle:
+                    targets = [item for item in csv.DictReader(handle) if item["label"].startswith("TARGET ")]
+                if targets:
+                    start, end = target_window(targets)
+                    row["startedAt"], row["endedAt"] = utc_timestamp(start), utc_timestamp(end)
+    return rows
 
 
 def main():
@@ -160,26 +210,30 @@ def main():
     parser.add_argument("--ramp-seconds", type=int, default=30)
     parser.add_argument("--stability-seconds", type=int, default=1800)
     parser.add_argument("--summarize", help="Rebuild summaries from an existing run-results.csv")
+    parser.add_argument("--resources", help="With --summarize, match copied server resource CSVs to each round")
     parser.add_argument("--pause-between-phases", action="store_true", help="Pause for SQL snapshots between like/unlike or publish/read-all phases")
     parser.add_argument("--html-report", action="store_true", help="Generate each JMeter HTML dashboard; CSV/JTL/Markdown are always exported")
     args = parser.parse_args()
+    if args.resources and not args.summarize:
+        parser.error("--resources requires --summarize")
     if args.summarize:
-        directory = outside_repository(args.summarize)
-        with (directory / "run-results.csv").open(encoding="utf-8-sig", newline="") as handle:
-            rows = list(csv.DictReader(handle))
-        numeric = ("samples", "actualRps", "targetRps", "unexpectedErrors", "errorPct", "expectedRejections", "meanMs", "p50Ms", "p95Ms", "p99Ms")
-        for row in rows:
-            for key in numeric:
-                row[key] = float(row[key])
-            row["warmup"] = row["warmup"] == "True"
-        export_results(directory, rows)
+        directory = private_path(args.summarize, directory=True)
+        rows = read_results(directory)
+        if args.resources:
+            from resource_report import summarize_resources
+            resources = summarize_resources(directory, rows, private_path(args.resources, directory=True))
+        else:
+            # Preserve an existing resource association when only rebuilding the HTTP summary.
+            from resource_report import read_resource_summary
+            resources = read_resource_summary(directory)
+        export_results(directory, rows, resources)
         print(f"Summary: {directory / 'summary.md'}")
         return 0
     if not args.properties:
         parser.error("--properties is required")
     if min(args.warmup_seconds, args.run_seconds, args.formal_runs, args.stability_seconds) < 1 or args.ramp_seconds < 0:
         parser.error("Durations and formal-runs must be positive; ramp-seconds cannot be negative")
-    properties = outside_repository(args.properties)
+    properties = private_path(args.properties)
     config = read_properties(properties)
     reserved = {"scenario", "phase", "threads", "loops", "operationDelayMs", "scriptDir", "configFile", "metadataFile", "actorSeed", "durationSeconds", "rampSeconds", "throughputPerMinute"}
     if reserved & config.keys() or any(key.startswith(("p2.", "jmeter.")) for key in config):
@@ -198,7 +252,7 @@ def main():
     executable = shutil.which(args.jmeter)
     if not executable:
         raise ValueError("JMeter executable not found; supply --jmeter")
-    directory = outside_repository(args.out) / (dt.datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:6])
+    directory = private_path(args.out, directory=True) / (dt.datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:6])
     directory.mkdir(parents=True)
     sha_result = subprocess.run(["git", "rev-parse", "HEAD"], cwd=REPO_DIR, capture_output=True, text=True, check=False)
     sha = sha_result.stdout.strip() if sha_result.returncode == 0 else "unknown"
@@ -250,6 +304,7 @@ def main():
         if not jtl.exists():
             raise RuntimeError(f"JMeter did not produce JTL; inspect {folder / 'console.log'}")
         row = metrics(jtl, scenario, phase, number, warmup, target_rate, sha, process.returncode)
+        row["jtl"] = jtl.relative_to(directory).as_posix()
         rows.append(row)
         export_results(directory, rows)
         # Cold JIT/startup latency is not part of acceptance; functional warmup errors still stop execution.

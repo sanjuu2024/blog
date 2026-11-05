@@ -422,7 +422,7 @@ docker compose \
 
 `compose.acceptance.yaml` 显式将四个验收服务的 `restart` 覆盖为字符串 `"on-failure:3"`：不随服务器 / Docker 重启自动启动，主进程以非零退出码失败时最多重试 3 次，正常退出后不自动重启；健康检查失败本身和依赖容器重启均不会触发其他容器联动重启。正式项目与共享入口保留 `unless-stopped`；一次性 bootstrap 保持 `restart: "no"`。已创建的验收容器需在同步后重新执行合并 Compose 的 up，使策略生效。
 
-完整从零步骤、TLS、bootstrap 顺序与压测命令见 [P2 服务器验收操作手册](./P2-server-acceptance.md)，P2 独立脚本见 [performance/p2](../performance/p2/README.md)。运行配置示例位于 performance/p2；仅示例可提交，实际 .env / properties / Token / Cookie / 报告保存在仓库外。
+完整从零步骤、TLS、bootstrap 顺序与压测命令见 [P2 服务器验收操作手册](./P2-server-acceptance.md)，P2 独立脚本见 [performance/p2](../performance/p2/README.md)。运行配置示例位于 performance/p2；仅示例可提交，实际 .env / properties / Token / Cookie / 报告不得提交。P2 脚本允许仓库外路径，或仓库内已被 Git 忽略且未跟踪的配置/报告路径；服务器环境文件仍按手册保存在仓库外。
 
 验收的 HTML/API 读取经受控 HTTPS 入口；应用原子限流经 SSH 隧道到 `127.0.0.1:18080`，不对公网暴露数据库、Redis或 backend。compose.acceptance.yaml 关闭真实邮件，OSS/Turnstile 仍需独立测试配置，不能对真实第三方服务并发压测。外部服务性能替身未准备的场景应明确留空，不把验证码失败视为限流通过。
 

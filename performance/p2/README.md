@@ -10,6 +10,7 @@ performance/p2/
   concurrency.jmx          应用层并发计划
   p2-*.groovy              初始化、请求选择、断言和并发核对
   run.py                   跨平台运行、汇总和 CSV/Markdown 导出
+  resource_report.py       按每轮 UTC 时间关联服务器资源并导出峰值
   collect_resources.py     被测 Linux 主机资源采样
   test_runner.py           汇总测试与真实 JMeter 的本地替身自检
   data/{seed,cleanup,verify}.sql  独立数据与只读快照
@@ -17,7 +18,7 @@ performance/p2/
 
 ## 配置与数据
 
-实际 .env、properties、JTL、Token/Cookie 和报告只保存在仓库外。服务器与压测机使用同一已提交 SHA，properties 的 targetCommit 填服务器 git rev-parse HEAD。数据库必须是独立 `blog_p2_performance`，数据以 `[P2-PERF]`、`p2_perf_user_`、`p2-perf-article-` 标识；seed 自行生成100文章、2000评论、500留言、100用户、通知/点赞/每日统计/投递/安全事件，不包含 P1 数据。`staging.example.com`、`deploy`、`/opt/blog-platform` 和 `/home/loadtester/blog-p2` 均为文档示例，部署时换成自己的值。
+实际 .env、properties、JTL、Token/Cookie 和报告不得提交。脚本允许仓库外路径，也允许仓库内已被 Git 忽略、且文件或目录下没有已跟踪文件的路径；例如当前 `.gitignore` 中的 `performance/p2/*.properties` 和 `blog-p2-acceptance/`。不能只忽略已跟踪文件来绕过检查；Git 不可用时，仓库内路径会拒绝。服务器与压测机使用同一已提交 SHA，properties 的 targetCommit 填服务器 git rev-parse HEAD。数据库必须是独立 `blog_p2_performance`，数据以 `[P2-PERF]`、`p2_perf_user_`、`p2-perf-article-` 标识；seed 自行生成100文章、2000评论、500留言、100用户、通知/点赞/每日统计/投递/安全事件，不包含 P1 数据。`staging.example.com`、`deploy`、`/opt/blog-platform` 和 `/home/loadtester/blog-p2` 均为文档示例，部署时换成自己的值。
 
 seed.sql 只 include 同目录 cleanup.sql；迁移必须由 Flyway 完成，脚本不改变表结构。先 bootstrap 有效管理员，seed 自动选择，不强制叫 admin。基础用户密码123456仅供隔离测试。seed 的邮件数据仅用于读取，不调度发信，也不能用来证明邮件重试。
 
@@ -80,7 +81,7 @@ Nginx边缘限流另经HTTPS突发验证429/199429；应用并发只经SSH后端
 
 ## 导出与核对
 
-每轮JTL、日志、metadata.json及run-results.csv总会保存；summary.csv/summary.md为可填写表，指定--html-report才生成HTML，省略可减少本机报告开销。CSV不保存响应正文/头/Token/Cookie，metadata只含测试标识、资源ID和访客哈希。主机资源用另一个服务器终端执行：
+每轮JTL、日志、metadata.json及run-results.csv总会保存；`startedAt` / `endedAt` 是目标请求实际发生的 UTC 时间范围（不含登录和 HTML 导出），用于关联资源。summary.csv/summary.md为可填写表，指定--html-report才生成HTML，省略可减少本机报告开销。CSV不保存响应正文/头/Token/Cookie，metadata只含测试标识、资源ID和访客哈希。主机资源只需一个服务器 SSH 终端执行：
 
 ```bash
 sudo -v
@@ -90,9 +91,19 @@ python3 performance/p2/collect_resources.py --sudo-docker --project blog-p2-acce
 
 普通用户不加入 docker 组；`--sudo-docker` 使内部调用使用 `sudo -n docker`，Python 与报告仍由普通用户运行和持有。认证失效时先停止采样，在同一终端重新 `sudo -v` 再启动，不在后台等待密码。
 
-共享入口独立运行，另用共享入口手册的 `ing stats --no-stream` 记录；整机 CSV 包含它和其他项目的总开销。staging 停止后共享入口仍运行，证书续期不依赖项目。公网读取保留 `requireNoindex=true` 断言，SSH 应用层测试不要求 Nginx 响应头。
+先安装 `sysstat`（提供 iostat/sar）和 `procps`（提供 vmstat）。采样器自动同时启动带 UTC 时间的 iostat、vmstat、sar，Ctrl+C 会保存 CSV 并停止这些子进程；不再另开三个终端。每次生成独立采样目录，包含 collection.json、container-limits.json、resources-\*.csv 和三个原始日志。默认同时采集 `blog-ingress` 的 nginx，其他共享入口项目名用 `--ingress-project` 指定。整机 CSV 还包含同机其他项目开销。staging 停止后共享入口仍运行，证书续期不依赖项目。公网读取保留 `requireNoindex=true` 断言，SSH 应用层测试不要求 Nginx 响应头。
 
-导出容器限额和整机/容器CPU、内存、Java RSS、数据库连接、Redis内存、OOM/重启CSV；heap/GC另结合日志。Docker100%约占一个逻辑核；hostCpuPct是全部可见CPU归一化，dbActive排除采样连接。采样失败记录collectionError，不把空值当零。
+导出容器限额和整机/容器CPU、内存、Java RSS、数据库连接、Redis内存、OOM/重启CSV；heap/GC另结合日志。Docker100%约占一个逻辑核；hostCpuPct是全部可见CPU归一化，数据库连接数与 dbActive 均排除采样连接。采样失败记录collectionError并在终端提示，不把空值当零。
+
+压测前确认服务器 `timedatectl status` 显示时钟已同步，压测机也开启自动校时；时区不同不影响 UTC 匹配，时钟偏差会影响。先启动采样，看到 `Sample saved; JMeter may start` 后再启动 JMeter；全部测试结束后等一轮再 Ctrl+C。在压测机复制资源目录并关联（替换地址与实际结果目录）。如尚无 `blog-p2-acceptance`，先创建：Bash 用 `mkdir -p ./blog-p2-acceptance`，PowerShell 用 `New-Item -ItemType Directory -Force ./blog-p2-acceptance`。
+
+```bash
+scp -r deploy@SERVER_IP:/opt/blog-platform/acceptance/evidence/resources ./blog-p2-acceptance/server-resources
+python3 performance/p2/run.py --summarize ./blog-p2-acceptance/results/实际时间戳目录 \
+  --resources ./blog-p2-acceptance/server-resources
+```
+
+汇总自动生成 `resource-results.csv`（每轮/服务）、`resource-summary.csv` / `.md`（正式轮次各项峰值），并把资源摘要填入 `summary.csv` / `.md`。只匹配各轮目标请求窗口，不混入预热和轮间空闲。`SAMPLED` 仅表示按采样间隔取得了数据，不代表资源阈值通过；`PARTIAL` / `NO_SAMPLES` / `NO_WINDOW` / `INSUFFICIENT` 要补采或人工核对，短于采样间隔的并发批次不推断瞬时峰值。旧报告缺起止时间时从原 JTL 补回；JTL 也缺失则明确标记。汇总列包括整机 CPU/内存/swap、容器 CPU/内存、Java RSS、DB 连接、Redis 内存、重启增量和 OOM；堆、GC、磁盘等待、交换活动、网卡吞吐以及 SQL 差值仍结合日志/快照核对。原始 iostat/vmstat/sar 日志与 CSV 使用同一 UTC 时间，可以按 `run-results.csv` 查看具体轮次，不需手记终端对应关系。
 
 写入前后运行data/verify.sql保存快照。点赞三阶段使用--pause-between-phases，在暂停时检查metadata.visitorHash对应明细：POST后一条、DELETE后零，多主体+10。全员通知应覆盖全部未注销用户（含禁用用户），排除发送管理员；SQL 输出应收人数和缺失/额外收件记录，差异应为空。浏览统计同时比总量和上海当日聚合。N+1另用低频SQL日志检查pageSize10/20，Dashboard查询不能随周期桶数线性增加。
 
