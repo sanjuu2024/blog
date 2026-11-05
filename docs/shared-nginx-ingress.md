@@ -84,6 +84,8 @@ ing exec -T nginx sh -c '/docker-entrypoint.d/20-envsubst-on-templates.sh && ngi
 
 只有检查成功才 reload；命令失败时修正模板后重试，不重启带错误配置的入口。此时若 staging 项目尚未启动，访问页面得到带 noindex 的 502 是预期，下一步启动后应恢复 200。staging 的 HTTP、HTTPS、错误响应均由入口加 `X-Robots-Tag: noindex, nofollow`。
 
+staging HTTPS 入口隐藏上游的 `X-Robots-Tag`，再统一添加上述响应头，避免与验收项目的防收录规则重复。公网响应应只出现一条该头；正式入口继续透传 API、404 等上游响应原有的 noindex，不使用此隐藏规则。
+
 ## 4. 接入 staging 项目
 
 在仓库外 `.env.acceptance` 中设置，P2 示例已提供这些值：
