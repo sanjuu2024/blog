@@ -314,6 +314,8 @@ blog:
 `compose.prod.yaml`，不会解析 bootstrap 服务或密码 Secret，也不会创建或重置管理员。
 Flyway、镜像和仓库中均不保存固定的 `admin/123456`。
 
+部署者必须确认 `BLOG_BOOTSTRAP_ADMIN_EMAIL` 是自己控制的邮箱。bootstrap 信任此确认，不发送验证码；新管理员写入 `email_verified=true` 和初始化时的 UTC `email_verified_at`，后续修改邮箱仍需验证码。已有管理员不会自动回填；确认历史账号邮箱后单独修正该账号，不能重复 bootstrap 或清空数据库来覆盖它。
+
 先按共享入口手册启动 `blog-ingress`，创建 edge 网络；项目环境文件须提供
 `BLOG_EDGE_NETWORK`、`BLOG_WEB_ALIAS`、`BLOG_INGRESS_IP`。首次 bootstrap 不依赖公网证书，
 完整项目对外验收前需为对应域名启用共享入口 HTTPS 模板。

@@ -630,7 +630,7 @@ Vitest 当前配置未设置行 / 分支覆盖率最低阈值。`pnpm test:cover
 使用当前生产构建、`prod` profile、隔离数据和受控测试域名，不以 Vite 开发服务器代替部署验收。
 
 - [ ] 干净构建后端、前端及含 zhparser 的 PostgreSQL 镜像，Compose 启动 Nginx / backend / PostgreSQL / Redis 健康。
-- [ ] 一次性 bootstrap 正确创建首个管理员，重复执行被拒绝；密码不进入命令日志、镜像或长期环境变量。
+- [ ] 一次性 bootstrap 正确创建首个管理员，部署者确认邮箱归属后初始化为已验证并保存确认时间；重复执行被拒绝、不修改已有账号；密码不进入命令日志、镜像或长期环境变量。
 - [ ] HTTPS 登录、刷新、退出及两种 Cookie 属性正确；只有共享入口发布 80/443，数据库 / Redis / 项目 Nginx 无宿主机端口，验收 backend 仅 loopback 测试端口。
 - [ ] 共享入口与两个项目独立启停；入口重写 Forwarded / X-Forwarded-*，项目只信任入口固定 IP；两层 12m 请求体上限，合法图片不被外层 413 拒绝。
 - [ ] Certbot webroot 首次签证、renew dry-run、deploy hook 和 timer 验证成功；关闭 staging 项目后 ACME 仍可用，正式站不受影响。
