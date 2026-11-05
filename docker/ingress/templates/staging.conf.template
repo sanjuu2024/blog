@@ -14,6 +14,7 @@ server {
         # Resolve on request so the entrypoint also starts while a project is stopped.
         set $project_upstream blog-staging-web:80;
         proxy_pass http://$project_upstream;
+        proxy_hide_header X-Robots-Tag;
         include /etc/nginx/snippets/proxy.conf;
     }
 }
