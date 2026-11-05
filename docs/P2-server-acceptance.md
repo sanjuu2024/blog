@@ -4,6 +4,8 @@
 
 服务器运行共享入口、博客与采样，自己的电脑/WSL 运行 JMeter。测试数据放独立项目 `blog-p2-acceptance`，正式上线用 `blog-prod`，共享入口独立为 `blog-ingress`。P1 数据和脚本不参与本流程。两套项目可短时并行做功能预发布；正式业务同机运行时不进行容量极限压测，并记录其他实例和监控的资源开销。
 
+验收项目的 PostgreSQL、Redis、backend 和项目 Nginx 均使用 `restart: "on-failure:3"`：不随服务器 / Docker 重启自动启动，主进程以非零退出码失败时最多重试 3 次，正常退出后不自动重启；健康检查失败本身不会触发重启，也不会联动重启其他容器。需要启动验收项目时手动执行 `dc up -d --wait --wait-timeout 180`。共享入口与正式项目仍使用 `unless-stopped`。如果服务器此前已创建验收容器，同步配置后执行一次上述 dc up，让新策略应用到已有容器；仅更新 YAML 不会改变服务器现有容器。
+
 ## 1. 登录服务器、网络与系统信息
 
 先在服务商控制台配置 SSH 密钥及访问规则，SSH 仅允许自己的来源。共享入口开放 80/443，以支持访问和 ACME webroot 验证；staging 通过 noindex 禁止索引，若增加访问控制要保留 ACME 路径可用。数据库、Redis、backend 及两个项目 Nginx 不开放公网端口。
