@@ -1,0 +1,41 @@
+# Copy outside the repository; keep credentials and generated reports private.
+# JMeter properties use UTF-8 here. Run only against an isolated performance environment.
+testEnvironment=performance
+# Server's accepted git rev-parse HEAD; must match the load generator checkout.
+targetCommit=
+host=staging.example.com
+port=443
+protocol=https
+# nginx for read/capacity tests; application for application-level concurrency tests.
+layer=nginx
+# Require the acceptance-only Nginx noindex response header during public reads.
+requireNoindex=true
+
+# IDs come from performance/p2/data/seed.sql output, never from historical P1 data.
+articleId=
+viewArticleId=
+bootstrapArticleId=
+commentId=
+categoryId=
+tagId=
+year=2026
+timeZones=Asia/Shanghai,UTC,America/Los_Angeles
+keyword=性能
+
+userAccount=p2_perf_user_001
+userPassword=123456
+otherUserAccount=p2_perf_user_002
+otherUserPassword=123456
+adminAccount=acceptance-admin
+adminPassword=
+
+# per-thread keeps one visitor per virtual user; fresh makes each detail request a new visitor.
+visitorMode=per-thread
+# Writes are off by default. ALL_USERS publication also needs a separate acknowledgement.
+allowWrites=false
+allowAllUsers=false
+# External scenarios require local controllable substitutes, not production services.
+turnstileStub=false
+turnstileToken=
+smtpStub=false
+deliveryId=

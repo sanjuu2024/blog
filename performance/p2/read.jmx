@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Blog P2 server reads" enabled="true">
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">true</boolProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments"><collectionProp name="Arguments.arguments"/></elementProp>
+    </TestPlan>
+    <hashTree>
+      <SetupThreadGroup guiclass="SetupThreadGroupGui" testclass="SetupThreadGroup" testname="Initialize isolated run" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">stoptest</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController"><boolProp name="LoopController.continue_forever">false</boolProp><stringProp name="LoopController.loops">1</stringProp></elementProp>
+        <stringProp name="ThreadGroup.num_threads">1</stringProp><stringProp name="ThreadGroup.ramp_time">0</stringProp>
+      </SetupThreadGroup>
+      <hashTree>
+        <JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="SETUP isolated data and authentication" enabled="true">
+          <stringProp name="scriptLanguage">groovy</stringProp><stringProp name="filename">${__P(scriptDir,.)}/p2-setup.groovy</stringProp><stringProp name="cacheKey">true</stringProp>
+        </JSR223Sampler><hashTree/>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="P2 measured reads" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController"><boolProp name="LoopController.continue_forever">true</boolProp><stringProp name="LoopController.loops">-1</stringProp></elementProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(threads,10)}</stringProp><stringProp name="ThreadGroup.ramp_time">${__P(rampSeconds,30)}</stringProp>
+        <boolProp name="ThreadGroup.scheduler">true</boolProp><stringProp name="ThreadGroup.duration">${__P(durationSeconds,300)}</stringProp>
+      </ThreadGroup>
+      <hashTree>
+        <ConstantThroughputTimer guiclass="TestBeanGUI" testclass="ConstantThroughputTimer" testname="Total requests per minute" enabled="true">
+          <stringProp name="throughput">${__P(throughputPerMinute,300)}</stringProp><intProp name="calcMode">1</intProp>
+        </ConstantThroughputTimer><hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="TARGET ${__P(scenario,P2-PERF-01)}" enabled="true">
+          <stringProp name="HTTPSampler.domain">${__P(host,127.0.0.1)}</stringProp><stringProp name="HTTPSampler.port">${__P(port,18443)}</stringProp><stringProp name="HTTPSampler.protocol">${__P(protocol,https)}</stringProp>
+          <stringProp name="HTTPSampler.path">${requestPath}</stringProp><stringProp name="HTTPSampler.method">${requestMethod}</stringProp><stringProp name="HTTPSampler.contentEncoding">UTF-8</stringProp>
+          <stringProp name="HTTPSampler.connect_timeout">10000</stringProp><stringProp name="HTTPSampler.response_timeout">30000</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">false</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"/></elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Select measured request" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="filename">${__P(scriptDir,.)}/p2-request.groovy</stringProp><stringProp name="cacheKey">true</stringProp></JSR223PreProcessor><hashTree/>
+          <JSR223Assertion guiclass="TestBeanGUI" testclass="JSR223Assertion" testname="Assert HTTP and content" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="filename">${__P(scriptDir,.)}/p2-assert.groovy</stringProp><stringProp name="cacheKey">true</stringProp></JSR223Assertion><hashTree/>
+        </hashTree>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

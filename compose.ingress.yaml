@@ -1,0 +1,52 @@
+name: blog-ingress
+
+services:
+  nginx:
+    image: nginx:1.29-alpine@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de
+    restart: unless-stopped
+    cpus: "0.5"
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+    environment:
+      INGRESS_PROD_HOST: ${INGRESS_PROD_HOST:?INGRESS_PROD_HOST is required}
+      INGRESS_STAGING_HOST: ${INGRESS_STAGING_HOST:?INGRESS_STAGING_HOST is required}
+      NGINX_ENVSUBST_FILTER: "^(INGRESS_PROD_HOST|INGRESS_STAGING_HOST)$"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ${INGRESS_TEMPLATE_DIR:?INGRESS_TEMPLATE_DIR is required}:/etc/nginx/templates:ro
+      - ${INGRESS_SNIPPET_DIR:?INGRESS_SNIPPET_DIR is required}:/etc/nginx/snippets:ro
+      - ${INGRESS_CERT_DIR:?INGRESS_CERT_DIR is required}:/etc/letsencrypt:ro
+      - ${INGRESS_ACME_DIR:?INGRESS_ACME_DIR is required}:/var/www/certbot:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/nginx-health | grep -q '^ok$'"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    networks:
+      prod_edge:
+        ipv4_address: 172.30.10.2
+      staging_edge:
+        ipv4_address: 172.30.11.2
+
+networks:
+  prod_edge:
+    name: blog-prod-edge
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.10.0/29
+          gateway: 172.30.10.1
+  staging_edge:
+    name: blog-staging-edge
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.11.0/29
+          gateway: 172.30.11.1

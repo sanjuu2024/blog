@@ -28,19 +28,19 @@
 
 ### 1.3 验收记录
 
-| 项目                                       | 记录                                                                                                                                                          |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 验收版本 / Commit SHA                      | 待冻结；当前 `develop` HEAD 为 `c39a791dc471c9204c6a3ba30eded12963eddf47`，但工作区有未提交改动，不作为最终验收 SHA。                                         |
-| 分支、开始 / 完成日期、负责人              | `develop`（当前分支）；日期待实际记录；sanjuu（沿用 P1 验收负责人）                                                                                           |
-| 前端 / 后端地址、API 前缀                  | 前端：localhost:5173；<br />后端：localhost:8080，API 为 `/api/v1`；                                                                                          |
-| 浏览器版本、桌面 / 真机设备                | Edge v156.0.4314.50；Chrome v156.0.8078.80。                                                                                                                  |
-| PostgreSQL / Redis 版本、隔离库名 / 逻辑库 | PostgreSQL 16.13，Compose 服务 `postgres`，localhost:5432/blog_db；<br />Redis 7.4，localhost:6379/0。                                                        |
-| 构建方式、profile、镜像版本                | 计划使用 `compose.prod.yaml` 和 `prod` profile；实际镜像 tag / digest 待记录。                                                                                |
-| CPU、内存、磁盘、带宽、JVM / 容器限制      | 待填写                                                                                                                                                        |
-| Resend / OSS / Turnstile 测试环境          | 待填写；不记录密钥                                                                                                                                            |
-| CI 运行地址、脱敏报告位置                  | 待填写                                                                                                                                                        |
+| 项目                                       | 记录                                                         |
+| ------------------------------------------ | ------------------------------------------------------------ |
+| 验收版本 / Commit SHA                      | 91bf949d1330a6ffa11d776a29981484e0876862                     |
+| 分支、开始 / 完成日期、负责人              | `develop`（当前分支）；日期待实际记录；sanjuu（沿用 P1 验收负责人） |
+| 前端 / 后端地址、API 前缀                  | 前端：localhost:5173；<br />后端：localhost:8080，API 为 `/api/v1`； |
+| 浏览器版本、桌面 / 真机设备                | Edge v156.0.4314.50；Chrome v156.0.8078.80。                 |
+| PostgreSQL / Redis 版本、隔离库名 / 逻辑库 | PostgreSQL 16.13，Compose 服务 `postgres`，localhost:5432/blog_db；<br />Redis 7.4，localhost:6379/0。 |
+| 构建方式、profile、镜像版本                | 计划使用 `compose.prod.yaml` 和 `prod` profile；实际镜像 tag / digest 待记录。 |
+| CPU、内存、磁盘、带宽、JVM / 容器限制      | 服务器检查：4 vCPU，Xeon Platinum 8272CL @ 2.60GHz，KVM；内存 7.8 GiB，Swap 0；根分区 50G、可用 45G；Ubuntu 24.04.4 LTS。100 Mbps、月流量 2000 GB 为套餐标称值，待验证。完整检查快照及长期容器约束见第 20.2 节。 |
+| Resend / OSS / Turnstile 测试环境          | 待填写；不记录密钥                                           |
+| CI 运行地址、脱敏报告位置                  | [Merge pull request #126 from sanjuu2024/feat/p2-acceptance · sanjuu2024/blog@91bf949](https://github.com/sanjuu2024/blog/actions/runs/41788222937) |
 | P1 复用证据及本次补测范围                  | 复用依据：[P1 验收记录](./P1-acceptance-checklist.md)，最终 SHA `18d3333bdad56c275e3d9f99d5ff5bed55ae5be6`（2026-09-25）；按本清单第 1.2、16 节决定复测范围。 |
-| 最终结论、遗留问题                         | 待填写                                                                                                                                                        |
+| 最终结论、遗留问题                         | 待填写                                                       |
 
 外部服务环境按“环境标识 + 是否真实服务 + 受控测试对象”填写，不记录密码、API key、secret 或完整收件地址：
 
@@ -443,6 +443,8 @@ Vitest 当前配置未设置行 / 分支覆盖率最低阈值。`pnpm test:cover
 
 浏览器 Network 看响应，另用“查看源代码”或 curl 验证服务器首屏；只看 Vue 渲染后的 Elements 不足以证明首屏 SEO。
 
+本节的可收录规则针对正式入口；staging 在共享入口与验收项目统一加 noindex，避免测试内容进入搜索结果，其首屏 SEO 元信息仍需正确。
+
 - [x] 首页、文章列表、归档、关于、留言、友链和公开文章详情首屏 HTML 有正确 title、description、canonical、OG。
 - [x] 首页地址保持 `/`，初次启动和站内回首页不丢失 SEO；直接请求旧 `/home` 返回 308，浏览器与站内跳转最终到 `/`，query/hash 保留，canonical 和 sitemap 不包含 `/home`；顶栏首页仅在首页高亮，切换其他页面后取消首页高亮。
 - [x] 文章地址固定 `/articles/{id}`，canonical 不带 query / hash；站点地址来自 BLOG_SITE_URL，归档各筛选不生成独立 canonical。
@@ -519,14 +521,27 @@ Vitest 当前配置未设置行 / 分支覆盖率最低阈值。`pnpm test:cover
 
 ### 20.1 执行方式与准备
 
-沿用 P1 的 Apache JMeter 非 GUI 模式及记录口径。现有脚本位于 [performance/jmeter](../performance/jmeter/)，数据脚本位于 [backend/scripts/db/performance](../backend/scripts/db/performance/)。P2 新场景尚需在 JMeter 中建立并保存对应计划，不能把下表编号当作已有脚本参数直接运行。
+当前版本全新执行 P2 验收，不复用 P1 通过结论。P2 计划、运行器、配置示例及独立数据脚本统一位于 [performance/p2](../performance/p2/README.md)，不调用 P1 seed、cleanup 或 JMeter 文件。基础读取场景使用 `P2-BASE-01～09` 编号；P2 扩展场景使用 `P2-PERF-01～12`。旧 P1 文件保留原位，仅作历史证据。
 
-当前 `compose.prod.yaml` 尚未为 backend、PostgreSQL、Redis、Nginx 设置 CPU / 内存上限；backend Dockerfile 也没有固定 JVM heap 参数。首轮 4 核 / 4 GB 候选测试可叠加 [compose.perf.yaml](../compose.perf.yaml)，并按 [部署说明](./deployment-ops.md#82-p2-性能测试资源覆盖) 使用独立项目、测试凭据和性能数据库。实际跑压前要核对合并配置与容器限制；这些测试限制不代表已经确定正式服务器配置。正式服务器与服务商仍按上线准备阶段的实测结果确定。
+目标服务器也是后续正式部署主机，正式运行的容器资源限制统一放在 [compose.prod.yaml](../compose.prod.yaml)，不再使用 compose.perf.yaml。仅验收时叠加 [compose.acceptance.yaml](../compose.acceptance.yaml)，隔离 `blog_p2_performance`、Redis DB 2、关闭外发邮件、为验收流量添加 noindex 响应头，并为应用层并发测试提供仅 loopback 可访问的后端端口；它不改变正式资源限制。完整首次部署、HTTPS、bootstrap、数据准备、压测及转正式步骤见 [服务器验收操作手册](./P2-server-acceptance.md)。
+
+按顺序执行（服务器初始化和部署在服务器执行，JMeter 在自己的电脑/WSL 执行）：
+
+1. 检出同一最终验收 Commit，确认 CI；记录服务器 `lscpu`、`free -h`、`df -h`、Docker / Compose 版本和镜像。截图套餐值不是实测值；原 WSL 记录只保留为工具调试环境。
+2. 按操作手册安装 Docker，先启动独立共享 Nginx 容器及两个 edge 网络，通过 webroot 签发 staging 证书；仓库外准备 `.env.acceptance`、网络/可信入口 IP 和临时 bootstrap 密码文件，凭据与正式环境分开。
+3. 定义手册中的 `dc` / `boot`，先 `dc config -q`、构建镜像、启动 PostgreSQL / Redis，再 `boot run --rm admin-bootstrap`。bootstrap 创建新管理员并执行 Flyway，不依赖任何 P1 数据；重复运行应拒绝覆盖已有管理员。
+4. `dc up -d --wait --wait-timeout 180`，经共享入口完成 HTTPS 首页、API、登录、SEO、RSS 和健康冒烟，检查 staging noindex、真实 IP 与上传大小；用 `sudo docker inspect` / `dc stats` / `ing stats` 核对资源限制。函数内部已提权，普通用户不加入 docker 组。
+5. 复制 `performance/p2/data` 到验收 PostgreSQL 容器，执行独立 `seed.sql`，确认 100 文章、2000 评论、500 留言、100 用户和 P2 通知/统计/投递等数据；按输出真实 ID 填写仓库外 `p2.properties`。只操作验收项目和性能库。
+6. 服务器另开终端先 `sudo -v`，再以普通用户运行 `collect_resources.py --sudo-docker`；压测机先执行 2 秒预热 / 5 秒正式的短调试，再按默认 120 秒预热、300 秒 × 3 轮执行全部基础与扩展读取。三轮指标各取中位数，任何失败轮不能被掩盖。
+7. 通过 SSH 隧道连接 loopback 后端，单独执行应用层并发、幂等及读写隔离场景；保存每阶段前后的 SQL 快照。Nginx 边缘限流另测，不能用 199429 冒充应用层限流；邮件和 Turnstile 需要本地替身的场景未准备时保持未勾选。
+8. 通过真实 HTTPS 入口执行 5/10/20/40 RPS 容量探测和最后稳定档 30 分钟稳定性，核对资源余量；公网与 SSH 隧道结果分别记录。若同机监控已部署，应保持其正常运行；未部署时注明本轮不含监控开销，监控加入后复测混合负载。
+9. 把导出的 summary.md / CSV 填入第 20.5 节，补资源峰值、SQL 条数及数据库差值。备份/恢复、故障及第 21～23 节仍需按实际执行，不能用压测成功替代。
+10. 验收后停止验收项目，保留其卷和报告；使用新的正式项目、正式数据库/Redis、凭据和数据初始化，不把性能库改名当作正式库。正式上线前完成备份、续证及告警门禁。
 
 - [ ] 独立性能库名包含 `performance`，Redis 使用独立逻辑库；只在该环境执行 seed / cleanup。
-- [ ] 先审查旧 seed / cleanup 对 P2 新表、唯一性和逻辑关联的兼容性，避免留下孤儿数据；不直接对已有业务库执行旧清理脚本。
-- [ ] 真实邮件关闭；外部 SMTP / OSS / Turnstile 使用测试替身。当前 `compose.perf.yaml` 不提供 OSS / Turnstile 替身，游客留言高并发场景在替身准备前保持未勾选；真实服务只做第 12 节少量验收。
-- [ ] 旧 PERF-08 游客留言计划未携带 Turnstile，需补测试验证路径；直接应用限流和生产边缘限流分开测试，不能把验证失败当限流通过。
+- [ ] 使用 `performance/p2/data/seed.sql` / `cleanup.sql` 准备和清理独立 P2 数据；脚本不调用 P1，处理通知收件、投递、评论点赞、每日统计和安全事件等逻辑关联，仅允许性能库。
+- [ ] 真实邮件关闭；外部 SMTP / OSS / Turnstile 使用测试替身。compose.acceptance.yaml 不提供 OSS / Turnstile 替身，游客留言高并发场景在替身准备前保持未勾选；真实服务只做第 12 节少量验收。
+- [ ] P2-BASE-08 携带测试验证 token，须先准备可控 Turnstile 替身；直接应用限流和生产边缘限流分开测试，不能把验证失败当限流通过。不调用旧 P1 留言计划。
 - [ ] API 计划同时断言 HTTP 状态及业务码；读取中的 401 / 429 / 503 是非预期错误，只有指定限流场景的预期拒绝单独统计。
 - [ ] 准备至少 100 篇公开文章、2000 条评论、500 条留言、100 个用户；另准备多个年份、跨年文章、足够的点赞 / 通知 / 投递记录，所有写入使用测试标识。
 - [ ] 验证搜索能稳定命中，归档有多页和多年份，通知列表及全部已读有足够数据，不用全空库证明性能。
@@ -538,20 +553,25 @@ Vitest 当前配置未设置行 / 分支覆盖率最低阈值。`pnpm test:cover
 
 ### 20.2 环境与数据记录
 
-| 项目                                            | 本次记录 |
-| ----------------------------------------------- | -------- |
-| Commit、日期、JMeter 版本                       | 待填写   |
-| 被测机 CPU / 内存 / 磁盘 / 系统                 | 待填写   |
-| 压测机及是否同机                                | 待填写   |
-| profile、JVM 参数、容器 / Redis 内存限制        | 待填写   |
-| PostgreSQL / Redis 版本、连接池                 | 待填写   |
-| 数据量：文章 / 评论 / 留言 / 用户 / 点赞 / 通知 | 待填写   |
-| HTTPS / Nginx / 网络拓扑                        | 待填写   |
-| 预热、轮数、持续时间、峰值 RPS                  | 待填写   |
+| 项目                                            | 本次记录                                                     |
+| ----------------------------------------------- | ------------------------------------------------------------ |
+| Commit、日期、JMeter 版本                       | 当前记录版本 91bf949d1330a6ffa11d776a29981484e0876862；2026-11-04。正式压测使用新增脚本所在的最终 SHA，运行器自动记录；建议 JMeter 5.6.3，WSL / 压测机实际版本待 `jmeter --version` 确认。 |
+| 被测机 CPU / 虚拟化                             | 用户提供的服务器检查快照：x86_64，4 vCPU（0～3），Intel Xeon Platinum 8272CL @ 2.60GHz；KVM 全虚拟化。虚拟机报告 1 插槽、每插槽 4 核、每核 1 线程，不代表独享物理核。 |
+| 被测机内存 / Swap                               | `free -h`：总计 7.8 GiB，已用 426 MiB，空闲 6.9 GiB，buff/cache 693 MiB，可用 7.3 GiB；Swap 总计 / 已用均为 0B。此为检查时快照，压测峰值待采集。 |
+| 被测机磁盘 / inode                              | 根分区 `/dev/vda2` 挂载 `/`：50G，已用 2.7G，可用 45G，使用率 6%；inode 总计 3,276,800，已用 99,656，可用 3,177,144，使用率 4%。SSD 为套餐标称类型，磁盘性能尚未测试。 |
+| 被测机系统 / 内核                               | Ubuntu 24.04.4 LTS（Noble Numbat），Linux `6.8.0-100-generic`，x86_64；内核构建信息 `#100-Ubuntu SMP PREEMPT_DYNAMIC Tue Jan 13 16:40:06 UTC 2026`。 |
+| 机房 / 带宽 / 流量套餐                          | 香港 CN2 精品三区、单 IPv4、100 Mbps 上下行、月流量 2000 GB 为用户提供的套餐信息；网络吞吐、延迟及流量计费口径待验证，不由 CPU / 内存检查结果推定。 |
+| Docker Engine / Compose 版本                   | 服务器待实测。此前本机 WSL2：Docker Engine Community 28.5.1，API 1.51；仅作工具调试记录，不替代服务器环境。 |
+| 压测机及是否同机                                | 待填写                                                       |
+| profile、JVM 参数、容器 / Redis 内存限制        | 参考限制（生效待核对）：prod；backend 2 CPU / 2560m，JVM `-Xms512m -Xmx1536m -XX:MaxMetaspaceSize=256m -XX:MaxDirectMemorySize=128m`；PostgreSQL 1.5 CPU / 2g；Redis 0.25 CPU / 512m、maxmemory=256mb、noeviction；项目 Nginx 0.25 CPU / 256m；共享入口另为 0.5 CPU / 256m。一套项目加入口上限约 5.5 GiB，与报告的 7.8 GiB 总内存相差约 2.3 GiB；实际可用量需采样，两套项目并行另计。CPU 上限不是专用核或资源预留。 |
+| PostgreSQL / Redis 版本、连接池                 | 镜像计划 PostgreSQL 16.13（含 zhparser）/ Redis 7.4；验收库 blog_p2_performance / Redis DB 2；PostgreSQL max_connections=60、shared_buffers=512MB；Hikari maximum-pool-size=10、minimum-idle=2。实际版本、设置及占用待记录。 |
+| 数据量：文章 / 评论 / 留言 / 用户 / 点赞 / 通知 | 待填写                                                       |
+| HTTPS / Nginx / 网络拓扑                        | 示例域名 `staging.example.com`，仅 DNS 解析 → 独立共享 Nginx 容器 80/443 → blog-staging-edge → 项目 Nginx HTTP 80 → backend；证书仅由共享入口挂载。实际 DNS、TLS、来源头及链路待服务器验证。 |
+| 预热、轮数、持续时间、峰值 RPS                  | 脚本默认：普通读取预热 120 秒，正式 300 秒 × 3 轮，指标取中位数并保留最差轮；稳定性 1800 秒 × 1 轮；容量 5/10/20/40 RPS 逐档 300 秒，最终稳定档 1800 秒。实际执行及峰值待导出报告填写。 |
 
 ### 20.3 建议验收阈值
 
-沿用 P1 的工程阈值，作为本次目标，不能据此直接宣称公网容量或 SLA；若需要调整，应先记录理由和新目标，不能看到结果后静默放宽。
+以下工程阈值作为本次目标，不能据此直接宣称公网容量或 SLA；若需要调整，应先记录理由和新目标，不能看到结果后静默放宽。公网请求包含压测机到服务器的网络延迟，不能与本机旧基线混为一组。
 
 | 场景                                            | 非预期错误率                       | p95          | p99          |
 | ----------------------------------------------- | ---------------------------------- | ------------ | ------------ |
@@ -562,24 +582,24 @@ Vitest 当前配置未设置行 / 分支覆盖率最低阈值。`pnpm test:cover
 
 - [ ] 无持续 5xx、OutOfMemoryError、重复重启、连接池耗尽、持续 Redis 超时和单向内存增长。
 - [ ] 正常目标负载下 CPU 不长期超过 70%、整机内存不长期超过 80%，无持续交换抖动；记录短时峰值与可用余量。
-- [ ] 相同机器、数据量和拓扑对比 P1，p95 / p99 上升超过 20% 或资源明显增大时分析并记录，不能直接覆盖旧基线。
-- [ ] P1 的 Windows 本机结果不直接当作 4核4GB 容量证明；若选择该服务器，需在相近资源配额下经过 Nginx + HTTPS 建立新的生产式基线。
+- [ ] 本轮在目标服务器建立全新 P2 基线；同一服务器、数据量、Cookie 行为和拓扑的后续复测，p95 / p99 上升超过 20% 或资源明显增大时分析并记录，不覆盖旧结果。
+- [ ] 原 Windows/WSL 与 P1 结果只保留为历史，不能作为当前 4 vCPU / 8 GB 服务器容量证明；以本轮 Nginx + HTTPS、实际监控负载及公网链路建立生产式基线。
 
 ### 20.4 场景清单
 
-下表是目标测试计划；需要实际执行、填写结果后才能勾选。API 路径均省略 `/api/v1` 前缀，HTML、sitemap、RSS 等站点资源除外。P1 计划复用时保持原比例 / 速率，拓扑变化另记结果。
+下表是独立 P2 测试计划；需要实际执行、填写结果后才能勾选。API 路径均省略 `/api/v1` 前缀，HTML、sitemap、RSS 等站点资源除外。基础场景同样从零重测，不调用 P1 计划。普通读取场景（P2-BASE-01～06、P2-PERF-01～05/11）均预热 2 分钟后正式运行 5 分钟 × 3 轮。
 
 | 编号        | 场景与请求                                              | 建议负载 / 时间                                       | 通过重点                                                                  |
 | ----------- | ------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------- |
-| PERF-01～05 | P1 文章列表 / 详情 / 中文搜索 / 评论 / 留言读取         | 沿用 P1：10线程，分别10 / 10 / 5 / 5 / 5 RPS，各5分钟 | 相同数据及条件下无回归                                                    |
-| PERF-06     | P1 混合浏览                                             | 20线程 / 15 RPS，5分钟                                | 原混合比例、状态与资源稳定                                                |
-| PERF-07～08 | 评论 / 留言原子限流                                     | 各10个同步请求，单轮                                  | 应用层一次成功，其余为预期限流，无多写；隔离 Turnstile / 边缘干扰         |
-| PERF-09     | 混合读取稳定性                                          | 10线程 / 10 RPS，30分钟                               | 内存回落、无泄漏或重启                                                    |
+| P2-BASE-01～05 | 文章列表 / 详情 / 中文搜索 / 评论 / 留言读取          | 10线程，分别10 / 10 / 5 / 5 / 5 RPS，各5分钟×3轮    | 新数据、新服务器上建立读取基线                                          |
+| P2-BASE-06 | 混合浏览                                                 | 20线程 / 15 RPS，5分钟×3轮                            | 固定混合比例、状态与资源稳定                                              |
+| P2-BASE-07～08 | 评论 / 留言原子限流                                  | 各10个同步请求，单轮                                  | 应用层一次成功，其余为预期限流，无多写；隔离 Turnstile / 边缘干扰         |
+| P2-BASE-09 | 混合读取稳定性                                           | 10线程 / 10 RPS，30分钟                               | 内存回落、无泄漏或重启                                                    |
 | P2-PERF-01  | `/archives/years`，不同合法 timeZone                    | 10线程 / 5 RPS，5分钟                                 | 聚合结果完整，查询不按年循环                                              |
 | P2-PERF-02  | `/archives/articles`，按年 / 分类 / 标签分页            | 10线程 / 10 RPS，5分钟                                | SQL 数量不随页内文章数线性增加                                            |
 | P2-PERF-03  | `/admin/dashboard`                                      | 5线程 / 2 RPS，5分钟                                  | 认证有效，所有指标正确，无周期循环查库                                    |
 | P2-PERF-04  | `/notifications` 与 `/notifications/unread-count`       | 10线程 / 合计10 RPS，5分钟                            | 按用户隔离，分页与未读数稳定                                              |
-| P2-PERF-05  | `/admin/mail-deliveries`、`/admin/security-events` 筛选 | 合计5 RPS，5分钟                                      | 脱敏、索引和稳定排序                                                      |
+| P2-PERF-05  | `/admin/mail-deliveries`、`/admin/security-events` 筛选 | 合计5 RPS，5分钟                                      | 管理员权限、索引和稳定排序；完整邮箱只留私有环境，不导出响应正文            |
 | P2-PERF-06  | 同一访客并发读同一公开文章                              | 10个同步请求，单轮                                    | 只增加一次浏览及当日聚合                                                  |
 | P2-PERF-07  | 同一主体重复点赞 / 取消与多个主体点赞                   | POST、DELETE 分轮，各10个同步请求                     | 一主体最多一明细、取消后无该明细，总数正确且非负，分别等待 / 隔离限流窗口 |
 | P2-PERF-08  | 文章 / 评论混合点赞共享限流                             | 同一主体60秒内顺序31次；另测边缘限流                  | 前30次与第31次的额度 / 拒绝符合契约，不误算状态                           |
@@ -588,7 +608,7 @@ Vitest 当前配置未设置行 / 分支覆盖率最低阈值。`pnpm test:cover
 | P2-PERF-11  | HTML 首屏、sitemap、RSS、友链读取                       | 合计5 RPS，5分钟                                      | 模板和数据库正常，无意外浏览计数                                          |
 | P2-PERF-12  | 生产式混合浏览容量探测                                  | 从5 / 10 / 20 / 40 RPS逐级运行，各5分钟               | 记录首次不满足目标处，停止升压并保留最后稳定档位                          |
 
-- [ ] PERF-01～09 使用当前版本重新执行，结果和 P1 证据区分。
+- [ ] P2-BASE-01～09 使用独立计划和 P2 数据执行，结果不引用 P1 成功结论。
 - [ ] P2-PERF-01～12 执行并记录；需要测试替身或新脚本的场景先完成准备，未准备不勾选。
 - [ ] 目标档位稳定后至少再运行30分钟混合负载；40 RPS仍稳定时记录“至少达到该档位”，不宣称测出最大容量。
 - [ ] 用单请求日志比较 pageSize=10 / 20 的 SQL 数量，核对归档、列表、评论、通知及 Dashboard，无 N+1；不只凭低延迟判断。
@@ -598,6 +618,8 @@ Vitest 当前配置未设置行 / 分支覆盖率最低阈值。`pnpm test:cover
 ### 20.5 结果表
 
 每个编号单独填写一行，必要时复制下表；并发测试填写成功 / 预期拒绝数量和数据库差值。
+
+使用 `performance/p2/run.py` 后，仓库外输出每轮 `run-results.csv`、分场景 `summary.csv` 和可复制的 `summary.md`，另保留 JTL、JMeter 日志；`--html-report` 可选导出 HTML 仪表板。普通读取默认预热 120 秒、正式 300 秒 × 3 轮，p50 / p95 / p99 与实际 RPS 填三轮中位数，同时保留最差轮和全部错误；不对三轮百分位简单取平均，也不以中位错误率掩盖失败轮。稳定性默认 1800 秒 × 1 轮；容量探测每档 300 秒，出现延迟、错误或实际吞吐不足即停止升档，最后稳定档另跑 30 分钟。HTTP 自动结果与数据库 / 资源验收分开，写入场景需 `--pause-between-phases` 保存并核对每阶段 SQL 差值，不能只凭 JMeter 绿灯勾选。
 
 | 编号   | SHA / 环境 | 样本数 / 实际 RPS | 非预期错误率 | p50 / p95 / p99 | CPU / RSS / 堆 / 整机内存峰值 | DB连接 / Redis / GC | 数据核对、结论与证据 |
 | ------ | ---------- | ----------------- | ------------ | --------------- | ----------------------------- | ------------------- | -------------------- |
@@ -609,7 +631,9 @@ Vitest 当前配置未设置行 / 分支覆盖率最低阈值。`pnpm test:cover
 
 - [ ] 干净构建后端、前端及含 zhparser 的 PostgreSQL 镜像，Compose 启动 Nginx / backend / PostgreSQL / Redis 健康。
 - [ ] 一次性 bootstrap 正确创建首个管理员，重复执行被拒绝；密码不进入命令日志、镜像或长期环境变量。
-- [ ] HTTPS 登录、刷新、退出及两种 Cookie 属性正确；数据库 / Redis 不直接暴露公网。
+- [ ] HTTPS 登录、刷新、退出及两种 Cookie 属性正确；只有共享入口发布 80/443，数据库 / Redis / 项目 Nginx 无宿主机端口，验收 backend 仅 loopback 测试端口。
+- [ ] 共享入口与两个项目独立启停；入口重写 Forwarded / X-Forwarded-*，项目只信任入口固定 IP；两层 12m 请求体上限，合法图片不被外层 413 拒绝。
+- [ ] Certbot webroot 首次签证、renew dry-run、deploy hook 和 timer 验证成功；关闭 staging 项目后 ACME 仍可用，正式站不受影响。
 - [ ] Nginx 公共 HTML / API / RSS 路由、代理头、真实 IP、静态资源和 API noindex 规则正确。
 - [ ] 登录 / 点赞 / 留言边缘限流生效，API 超限返回既定 JSON；不会误伤静态资源请求。
 - [ ] 共享 SEO 模板卷中入口 HTML 与构建资源一致，重建 / 滚动更新后无静态资源404或永久503。
