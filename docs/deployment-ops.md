@@ -15,7 +15,7 @@
 - 数据库必须建立定期备份机制，备份文件应存放在服务器本机以外的位置。
 - 头像、文章封面、后续上传文件等二进制资源应使用对象存储，不直接依赖应用服务器本地磁盘。
 - 域名解析 TTL 不要设得太长，迁移时好切换。
-- 生产密钥、数据库密码、对象存储密钥等敏感配置必须通过环境变量或密钥管理方式注入，不提交到代码仓库。
+- 生产密钥、数据库密码、对象存储密钥等敏感配置保存在仓库外的 `.env.prod`，通过 Compose 显式注入容器环境变量，不提交到代码仓库。
 
 ## 3. 推荐部署拓扑
 
@@ -43,20 +43,20 @@ External services
 ## 4. Docker Compose 约定
 
 - Compose 文件应明确容器名称、端口、网络、持久化卷、环境变量和重启策略。
+- 正式 Compose 默认项目名为 `blog-prod`；本次计划发布版本为 `v1.0.0`，定制 PostgreSQL、后端和前端 Nginx 镜像分别为 `blog-postgres:v1.0.0`、`blog-backend:v1.0.0`、`blog-nginx:v1.0.0`，通过 `BLOG_POSTGRES_IMAGE`、`BLOG_BACKEND_IMAGE`、`BLOG_NGINX_IMAGE` 覆盖。bootstrap 与后端使用同一个 `BLOG_BACKEND_IMAGE`。版本正式发布后不覆盖对应标签，后续发布使用新版本或 Commit 标签；Redis、入口 Nginx 和各 Dockerfile 基础镜像继续使用已锁定的 digest。镜像标签不等于 Git 发布标签，也不能代替部署前的构建或拉取；只执行 up 可能继续使用本机同名旧镜像。
+- 已使用旧默认项目名 `blog-prodtest` 创建容器的部署，更新时显式保留 `-p blog-prodtest`；不要仅因改名而创建新项目并误以为数据丢失。`prodtest_pg_data`、`prodtest_redis_data` 是历史卷逻辑名，本次保持不变，不移动或删除数据。
 - `Nginx` 可以作为 Compose 服务之一，也可以由宿主机直接安装；本项目优先推荐纳入 Compose 统一管理。
 - PostgreSQL 数据目录必须挂载到 volume。
 - PostgreSQL 使用 `docker/postgres/Dockerfile` 构建包含 `zhparser` 二进制扩展的镜像，并将 `backend/scripts/db/bootstrap/init.sql` 挂载到 `/docker-entrypoint-initdb.d/00_init.sql`。
 - `init.sql` 只保留启动说明，不创建数据库对象；业务库和测试库统一由 Flyway migration 分别创建 `zhparser` 扩展、文本搜索配置及全文索引，避免备份恢复时与预创建的 `zhparser_cfg` 冲突。
 - Redis 如果用于 Refresh Token 或缓存，也必须配置持久化或明确可丢失策略。
 - 生产环境数据库密码、JWT 密钥、Redis 密码、对象存储密钥不能直接写在 `docker-compose.yaml` 中。
-- 建议使用 `.env` 或服务器侧环境变量注入配置。
+- 正式部署以根目录 `.env.prod.example` 为唯一 Compose 输入模板，复制为服务器仓库外的 `.env.prod`；根目录 `.env.example` 用于本地开发与通用变量参考，`performance/p2/acceptance.env.example` 用于隔离验收，两者不代替正式模板。当前后端数据源与 Flyway 共用 `POSTGRES_USER`，模板不表示数据库管理账号和应用账号已分离。
 - 隐私政策由后端镜像中的 `content/privacy-policy.md` 提供；修改政策必须重新构建并部署 backend，
   应用启动时会校验资源非空并以规范化内容 SHA-256 作为版本。
 - 通过 Compose `environment:` 注入的值通常可被有 Docker 管理权限的用户通过
   `docker inspect <container>` 查看；写入 `command:` 的值还可能出现在容器命令行元数据中。
-- 本地 WSL 演练可使用仓库外、权限受限的 `.env.prodtest`；正式生产应优先使用 Docker
-  Secrets 或云厂商密钥管理服务。应用目前读取 `BLOG_*` 环境变量，切换到文件型 Secret
-  前需要增加 `/run/secrets/*` 到配置的适配层，不能只修改 Compose 文件。
+- 正式 `.env.prod` 的父目录权限设为 `700`，文件权限设为 `600`，归部署用户所有；通过 `docker compose --env-file /绝对路径/.env.prod` 使用，不依赖 Spring Boot 自动读取 `.env`。只分享 `config -q` 的校验结果，不公开展开后的 Compose 配置或完整容器 inspect；有 Docker 管理权限的用户仍能读取容器环境变量。首次管理员密码继续使用现有一次性临时文件，初始化后删除，不长期存入 `.env.prod`。
 
 生产式 Compose 的 Docker 日志使用有限大小的轮转，避免容器日志无限增长：
 
@@ -158,7 +158,7 @@ Spring Boot 配置按运行场景区分：
 - Spring Boot 和 Maven 不会自动读取项目根目录的 `.env`。IDEA Run Configuration、Maven/CI 环境或 Compose 必须显式注入变量。
 - `application-test.yaml` 仍然需要保留。它把测试 profile 的数据库和 JWT 配置切换到 `BLOG_TEST_*`，从配置层面阻止集成测试误连开发库；`@ActiveProfiles("test")` 负责选择这个文件。
 
-仓库根目录只提交 `.env.example` 作为变量清单，不提交真实 `.env`。Compose 仅在部署 backend 容器时需要设置 `SPRING_PROFILES_ACTIVE=prod`；如果本地只用 Compose 启动 PostgreSQL、后端仍由 IDEA 启动，则后端继续使用 `dev` profile。
+仓库根目录提交 `.env.example` 作为本地开发变量参考、`.env.prod.example` 作为正式 Compose 输入模板，不提交真实 `.env` 或 `.env.prod`。Compose 仅在部署 backend 容器时需要设置 `SPRING_PROFILES_ACTIVE=prod`；如果本地只用 Compose 启动 PostgreSQL、后端仍由 IDEA 启动，则后端继续使用 `dev` profile。
 
 ## 5. 数据库备份约定
 
@@ -250,7 +250,7 @@ BLOG_SMTP_WRITE_TIMEOUT=10000
 - `BLOG_MAIL_FROM` 使用已验证域名下的 `no-reply@mail.ccsanjuu.com`，可带显示名称；`.env` 中建议整体加引号。
 - Resend SMTP 固定使用 `smtp.resend.com:587`、用户名 `resend`、STARTTLS；`BLOG_SMTP_PASSWORD` 填 Resend API Key，建议只授予发信权限。
 - 生产环境的 `BLOG_MAIL_FRONTEND_BASE_URL` 必须使用站点 HTTPS 地址，用于生成留言页和退订链接。
-- 密码或授权码只通过生产环境变量或密钥管理服务提供，不写入 Git、镜像或日志。
+- 密码或授权码保存在服务器受限 `.env.prod` 中，由 Compose 注入生产环境变量，不写入 Git、镜像或日志。
 - 生产环境默认启用邮件通知；配置不完整时后端拒绝启动，避免回复已创建但通知长期静默失败。
 - 邮件功能已启用但运行时无法取得邮件发送器时，后端记录包含留言 ID、回复 ID 和失败原因的结构化错误日志，不记录收件邮箱或留言正文，也不回滚已经提交的管理员回复。
 - `BLOG_SMTP_CONNECTION_TIMEOUT`、`BLOG_SMTP_READ_TIMEOUT`、`BLOG_SMTP_WRITE_TIMEOUT` 的单位均为毫秒，默认分别为 5000、10000、10000，避免网络异常时邮件线程长期阻塞而无法进入重试。
@@ -270,7 +270,7 @@ BLOG_SMTP_WRITE_TIMEOUT=10000
   静态兜底页。仅页面代理 location 开启上游错误拦截，`/api/**` 保留 API 错误响应，不返回
   50x HTML。
 - 50x 页面不依赖 Vue 或后端，只提供重试和返回首页；静态图片占位后续资源放在 `frontend/public/img/errors/`，通过根路径 URL 加载。
-- `VITE_SITE_LAUNCHED_AT` 在生产 `.env` 中配置为带时区的首次正式公开运行时间，并通过 Compose build args 编入 Nginx 前端镜像；该值是公开前端配置，不是 Secret。首次上线后保持不变；调整时间需重新构建前端镜像。
+- `VITE_SITE_LAUNCHED_AT` 在生产 `.env.prod` 中配置为带时区的首次正式公开运行时间，并通过 Compose build args 编入 Nginx 前端镜像；该值是公开前端配置，不含凭据。首次上线后保持不变；调整时间需重新构建前端镜像。
 - Refresh Token 由后端通过 `Set-Cookie` 写入 `refresh_token` HttpOnly Cookie，`Nginx` 不应丢弃或改写该响应头。
 - `refresh_token` Cookie 路径固定为 `/api/v1/auth`，只随认证相关接口发送；生产 HTTPS 环境必须带 `Secure`，并保持 `HttpOnly`、`SameSite=Lax`。
 - 若后端需要根据请求协议决定是否添加 `Secure`，反向代理应正确传递 `X-Forwarded-Proto` 等代理头。
@@ -311,7 +311,7 @@ blog:
 
 生产环境不加载 `db/devdata`，管理员通过 `bootstrap-admin` 专用 Spring profile 和
 `compose.bootstrap.yaml` 中的 `admin-bootstrap` 一次性任务创建。普通生产部署只读取
-`compose.prod.yaml`，不会解析 bootstrap 服务或密码 Secret，也不会创建或重置管理员。
+`compose.prod.yaml`，不会解析 bootstrap 服务或临时密码文件，也不会创建或重置管理员。
 Flyway、镜像和仓库中均不保存固定的 `admin/123456`。
 
 部署者必须确认 `BLOG_BOOTSTRAP_ADMIN_EMAIL` 是自己控制的邮箱。bootstrap 信任此确认，不发送验证码；新管理员写入 `email_verified=true` 和初始化时的 UTC `email_verified_at`，后续修改邮箱仍需验证码。已有管理员不会自动回填；确认历史账号邮箱后单独修正该账号，不能重复 bootstrap 或清空数据库来覆盖它。
@@ -373,7 +373,7 @@ docker compose \
 不存在或不可读、系统中已存在任意管理员、用户名或邮箱已被占用、数据库写入失败。日志只记录
 新管理员 ID 和用户名，不记录邮箱或密码。
 
-`bootstrap_admin_password.txt` 保持宿主机 `600` 权限即可。由于本地 Compose 的 file secret
+`bootstrap_admin_password.txt` 保持宿主机 `600` 权限即可。由于该临时文件
 通常以 `root:root` 挂载，而正式 backend 镜像使用 UID `10001` 运行，bootstrap overlay 会让
 这个一次性任务以 `root` 读取该文件；这不会改变长期 backend 的非 root 运行用户，也不会把
 密码写入环境变量或日志。
@@ -401,7 +401,7 @@ docker compose \
 删除或降级现有管理员来绕过。管理员凭据遗失时应走受控的密码恢复流程，而不是重复执行初始化。
 
 `compose.bootstrap.yaml` 只用于每个独立环境首次初始化管理员，不参与日常启动或压测负载。它额外定义
-一次性 `admin-bootstrap` 服务，并通过 file secret 读取临时密码；以 `run --rm` 启动时，该次任务容器完成后会被移除。
+一次性 `admin-bootstrap` 服务，并通过文件挂载读取临时密码；以 `run --rm` 启动时，该次任务容器完成后会被移除。
 数据库已有管理员时任务会拒绝执行，不能用它重置或覆盖管理员账号。
 
 ### 8.2 参考容器资源配置与 P2 服务器验收
@@ -452,11 +452,11 @@ P0 阶段至少需要关注：
 P2 功能、自动化测试和全量验收稳定后再锁定正式服务器变量和服务商配置，避免开发阶段过早绑定
 生产环境。正式上线前必须完成：
 
-- 数据库密码、Redis 密码、JWT、OSS Secret、SMTP 密码使用文件型 Secret 或云密钥管理，不通过容器环境变量长期暴露
+- 数据库密码、Redis 密码、JWT 密钥、OSS 与 SMTP 凭据使用仓库外的 `.env.prod`，目录 / 文件权限分别为 `700` / `600`；配置不入 Git、镜像或日志，运维只使用必要的 Docker 管理权限
 - 每日 `pg_dump`，本机保留最近 7 天、最近 4 周周备份，并上传异机或对象存储；每季度至少完成一次独立数据库恢复演练
 - SMTP 发信域名按服务商要求配置 SPF、DKIM，DMARC 先使用 `p=none` 观察再收紧策略
 - 使用 Certbot、acme.sh 或等价 ACME 客户端自动续期站点证书，续期后 reload Nginx 并执行健康检查
-- OSS 自定义图片域名证书单独记录续期方式；当前不使用阿里云自动续期，优先评估 ACME 脚本与部署钩子，若无法自动部署则必须配置到期告警和人工续期清单
+- OSS 自定义图片域名由 Certbot 的自动 DNS 验证插件续签，续期后通过独立 deploy hook 调用 OSS PutCname 上传证书链与私钥并更新既有域名绑定；不通过共享 Nginx 转发 OSS。DNS 手工 TXT 验证不能自动续期，Nginx reload 也不能替代 OSS 证书部署。安装、RAM 权限、独立凭据及故障重试见 [共享入口手册第 6 节](./shared-nginx-ingress.md#6-证书自动续期)。
 - 至少监控 HTTPS 可用性、容器停止、磁盘阈值、备份失败和邮件持续失败，并配置外部告警渠道
 - Prometheus + Grafana 作为上线后迭代，不阻塞首次上线；上线前不得完全依赖人工查看日志
 
@@ -483,7 +483,7 @@ VITE_TURNSTILE_SITE_KEY
 BLOG_VISITOR_COOKIE_SECURE=true
 ```
 
-Turnstile site key 可以进入前端构建配置，secret key 必须使用 Secret 注入。
+Turnstile site key 可以进入前端构建配置，secret key 只保存在服务器 `.env.prod` 并注入后端，不进入任何 `VITE_*` 变量。
 本地 `dev` profile 默认使用 Cloudflare 官方测试密钥；测试验证响应不携带 action，因此开发环境默认不校验 hostname 和 action，`prod` profile 则强制配置并校验两者。
 匿名访客 Cookie 在生产环境必须启用 `Secure`、`HttpOnly`、`SameSite=Lax`，并使用根路径 `/`。
 
@@ -501,7 +501,7 @@ Spring Boot 不自动读取根目录 `.env`。站点名由 `BLOG_APP_NAME` 提�
 `BLOG_DESC` 和 `BLOG_LOGO_URL` 提供。生产 Compose 要求四项均显式非空，站点地址和 Logo 地址必须使用 HTTPS；
 dev/test 使用各自 profile 的明确本地资料，站点地址允许 localhost HTTP，Logo 地址允许 HTTP(S)，不依赖生产环境文件。
 
-正式生产根目录 `.env` 或仓库外 prodtest `.env.prodtest` 必须填写以下友链申请资料，不能留空：
+正式生产的仓库外 `.env.prod` 必须填写以下友链申请资料，不能留空；本地历史演练的 `.env.prodtest` 同样适用：
 
 | 变量 | 需要填写的值 | 约束 |
 | --- | --- | --- |

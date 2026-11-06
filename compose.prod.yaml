@@ -1,4 +1,4 @@
-name: ${COMPOSE_PROJECT_NAME:-blog-prodtest}
+name: ${COMPOSE_PROJECT_NAME:-blog-prod}
 
 x-backend-build: &backend-build
   context: backend
@@ -48,6 +48,7 @@ x-backend-environment: &backend-environment
 
 services:
   postgres:
+    image: ${BLOG_POSTGRES_IMAGE:-blog-postgres:v1.0.0}
     cpus: "1.5"
     mem_limit: 2g
     command: ["postgres", "-c", "shared_buffers=512MB", "-c", "max_connections=60"]
@@ -106,7 +107,7 @@ services:
   backend:
     cpus: "2.0"
     mem_limit: 2560m
-    image: ${BLOG_BACKEND_IMAGE:-blog-backend:prodtest}
+    image: ${BLOG_BACKEND_IMAGE:-blog-backend:v1.0.0}
     build: *backend-build
     restart: unless-stopped
     logging:
@@ -132,6 +133,7 @@ services:
       - backend_net
 
   nginx:
+    image: ${BLOG_NGINX_IMAGE:-blog-nginx:v1.0.0}
     cpus: "0.25"
     mem_limit: 256m
     build:

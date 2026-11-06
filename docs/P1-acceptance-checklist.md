@@ -340,7 +340,7 @@ P1 验收范围以 [PRD.md](./PRD.md)、[database-design.md](./database-design.m
 - [x] 评论、留言和资料中的 HTML/脚本按纯文本安全展示，不执行用户输入脚本。
 - [x] Markdown 渲染和搜索高亮只允许设计内的安全 HTML，不接受未转义任意标签。
 - [x] Refresh Token Cookie 在开发 HTTP 环境按设计工作，生产 HTTPS 环境带 `HttpOnly`、`Secure`、`SameSite=Lax` 和正确 Path。
-- [x] 密码、JWT、数据库密码、Redis 密码、OSS、SMTP 凭据只通过环境变量或 Secrets 注入。
+- [x] 密码、JWT、数据库密码、Redis 密码、OSS、SMTP 凭据通过受限 `.env` 和环境变量注入。
 - [x] 无效 JSON、错误枚举、越界分页、非法 ID、缺失文件和超限请求返回统一业务响应。
 - [x] PostgreSQL 或 Redis 短暂不可用时，系统按设计失败或降级，不返回敏感堆栈给前端。
 - [x] 公开写接口应用层限流已验证；生产式部署同时验证 Nginx 边缘限流。
@@ -473,7 +473,7 @@ JMeter 原始 `.jtl` 和 HTML 报告默认保存在仓库外；仓库只记录�
 
 - [x] 前端和后端均能通过可复现的 Dockerfile 构建生产镜像。
 - [x] Docker Compose 可以启动 Nginx、后端、PostgreSQL、Redis，服务健康检查正常。
-- [x] 后端使用 `prod` profile，生产变量通过 `.env`、Compose 或 Secrets 注入，镜像中没有真实密钥。
+- [x] 后端使用 `prod` profile，生产变量通过 `.env` 和 Compose 注入，镜像中没有真实密钥。
 - [x] 空生产数据库通过一次性 bootstrap 创建首个管理员；密码未进入环境变量、镜像或日志，重复执行会失败。
 - [x] Nginx 托管前端静态资源，并将 `/api/**` 反向代理到后端。
 - [x] 使用本地域名和可信测试证书或明确记录的临时证书验证 HTTPS。
@@ -507,7 +507,7 @@ JMeter 原始 `.jtl` 和 HTML 报告默认保存在仓库外；仓库只记录�
 - [N/A] 服务器 CPU、内存、磁盘和带宽满足预期，操作系统和 Docker 版本已记录。（本次不进行正式公网部署。）
 - [N/A] 防火墙 / 安全组只开放 SSH、HTTP、HTTPS 等必要端口，数据库和 Redis 不直接暴露公网。（本次不进行正式公网部署。）
 - [N/A] 域名解析正确，HTTPS 证书有效并具备续期方案。（本次不进行正式公网部署。）
-- [N/A] 使用受限生产凭据连接数据库、Redis、OSS 和 SMTP，Secrets 不进入仓库或镜像。（本次不进行正式公网部署。）
+- [N/A] 使用受限生产凭据连接数据库、Redis、OSS 和 SMTP，真实凭据不进入仓库或镜像。（本次不进行正式公网部署。）
 - [N/A] 数据库定时备份已配置到异机或对象存储，并完成至少一次恢复验证。（本次不进行正式公网部署。）
 - [N/A] 容器设置合理的重启策略、日志轮转和资源监控。（本次不进行正式公网部署。）
 - [N/A] 部署后执行第 17 节冒烟测试。（本次不进行正式公网部署；本机演练已执行第 17 节。）
