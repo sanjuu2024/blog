@@ -45,6 +45,8 @@ import org.springframework.web.util.HtmlUtils;
 
 import java.time.OffsetDateTime;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -400,7 +402,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         boolean hasKeyword = StringUtils.hasText(queryDTO.getKeyword());
         String keyword = hasKeyword ? queryDTO.getKeyword().trim() : "";
 
-        // 7. 有关键词时交给 zhparser 全文检索并生成高亮片段；普通列表继续复用 MyBatis Plus
+        // 7. 有关键词时合并 zhparser 全文检索与字面量包含匹配并生成高亮片段；普通列表继续复用 MyBatis Plus
         Map<Long, PublicArticleSearchBO> searchResultMap;
         if (hasKeyword) {
             Page<PublicArticleSearchBO> searchPage = Page.of(page.getCurrent(), page.getSize());
@@ -470,8 +472,8 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
 
             PublicArticleSearchBO searchResult = searchResultMap.get(article.getId());
             if (searchResult != null) {
-                vo.setHighlightedTitle(toSafeSearchHighlight(searchResult.getHighlightedTitle()));
-                vo.setSearchSnippet(toSafeSearchHighlight(searchResult.getSearchSnippet()));
+                vo.setHighlightedTitle(toSafeSearchHighlight(searchResult.getHighlightedTitle(), keyword));
+                vo.setSearchSnippet(toSafeSearchHighlight(searchResult.getSearchSnippet(), keyword));
             }
 
             vo.setCategory(categoryVoMap.get(article.getCategoryId()));
@@ -607,20 +609,38 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     /**
      * 将 PostgreSQL ts_headline 生成的内部标记转换成可安全渲染的高亮 HTML。
      * 原始标题、摘要和正文会先整体转义，只有服务端约定的标记会转换成 mark 标签。
+     * 字面量命中不带内部标记，按原文查找关键词并逐段转义，避免将关键词当作正则或 HTML。
      *
-     * @param headline 带内部命中标记的文本
-     * @return 安全高亮 HTML；没有完整命中标记时返回 null
+     * @param headline 全文高亮文本或字面量命中的原文
+     * @param keyword 去除首尾空白后的搜索关键词
+     * @return 安全高亮 HTML；没有命中时返回 null
      */
-    private String toSafeSearchHighlight(String headline) {
-        if (!StringUtils.hasText(headline)
-                || !headline.contains(SEARCH_HIGHLIGHT_START)
-                || !headline.contains(SEARCH_HIGHLIGHT_END)) {
+    private String toSafeSearchHighlight(String headline, String keyword) {
+        if (!StringUtils.hasText(headline)) {
             return null;
         }
 
-        return HtmlUtils.htmlEscape(headline)
-                .replace(SEARCH_HIGHLIGHT_START, SEARCH_HIGHLIGHT_MARK)
-                .replace(SEARCH_HIGHLIGHT_END, "</mark>");
+        if (headline.contains(SEARCH_HIGHLIGHT_START) && headline.contains(SEARCH_HIGHLIGHT_END)) {
+            return HtmlUtils.htmlEscape(headline)
+                    .replace(SEARCH_HIGHLIGHT_START, SEARCH_HIGHLIGHT_MARK)
+                    .replace(SEARCH_HIGHLIGHT_END, "</mark>");
+        }
+
+        Matcher matcher = Pattern.compile(Pattern.quote(keyword), Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE)
+                .matcher(headline);
+        StringBuilder result = new StringBuilder();
+        int end = 0;
+        while (matcher.find()) {
+            result.append(HtmlUtils.htmlEscape(headline.substring(end, matcher.start())))
+                    .append(SEARCH_HIGHLIGHT_MARK)
+                    .append(HtmlUtils.htmlEscape(matcher.group()))
+                    .append("</mark>");
+            end = matcher.end();
+        }
+        if (end == 0) {
+            return null;
+        }
+        return result.append(HtmlUtils.htmlEscape(headline.substring(end))).toString();
     }
 
     private PageResult<PublicArticleListItemVO> toPublicArticleListPage(Page<Article> page) {

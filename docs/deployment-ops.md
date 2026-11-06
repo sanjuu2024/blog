@@ -511,7 +511,13 @@ dev/test 使用各自 profile 的明确本地资料，站点地址允许 localho
 | `BLOG_LOGO_URL` | 站点头像或 Logo 的公开图片地址 | HTTPS 绝对 URL |
 
 四项由 `compose.prod.yaml` 的 backend 和 `compose.bootstrap.yaml` 的管理员初始化服务共同读取。
-更新环境文件后需要重新创建 backend 容器使 Spring Boot 读取新配置；无需重建前端镜像。
+仅更新环境文件时，需要重新创建 backend 容器使 Spring Boot 读取新配置；无需重建前端镜像。
+
+友链申请资料中的本站头像使用 `frontend/public/img/site-avatar.jpg`，Vite 构建后由项目 Nginx 直接提供，
+正式地址配置为 `BLOG_LOGO_URL=https://blog.example.com/img/site-avatar.jpg`（替换为实际域名，URL 不包含 `/public`）。
+该图片供其他网站嵌入，应允许站外 Referer 及无 Referer 请求；OSS 启用防盗链不影响这个同站点静态文件。
+新增或替换图片需要重新构建并部署项目 nginx 镜像，保持 `/img/site-avatar.jpg` 路径稳定；
+如同时修改 `BLOG_LOGO_URL`，还需重新创建 backend 容器。真实环境文件不会随示例模板更新，需在服务器同步填写。
 
 后端 `BLOG_SEO_HTML_TEMPLATE` 指定入口模板，开发默认为 `file:../frontend/index.html`。
 生产 nginx 容器启动时将本次构建的 `index.html` 原子写入共享模板卷，后端只读挂载并按请求读取，

@@ -234,13 +234,38 @@ hook 默认读取 `/opt/blog-platform/ingress/.env` 和 `compose.yaml`；若改�
 
 ### 6.2 OSS 域名：确认 DNS 验证可以自动执行
 
-下述示例适用于域名直接绑定普通 OSS bucket，且 DNS 托管在阿里云云解析 DNS。`img.example.com` 是示例；若 DNS 托管在其他服务商，使用对应 Certbot DNS 插件，后面的 OSS 部署 hook 不变。若域名实际接入 CDN/DCDN，需要更新相应产品的证书，不能使用本节的 OSS bucket 绑定接口。
+6.2～6.4 是在服务器上做一次配置，以后由定时任务自动执行。先完成 6.1，再依次完成这三节；不要只完成 6.2 就认为 OSS 证书已经能自动更新。
 
-先执行 `sudo certbot certificates` 确认真实 Certificate Name（可能带 `-0001`，也可能是通配符证书的名称）。在服务器本地检查对应 `/etc/letsencrypt/renewal/证书名.conf` 的 `authenticator`：`manual` 且没有自动 DNS auth/cleanup hook 时，之前手工添加 TXT 签发成功不代表能自动续期。已配置可用自动插件的证书可沿用原方式，无需重复签发。
+| 章节 | 你现在要做的事                                            | 配好后自动完成的事                                    |
+| ---- | --------------------------------------------------------- | ----------------------------------------------------- |
+| 6.2  | 安装 DNS 插件，填写 DNS AccessKey，修改现有证书的验证方式 | 续签时自动添加验证用 TXT 记录，验证后清理本次记录     |
+| 6.3  | 填写 OSS 证书部署配置，测试一次真实上传，安装部署脚本     | OSS 域名证书续签成功后，把新证书上传并绑定到 OSS      |
+| 6.4  | 让系统定时任务使用带插件的 Certbot，验证整个流程          | 定时检查本站和 OSS 证书，按需续签，再执行对应部署脚本 |
 
-以下使用本仓库扩展插件 `dns-aliyun-safe`，它继承第三方 [certbot-dns-aliyun](https://github.com/tengattack/certbot-dns-aliyun) 的验证、请求签名及创建记录能力；两者均不是阿里云官方 Certbot 插件。扩展修复上游 2.0.0 清理时只匹配记录名的问题：查询全部相关分页，精确匹配记录名、`TXT` 类型和本次挑战值，只删除唯一匹配记录的 RecordId；不存在时跳过，多条精确匹配时报错且不删除。已有手工 TXT、同名其他类型、不同挑战值和其他记录不会因此被删除。
+以下适用于图片域名直接绑定普通 OSS bucket，且 DNS 托管在阿里云云解析 DNS。若 DNS 托管在其他服务商，6.2 要使用对应插件；若域名实际接入 CDN/DCDN，6.3 要更新相应产品的证书，不能使用 OSS bucket 绑定接口。
 
-为避免修改 Ubuntu 系统 Python，在 root 管理的独立虚拟环境安装 Certbot、上游依赖、官方 OSS Python SDK，再安装本地扩展包。当前依赖版本见 `docker/ingress/requirements-certificates.txt`，本地扩展位于 `docker/ingress/certbot-dns-aliyun-safe/`；保留上游依赖不表示仍使用其原始清理逻辑：
+所有命令在服务器执行；涉及 `docker/ingress/...` 的相对路径时，当前目录必须是项目仓库根目录。示例部署根目录 `/opt/blog-platform` 和图片域名 `img.example.com` 要统一替换为自己的值。这里安装的是宿主机工具，不需要重新构建博客镜像或停止博客。
+
+#### 6.2.1 查出图片域名对应的证书名称
+
+```bash
+sudo certbot certificates
+```
+
+找到 `Domains` 包含自己图片域名的那张证书，记下它的 `Certificate Name`。例如图片域名为 `img.example.com`，证书名称可能是 `img.example.com-0001`；通配符证书也可能使用其他名称。后文的 `--cert-name` 和 JSON 中的 `certificate_name` 都填写这个名称，不凭域名猜。
+
+在服务器本地查看对应的续期配置，只检查验证方式，不修改此文件：
+
+```bash
+sudo grep -E '^(authenticator|manual_auth_hook|manual_cleanup_hook)\s*=' \
+  /etc/letsencrypt/renewal/实际证书名称.conf
+```
+
+如果是 `authenticator = manual`，且没有自动 DNS auth/cleanup hook，就需要完成下面的插件配置。之前手动添加 TXT 签发成功，只说明证书已经签出来，续签仍需要自动验证能力。如果原来使用的是 `dns-aliyun`，按下面步骤切换为本仓库的 `dns-aliyun-safe`；已经使用 `dns-aliyun-safe` 且验证正常的证书无需重复执行 6.2.4，但仍要确认下面的工具环境和凭据文件可用。
+
+#### 6.2.2 安装带 DNS 插件的 Certbot
+
+虚拟环境可以理解成专用于证书工具的 Python 安装目录，不需要手动激活，也不需要常驻运行。下面同时安装 Certbot、DNS 插件和后面上传证书要用的 OSS SDK；依赖版本见 `docker/ingress/requirements-certificates.txt`。
 
 ```bash
 sudo apt-get install -y python3-venv openssl
@@ -254,32 +279,79 @@ sudo /opt/blog-platform/certificates/venv/bin/pip install \
 sudo /opt/blog-platform/certificates/venv/bin/certbot plugins
 ```
 
-确认插件列表包含 `dns-aliyun-safe`。首次安装与脚本更新后都要执行本地扩展的安装命令，不能只安装 requirements 或只 `git pull`；`--force-reinstall` 确保同版本代码更新也会安装，`--no-deps` 保留前一步锁定的依赖。可以执行 `sudo /opt/blog-platform/certificates/venv/bin/python -B docker/ingress/test_dns_aliyun_safe.py -v` 运行本地 DNS 替身自检，不调用真实 DNS API。如果此前使用旧的 `dns-aliyun`，仍需按下面的命令重新配置证书，确保续期选择新插件；旧名称出现在插件列表中并不影响新插件运行。
+成功标志：最后一条命令的插件列表包含 `dns-aliyun-safe`。旧名称 `dns-aliyun` 同时出现是正常的。
 
-在 RAM 创建专用于 DNS 验证的身份，按 DNS 服务支持的资源粒度限制授权域名；插件需要 `alidns:DescribeDomains`、`alidns:DescribeDomainRecords`、`alidns:AddDomainRecord`、`alidns:DeleteDomainRecord`。不要直接使用主账号 AccessKey 或给博客上传图片的身份增加 DNS 管理权限。使用 `sudoedit` 创建 `/etc/letsencrypt/aliyun-dns.ini`，真实值仅保存在服务器：
+本仓库插件继承第三方 [certbot-dns-aliyun](https://github.com/tengattack/certbot-dns-aliyun) 的验证和创建记录能力，两者均不是阿里云官方 Certbot 插件。`dns-aliyun-safe` 查询全部相关分页，只删除记录名、`TXT` 类型和本次挑战值均匹配的唯一记录；不存在时跳过，多条精确匹配时报错且不删除，保留其他已有记录。
 
-每次 ACME 验证的 TXT 值由 Certbot 根据当次挑战自动计算，再交给 DNS 插件创建和清理；无需填写初始 TXT 值或配置固定 TXT 环境变量。DNS API 凭据用于允许插件操作记录，与 TXT 验证值不是同一种配置。
+首次安装与插件代码更新后都要执行上面的本地扩展安装命令，不能只安装 requirements 或只 `git pull`。`--force-reinstall` 会安装同版本的新代码，`--no-deps` 保留前一步锁定的依赖。需要本地自检时执行以下命令，它不调用真实 DNS API：
+
+```bash
+sudo /opt/blog-platform/certificates/venv/bin/python -B \
+  docker/ingress/test_dns_aliyun_safe.py -v
+```
+
+#### 6.2.3 创建 DNS AccessKey 并写入服务器
+
+在阿里云访问控制 RAM 控制台创建专用于 DNS 验证的身份和 AccessKey，授予以下操作，并按 DNS 服务支持的资源粒度限制授权域名：
+
+- `alidns:DescribeDomains`
+- `alidns:DescribeDomainRecords`
+- `alidns:AddDomainRecord`
+- `alidns:DeleteDomainRecord`
+
+这套 AccessKey 只负责修改 DNS 记录。6.3 会另外创建一套上传证书到 OSS 的 AccessKey；两套都与博客后端上传图片使用的凭据分开，不使用主账号 AccessKey。
+
+在服务器创建并编辑凭据文件。文件已存在时，`touch` 会保留原有内容：
+
+```bash
+sudo touch /etc/letsencrypt/aliyun-dns.ini
+sudo chmod 600 /etc/letsencrypt/aliyun-dns.ini
+sudoedit /etc/letsencrypt/aliyun-dns.ini
+```
+
+首次配置时填入以下内容；如果已有这两个字段，检查或更新原值。把两个占位符替换为刚创建的 DNS AccessKey，字段名原样保留：
 
 ```ini
 dns_aliyun_safe_access_key = CHANGE_ME_DNS_ACCESS_KEY_ID
 dns_aliyun_safe_access_key_secret = CHANGE_ME_DNS_ACCESS_KEY_SECRET
 ```
 
+不用填写 TXT 验证值。每次续签时，Certbot 都会生成新的验证值，由插件自动添加和清理。已有凭据文件若使用旧插件字段，也要改为 `dns_aliyun_safe_` 前缀，AccessKey 本身不因插件改名而改变。
+
+#### 6.2.4 把现有图片证书改成自动 DNS 验证
+
+把下面的 `实际证书名称` 换成 6.2.1 记下的 `Certificate Name`，执行：
+
 ```bash
-sudo chmod 600 /etc/letsencrypt/aliyun-dns.ini
 sudo /opt/blog-platform/certificates/venv/bin/certbot reconfigure \
-  --cert-name img.example.com --authenticator dns-aliyun-safe \
+  --cert-name 实际证书名称 --authenticator dns-aliyun-safe \
   --dns-aliyun-safe-credentials /etc/letsencrypt/aliyun-dns.ini \
   --dns-aliyun-safe-propagation-seconds 120
 ```
 
-该命令将已有证书的续期方式改为新插件的自动 DNS 验证，并以测试续期验证新配置；`--cert-name` 必须换成第一步看到的名称，不能凭域名猜。已有凭据文件也要将字段改为 `dns_aliyun_safe_` 前缀，AccessKey 本身不因插件改名而改变。尚未签发的证书使用 `certonly` 代替 `reconfigure`，并增加 `-d img.example.com`。不要为自动化 DNS 验证修改 OSS 域名现有的 CNAME。
+这条命令会进行测试续期：插件调用真实 DNS API，自动添加 TXT，等待传播，再完成验证和清理。成功后保存新的续期方式；测试成功不代表已把证书上传到 OSS。
+
+成功标志：命令成功结束，续期配置中的 `authenticator` 已变为 `dns-aliyun-safe`，没有要求手动填写 TXT。期间不要修改图片域名现有的 CNAME；插件操作的是验证用 TXT。
+
+如果图片证书尚未签发，用下面的命令首次申请，并将图片域名换成自己的域名；已经有证书则不要重复执行：
+
+```bash
+sudo /opt/blog-platform/certificates/venv/bin/certbot certonly \
+  --cert-name img.example.com -d img.example.com \
+  --authenticator dns-aliyun-safe \
+  --dns-aliyun-safe-credentials /etc/letsencrypt/aliyun-dns.ini \
+  --dns-aliyun-safe-propagation-seconds 120
+```
 
 ### 6.3 OSS 域名：安装续签后的证书部署 hook
 
-本仓库的 `upload_oss_certificate.py` 使用官方 OSS SDK 的 `list_bucket_cname` / `put_bucket_cname`，对应 [ListCname](https://help.aliyun.com/zh/oss/developer-reference/listcname) / [PutCname](https://help.aliyun.com/zh/oss/developer-reference/putcname) API。脚本读取 Certbot 的 `fullchain.pem` 和 `privkey.pem`，仅更新配置中已绑定域名的证书；不上传公开 OSS 对象、不改 DNS、不创建新域名绑定。它先校验证书与私钥匹配、覆盖目标域名且至少剩余一天，再读取当前证书 ID 作为更新条件，避免覆盖同时被其他人修改的证书。只配置一个精确 OSS 域名；证书本身可以是覆盖它的通配符证书。
+这一步让 OSS 使用服务器签出来的证书。证书文件存在服务器上，并不意味着 OSS 已经更新；需要调用 OSS API 上传证书链和私钥。
 
-建立独立的证书部署 RAM 身份。根据官方 PutCname 权限说明，示例策略如下；将 bucket 名替换为实际值。`yundun-cert` 的三项操作用于关联证书服务，不能因为只授予 `oss:PutCname` 而漏掉：
+这里的 hook 就是“续签成功后，Certbot 自动调用的脚本”。脚本使用 Python 和官方 OSS SDK，无需 Java、ossutil 或额外常驻服务。先手动验证上传成功，再安装 hook。
+
+#### 6.3.1 创建 OSS 证书部署 AccessKey
+
+在 RAM 控制台另外创建一个证书部署身份和 AccessKey，并为它配置下面的权限策略。把 `YOUR_IMAGE_BUCKET` 换成图片 bucket 名，其他操作名保持不变；`yundun-cert` 的三项操作用于关联证书服务，也需要保留：
 
 ```json
 {
@@ -303,40 +375,94 @@ sudo /opt/blog-platform/certificates/venv/bin/certbot reconfigure \
 }
 ```
 
-复制配置示例后，用 `sudoedit` 填写 endpoint、region、bucket、精确图片域名、Certbot Certificate Name 和该部署身份的 AccessKey；endpoint 使用 bucket 所在地域的 OSS HTTPS endpoint，不填自定义图片域名。配置包含密钥，不能提交或贴进日志。该脚本无需 Java、ossutil 或常驻服务：
+#### 6.3.2 填写部署配置，安装上传脚本
+
+在仓库根目录执行下面的命令。首次配置时复制示例；文件已存在时保留原内容，然后编辑服务器上的私有配置：
 
 ```bash
 sudo install -d -m 0700 /etc/blog-platform
-sudo install -m 0600 docker/ingress/oss-certificate.example.json \
-  /etc/blog-platform/oss-certificate.json
+if ! sudo test -e /etc/blog-platform/oss-certificate.json; then
+  sudo install -m 0600 docker/ingress/oss-certificate.example.json \
+    /etc/blog-platform/oss-certificate.json
+fi
 sudoedit /etc/blog-platform/oss-certificate.json
+```
+
+各字段这样填写：
+
+| 字段                | 填写内容                                                 | 示例                                   |
+| ------------------- | -------------------------------------------------------- | -------------------------------------- |
+| `endpoint`          | bucket 所在地域的 OSS HTTPS endpoint，不填图片自定义域名 | `https://oss-cn-hangzhou.aliyuncs.com` |
+| `region`            | bucket 所在地域 ID                                       | `cn-hangzhou`                          |
+| `bucket`            | 已绑定图片域名的 bucket 名称                             | `your-image-bucket`                    |
+| `domain`            | 一个精确图片域名，不带协议、路径或星号                   | `img.example.com`                      |
+| `certificate_name`  | 6.2.1 查到的 `Certificate Name`，可能与域名不同          | `img.example.com-0001`                 |
+| `access_key_id`     | 6.3.1 创建的 OSS 证书部署 AccessKey ID                   | 替换示例占位符                         |
+| `access_key_secret` | 同一套 OSS 证书部署 AccessKey Secret                     | 替换示例占位符                         |
+
+配置中的图片域名必须已绑定到这个 bucket；证书本身可以是覆盖它的通配符证书。配置文件包含密钥，只留在服务器，不提交或贴进日志。然后安装上传脚本：
+
+```bash
 sudo install -m 0644 docker/ingress/upload_oss_certificate.py \
   /opt/blog-platform/certificates/upload_oss_certificate.py
 ```
 
-先校验本地文件，再明确执行一次真实上传，确认 API 权限和现有域名绑定正常：
+#### 6.3.3 检查本地配置和证书
 
 ```bash
 sudo /opt/blog-platform/certificates/venv/bin/python \
   /opt/blog-platform/certificates/upload_oss_certificate.py \
   --config /etc/blog-platform/oss-certificate.json --check
+```
+
+成功标志：输出 `OSS certificate hook: local checks passed; no OSS request sent`。这一步只检查本地配置、证书与私钥是否匹配、证书是否覆盖图片域名且至少剩余一天；不调用 OSS，也不能证明云端权限正确。报错时先按提示修正，再继续。
+
+#### 6.3.4 手动执行一次真实上传
+
+下面这条命令没有 `--check`，会真实上传证书并替换 OSS 上该图片域名的当前证书：
+
+```bash
 sudo /opt/blog-platform/certificates/venv/bin/python \
   /opt/blog-platform/certificates/upload_oss_certificate.py \
   --config /etc/blog-platform/oss-certificate.json
 ```
 
-`--check` 只校验配置和本地证书，不调用 OSS；第二条会上传并替换该域名的当前证书。安装独立 deploy hook，安装前同步修改 shell 文件中的示例路径：
+成功标志：输出 `OSS certificate hook: deployed to ...; request_id=...`。这一步用于确认 RAM 权限、bucket 和域名绑定都正确。脚本先读取当前证书 ID，再附带该 ID 更新，避免覆盖同时被其他人修改的证书；不改 DNS、不上传公开 OSS 对象、不创建新域名绑定。
+
+脚本使用官方 SDK 的 `list_bucket_cname` / `put_bucket_cname`，对应 [ListCname](https://help.aliyun.com/zh/oss/developer-reference/listcname) / [PutCname](https://help.aliyun.com/zh/oss/developer-reference/putcname) API。
+
+#### 6.3.5 安装续签后自动上传的脚本
+
+在仓库根目录执行：
 
 ```bash
 sudo install -m 0755 docker/ingress/deploy-oss-certificate.sh \
   /etc/letsencrypt/renewal-hooks/deploy/30-blog-oss-certificate
+sudoedit /etc/letsencrypt/renewal-hooks/deploy/30-blog-oss-certificate
 ```
 
-hook 只处理配置中 Certificate Name 对应的 `RENEWED_LINEAGE`；续签站点等其他证书时直接跳过。失败返回非零退出码；本地校验会明确指出未填写的配置字段、文件无法读取、证书域名或有效期不符、私钥不匹配、OpenSSL 缺失或执行超时等原因，不输出配置实际值或文件正文。OSS SDK 异常只记录错误类型、状态码、错误码和 request ID，不输出私钥、AccessKey 或 API 正文。Certbot 不会因证书已续签而自动补跑失败的 deploy hook，修复权限或网络后要手动重跑上述上传命令；到期/部署失败由监控告警负责。
+在编辑器中检查脚本的三条绝对路径：虚拟环境 Python、已安装的上传脚本、私有 JSON 配置。使用示例路径时无需改；部署根目录不同则改成实际值，然后保存退出。后续配置写在私有副本中，不需要修改仓库内的示例脚本。
+
+Certbot 续签成功后会调用这个脚本。脚本只处理 JSON 中 `certificate_name` 对应的证书（通过 `RENEWED_LINEAGE` 判断），其他证书会跳过。
+
+失败时会返回非零退出码，并输出本地校验原因或脱敏的云端错误类型、状态码、错误码和 request ID，不输出私钥、AccessKey 或 API 正文。若证书已经续签但上传失败，Certbot 不会自动补跑这次部署；修复权限或网络后，手动重跑 6.3.4 的上传命令即可，不需要重新签证。到期和部署失败由监控告警负责。
 
 ### 6.4 一个定时器覆盖站点和 OSS 证书
 
-如果安装了 6.2 的虚拟环境，原 Ubuntu `certbot.service` 也要改用这套包含 DNS 插件的 Certbot，不能只在手动命令中使用虚拟环境。创建 `/etc/systemd/system/certbot.service.d/override.conf`（先用 `sudo install -d -m 0755 /etc/systemd/system/certbot.service.d` 建目录）：
+手动命令成功后，还要让系统定时任务使用同一套工具。这一步不会新建第二个定时器，而是继续使用 Ubuntu 原有的 `certbot.timer`。
+
+`certbot.timer` 负责定时唤起 `certbot.service`；`certbot.service` 再执行 `certbot renew`。如果 service 仍调用系统原来的 Certbot，就找不到刚安装在虚拟环境里的 DNS 插件。
+
+#### 6.4.1 修改定时任务使用的 Certbot 路径
+
+安装了 6.2 的虚拟环境后，执行：
+
+```bash
+sudo install -d -m 0755 /etc/systemd/system/certbot.service.d
+sudoedit /etc/systemd/system/certbot.service.d/override.conf
+```
+
+在这个文件中填写以下内容；使用实际部署根目录替换 `/opt/blog-platform`。若文件已有其他配置，保留无关项，并将 `ExecStart` 调整为下列形式：
 
 ```ini
 [Service]
@@ -344,21 +470,46 @@ ExecStart=
 ExecStart=/opt/blog-platform/certificates/venv/bin/certbot -q renew
 ```
 
-Ubuntu 的原 `certbot.timer` 继续使用，不新增第二个定时器；使用相同 `/etc/letsencrypt` 配置，因此已有 webroot 证书也由它统一处理：
+空的 `ExecStart=` 用于清除 service 原来的启动命令，下一行指定新的命令，两行都要保留。保存退出，然后让 systemd 重新读取配置并检查结果：
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now certbot.timer
+sudo systemctl cat certbot.service
+sudo systemctl show certbot.service -p ExecStart
+```
+
+成功标志：`cat` 输出包含上面的 override，`show` 显示最终生效的 `ExecStart` 指向虚拟环境中的 Certbot。它仍读取同一套 `/etc/letsencrypt` 配置，因此网站的 webroot 证书和图片域名的 DNS 验证证书都由它处理；不要在另一套目录重复签发同一批证书。
+
+#### 6.4.2 手动验证整个自动续期流程
+
+先确认 6.1 的 Nginx hook 和 6.3 的 OSS hook 已安装，再执行：
+
+```bash
 sudo /opt/blog-platform/certificates/venv/bin/certbot renew \
   --dry-run --run-deploy-hooks
+```
+
+这条命令会测试登记的全部证书：网站证书通过 HTTP webroot 验证，图片证书通过 DNS 插件验证；成功后还会执行部署脚本。
+
+其中 ACME 签发使用测试环境，但 deploy hook 使用当前有效的正式证书。也就是说，DNS TXT 会真实添加和清理，Nginx 会真实 reload，OSS API 会真实上传证书。先完成 6.3.3 的本地检查和 6.3.4 的首次上传，再执行本步骤。
+
+成功标志：命令成功结束，所有待测证书续期测试成功，部署 hook 无报错。只看到 DNS 验证成功还不够，仍须检查 hook 的执行结果。
+
+#### 6.4.3 确保定时器已开启，并查看执行记录
+
+```bash
+sudo systemctl enable --now certbot.timer
 sudo systemctl list-timers --all certbot.timer
-sudo systemctl cat certbot.service
 sudo journalctl -u certbot.service -n 50 --no-pager
 ```
 
-`--dry-run --run-deploy-hooks` 使用当前有效的正式证书执行部署 hook，OSS API 上传仍是真实操作，不能理解成“只测试、不修改云端”。先通过 6.3 的本地校验与首次上传，再执行这一步。DNS 插件凭据、OSS 配置和虚拟环境必须长期保留；`git pull` 不会更新已复制的 hook 或虚拟环境依赖，脚本变更后按本节重新安装。
+`list-timers` 用于查看下次检查时间；`journalctl` 用于查看定时任务的执行日志。刚配置时可能还没有定时执行记录，前一步直接在终端运行的 dry-run 输出也不属于 service 日志。
 
-最后核对图片域名真正对外提供的证书，并匿名访问一张已知图片：
+完成后，平时不需要手动执行续期命令或添加 TXT。定时器定期检查证书，只有达到续签窗口时才重新申请，DNS 插件和部署脚本会在对应阶段自动运行。
+
+#### 6.4.4 核对 OSS 实际提供的证书
+
+在能访问图片域名的终端执行，将域名换成自己的值，查看 OSS 对外提供的证书：
 
 ```bash
 openssl s_client -connect img.example.com:443 -servername img.example.com \
@@ -366,7 +517,19 @@ openssl s_client -connect img.example.com:443 -servername img.example.com \
   | openssl x509 -noout -subject -issuer -dates -fingerprint -sha256
 ```
 
-和服务器上 `sudo openssl x509 -in /etc/letsencrypt/live/实际证书名/fullchain.pem -noout -fingerprint -sha256` 对比；云端部署可能有短暂传播时间。失败时保留仍有效的云端证书并检查 hook 日志，不用 `--force-renewal` 反复重签来重试上传。本站点和 OSS 的 HTTPS 到期检测都交给监控服务，部署失败也应告警。
+在服务器执行下面的命令，查看本地证书指纹：
+
+```bash
+sudo openssl x509 \
+  -in /etc/letsencrypt/live/实际证书名称/fullchain.pem \
+  -noout -fingerprint -sha256
+```
+
+两次输出的 SHA-256 指纹应一致；云端部署可能有短暂传播时间。再在浏览器打开一张已知图片，确认 HTTPS 能正常访问。失败时先检查 hook 输出和云端部署状态，不用 `--force-renewal` 反复重签来重试上传。本站点和 OSS 的 HTTPS 到期检测都交给监控服务，部署失败也应告警。
+
+完成标准：6.2 自动 DNS 验证成功、6.3 真实上传成功、6.4 完整 dry-run 和 hook 成功、定时器已开启，且图片域名实际提供的证书与本地一致。
+
+后续维护时，保留虚拟环境、DNS 凭据文件和 OSS JSON 配置。`git pull` 不会更新安装在仓库外的文件：依赖变更后重新执行 6.2.2 的依赖安装；插件更新后重新安装本地扩展；上传脚本更新后重新执行 6.3.2 的脚本安装；hook 更新后重新安装并核对其中的实际路径。
 
 ## 7. 验证与日常启停
 

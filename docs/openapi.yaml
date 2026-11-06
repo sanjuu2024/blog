@@ -841,14 +841,14 @@ paths:
       tags:
         - Public Articles
       summary: 获取已发布文章分页列表
-      description: 权限级别 `PUBLIC`。仅返回已发布文章。`keyword` 使用 PostgreSQL `zhparser` 对标题、摘要和纯文本正文执行全文检索，多个解析后的检索词之间为 AND 关系；单字符未被中文分词解析或关键词为纯数字时使用字段包含匹配兜底，并可与分类、标签等条件组合使用。纯数字关键词支持按子串命中更长数字文本，例如搜索 `1`、`11` 可以命中标题 `111`。搜索响应可返回安全的标题高亮及摘要/正文高亮片段。响应中的 `tags` 仅包含当前启用且仍存在的关联标签；通过 `tagIds` 筛选时，传入标签必须存在且启用；通过 `categoryId` 筛选时，传入分类必须存在且启用。文章所属二级分类及其父分类均存在且启用时，文章才对前台可见。有关键词且使用默认排序时按全文检索相关度优先，再按置顶状态、首次发布时间和文章 ID 倒序；`sort=LATEST` 时忽略相关度和置顶状态，仅按首次发布时间和文章 ID 倒序。
+      description: 权限级别 `PUBLIC`。仅返回已发布文章。`keyword` 对标题、摘要和纯文本正文合并 PostgreSQL `zhparser` 全文检索及不区分大小写的字面量包含匹配，命中其一即可；全文分支中多个解析后的检索词之间为 AND 关系，字面量分支按去除首尾空白后的整段关键词匹配，不以全文分支无结果为前提，`%`、`_` 和正则字符均按普通文本处理。支持 `At` 命中 `AtCoder`，`code`、`forces` 命中 `codeforces`，`1`、`11` 命中 `111`，并可与分类、标签等条件组合使用。搜索响应可返回安全的标题高亮及摘要/正文高亮片段；摘要命中优先，字面量正文取首次命中前后各最多 50 个字符，省略部分显示省略号。响应中的 `tags` 仅包含当前启用且仍存在的关联标签；通过 `tagIds` 筛选时，传入标签必须存在且启用；通过 `categoryId` 筛选时，传入分类必须存在且启用。文章所属二级分类及其父分类均存在且启用时，文章才对前台可见。有关键词且使用默认排序时，标题全文命中或字面量包含命中的文章优先于仅摘要或正文命中的文章，同组内按全文检索相关度、置顶状态、首次发布时间和文章 ID 倒序；`sort=LATEST` 时忽略标题命中、相关度和置顶状态，仅按首次发布时间和文章 ID 倒序。
       operationId: listPublishedArticles
       parameters:
         - $ref: '#/components/parameters/PageNum'
         - $ref: '#/components/parameters/PageSize'
         - name: keyword
           in: query
-          description: 搜索关键词，使用 zhparser 同时检索文章标题、摘要和纯文本正文；多个解析后的检索词之间为 AND 关系；去除首尾空白后为空时不添加搜索条件
+          description: 搜索关键词，对文章标题、摘要和纯文本正文合并 zhparser 全文检索与不区分大小写的整段字面量包含匹配；全文分支多词为 AND，`%`、`_` 和正则字符不作通配符；去除首尾空白后为空时不添加搜索条件
           required: false
           schema:
             type: string
@@ -885,7 +885,7 @@ paths:
             example: true
         - name: sort
           in: query
-          description: 排序模式。DEFAULT 有关键词时按相关度优先、无关键词时置顶优先；LATEST 忽略相关度和置顶状态，仅按首次发布时间倒序
+          description: 排序模式。DEFAULT 有关键词时标题全文或字面量命中优先，同组内按相关度、置顶、首次发布时间和 ID 倒序；无关键词时置顶优先；LATEST 忽略标题命中、相关度和置顶，仅按首次发布时间和 ID 倒序
           required: false
           schema:
             type: string

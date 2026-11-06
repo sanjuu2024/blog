@@ -478,8 +478,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_search_vector
 - 归档复用现有表和索引，不新增结构或改变时间存储。年份按浏览器传入并校验的 IANA 时区一次分组计数，SQL 使用绑定参数执行 `published_at AT TIME ZONE timeZone`；年份筛选按同一时区分别计算当年与下一年年初，再用绝对时间半开范围查询，正确应用各年份的夏令时规则。汇总和列表仅含 PUBLISHED、启用二级分类及启用父分类、作者存在的文章；列表联表返回分类路径，标签使用 EXISTS 过滤，不重复计数或执行 N+1 查询。
 - 公开文章列表和搜索结果的 `commentCount` 直接读取 `blog_article.comment_count`，沿用现有公开评论与回复统计口径，不新增表或逐篇聚合查询
 - P1 文章搜索使用 PostgreSQL `zhparser` 解析 `title`、`summary` 和 `content_text`，并通过生成列 `search_vector` 与 GIN 索引完成全文检索
-- `search_vector` 为标题、摘要、正文分别设置 A、B、C 权重；有关键词且使用默认排序时通过 `ts_rank` 计算相关度，权重影响标题、摘要和正文的匹配分数
-- 搜索查询使用 `plainto_tsquery('public.zhparser_cfg', keyword)`，多个解析后的检索词之间为 AND 关系；单字符未产生词元或关键词为纯数字时，由应用查询对三个字段执行字面量包含匹配兜底。纯数字兜底支持 `1`、`11` 命中标题 `111`
+- `search_vector` 为标题、摘要、正文分别设置 A、B、C 权重；有关键词且使用默认排序时，先按标题是否全文命中或字面量包含命中分组，标题命中优先；同组内通过 `ts_rank` 计算相关度，再按置顶、首次发布时间和文章 ID 倒序排列。`LATEST` 忽略标题命中、相关度和置顶，仅按首次发布时间和文章 ID 倒序排列；不改变生成列或索引
+- 搜索查询使用 `plainto_tsquery('public.zhparser_cfg', keyword)`，全文分支中多个解析后的检索词之间为 AND 关系；同时对标题、摘要和纯文本正文执行不区分大小写的字面量包含匹配，两种分支按 OR 合并。字面量分支使用绑定参数和 `strpos(lower(field), lower(keyword))`，按整段关键词匹配，不将 `%`、`_` 或正则字符解释为通配符；不以全文分支无结果为前提。支持 `At` 命中 `AtCoder`、`code` 或 `forces` 命中 `codeforces`、`1` 或 `11` 命中 `111`。本次只调整查询和展示，不改变生成列、索引或词典，不需要 schema migration
 - `zhparser` 扩展和 `public.zhparser_cfg` 均属于数据库级对象；每个由 Flyway 管理的数据库都必须执行对应 migration，不能只依赖容器首次初始化脚本
 - 文章详情规范 URL 为 `/articles/{articleId}`，以 `id` 作为稳定定位标识
 - `slug` 字段及唯一索引由历史 migration 创建，当前不启用；不生成、不回填，也不提供编辑入口

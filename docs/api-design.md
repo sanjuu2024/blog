@@ -585,21 +585,21 @@ Set-Cookie: refresh_token=; Max-Age=0; Path=/api/v1/auth; HttpOnly; SameSite=Lax
 | `categoryId` | `Long` | 否 | 分类 ID，用于分类筛选。支持一级分类或二级分类；传一级分类时返回其下所有二级分类文章 | `20001`、`21001` |
 | `tagIds` | `Array<Long>` | 否 | 标签 ID 列表，用于标签筛选；传多个时表示文章必须同时包含这些标签 | `[30001, 30002]` |
 | `isTop` | `Boolean` | 否 | 是否置顶；`true` 只返回置顶文章，`false` 只返回非置顶文章，不传则不限制 | `true` |
-| `sort` | `String` | 否 | 排序模式；`DEFAULT` 为相关度（有关键词时）或置顶优先，`LATEST` 为仅按首次发布时间倒序，默认 `DEFAULT` | `LATEST` |
+| `sort` | `String` | 否 | 排序模式；`DEFAULT` 有关键词时标题命中优先、同组内按相关度排序，无关键词时置顶优先；`LATEST` 仅按首次发布时间和 ID 倒序，默认 `DEFAULT` | `LATEST` |
 
 ### 搜索规则
 
 - `keyword` 去除首尾空白后为空时不添加搜索条件。
-- 非空关键词通过 PostgreSQL `zhparser` 解析，并使用 `plainto_tsquery` 查询 `title`、`summary` 和 `content_text` 生成的全文检索向量；多个解析后的检索词之间为 AND 关系。若单字符未产生有效词元或关键词为纯数字，则对三个字段执行字面量包含匹配兜底；因此纯数字关键词支持按子串命中更长数字文本。
-- 搜索条件可以和 `categoryId`、`tagIds`、`isTop`、`sort` 组合使用，分页结构和排序规则保持不变。
+- 非空关键词通过 PostgreSQL `zhparser` 解析，并使用 `plainto_tsquery` 查询 `title`、`summary` 和 `content_text` 生成的全文检索向量；全文分支中多个解析后的检索词之间为 AND 关系。同时对三个字段执行不区分大小写的字面量包含匹配，两种分支命中其一即可，不以全文分支无结果为前提。字面量分支按去除首尾空白后的整段关键词匹配，`%`、`_` 和正则字符均按普通文本处理；支持 `At` 命中 `AtCoder`，`code`、`forces` 命中 `codeforces`，纯数字子串规则保持一致。
+- 搜索条件可以和 `categoryId`、`tagIds`、`isTop`、`sort` 组合使用，分页结构保持不变，排序遵循下述规则。
 - 仅返回 `PUBLISHED` 文章，草稿和已下线文章即使匹配关键词也不会出现在结果中。
-- 搜索时使用 `ts_headline` 返回可选的标题高亮和摘要/正文高亮片段；不新增独立搜索接口。
+- 全文匹配使用 `ts_headline`，仅字面量匹配也返回可选的安全标题高亮和摘要/正文片段；摘要命中优先于正文，同一字段全文命中优先使用已有全文高亮。字面量正文片段取首次命中前后各最多 50 个字符，省略部分显示省略号；不新增独立搜索接口。
 - `highlightedTitle` 和 `searchSnippet` 中只有后端生成的 `<mark class="article-search-highlight">` 标签，原始文章文本在返回前会进行 HTML 转义。
 
 ### 排序规则
 
-- `sort=DEFAULT` 或不传 `sort`：有关键词时按全文检索相关度 DESC，再按 `isTop DESC, publishedAt DESC, id DESC` 排序；无关键词时按 `isTop DESC, publishedAt DESC, id DESC` 排序。
-- `sort=LATEST`：不考虑置顶和全文检索相关度，按 `publishedAt DESC, id DESC` 排序。
+- `sort=DEFAULT` 或不传 `sort`：有关键词时优先展示标题命中的文章（标题全文命中或不区分大小写的整段字面量包含命中均可），同组内按全文检索相关度 DESC，再按 `isTop DESC, publishedAt DESC, id DESC` 排序；标题未命中但摘要或正文命中的文章排在其后。无关键词时按 `isTop DESC, publishedAt DESC, id DESC` 排序。
+- `sort=LATEST`：不考虑标题命中、置顶和全文检索相关度，按 `publishedAt DESC, id DESC` 排序。
 - `isTop` 只负责筛选，可以和任一排序模式组合使用。
 - 首页置顶文章使用 `isTop=true`，首页最新文章使用 `sort=LATEST` 且不传 `isTop`，因此同一篇文章允许同时出现在两个区域。
 
@@ -2636,7 +2636,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 文章保存或更新时，后端应以 `contentMd` 为源自动提取并持久化 `contentText`
 - 前台文章详情接口优先返回 `contentHtml` 用于页面渲染
 - 前台文章列表和详情响应中的 `tags` 仅展示当前启用且仍存在的关联标签；历史关联的禁用标签或已删除标签不返回
-- 前台文章搜索复用文章列表接口，通过 PostgreSQL `zhparser` 对标题、摘要和纯文本正文执行全文检索，并返回可选的安全高亮片段
+- 前台文章搜索复用文章列表接口，对标题、摘要和纯文本正文合并 PostgreSQL `zhparser` 全文检索与不区分大小写的字面量包含匹配，并返回可选的安全高亮片段
 - 前台文章列表通过 `tagIds` 筛选时，传入标签必须存在且启用；不存在返回 `ARTICLE_TAG_NOT_FOUND`，禁用返回 `ARTICLE_TAG_DISABLED`
 - 前台文章列表通过 `categoryId` 筛选时，传入分类必须存在且启用；不存在返回 `ARTICLE_CATEGORY_NOT_FOUND`，禁用返回 `ARTICLE_CATEGORY_DISABLED`
 - 前台文章列表和详情要求文章所属二级分类及其父分类均存在且启用；分类不存在或禁用时，文章对前台不可见
