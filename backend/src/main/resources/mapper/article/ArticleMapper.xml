@@ -107,7 +107,9 @@
     <select id="selectPublicArticleSearchPage"
             resultType="com.ccsanjuu.blog.modules.article.model.bo.PublicArticleSearchBO">
         with search_query as (
-            select plainto_tsquery('public.zhparser_cfg', #{keyword}) as value
+            select plainto_tsquery('public.zhparser_cfg', #{keyword}) as value,
+                   lower(#{keyword}) as literal_value,
+                   char_length(#{keyword}) as literal_length
         )
         select
             a.id,
@@ -127,6 +129,7 @@
                         search_query.value,
                         'StartSel=__BLOG_SEARCH_HIGHLIGHT_START__, StopSel=__BLOG_SEARCH_HIGHLIGHT_END__, HighlightAll=true'
                     )
+                when literal_match.title_position > 0 then a.title
             end as highlighted_title,
             case
                 when to_tsvector('public.zhparser_cfg', a.summary) @@ search_query.value then
@@ -136,6 +139,7 @@
                         search_query.value,
                         'StartSel=__BLOG_SEARCH_HIGHLIGHT_START__, StopSel=__BLOG_SEARCH_HIGHLIGHT_END__, HighlightAll=true'
                     )
+                when literal_match.summary_position > 0 then a.summary
                 when to_tsvector('public.zhparser_cfg', a.content_text) @@ search_query.value then
                     ts_headline(
                         'public.zhparser_cfg',
@@ -143,9 +147,26 @@
                         search_query.value,
                         'StartSel=__BLOG_SEARCH_HIGHLIGHT_START__, StopSel=__BLOG_SEARCH_HIGHLIGHT_END__, MinWords=10, MaxWords=35, ShortWord=1, MaxFragments=1'
                     )
+                when literal_match.content_position > 0 then
+                    case when literal_match.content_position > 51 then '…' else '' end
+                    || substring(
+                        a.content_text
+                        from greatest(1, literal_match.content_position - 50)
+                        for least(50, literal_match.content_position - 1) + search_query.literal_length + 50
+                    )
+                    || case
+                        when literal_match.content_position + search_query.literal_length - 1 + 50
+                            &lt; char_length(a.content_text) then '…'
+                        else ''
+                    end
             end as search_snippet
         from blog_article a
         cross join search_query
+        cross join lateral (
+            select strpos(lower(coalesce(a.title, '')), search_query.literal_value) as title_position,
+                   strpos(lower(coalesce(a.summary, '')), search_query.literal_value) as summary_position,
+                   strpos(lower(coalesce(a.content_text, '')), search_query.literal_value) as content_position
+        ) literal_match
         where a.status = 'PUBLISHED'
           and a.category_id in
             <foreach collection="categoryIds" item="categoryId" separator="," open="(" close=")">
@@ -153,17 +174,9 @@
             </foreach>
           and (
               a.search_vector @@ search_query.value
-              or (
-                  (
-                      (numnode(search_query.value) = 0 and char_length(#{keyword}) = 1)
-                      or #{keyword} ~ '^[0-9]+$'
-                  )
-                  and (
-                      strpos(lower(coalesce(a.title, '')), lower(#{keyword})) > 0
-                      or strpos(lower(coalesce(a.summary, '')), lower(#{keyword})) > 0
-                      or strpos(lower(coalesce(a.content_text, '')), lower(#{keyword})) > 0
-                  )
-              )
+              or literal_match.title_position > 0
+              or literal_match.summary_position > 0
+              or literal_match.content_position > 0
           )
         <if test="articleIds != null and articleIds.size() > 0">
           and a.id in
@@ -176,6 +189,11 @@
         </if>
         order by
         <if test="prioritizeRelevance">
+            case
+                when literal_match.title_position > 0
+                    or to_tsvector('public.zhparser_cfg', a.title) @@ search_query.value then 1
+                else 0
+            end desc,
             case
                 when numnode(search_query.value) > 0
                     then ts_rank(a.search_vector, search_query.value)

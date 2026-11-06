@@ -48,6 +48,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -587,13 +589,17 @@ class ArticleServiceImplTest {
         assertTrue(sqlSegment.contains("id DESC"));
     }
 
-    @Test
-    void getPublicArticleListShouldUseFullTextSearchMapper() {
+    @ParameterizedTest
+    @CsvSource({"DEFAULT, true", "LATEST, false"})
+    void getPublicArticleListShouldUseRequestedSearchSort(PublicArticleSort sort, boolean prioritizeRelevance) {
         PublicArticleQueryDTO query = new PublicArticleQueryDTO();
         query.setKeyword("  ReDiS  ");
+        query.setSort(sort);
 
         when(categoryMapper.selectList(any())).thenReturn(List.of(enabledParentCategory(), enabledChildCategory()));
-        when(articleMapper.selectPublicArticleSearchPage(any(Page.class), any(), any(), any(), any(), eq(true), eq(true)))
+        when(articleMapper.selectPublicArticleSearchPage(
+                any(Page.class), any(), any(), any(), any(), eq(prioritizeRelevance), eq(prioritizeRelevance)
+        ))
                 .thenAnswer(invocation -> {
             Page<PublicArticleSearchBO> page = invocation.getArgument(0);
             page.setTotal(0);
@@ -609,8 +615,8 @@ class ArticleServiceImplTest {
                 eq(List.of(CATEGORY_ID)),
                 eq(List.of()),
                 isNull(),
-                eq(true),
-                eq(true)
+                eq(prioritizeRelevance),
+                eq(prioritizeRelevance)
         );
         verify(articleMapper, never()).selectPage(any(Page.class), any());
     }
@@ -659,6 +665,46 @@ class ArticleServiceImplTest {
                 "<mark class=\"article-search-highlight\">Boot</mark>"
         ));
         assertFalse(result.getSearchSnippet().contains("<script>"));
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', textBlock = """
+            at | <AtCoder> ATCODER | &lt;<mark class="article-search-highlight">At</mark>Coder&gt; <mark class="article-search-highlight">AT</mark>CODER
+            % | 100% | 100<mark class="article-search-highlight">%</mark>
+            _ | a_b | a<mark class="article-search-highlight">_</mark>b
+            [a].* | x[a].*y | x<mark class="article-search-highlight">[a].*</mark>y
+            <img> | <IMG> | <mark class="article-search-highlight">&lt;IMG&gt;</mark>
+            missing | AtCoder |
+            """)
+    void getPublicArticleListShouldSafelyHighlightLiteralMatches(String keyword, String title, String expected) {
+        PublicArticleQueryDTO query = new PublicArticleQueryDTO();
+        query.setKeyword("  " + keyword + "  ");
+
+        PublicArticleSearchBO searchArticle = new PublicArticleSearchBO();
+        searchArticle.setId(ARTICLE_ID);
+        searchArticle.setTitle(title);
+        searchArticle.setCategoryId(CATEGORY_ID);
+        searchArticle.setHighlightedTitle(title);
+        searchArticle.setSearchSnippet("<script>" + title + "</script>");
+
+        when(categoryMapper.selectList(any())).thenReturn(
+                List.of(enabledParentCategory(), enabledChildCategory()),
+                List.of(enabledChildCategory()),
+                List.of(enabledParentCategory())
+        );
+        when(articleMapper.selectPublicArticleSearchPage(any(Page.class), any(), any(), any(), any(), eq(true), eq(true)))
+                .thenAnswer(invocation -> {
+            Page<PublicArticleSearchBO> page = invocation.getArgument(0);
+            page.setTotal(1);
+            page.setRecords(List.of(searchArticle));
+            return page;
+        });
+        when(articleTagMapper.selectList(any())).thenReturn(List.of());
+
+        PublicArticleListItemVO result = articleService.getPublicArticleList(query).getRecords().getFirst();
+
+        assertEquals(expected, result.getHighlightedTitle());
+        assertEquals(expected == null ? null : "&lt;script&gt;" + expected + "&lt;/script&gt;", result.getSearchSnippet());
     }
 
     @Test

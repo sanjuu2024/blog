@@ -7,10 +7,14 @@
 			:src="avatarUrl || undefined"
 			:size="size"
 			:style="{
-				backgroundColor: avatarUrl || deleted || guest ? 'var(--app-bg)' : backgroundColor,
+				backgroundColor:
+					(avatarUrl && !imageFailed) || deleted || guest
+						? 'var(--app-bg)'
+						: backgroundColor,
 				fontSize: `${size / 3}px`,
 			}"
 			class="user-avatar flex items-center justify-center"
+			@error="imageFailed = true"
 		>
 			<i-solar-user-bold
 				v-if="deleted || guest"
@@ -31,7 +35,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 interface Props {
 	avatarUrl?: string | null;
@@ -54,6 +58,16 @@ const props = withDefaults(defineProps<Props>(), {
 	size: 20,
 	badgeSizePercent: 45,
 });
+
+// el-avatar 失败后会显示首字母，背景色需要同步恢复为无图片时的配色。
+const imageFailed = ref(false);
+
+watch(
+	() => props.avatarUrl,
+	() => {
+		imageFailed.value = false;
+	},
+);
 
 const AVATAR_COLORS = [
 	'#FFC1CC',

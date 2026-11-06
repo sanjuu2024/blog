@@ -84,7 +84,7 @@ public interface ArticleMapper extends BaseMapper<Article> {
     List<CategoryArticleCountBO> getArticleCountByCategoryIds(@Param("categoryIds") List<Long> categoryIds, @Param("published") boolean published);
 
     /**
-     * 使用 zhparser 查询公开文章，并生成包含命中标记的标题和摘要片段。
+     * 合并 zhparser 全文检索与字面量包含匹配，返回公开文章及用于安全高亮的标题和摘要片段。
      *
      * @param page 分页参数
      * @param keyword 已去除首尾空白的搜索关键词
@@ -92,8 +92,8 @@ public interface ArticleMapper extends BaseMapper<Article> {
      * @param articleIds 包含全部筛选标签的文章 ID；未筛选标签时为空
      * @param isTop 是否只查询置顶或非置顶文章；为空时不限制
      * @param prioritizeTop 是否优先展示置顶文章
-     * @param prioritizeRelevance 是否优先展示全文检索相关度
-     * @return 全文检索分页结果
+     * @param prioritizeRelevance 是否优先展示标题命中，再按全文检索相关度排序
+     * @return 搜索分页结果
      */
     Page<PublicArticleSearchBO> selectPublicArticleSearchPage(
             Page<PublicArticleSearchBO> page,
