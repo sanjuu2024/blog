@@ -1,7 +1,7 @@
 # One-time overlay; always use together with compose.prod.yaml.
 services:
   admin-bootstrap:
-    image: ${BLOG_BACKEND_IMAGE:-blog-backend:prodtest}
+    image: ${BLOG_BACKEND_IMAGE:-blog-backend:v1.0.0}
     build:
       context: backend
       dockerfile: Dockerfile

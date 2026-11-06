@@ -1,0 +1,9 @@
+{
+  "endpoint": "https://oss-cn-hangzhou.aliyuncs.com",
+  "region": "cn-hangzhou",
+  "bucket": "CHANGE_ME_IMAGE_BUCKET",
+  "domain": "img.example.com",
+  "certificate_name": "img.example.com",
+  "access_key_id": "CHANGE_ME_CERTIFICATE_ACCESS_KEY_ID",
+  "access_key_secret": "CHANGE_ME_CERTIFICATE_ACCESS_KEY_SECRET"
+}

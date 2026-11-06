@@ -108,46 +108,265 @@ sudo docker compose --env-file /opt/blog-platform/acceptance/.env.acceptance \
 
 ## 5. 之后接入正式项目
 
-正式项目使用独立检出目录及 `.env.prod`，避免测试版本覆盖正式容器挂载的配置。正式域名 DNS 就绪后，单独签证：
+### 5.1 准备正式环境文件
+
+正式项目使用独立检出目录及仓库外 `.env.prod`。在准备好的正式版本仓库根目录，以 `.env.prod.example` 为模板创建配置；下面的 `cp -n` 只在目标不存在时复制，已有文件直接编辑，不覆盖凭据：
 
 ```bash
-sudo certbot certonly --webroot -w /var/www/certbot \
-  --cert-name blog.example.com -d blog.example.com
-cp docker/ingress/templates/production.conf.template /opt/blog-platform/ingress/templates/
-ing exec -T nginx sh -c '/docker-entrypoint.d/20-envsubst-on-templates.sh && nginx -t && nginx -s reload'
+install -d -m 0700 /opt/blog-platform/production
+(umask 077; cp -n .env.prod.example /opt/blog-platform/production/.env.prod)
+chmod 600 /opt/blog-platform/production/.env.prod
 ```
 
-正式 `.env.prod` 的入口配置为：
+填写模板中的全部 `CHANGE_ME` 和示例域名。`.env.prod.example` 是正式 Compose 的完整输入模板；根目录 `.env.example` 供本地开发参考，`performance/p2/acceptance.env.example` 供独立验收使用，不复制两份变量再互相覆盖。环境文件不会被 Spring Boot 自动读取，下面通过 Compose 的 `--env-file` 加载。当前数据库初始化、Flyway 和后端共用 `POSTGRES_USER`，填写本模板不等于已实现数据库管理 / 应用账号分离。
+
+网络和镜像示例为：
 
 ```dotenv
 BLOG_EDGE_NETWORK=blog-prod-edge
 BLOG_WEB_ALIAS=blog-prod-web
 BLOG_INGRESS_IP=172.30.10.2
+BLOG_POSTGRES_IMAGE=blog-postgres:v1.0.0
+BLOG_BACKEND_IMAGE=blog-backend:v1.0.0
+BLOG_NGINX_IMAGE=blog-nginx:v1.0.0
 ```
 
-使用正式数据库、凭据和管理员，先完成该库 bootstrap，再启动：
+三个 `BLOG_*_IMAGE` 是本次计划发布 `v1.0.0` 的定制构建产物标签；bootstrap 与长期 backend 使用同一个后端镜像，只切换启动 profile。先按 5.2 构建确定的源码，再启动容器；镜像标签不会让 `up` 自动重新编译，也不会自动创建 Git 标签。正式发布后不再覆盖该版本标签，后续发布更换版本或 Commit 标签。Redis 和共享入口 Nginx 使用仓库内锁定的官方镜像 digest。已有私有 `.env.prod` 若仍显式设置旧镜像标签，需手动更新，Compose 默认值不会覆盖环境文件。历史卷逻辑名不改；如果以前未使用 `-p`，实际项目名为 `blog-prodtest`，更新该已有部署时显式保留旧项目名，不能仅靠改名迁移数据。
+
+### 5.2 先限制入口，再启动正式站
+
+“受控启动”表示正式项目已经运行，但正式 HTTPS 入口临时只允许部署者当前的公网 IP；其他访问者被拒绝。这不需要开放 backend 端口，也不改应用认证逻辑。共享入口直接面向公网，下面的 allow 地址是自己的实际公网出口 IP，不是 `127.0.0.1`、内网 IP 或服务器 IP；动态 IP 变更后要相应更新。使用 IPv6 访问时另加自己的 IPv6 地址。若入口前另有 CDN，不能直接照搬本节的来源 IP 限制。
+
+正式域名 DNS 就绪后，单独签证并复制模板；此时先不 reload：
 
 ```bash
-sudo docker compose --env-file /opt/blog-platform/production/.env.prod \
-  -p blog-prod -f compose.prod.yaml up -d --wait --wait-timeout 180
+sudo certbot certonly --webroot -w /var/www/certbot \
+  --cert-name blog.example.com -d blog.example.com
+cp docker/ingress/templates/production.conf.template /opt/blog-platform/ingress/templates/
 ```
 
-入口使用 Docker DNS 动态解析项目别名，项目 Nginx 重建换 IP 后无需修改入口配置。项目停止时只影响对应域名，不影响另一个站点或 ACME 验证。
+用编辑器打开刚复制到服务器的 `/opt/blog-platform/ingress/templates/production.conf.template`，在原有 `location /` 中临时加入下面三行（仅示意新增部分，保留后续 proxy 配置）；`203.0.113.10` 必须替换成自己的公网 IP：
+
+```nginx
+location / {
+    allow 203.0.113.10;
+    deny all;
+    add_header X-Robots-Tag "noindex, nofollow" always;
+    # 保留原有 set、proxy_pass 和 include 配置。
+}
+```
+
+编辑完成后生成配置、检查再 reload：
+
+```bash
+ing exec -T nginx sh -c '/docker-entrypoint.d/20-envsubst-on-templates.sh && nginx -t && nginx -s reload'
+```
+
+限制只放在正式 HTTPS 的 `location /`，不要改 HTTP 的 ACME 路径或共享默认模板，否则可能影响证书续期。此时博客未启动，允许来源可能暂时得到 502；非允许来源应得到 403。不要在完成受控验收前用仓库模板覆盖这个私有模板，否则会提前移除访问限制。
+
+在正式项目仓库根目录定义日常和首次初始化命令；两者均显式指定正式项目，不叠加 `compose.acceptance.yaml`：
+
+```bash
+prod() {
+  sudo docker compose --env-file /opt/blog-platform/production/.env.prod \
+    -p blog-prod -f compose.prod.yaml "$@"
+}
+prodboot() {
+  sudo docker compose --env-file /opt/blog-platform/production/.env.prod \
+    -p blog-prod -f compose.prod.yaml -f compose.bootstrap.yaml "$@"
+}
+prod config -q
+prod build postgres
+prod build backend
+prod build nginx
+prod up -d --wait postgres redis
+```
+
+全新正式库按下列步骤初始化管理员；如果从完整备份恢复，先恢复数据库，跳过管理员 bootstrap，不能先让应用把空库迁移一遍再导入备份。下面的密码文件路径应与 `.env.prod` 中 `BLOG_BOOTSTRAP_ADMIN_PASSWORD_PATH` 一致：
+
+```bash
+read -rsp 'Production bootstrap password: ' production_bootstrap_password
+printf '\n'
+(umask 077; printf '%s' "$production_bootstrap_password" > /opt/blog-platform/production/bootstrap-password)
+unset production_bootstrap_password
+prodboot config -q
+prodboot run --rm --no-deps admin-bootstrap
+```
+
+只有看到 `ADMIN_BOOTSTRAP_SUCCESS` 后再删除刚创建的临时文件并启动长期服务；初始化失败先处理报错，不重复覆盖已有管理员：
+
+```bash
+rm /opt/blog-platform/production/bootstrap-password
+prod up -d --wait --wait-timeout 180
+prod ps
+```
+
+长期凭据使用 `.env.prod`，首次管理员密码继续沿用现有一次性文件挂载，成功后删除临时文件。
+
+### 5.3 受控验证后开放访问
+
+先从允许的公网 IP 浏览正式 HTTPS 首页，完成登录 / 刷新 / 退出、发布 / 搜索、评论 / 通知、图片上传及少量真实邮件、Turnstile 验证；另从不在允许列表的来源确认 403。检查 `prod ps` 的健康状态和容器日志，不仅检查首页能否打开。受控期间，服务器外部监控如果不在 allow 列表会得到 403，这是限制效果，不能将其当作正式可用性通过；开放后再验证外部监测和告警。
+
+监控、每日备份、证书续期均准备并验证后，在私有正式模板中移除临时的 `allow`、`deny all` 和临时 `X-Robots-Tag` 三行，再执行前面的配置生成 / 检查 / reload 命令。不要删除其他 HTTPS 或 proxy 配置。确认正常正式首页没有 `noindex`，API 等资源原有的 noindex 保持不变；再从另一网络检查可访问并执行一次部署后冒烟。正式站访问限制和临时 noindex 的移除是显式开放步骤，不由 `prod up` 自动完成。
+
+入口使用 Docker DNS 动态解析项目别名，项目 Nginx 重建换 IP 后无需修改入口配置。项目停止时只影响对应域名，不影响其他域名或 ACME 验证。
 
 ## 6. 证书自动续期
 
-安装本仓库的续期成功 hook，脚本只检查并 reload 共享入口，不重启项目或复制私钥：
+同一台服务器的 `certbot renew` 会检查其 `/etc/letsencrypt/renewal/` 中登记的全部证书，只有临近续期的证书才会重新签发。它不会自动接管 acme.sh、手动复制来的证书，也不会自动把文件上传到阿里云 OSS。这里把流程分成两条：站点证书续签后 reload 共享 Nginx；OSS 域名证书续签后调用 OSS API 更新其证书绑定。两者共用一个 Certbot 定时器，不依赖博客项目是否运行。
+
+定时器负责定期检查，DNS 插件只在 Certbot 决定续签时执行域名验证，不自己设置续签日期。当前工具版本优先参考证书机构通过 ARI 提供的续签窗口；没有可用窗口或显式配置时，一般在证书有效期剩余约三分之一时续签，例如 90 天证书约在到期前 30 天。短于 10 天的证书采用约剩余一半有效期的默认规则；实际检查计划通过 `systemctl list-timers --all certbot.timer` 查看，不依赖人工等到固定某一天。
+
+### 6.1 站点证书和共享入口
+
+安装续期成功 hook；先将脚本中的 `/opt/blog-platform` 换成实际部署根目录。hook 只检查并 reload 共享入口，不重启项目或复制私钥：
 
 ```bash
 sudo install -d -m 0755 /etc/letsencrypt/renewal-hooks/deploy
 sudo install -m 0755 docker/ingress/reload-after-renewal.sh \
   /etc/letsencrypt/renewal-hooks/deploy/20-blog-ingress-reload
 sudo systemctl enable --now certbot.timer
-sudo certbot renew --dry-run --run-deploy-hooks
+sudo certbot renew --cert-name staging.example.com --dry-run --run-deploy-hooks
 sudo systemctl list-timers certbot.timer
 ```
 
-hook 默认读取 `/opt/blog-platform/ingress/.env` 和 `compose.yaml`；若改部署目录，安装前同步修改脚本。只有 dry-run、hook 和定时器均验证成功才记录自动续期完成。webroot 不占用额外监听端口，staging 项目关闭时也可续证；共享入口、域名 DNS 和 HTTP 80 仍须可访问。旧证书如果使用 standalone，需先通过 `certbot reconfigure --cert-name 实际证书名 --webroot -w /var/www/certbot` 迁移验证方式并重新 dry-run。
+hook 默认读取 `/opt/blog-platform/ingress/.env` 和 `compose.yaml`；若改部署目录，安装前同步修改脚本。这里的 `--cert-name` 换成实际站点证书名，正式站可再单独验证一次；先不测试尚未配置自动 DNS 验证的 OSS 证书，全部证书的统一验证放在 6.4。只有 dry-run、hook 和定时器均验证成功才记录自动续期完成。webroot 不占用额外监听端口，staging 项目关闭时也可续证；共享入口、域名 DNS 和 HTTP 80 仍须可访问。旧证书如果使用 standalone，需先通过 `certbot reconfigure --cert-name 实际证书名 --webroot -w /var/www/certbot` 迁移验证方式并重新 dry-run。
+
+### 6.2 OSS 域名：确认 DNS 验证可以自动执行
+
+下述示例适用于域名直接绑定普通 OSS bucket，且 DNS 托管在阿里云云解析 DNS。`img.example.com` 是示例；若 DNS 托管在其他服务商，使用对应 Certbot DNS 插件，后面的 OSS 部署 hook 不变。若域名实际接入 CDN/DCDN，需要更新相应产品的证书，不能使用本节的 OSS bucket 绑定接口。
+
+先执行 `sudo certbot certificates` 确认真实 Certificate Name（可能带 `-0001`，也可能是通配符证书的名称）。在服务器本地检查对应 `/etc/letsencrypt/renewal/证书名.conf` 的 `authenticator`：`manual` 且没有自动 DNS auth/cleanup hook 时，之前手工添加 TXT 签发成功不代表能自动续期。已配置可用自动插件的证书可沿用原方式，无需重复签发。
+
+以下使用本仓库扩展插件 `dns-aliyun-safe`，它继承第三方 [certbot-dns-aliyun](https://github.com/tengattack/certbot-dns-aliyun) 的验证、请求签名及创建记录能力；两者均不是阿里云官方 Certbot 插件。扩展修复上游 2.0.0 清理时只匹配记录名的问题：查询全部相关分页，精确匹配记录名、`TXT` 类型和本次挑战值，只删除唯一匹配记录的 RecordId；不存在时跳过，多条精确匹配时报错且不删除。已有手工 TXT、同名其他类型、不同挑战值和其他记录不会因此被删除。
+
+为避免修改 Ubuntu 系统 Python，在 root 管理的独立虚拟环境安装 Certbot、上游依赖、官方 OSS Python SDK，再安装本地扩展包。当前依赖版本见 `docker/ingress/requirements-certificates.txt`，本地扩展位于 `docker/ingress/certbot-dns-aliyun-safe/`；保留上游依赖不表示仍使用其原始清理逻辑：
+
+```bash
+sudo apt-get install -y python3-venv openssl
+sudo install -d -m 0755 /opt/blog-platform/certificates
+sudo python3 -m venv /opt/blog-platform/certificates/venv
+sudo /opt/blog-platform/certificates/venv/bin/pip install \
+  -r "$PWD/docker/ingress/requirements-certificates.txt"
+sudo /opt/blog-platform/certificates/venv/bin/pip install \
+  --force-reinstall --no-deps --no-build-isolation \
+  "$PWD/docker/ingress/certbot-dns-aliyun-safe"
+sudo /opt/blog-platform/certificates/venv/bin/certbot plugins
+```
+
+确认插件列表包含 `dns-aliyun-safe`。首次安装与脚本更新后都要执行本地扩展的安装命令，不能只安装 requirements 或只 `git pull`；`--force-reinstall` 确保同版本代码更新也会安装，`--no-deps` 保留前一步锁定的依赖。可以执行 `sudo /opt/blog-platform/certificates/venv/bin/python -B docker/ingress/test_dns_aliyun_safe.py -v` 运行本地 DNS 替身自检，不调用真实 DNS API。如果此前使用旧的 `dns-aliyun`，仍需按下面的命令重新配置证书，确保续期选择新插件；旧名称出现在插件列表中并不影响新插件运行。
+
+在 RAM 创建专用于 DNS 验证的身份，按 DNS 服务支持的资源粒度限制授权域名；插件需要 `alidns:DescribeDomains`、`alidns:DescribeDomainRecords`、`alidns:AddDomainRecord`、`alidns:DeleteDomainRecord`。不要直接使用主账号 AccessKey 或给博客上传图片的身份增加 DNS 管理权限。使用 `sudoedit` 创建 `/etc/letsencrypt/aliyun-dns.ini`，真实值仅保存在服务器：
+
+每次 ACME 验证的 TXT 值由 Certbot 根据当次挑战自动计算，再交给 DNS 插件创建和清理；无需填写初始 TXT 值或配置固定 TXT 环境变量。DNS API 凭据用于允许插件操作记录，与 TXT 验证值不是同一种配置。
+
+```ini
+dns_aliyun_safe_access_key = CHANGE_ME_DNS_ACCESS_KEY_ID
+dns_aliyun_safe_access_key_secret = CHANGE_ME_DNS_ACCESS_KEY_SECRET
+```
+
+```bash
+sudo chmod 600 /etc/letsencrypt/aliyun-dns.ini
+sudo /opt/blog-platform/certificates/venv/bin/certbot reconfigure \
+  --cert-name img.example.com --authenticator dns-aliyun-safe \
+  --dns-aliyun-safe-credentials /etc/letsencrypt/aliyun-dns.ini \
+  --dns-aliyun-safe-propagation-seconds 120
+```
+
+该命令将已有证书的续期方式改为新插件的自动 DNS 验证，并以测试续期验证新配置；`--cert-name` 必须换成第一步看到的名称，不能凭域名猜。已有凭据文件也要将字段改为 `dns_aliyun_safe_` 前缀，AccessKey 本身不因插件改名而改变。尚未签发的证书使用 `certonly` 代替 `reconfigure`，并增加 `-d img.example.com`。不要为自动化 DNS 验证修改 OSS 域名现有的 CNAME。
+
+### 6.3 OSS 域名：安装续签后的证书部署 hook
+
+本仓库的 `upload_oss_certificate.py` 使用官方 OSS SDK 的 `list_bucket_cname` / `put_bucket_cname`，对应 [ListCname](https://help.aliyun.com/zh/oss/developer-reference/listcname) / [PutCname](https://help.aliyun.com/zh/oss/developer-reference/putcname) API。脚本读取 Certbot 的 `fullchain.pem` 和 `privkey.pem`，仅更新配置中已绑定域名的证书；不上传公开 OSS 对象、不改 DNS、不创建新域名绑定。它先校验证书与私钥匹配、覆盖目标域名且至少剩余一天，再读取当前证书 ID 作为更新条件，避免覆盖同时被其他人修改的证书。只配置一个精确 OSS 域名；证书本身可以是覆盖它的通配符证书。
+
+建立独立的证书部署 RAM 身份。根据官方 PutCname 权限说明，示例策略如下；将 bucket 名替换为实际值。`yundun-cert` 的三项操作用于关联证书服务，不能因为只授予 `oss:PutCname` 而漏掉：
+
+```json
+{
+  "Version": "1",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["oss:ListCname", "oss:PutCname"],
+      "Resource": ["acs:oss:*:*:YOUR_IMAGE_BUCKET"]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "yundun-cert:DescribeSSLCertificatePrivateKey",
+        "yundun-cert:DescribeSSLCertificatePublicKeyDetail",
+        "yundun-cert:CreateSSLCertificate"
+      ],
+      "Resource": ["*"]
+    }
+  ]
+}
+```
+
+复制配置示例后，用 `sudoedit` 填写 endpoint、region、bucket、精确图片域名、Certbot Certificate Name 和该部署身份的 AccessKey；endpoint 使用 bucket 所在地域的 OSS HTTPS endpoint，不填自定义图片域名。配置包含密钥，不能提交或贴进日志。该脚本无需 Java、ossutil 或常驻服务：
+
+```bash
+sudo install -d -m 0700 /etc/blog-platform
+sudo install -m 0600 docker/ingress/oss-certificate.example.json \
+  /etc/blog-platform/oss-certificate.json
+sudoedit /etc/blog-platform/oss-certificate.json
+sudo install -m 0644 docker/ingress/upload_oss_certificate.py \
+  /opt/blog-platform/certificates/upload_oss_certificate.py
+```
+
+先校验本地文件，再明确执行一次真实上传，确认 API 权限和现有域名绑定正常：
+
+```bash
+sudo /opt/blog-platform/certificates/venv/bin/python \
+  /opt/blog-platform/certificates/upload_oss_certificate.py \
+  --config /etc/blog-platform/oss-certificate.json --check
+sudo /opt/blog-platform/certificates/venv/bin/python \
+  /opt/blog-platform/certificates/upload_oss_certificate.py \
+  --config /etc/blog-platform/oss-certificate.json
+```
+
+`--check` 只校验配置和本地证书，不调用 OSS；第二条会上传并替换该域名的当前证书。安装独立 deploy hook，安装前同步修改 shell 文件中的示例路径：
+
+```bash
+sudo install -m 0755 docker/ingress/deploy-oss-certificate.sh \
+  /etc/letsencrypt/renewal-hooks/deploy/30-blog-oss-certificate
+```
+
+hook 只处理配置中 Certificate Name 对应的 `RENEWED_LINEAGE`；续签站点等其他证书时直接跳过。失败返回非零退出码；本地校验会明确指出未填写的配置字段、文件无法读取、证书域名或有效期不符、私钥不匹配、OpenSSL 缺失或执行超时等原因，不输出配置实际值或文件正文。OSS SDK 异常只记录错误类型、状态码、错误码和 request ID，不输出私钥、AccessKey 或 API 正文。Certbot 不会因证书已续签而自动补跑失败的 deploy hook，修复权限或网络后要手动重跑上述上传命令；到期/部署失败由监控告警负责。
+
+### 6.4 一个定时器覆盖站点和 OSS 证书
+
+如果安装了 6.2 的虚拟环境，原 Ubuntu `certbot.service` 也要改用这套包含 DNS 插件的 Certbot，不能只在手动命令中使用虚拟环境。创建 `/etc/systemd/system/certbot.service.d/override.conf`（先用 `sudo install -d -m 0755 /etc/systemd/system/certbot.service.d` 建目录）：
+
+```ini
+[Service]
+ExecStart=
+ExecStart=/opt/blog-platform/certificates/venv/bin/certbot -q renew
+```
+
+Ubuntu 的原 `certbot.timer` 继续使用，不新增第二个定时器；使用相同 `/etc/letsencrypt` 配置，因此已有 webroot 证书也由它统一处理：
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now certbot.timer
+sudo /opt/blog-platform/certificates/venv/bin/certbot renew \
+  --dry-run --run-deploy-hooks
+sudo systemctl list-timers --all certbot.timer
+sudo systemctl cat certbot.service
+sudo journalctl -u certbot.service -n 50 --no-pager
+```
+
+`--dry-run --run-deploy-hooks` 使用当前有效的正式证书执行部署 hook，OSS API 上传仍是真实操作，不能理解成“只测试、不修改云端”。先通过 6.3 的本地校验与首次上传，再执行这一步。DNS 插件凭据、OSS 配置和虚拟环境必须长期保留；`git pull` 不会更新已复制的 hook 或虚拟环境依赖，脚本变更后按本节重新安装。
+
+最后核对图片域名真正对外提供的证书，并匿名访问一张已知图片：
+
+```bash
+openssl s_client -connect img.example.com:443 -servername img.example.com \
+  -verify_hostname img.example.com -verify_return_error </dev/null 2>/dev/null \
+  | openssl x509 -noout -subject -issuer -dates -fingerprint -sha256
+```
+
+和服务器上 `sudo openssl x509 -in /etc/letsencrypt/live/实际证书名/fullchain.pem -noout -fingerprint -sha256` 对比；云端部署可能有短暂传播时间。失败时保留仍有效的云端证书并检查 hook 日志，不用 `--force-renewal` 反复重签来重试上传。本站点和 OSS 的 HTTPS 到期检测都交给监控服务，部署失败也应告警。
 
 ## 7. 验证与日常启停
 

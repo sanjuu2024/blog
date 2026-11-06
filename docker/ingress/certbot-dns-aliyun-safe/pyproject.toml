@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blog-certbot-dns-aliyun"
+version = "1.0.0"
+description = "Aliyun Certbot authenticator with exact TXT cleanup matching"
+requires-python = ">=3.10"
+dependencies = ["certbot-dns-aliyun==2.0.0"]
+
+[project.entry-points."certbot.plugins"]
+dns-aliyun-safe = "certbot_dns_aliyun_safe:Authenticator"
+
+[tool.setuptools.packages.find]
+include = ["certbot_dns_aliyun_safe*"]

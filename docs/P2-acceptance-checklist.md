@@ -136,10 +136,10 @@ Linux / WSL 后端对应命令为 `bash ./mvnw --batch-mode clean verify`。有 
 - [x] 前端 ESLint、Stylelint、Prettier 全通过；不能把既存格式错误当作通过。
 - [x] 全量 Vitest 与覆盖率报告通过，生产构建及 TypeScript 检查通过。
 - [x] 后端编译、全量单元测试、Spring / 数据库 / Redis 集成测试通过；跳过项逐一写明原因。
-- [ ] JaCoCo 行覆盖率至少 85%、分支覆盖率至少 60%，与当前 `pom.xml` 一致。
+- [x] JaCoCo 行覆盖率至少 85%、分支覆盖率至少 60%，与当前 `pom.xml` 一致。
 - [x] GreenMail 等本地 SMTP 测试通过，自动化测试不向真实邮箱批量发信。
 - [x] GitHub Actions Frontend / Backend Job 全通过，报告正常生成，日志无真实密钥或用户数据。
-- [ ] 在干净 checkout / 镜像构建中验证自动导入声明、前端构建变量和 Flyway 资源齐全。
+- [x] 在干净 checkout / 镜像构建中验证自动导入声明、前端构建变量和 Flyway 资源齐全。
 
 Vitest 当前配置未设置行 / 分支覆盖率最低阈值。`pnpm test:coverage` 退出码为 0 且测试文件全部通过时，即表示本次测试执行成功、coverage 报告生成；覆盖率百分比是报告数据，不会单独使命令失败。若要把覆盖率最低值设为验收门槛，应另行确认目标并配置阈值。
 
@@ -538,14 +538,14 @@ Vitest 当前配置未设置行 / 分支覆盖率最低阈值。`pnpm test:cover
 9. 全部测试结束后等一轮再 Ctrl+C 停止服务器采样，将采样目录复制到压测机；按手册使用 `run.py --summarize 结果目录 --resources 采样目录` 自动关联每轮资源。把更新的 summary.md / CSV 填入第 20.5 节，检查缺失采样标记，补堆/GC、磁盘/网络、SQL 条数及数据库差值。备份/恢复、故障及第 21～23 节仍需按实际执行，不能用压测成功替代。
 10. 验收后停止验收项目，保留其卷和报告；使用新的正式项目、正式数据库/Redis、凭据和数据初始化，不把性能库改名当作正式库。正式上线前完成备份、续证及告警门禁。
 
-- [ ] 独立性能库名包含 `performance`，Redis 使用独立逻辑库；只在该环境执行 seed / cleanup。
-- [ ] 使用 `performance/p2/data/seed.sql` / `cleanup.sql` 准备和清理独立 P2 数据；脚本不调用 P1，处理通知收件、投递、评论点赞、每日统计和安全事件等逻辑关联，仅允许性能库。
+- [x] 独立性能库名包含 `performance`，Redis 使用独立逻辑库；只在该环境执行 seed / cleanup。
+- [x] 使用 `performance/p2/data/seed.sql` / `cleanup.sql` 准备和清理独立 P2 数据；脚本不调用 P1，处理通知收件、投递、评论点赞、每日统计和安全事件等逻辑关联，仅允许性能库。
 - [ ] 真实邮件关闭；外部 SMTP / OSS / Turnstile 使用测试替身。compose.acceptance.yaml 不提供 OSS / Turnstile 替身，游客留言高并发场景在替身准备前保持未勾选；真实服务只做第 12 节少量验收。
 - [ ] P2-BASE-08 携带测试验证 token，须先准备可控 Turnstile 替身；直接应用限流和生产边缘限流分开测试，不能把验证失败当限流通过。不调用旧 P1 留言计划。
-- [ ] API 计划同时断言 HTTP 状态及业务码；读取中的 401 / 429 / 503 是非预期错误，只有指定限流场景的预期拒绝单独统计。
-- [ ] 准备至少 100 篇公开文章、2000 条评论、500 条留言、100 个用户；另准备多个年份、跨年文章、足够的点赞 / 通知 / 投递记录，所有写入使用测试标识。
-- [ ] 验证搜索能稳定命中，归档有多页和多年份，通知列表及全部已读有足够数据，不用全空库证明性能。
-- [ ] 压测机尽量与被测机分开；目标使用生产构建，记录是否经过 Nginx / HTTPS / 公网以及 CPU、内存、JVM、容器限制。
+- [x] API 计划同时断言 HTTP 状态及业务码；读取中的 401 / 429 / 503 是非预期错误，只有指定限流场景的预期拒绝单独统计。
+- [x] 准备至少 100 篇公开文章、2000 条评论、500 条留言、100 个用户；另准备多个年份、跨年文章、足够的点赞 / 通知 / 投递记录，所有写入使用测试标识。
+- [x] 验证搜索能稳定命中，归档有多页和多年份，通知列表及全部已读有足够数据，不用全空库证明性能。
+- [x] 压测机尽量与被测机分开；目标使用生产构建，记录是否经过 Nginx / HTTPS / 公网以及 CPU、内存、JVM、容器限制。
 - [ ] 普通读取场景预热 2 分钟后正式运行 5 分钟，30 秒逐步升压，至少三次取中位数；稳定性运行至少 30 分钟。
 - [ ] 使用限速器控制 RPS，不用无停顿死循环；浏览计数场景分别保留同 Cookie 和不同访客，注明实际数据库写入比例。
 - [ ] 同游客并发浏览前先取得一个 `visitor_id` 并让所有请求携带相同 Cookie；目标文章在当前去重窗口内未被该游客访问，不能让每个请求各自创建访客身份。
@@ -623,44 +623,66 @@ Vitest 当前配置未设置行 / 分支覆盖率最低阈值。`pnpm test:cover
 
 | 编号   | SHA / 环境 | 样本数 / 实际 RPS | 非预期错误率 | p50 / p95 / p99 | CPU / RSS / 堆 / 整机内存峰值 | DB连接 / Redis / GC | 数据核对、结论与证据 |
 | ------ | ---------- | ----------------- | ------------ | --------------- | ----------------------------- | ------------------- | -------------------- |
-| 待填写 | 待填写     | 待填写            | 待填写       | 待填写          | 待填写                        | 待填写              | 待填写               |
+| P2-BASE-01（第1/3轮） | `fe6e066` / staging HTTPS | 2968 / 9.899 RPS | 0%（0/2968） | 191 / 448 / **1025 ms** | 整机 CPU 峰值 20.41%、内存 21.42%、swap 0；backend CPU 50.48%、容器内存 779 MiB、Java RSS 801 MiB；GC 未采 | PostgreSQL 连接峰值 8（活跃 1）；Redis 1.183 MiB；OOM / 重启 0；GC 未采 | **FAIL：p99 超 1000 ms 阈值 25 ms**；HTTP 均成功，34 个请求 >1 s；资源采样 60 点/服务且完整。SQL/数据完整性未核对。证据：`blog-p2-acceptance/results/20261105_202848_cde6f3`；`blog-p2-acceptance/server-resources/20261105_122807_379f27` |
+| P2-BASE-01（复测，3/3轮） | `fe6e066` / staging HTTPS | 2982 / 9.954 RPS（中位） | 0%（0/8950） | 179 / 206 / 374 ms（中位；最差 p95/p99 245/383） | 整机 CPU 峰值 26.68%、内存 21.13%、swap 0；backend CPU 40.09%、容器内存 781.6 MiB、Java RSS 802.5 MiB；GC 未采 | PostgreSQL 连接峰值 4（活跃 1）；Redis 峰值 1.183 MiB；OOM / 重启 0；GC 未采 | **负载阈值通过**；资源采样完整（每轮每服务 59–60 点）。SQL / 数据完整性与 N+1 未核验。保留首次失败记录。证据：`blog-p2-acceptance/results/20261105_210053_ad1aa9`；`blog-p2-acceptance/server-resources/resources/20261105_130035_041086` |
+| P2-BASE-02（预热失败，正式轮未执行） | `fe6e066` / staging HTTPS | 1169 / 9.749 RPS（预热） | 0.086%（1/1169） | 181 / 212 / 379 ms（预热，不作为正式指标） | 整机 CPU 峰值 18.35%、内存 21.15%、swap 0；backend CPU 56.78%、容器内存 780.9 MiB、Java RSS 802.9 MiB；GC 未采 | PostgreSQL 连接峰值 4（活跃 0）；Redis 1.211 MiB；OOM / 重启 0；GC 未采 | **预热失败，待排查并复测**：2026-11-05 13:23:39.925 UTC 一次 TLS 握手被远端终止，耗时 5008 ms，无 HTTP 响应，noindex 断言连带失败；其余 1168 个目标请求 HTTP 200。资源采样完整（24 点/服务），不足以确定握手失败原因。证据：`blog-p2-acceptance/results/20261105_212326_3edbbd`；`blog-p2-acceptance/server-resources/resources/20261105_132308_02eeee` |
+| P2-BASE-02（复测，3/3轮） | `fe6e066` / staging HTTPS | 2978 / 9.935 RPS（中位） | 0%（0/8938） | 178 / 233 / 478 ms（中位；最差 p95/p99 239/521） | 整机 CPU 峰值 24.08%、内存 21.86%、swap 0；backend CPU 38.94%、容器内存 783.4 MiB、Java RSS 805.3 MiB；堆 / GC 未采 | PostgreSQL 连接峰值 5（活跃 1）；Redis 1.253 MiB；OOM / 重启 0 | **负载阈值通过**；预热及正式请求均 HTTP 200，未复现 TLS 握手失败；正式资源采样完整（每轮每服务 60–61 点）。SQL / 浏览统计 / GC 未核验，保留首次失败记录。证据：`blog-p2-acceptance/results/20261105_223336_9bb779`；`blog-p2-acceptance/server-resources/resources/20261105_143321_61f04a` |
+| P2-BASE-03（预热失败，正式轮未执行） | `fe6e066` / staging HTTPS | 588 / 4.489 RPS（预热） | 0.170%（1/588） | 198 / 564 / 5703 ms（预热，不作为正式指标） | 整机 CPU 峰值 15.60%、内存 21.68%、swap 0；backend CPU 21.02%、容器内存 787.2 MiB、Java RSS 805.2 MiB；堆 / GC 未采 | PostgreSQL 连接峰值 5（活跃 1）；Redis 1.193 MiB；OOM / 重启 0 | **预热失败，待排查并复测**：2026-11-05 14:58:18.417–14:58:39.494 UTC 一个中文搜索请求等待 21077 ms 后报 NoHttpResponseException，未收到 HTTP 响应，noindex 断言连带失败。其余 587 个目标请求 HTTP 200；其中 13 个耗时 >1 s，慢请求集中在该次预热末尾。资源采样完整（26 点/服务）。证据：`blog-p2-acceptance/results/20261105_225620_f9951c`；`blog-p2-acceptance/server-resources/resources/20261105_145612_cabdfb` |
+| P2-BASE-03（复测，3/3轮） | `fe6e066` / staging HTTPS | 1500 / 5.010 RPS（中位） | 0%（0/4499） | 193 / 231 / 422 ms（中位；最差 p95/p99 362/944） | 整机 CPU 峰值 18.55%、内存 22.54%、swap 0；backend CPU 40.63%、容器内存 786.8 MiB、Java RSS 805.3 MiB；堆 / GC 未采 | PostgreSQL 连接峰值 5（活跃 1）；Redis 1.227 MiB；OOM / 重启 0 | **负载阈值通过**；预热及正式请求均 HTTP 200，未复现无响应；正式资源采样完整（每轮每服务 59–60 点）。第三轮一个请求耗时 3836 ms，仍需关注偶发延迟；首次失败原因未定位。SQL / N+1 / GC 未核验。证据：`blog-p2-acceptance/results/20261105_230414_5b5663`；`blog-p2-acceptance/server-resources/resources/20261105_150407_efb7fc` |
+| P2-BASE-04（3/3轮） | `fe6e066` / staging HTTPS | 1500 / 5.008 RPS（中位） | 0%（0/4500） | 177 / 238 / 496 ms（中位；最差 p95/p99 246/502） | 整机 CPU 峰值 17.69%、内存 22.31%、swap 0；backend CPU 23.52%、容器内存 787.3 MiB、Java RSS 805.5 MiB；堆 / GC 未采 | PostgreSQL 连接峰值 4（活跃 1）；Redis 1.191 MiB；OOM / 重启 0 | **负载阈值通过**；预热及正式请求均 HTTP 200，正式资源采样完整（每轮每服务 59–60 点）。正式请求最大耗时 1365 ms，p95/p99 均符合阈值；SQL / N+1 / GC 未核验。证据：`blog-p2-acceptance/results/20261105_232919_ad7aca`；`blog-p2-acceptance/server-resources/resources/20261105_152908_fd78a7` |
+| P2-BASE-05（3/3轮） | `fe6e066` / staging HTTPS | 1504 / 5.015 RPS（中位） | 0%（0/4507） | 174 / 200 / 377 ms（中位；最差 p95/p99 226/383） | 整机 CPU 峰值 12.54%、内存 21.24%、swap 0；backend CPU 9.65%、容器内存 784.3 MiB、Java RSS 805.9 MiB；堆 / GC 未采 | PostgreSQL 连接峰值 3（活跃 1）；Redis 1.225 MiB；OOM / 重启 0 | **负载阈值通过**；预热及正式请求均 HTTP 200，正式资源采样完整（每轮每服务 60 点）。SQL / N+1 / GC 未核验。证据：`blog-p2-acceptance/results/20261106_082506_3f63cb`；`blog-p2-acceptance/server-resources/resources/20261106_002453_4979d7` |
+| P2-BASE-06（3/3轮） | `fe6e066` / staging HTTPS | 4486 / 14.961 RPS（中位） | 0%（0/13454） | 176 / 230 / 380 ms（中位；最差 p95/p99 233/381） | 整机 CPU 峰值 24.39%、内存 21.30%、swap 0；backend CPU 73.90%、容器内存 785.9 MiB、Java RSS 806.1 MiB；堆 / GC 未采 | PostgreSQL 连接峰值 5（活跃 1）；Redis 1.220 MiB；OOM / 重启 0 | **负载阈值通过**；预热及正式请求均 HTTP 200，混合流量覆盖列表、详情、搜索、评论和留言；正式资源采样完整（每轮每服务 59–60 点）。SQL / 浏览统计 / GC 未核验。证据：`blog-p2-acceptance/results/20261106_082506_3f63cb`；`blog-p2-acceptance/server-resources/resources/20261106_002453_4979d7` |
+| P2-PERF-01（3/3轮） | `fe6e066` / staging HTTPS | 1500 / 5.011 RPS（中位） | 0%（0/4501） | 170 / 199 / 377 ms（中位；最差 p95/p99 210/412） | 整机 CPU 峰值 12.29%、内存 21.18%、swap 0；backend CPU 7.95%、容器内存 786.3 MiB、Java RSS 806.2 MiB；堆 / GC 未采 | PostgreSQL 连接峰值 3（活跃 0）；Redis 1.193 MiB；OOM / 重启 0 | **负载阈值通过**；预热及正式请求均成功，年份汇总请求覆盖上海 / UTC / 洛杉矶时区；正式资源采样完整（每轮每服务 59–60 点）。SQL / 聚合完整性 / GC 未核验。证据：`blog-p2-acceptance/results/20261106_092136_5df589`；`blog-p2-acceptance/server-resources/resources/20261106_012132_e926be` |
+| P2-PERF-02（3/3轮） | `fe6e066` / staging HTTPS | 2980 / 9.951 RPS（中位） | 0%（0/8943） | 177 / 227 / 424 ms（中位；最差 p95/p99 229/484） | 整机 CPU 峰值 12.60%、内存 21.28%、swap 0；backend CPU 14.46%、容器内存 784.3 MiB、Java RSS 806.3 MiB；堆 / GC 未采 | PostgreSQL 连接峰值 3（活跃 1）；Redis 1.193 MiB；OOM / 重启 0 | **负载阈值通过**；预热及正式请求均成功，覆盖年 / 分类 / 标签筛选、页码 1/2 和三种时区；正式资源采样完整（每轮每服务 59–60 点）。SQL / N+1 / GC 未核验。证据：`blog-p2-acceptance/results/20261106_092136_5df589`；`blog-p2-acceptance/server-resources/resources/20261106_012132_e926be` |
+| P2-PERF-03（3/3轮） | `fe6e066` / staging HTTPS | 603 / 2.012 RPS（中位） | 0%（0/1808） | 219 / 558 / 1029 ms（中位；最差 p95/p99 586/1043） | 整机 CPU 峰值 10.38%、内存 21.35%、swap 0；backend CPU 47.44%、容器内存 788.5 MiB、Java RSS 809.1 MiB；堆 / GC 未采 | PostgreSQL 连接峰值 5（活跃 0）；Redis 1.232 MiB；OOM / 重启 0 | **负载阈值通过**；预热及正式 Dashboard 请求均成功，p95/p99 满足 1000/2000 ms 阈值；正式资源采样完整（每轮每服务 59–60 点）。指标口径 / SQL / N+1 / GC 未核验。证据：`blog-p2-acceptance/results/20261106_092136_5df589`；`blog-p2-acceptance/server-resources/resources/20261106_012132_e926be` |
+| P2-PERF-04（预热失败，正式轮未执行） | `fe6e066` / staging HTTPS | 1177 / 9.814 RPS（预热） | 0.085%（1/1177） | 192 / 283 / 638 ms（预热，不作为正式指标） | 整机 CPU 峰值 27.96%、内存 21.95%、swap 0；backend CPU 77.51%、容器内存 800.8 MiB、Java RSS 822.8 MiB；堆 / GC 未采 | PostgreSQL 连接峰值 5（活跃 0）；Redis 1.232 MiB；OOM / 重启 0 | **预热失败，待排查并复测**：2026-11-06 02:15:26.521 UTC 一次 TLS 握手被远端终止，耗时 5010 ms，未收到 HTTP 响应，noindex 断言连带失败；其余 1176 个目标请求成功。资源采样完整（24 点/服务），不能据此确定为网络波动。证据：`blog-p2-acceptance/results/20261106_092136_5df589`；`blog-p2-acceptance/server-resources/resources/20261106_012132_e926be` |
+| P2-PERF-04（复测，3/3轮） | `fe6e066` / staging HTTPS | 2982 / 9.941 RPS（中位） | 0%（0/8933） | 195 / 387 / 700 ms（中位；最差 p95/p99 438/911） | 整机 CPU 峰值 23.28%、内存 22.74%、swap 0；backend CPU 16.89%、容器内存 803.1 MiB、Java RSS 824.9 MiB；堆 / GC 未采 | PostgreSQL 连接峰值 4（活跃 2）；Redis 1.232 MiB；OOM / 重启 0 | **负载阈值通过**；预热及正式请求均 HTTP 200，未复现 TLS 握手失败；正式资源采样完整（每轮每服务 60 点）。正式请求最大耗时 2659 ms，p95/p99 均符合阈值；通知数据 / SQL / GC 未核验，保留首次失败记录。证据：`blog-p2-acceptance/results/20261106_105838_d28f58`；`blog-p2-acceptance/server-resources/resources/20261106_025833_8791f6` |
+| P2-PERF-05（第1/3轮，延迟未达标） | `fe6e066` / staging HTTPS | 1490 / 4.969 RPS | 0%（0/1490） | 206 / **731 / 1142 ms** | 整机 CPU 峰值 17.65%、内存 22.42%、swap 0；backend CPU 36.36%、容器内存 804.5 MiB、Java RSS 826.4 MiB；堆 / GC 未采 | PostgreSQL 连接峰值 3（活跃 0）；Redis 1.232 MiB；OOM / 重启 0 | **FAIL：p95/p99 超过 500/1000 ms 阈值，后两轮未执行**；预热及正式请求均 HTTP 200，吞吐满足目标。四种查询的 p95 为 651–758 ms，未见只集中于单一查询；正式资源采样完整（60 点/服务）。SQL / GC / 网络原因未定位。证据：`blog-p2-acceptance/results/20261106_105838_d28f58`；`blog-p2-acceptance/server-resources/resources/20261106_025833_8791f6` |
+| P2-PERF-05（复测，3/3轮） | `fe6e066` / staging HTTPS | 1498 / 4.996 RPS（中位） | 0%（0/4497） | 181 / 207 / 394 ms（中位；最差 p95/p99 221/427） | 整机 CPU 峰值 23.08%、内存 22.06%、swap 0；backend CPU 12.45%、容器内存 809.9 MiB、Java RSS 828.1 MiB；堆 / GC 未采 | PostgreSQL 连接峰值 5（活跃 1）；Redis 1.269 MiB；OOM / 重启 0 | **负载阈值通过**；预热及正式请求均 HTTP 200，覆盖邮件投递 / 安全事件列表及筛选；正式资源采样完整（每轮每服务 60 点）。首次延迟超标原因未定位，保留失败记录；SQL / N+1 / GC 未核验。证据：`blog-p2-acceptance/results/20261106_115008_6ccf8a`；`blog-p2-acceptance/server-resources/resources/20261106_035001_3e3cb8` |
+| P2-PERF-11（2/3轮，第二轮延迟未达标） | `fe6e066` / staging HTTPS | 第1/2轮均 1503 次，5.013 / 5.011 RPS | 0%（0/3006） | 第1轮 174/266/486 ms；第2轮 177/**508/1178 ms** | 整机 CPU 峰值 9.48%、内存 21.55%、swap 0；backend CPU 7.30%、容器内存 809.2 MiB、Java RSS 830.9 MiB；堆 / GC 未采 | PostgreSQL 连接峰值 3（活跃 0）；Redis 1.213 MiB；OOM / 重启 0 | **FAIL：第二轮 p95/p99 超过 500/1000 ms 阈值，第三轮未执行**；预热及正式请求均 HTTP 200，覆盖首页、文章 HTML、sitemap、RSS 和友链，吞吐满足目标；正式资源采样完整（每轮每服务 60 点）。第二轮 sitemap / 友链 p95 为 610/780 ms；SQL / GC / 链路原因未定位。证据：`blog-p2-acceptance/results/20261106_131357_685c07`；`blog-p2-acceptance/server-resources/resources/20261106_051351_38ba2b` |
+
+本批次 `20261106_092136_5df589` 在 P2-PERF-04 预热失败后停止；P2-PERF-05 虽列入计划，但未执行，不计通过。后续批次 `20261106_105838_d28f58` 已完成 P2-PERF-04 三轮复测；P2-PERF-05 在首轮正式测试因延迟超标停止，未完成三轮验收。批次 `20261106_115008_6ccf8a` 已完成 P2-PERF-05 三轮复测，负载指标通过；不据此覆盖首次失败记录或认定其原因已解决。
+
+P2-BASE-02 本次复测的三轮正式窗口另核对了原始系统日志：vmstat 的 swap in/out 为 0，I/O wait 采样最大 1%；系统盘 vda 的采样 util 最大 3.22%、队列最大 0.11；eth0 接收 / 发送峰值约 6.25 / 41.28 KiB/s。未见持续磁盘或交换压力；这些是整机区间采样，不能据此排除瞬时暂停，或确定此前单次 TLS 握手失败的原因。
+
+P2-BASE-03 本次预热末尾除无响应请求外，还存在多个等待首字节约 3–10 s 后返回 200 的请求。对应预热窗口的 vmstat swap in/out 与 I/O wait 均为 0，vda util 采样峰值 0.34%；未见资源耗尽，但缺少 Nginx 请求 / 上游耗时及 JVM GC 证据，不能把故障直接归因于公网网络，也不能仅因 access log 均为 200 就判定正常。预热 p99 与吞吐受该段等待影响；当前运行器在预热阶段仅按请求是否成功决定继续，本次因一个无响应请求停止。
 
 ## 21. 本机 / 预发布生产式部署
 
 使用当前生产构建、`prod` profile、隔离数据和受控测试域名，不以 Vite 开发服务器代替部署验收。
 
-- [ ] 干净构建后端、前端及含 zhparser 的 PostgreSQL 镜像，Compose 启动 Nginx / backend / PostgreSQL / Redis 健康。
-- [ ] 一次性 bootstrap 正确创建首个管理员，部署者确认邮箱归属后初始化为已验证并保存确认时间；重复执行被拒绝、不修改已有账号；密码不进入命令日志、镜像或长期环境变量。
-- [ ] HTTPS 登录、刷新、退出及两种 Cookie 属性正确；只有共享入口发布 80/443，数据库 / Redis / 项目 Nginx 无宿主机端口，验收 backend 仅 loopback 测试端口。
-- [ ] 共享入口与两个项目独立启停；入口重写 Forwarded / X-Forwarded-*，项目只信任入口固定 IP；两层 12m 请求体上限，合法图片不被外层 413 拒绝。
-- [ ] Certbot webroot 首次签证、renew dry-run、deploy hook 和 timer 验证成功；关闭 staging 项目后 ACME 仍可用，正式站不受影响。
-- [ ] Nginx 公共 HTML / API / RSS 路由、代理头、真实 IP、静态资源和 API noindex 规则正确。
-- [ ] 登录 / 点赞 / 留言边缘限流生效，API 超限返回既定 JSON；不会误伤静态资源请求。
-- [ ] 共享 SEO 模板卷中入口 HTML 与构建资源一致，重建 / 滚动更新后无静态资源404或永久503。
-- [ ] 后端读取站点及邮件配置，前端构建包含 API 前缀、Turnstile site key、运行起点；开发域名不进入实际邮件或 canonical。
-- [ ] 为目标内存规格设置并记录容器限制、JVM 堆及非堆余量、Redis 内存策略；不能仅设 Xmx 就当作进程总内存限制。
-- [ ] Redis 的验证码 / 去重 / 限流 / 身份缓存在所选内存策略下正常；内存不足不得通过静默淘汰导致绕过安全规则。
-- [ ] 容器重启后业务数据与既定 Redis 持久化符合预期；更新服务不删除数据库卷。
-- [ ] 日志轮转、只读 / 非 root 运行和配置挂载正确，未把测试 profile / 真实密钥打包进镜像。
-- [ ] PostgreSQL / Redis / 后端短时故障和重新启动后恢复正常，第22节冒烟通过。
+- [x] 干净构建后端、前端及含 zhparser 的 PostgreSQL 镜像，Compose 启动 Nginx / backend / PostgreSQL / Redis 健康。
+- [x] 一次性 bootstrap 正确创建首个管理员，部署者确认邮箱归属后初始化为已验证并保存确认时间；重复执行被拒绝、不修改已有账号；密码不进入命令日志、镜像或长期环境变量。
+- [x] HTTPS 登录、刷新、退出及两种 Cookie 属性正确；只有共享入口发布 80/443，数据库 / Redis / 项目 Nginx 无宿主机端口，验收 backend 仅 loopback 测试端口。
+- [x] 共享入口与两个项目独立启停；入口重写 Forwarded / X-Forwarded-*，项目只信任入口固定 IP；两层 12m 请求体上限，合法图片不被外层 413 拒绝。
+- [x] Certbot webroot 首次签证、renew dry-run、deploy hook 和 timer 验证成功；关闭 staging 项目后 ACME 仍可用，正式站不受影响。
+- [x] Nginx 公共 HTML / API / RSS 路由、代理头、真实 IP、静态资源和 API noindex 规则正确。
+- [x] 登录 / 点赞 / 留言边缘限流生效，API 超限返回既定 JSON；不会误伤静态资源请求。
+- [x] 共享 SEO 模板卷中入口 HTML 与构建资源一致，重建 / 滚动更新后无静态资源404或永久503。
+- [x] 后端读取站点及邮件配置，前端构建包含 API 前缀、Turnstile site key、运行起点；开发域名不进入实际邮件或 canonical。
+- [x] 为目标内存规格设置并记录容器限制、JVM 堆及非堆余量、Redis 内存策略；不能仅设 Xmx 就当作进程总内存限制。
+- [x] Redis 的验证码 / 去重 / 限流 / 身份缓存在所选内存策略下正常；内存不足不得通过静默淘汰导致绕过安全规则。
+- [x] 容器重启后业务数据与既定 Redis 持久化符合预期；更新服务不删除数据库卷。
+- [x] 日志轮转、只读 / 非 root 运行和配置挂载正确，未把测试 profile / 真实密钥打包进镜像。
+- [x] PostgreSQL / Redis / 后端短时故障和重新启动后恢复正常，第22节冒烟通过。
 
 ## 22. 每次部署后的冒烟
 
-- [ ] HTTPS 首页、文章列表 / 详情、归档、友链、关于、留言、RSS可访问，静态资源无404。
-- [ ] 验证码注册 → 登录 → 刷新 → 退出，真实环境Cookie和返回路径正确。
-- [ ] 管理员发布验收文章，前台搜索 / 归档找到，正文图片 / 图注 / 公式正常。
-- [ ] 点赞 / 取消、有效浏览、评论发表 / 审核 / 回复、通知红点与锚点正常。
-- [ ] 游客经Turnstile留言，管理员回复后邮件到受控邮箱，查看 / 首页 / 退订链接可用。
-- [ ] 管理员消息、Dashboard、安全事件、审计、邮件投递和友链写操作正常。
-- [ ] 真实OSS图片匿名HTTPS读取正常，外部SMTP / Turnstile无配置或证书错误。
-- [ ] 重启后端后登录、搜索、通知和历史数据正常，容器日志无持续异常或重复重启。
+- [x] HTTPS 首页、文章列表 / 详情、归档、友链、关于、留言、RSS可访问，静态资源无404。
+- [x] 验证码注册 → 登录 → 刷新 → 退出，真实环境Cookie和返回路径正确。
+- [x] 管理员发布验收文章，前台搜索 / 归档找到，正文图片 / 图注 / 公式正常。
+- [x] 点赞 / 取消、有效浏览、评论发表 / 审核 / 回复、通知红点与锚点正常。
+- [x] 游客经Turnstile留言，管理员回复后邮件到受控邮箱，查看 / 首页 / 退订链接可用。
+- [x] 管理员消息、Dashboard、安全事件、审计、邮件投递和友链写操作正常。
+- [x] 真实OSS图片匿名HTTPS读取正常，外部SMTP / Turnstile无配置或证书错误。
+- [x] 重启后端后登录、搜索、通知和历史数据正常，容器日志无持续异常或重复重启。
 
 ## 23. 正式上线前门禁
 
 本节可在本阶段结束后实施，但正式公网开放前必须完成；当前生产配置如不满足，记缺陷 / 待办，不把清单当作已经实现的证明。
 
 - [ ] 记录正式服务器规格与容量基线；防火墙只开放必要端口，数据库 / Redis 无公网入口。
-- [ ] 生产数据库、Redis、JWT、OSS和SMTP凭据使用文件型Secret或云密钥管理并完成应用读取适配；不能只改Compose声明。
+- [ ] 使用 `.env.prod.example` 准备仓库外的正式 `.env.prod`，父目录 / 文件权限为 `700` / `600`；数据库、Redis、JWT、OSS 和 SMTP 凭据由 Compose 注入，不进入 Git、镜像、日志或公开报告。
 - [ ] 受限生产账号权限、密钥轮换、配置缺失启动失败和日志脱敏实际验证。
 - [ ] 正式域名DNS、站点与OSS的HTTPS证书有效，自动续期 / 人工补救流程和到期告警明确。
 - [ ] Resend发信域名已验证，SPF / DKIM及DMARC策略有记录，真实邮件链接指向正式站点。

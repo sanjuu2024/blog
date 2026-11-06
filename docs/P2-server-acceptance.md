@@ -139,7 +139,7 @@ dc up -d --wait --wait-timeout 180
 dc ps
 ```
 
-删除的只是刚创建的明文临时密码文件；保存管理员凭据到自己的密码管理器。普通 dc 不使用 bootstrap secret 文件，之后不再执行 boot。
+删除的只是刚创建的明文临时密码文件；保存管理员凭据到自己的密码管理器。普通 dc 不使用 bootstrap 临时密码文件，之后不再执行 boot。
 
 ## 6. 冒烟与资源限制核对
 
@@ -308,4 +308,4 @@ python3 performance/p2/run.py --summarize ./blog-p2-acceptance/results/实际时
 dc down
 ```
 
-这只停止验收项目，保留数据库卷、报告及入口管理的外部网络；不加 -v，不停止 blog-ingress。按共享入口手册第 5 步在独立检出目录准备正式 `.env.prod`、正式证书、网络配置及新数据库 `blog_prod`、凭据和管理员；正式配置不叠加 compose.acceptance.yaml，不复制性能卷或测试密码。之后可在独立 staging 项目验收新版本，但不要改动正式容器挂载的配置。保留相容镜像用于回滚。
+这只停止验收项目，保留数据库卷、报告及入口管理的外部网络；不加 -v，不停止 blog-ingress。按共享入口手册第 5 步，在独立检出目录以根目录 `.env.prod.example` 准备仓库外的正式 `.env.prod`、正式证书、网络配置及新数据库 `blog_prod`、凭据和管理员；正式配置不叠加 compose.acceptance.yaml，不复制性能卷或测试密码。之后可在独立 staging 项目验收新版本，但不要改动正式容器挂载的配置。保留相容镜像用于回滚。
