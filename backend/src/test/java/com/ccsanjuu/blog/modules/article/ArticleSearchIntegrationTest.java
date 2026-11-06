@@ -23,6 +23,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.util.HtmlUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -329,14 +330,16 @@ class ArticleSearchIntegrationTest {
                 assertSingleTitle("forces", "AtCoder 练习", categoryId).getSearchSnippet()
         );
 
-        jdbcTemplate.update(
-                "update blog_article set summary = ?, content_text = ? where id = ?",
-                "普通摘要", "前".repeat(80) + "Codeforces" + "后".repeat(80), articleId
-        );
+        // 通过 Mapper 更新以清理同一事务中的 MyBatis 一级缓存，确保重复搜索读取新样本。
+        articleMapper.updateById(Article.builder()
+                .id(articleId)
+                .summary("普通摘要")
+                .contentText("前".repeat(80) + "Codeforces" + "后".repeat(80))
+                .build());
 
         assertEquals(
                 "…" + "前".repeat(46) + "Code<mark class=\"article-search-highlight\">forces</mark>" + "后".repeat(50) + "…",
-                assertSingleTitle("forces", "AtCoder 练习", categoryId).getSearchSnippet()
+                HtmlUtils.htmlUnescape(assertSingleTitle("forces", "AtCoder 练习", categoryId).getSearchSnippet())
         );
     }
 
@@ -355,11 +358,15 @@ class ArticleSearchIntegrationTest {
         );
 
         for (int i = 0; i < bodies.size(); i++) {
-            jdbcTemplate.update(
-                    "update blog_article set summary = ?, content_text = ? where id = ?",
-                    "普通摘要", bodies.get(i), articleId
+            articleMapper.updateById(Article.builder()
+                    .id(articleId)
+                    .summary("普通摘要")
+                    .contentText(bodies.get(i))
+                    .build());
+            assertEquals(
+                    snippets.get(i),
+                    HtmlUtils.htmlUnescape(assertSingleTitle("code", "Spring Boot 双 Token 登录实践", categoryId).getSearchSnippet())
             );
-            assertEquals(snippets.get(i), assertSingleTitle("code", "Spring Boot 双 Token 登录实践", categoryId).getSearchSnippet());
         }
     }
 

@@ -670,6 +670,7 @@ class ArticleServiceImplTest {
     @ParameterizedTest
     @CsvSource(delimiter = '|', textBlock = """
             at | <AtCoder> ATCODER | &lt;<mark class="article-search-highlight">At</mark>Coder&gt; <mark class="article-search-highlight">AT</mark>CODER
+            at | …AtCoder… | &hellip;<mark class="article-search-highlight">At</mark>Coder&hellip;
             % | 100% | 100<mark class="article-search-highlight">%</mark>
             _ | a_b | a<mark class="article-search-highlight">_</mark>b
             [a].* | x[a].*y | x<mark class="article-search-highlight">[a].*</mark>y
