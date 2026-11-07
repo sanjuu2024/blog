@@ -118,7 +118,7 @@ install -d -m 0700 /opt/blog-platform/production
 chmod 600 /opt/blog-platform/production/.env.prod
 ```
 
-填写模板中的全部 `CHANGE_ME` 和示例域名。`.env.prod.example` 是正式 Compose 的完整输入模板；根目录 `.env.example` 供本地开发参考，`performance/p2/acceptance.env.example` 供独立验收使用，不复制两份变量再互相覆盖。环境文件不会被 Spring Boot 自动读取，下面通过 Compose 的 `--env-file` 加载。当前数据库初始化、Flyway 和后端共用 `POSTGRES_USER`，填写本模板不等于已实现数据库管理 / 应用账号分离。
+填写模板中的全部 `CHANGE_ME` 和示例域名。`.env.prod.example` 是正式 Compose 的完整输入模板；根目录 `.env.example` 供本地开发参考，`performance/p2/acceptance.env.example` 供独立验收使用，不复制两份变量再互相覆盖。环境文件不会被 Spring Boot 自动读取，下面通过 Compose 的 `--env-file` 加载。`POSTGRES_ADMIN_USERNAME/PASSWORD` 为管理凭据，`POSTGRES_APP_USERNAME/PASSWORD` 为独立应用凭据；管理凭据只传入 PostgreSQL 和一次性 `db-prepare`，backend 和管理员 bootstrap 使用应用账号。PostgreSQL 容器内部仍使用官方的 `POSTGRES_USER/PASSWORD`，由 Compose 映射。完整的首次部署、版本更新及备份恢复顺序见 [数据库账号与部署流程](./database-accounts.md)。
 
 网络和镜像示例为：
 
@@ -190,10 +190,10 @@ printf '\n'
 (umask 077; printf '%s' "$production_bootstrap_password" > /opt/blog-platform/production/bootstrap-password)
 unset production_bootstrap_password
 prodboot config -q
-prodboot run --rm --no-deps admin-bootstrap
+prodboot run --rm admin-bootstrap
 ```
 
-只有看到 `ADMIN_BOOTSTRAP_SUCCESS` 后再删除刚创建的临时文件并启动长期服务；初始化失败先处理报错，不重复覆盖已有管理员：
+该命令先自动执行 `db-prepare`：创建受限应用账号、迁移数据库、补齐授权，成功后才运行管理员 bootstrap。不要添加 `--no-deps`。只有看到 `ADMIN_BOOTSTRAP_SUCCESS` 后再删除刚创建的临时文件并启动长期服务；初始化失败先处理报错，不重复覆盖已有管理员：
 
 ```bash
 rm /opt/blog-platform/production/bootstrap-password

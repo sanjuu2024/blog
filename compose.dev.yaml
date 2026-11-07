@@ -7,8 +7,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: sanjuu
-      POSTGRES_PASSWORD: sanjuu
+      # 管理账号保持已有数据卷的值；业务账号由 dev/test Flyway 回调自动创建和授权。
+      POSTGRES_USER: ${POSTGRES_ADMIN_USERNAME:-sanjuu}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-sanjuu}
       POSTGRES_DB: blog_db
       TZ: UTC
       PGTZ: UTC
@@ -16,7 +17,7 @@ services:
       - blog_pg_data:/var/lib/postgresql/data
       - ./backend/scripts/db/bootstrap/init.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sanjuu -d blog_db"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 10

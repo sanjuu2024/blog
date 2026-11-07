@@ -1,6 +1,9 @@
 # application-dev.yaml、application-test.yaml
 spring:
   flyway:
+    url: ${BLOG_DB_URL}
+    user: ${POSTGRES_ADMIN_USERNAME}
+    password: ${POSTGRES_ADMIN_PASSWORD}
     locations:
       - classpath:db/migration
       - classpath:db/devdata

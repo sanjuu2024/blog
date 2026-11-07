@@ -1,6 +1,10 @@
 server:
   forward-headers-strategy: framework   # 处理 nginx 反向代理的配置
 
+spring:
+  flyway:
+    enabled: false   # 生产由 db-prepare 一次性任务迁移，业务进程不持有管理凭据
+
 blog:
   app-name: ${BLOG_APP_NAME:}
   site-url: ${BLOG_SITE_URL:}

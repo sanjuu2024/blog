@@ -7,6 +7,9 @@ services:
       POSTGRES_DB: blog_p2_performance
   redis:
     restart: "on-failure:3"
+  db-prepare:
+    environment:
+      BLOG_DB_URL: jdbc:postgresql://postgres:5432/blog_p2_performance
   backend:
     restart: "on-failure:3"
     environment:

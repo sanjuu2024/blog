@@ -1,13 +1,16 @@
 spring:
   datasource:
     url: ${BLOG_TEST_DB_URL}
-    username: ${BLOG_TEST_DB_USERNAME}
-    password: ${BLOG_TEST_DB_PASSWORD}
+    username: ${POSTGRES_TEST_APP_USERNAME}
+    password: ${POSTGRES_TEST_APP_PASSWORD}
     driver-class-name: org.postgresql.Driver
   data:
     redis:
       database: ${BLOG_TEST_REDIS_DATABASE:1}
   flyway:
+    url: ${BLOG_TEST_DB_URL}
+    user: ${POSTGRES_TEST_ADMIN_USERNAME}
+    password: ${POSTGRES_TEST_ADMIN_PASSWORD}
     locations:
       - classpath:db/migration
       - classpath:db/devdata

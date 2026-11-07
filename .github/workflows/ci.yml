@@ -73,8 +73,10 @@ jobs:
 
     env:
       BLOG_TEST_DB_URL: jdbc:postgresql://localhost:5432/blog_test
-      BLOG_TEST_DB_USERNAME: sanjuu
-      BLOG_TEST_DB_PASSWORD: sanjuu
+      POSTGRES_TEST_APP_USERNAME: blog_test_app
+      POSTGRES_TEST_APP_PASSWORD: ci-application-password
+      POSTGRES_TEST_ADMIN_USERNAME: sanjuu
+      POSTGRES_TEST_ADMIN_PASSWORD: sanjuu
       BLOG_TEST_JWT_SECRET: Y2ktb25seS1qd3Qtc2VjcmV0LWF0LWxlYXN0LTMyLWJ5dGVzLWxvbmc=
       BLOG_REDIS_HOST: localhost
       BLOG_REDIS_PORT: 6379
