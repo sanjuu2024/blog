@@ -14,9 +14,12 @@ import type {
 	UpdateArticleStatusRequest,
 	UpdatedArticleStatusData,
 	UpdatedArticleStatusResponse,
+	ArticlePreviewData,
+	ArticlePreviewResponse,
 } from '../types/adminArticle';
 
 const ADMIN_ARTICLE_API = {
+	previewArticle: 'admin/articles/preview',
 	listArticles: 'admin/articles',
 	getArticleDetails: (articleId: number) => `admin/articles/${articleId}`,
 	createArticle: 'admin/articles',
@@ -24,6 +27,14 @@ const ADMIN_ARTICLE_API = {
 	deleteArticle: (articleId: number) => `admin/articles/${articleId}`,
 	updateArticleStatus: (articleId: number) => `admin/articles/${articleId}/status`,
 } as const;
+
+// 使用与文章保存一致的后端转换规则，不保存当前表单。
+export const previewArticle = (contentMd: string): Promise<ArticlePreviewData> => {
+	return request.post<ArticlePreviewResponse, ArticlePreviewData, { contentMd: string }>(
+		ADMIN_ARTICLE_API.previewArticle,
+		{ contentMd },
+	);
+};
 
 // 获取后台文章分页列表接口
 export const listArticles = (params?: AdminArticleListQuery): Promise<AdminArticlePageData> => {

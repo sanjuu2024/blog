@@ -16,6 +16,7 @@ import com.ccsanjuu.blog.modules.article.model.bo.ArticleLikeIdentity;
 import com.ccsanjuu.blog.modules.article.model.bo.PublicArticleSearchBO;
 import com.ccsanjuu.blog.modules.article.model.dto.AdminArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
+import com.ccsanjuu.blog.modules.article.model.dto.ArticlePreviewRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.PublicArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.UpdateArticleStatusRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
@@ -67,6 +68,17 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     private final ArticleLikeService articleLikeService;
     private final ArticleLikeMapper articleLikeMapper;
     private final SeoMetadataFactory seoMetadataFactory;
+
+    /**
+     * 预览与保存共用正文转换器，不触发持久化、统计或发布操作。
+     *
+     * @param request 当前编辑的 Markdown
+     * @return 清洗后的 HTML
+     */
+    @Override
+    public ArticlePreviewVO previewArticle(ArticlePreviewRequestDTO request) {
+        return new ArticlePreviewVO(articleContentRenderer.convertMarkdownToHtml(request.getContentMd()));
+    }
 
     /**
      * 获取后台文章分页列表

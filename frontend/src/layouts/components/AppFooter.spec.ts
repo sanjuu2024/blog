@@ -14,15 +14,23 @@ describe('AppFooter', () => {
 		vi.unstubAllEnvs();
 	});
 
-	it('shows copyright, the RSS link, and a live uptime counter', async () => {
+	it('shows copyright with a project link, RSS subscription, and a live uptime counter', async () => {
 		const wrapper = mount(AppFooter);
 		await flushPromises();
 
-		expect(wrapper.get('.app-footer__copyright').text()).toBe(
-			`Copyright © 2026-2026 ${import.meta.env.VITE_APP_TITLE || 'Sanjuu Blog'}. All Rights Reserved.`,
+		const copyright = wrapper.get('.app-footer__copyright');
+		expect(copyright.text()).toContain('Copyright © 2026-2026');
+		expect(copyright.text()).toContain('. All Rights Reserved.');
+		const projectLink = copyright.get('a');
+		expect(projectLink.text()).toBe(import.meta.env.VITE_APP_TITLE || 'Sanjuu Blog');
+		expect(projectLink.attributes('href')).toBe('https://github.com/sanjuu2024/blog');
+		expect(projectLink.attributes('target')).toBe('_blank');
+		expect(projectLink.attributes('rel')?.split(/\s+/)).toEqual(
+			expect.arrayContaining(['noopener', 'noreferrer']),
 		);
-		expect(wrapper.get('.app-footer__rss').attributes('href')).toBe('/rss.xml');
-		expect(wrapper.get('.app-footer__rss').attributes('type')).toBe('application/rss+xml');
+		const rssLink = wrapper.get('a[href="/rss.xml"]');
+		expect(rssLink.text()).toBe('RSS 订阅');
+		expect(rssLink.attributes('type')).toBe('application/rss+xml');
 		expect(wrapper.get('.app-footer__uptime').text()).toBe(
 			'🎉 本站已运行 1 天 01 小时 02 分 03 秒 ♪(´▽｀)',
 		);

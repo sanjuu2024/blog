@@ -187,13 +187,21 @@
 		</el-card>
 
 		<!-- 点击按钮发送请求 -->
-		<div class="admin-article-edit-footer my-12 flex w-full justify-center">
+		<div class="admin-article-edit-footer my-12 flex w-full items-center justify-center px-5">
+			<el-button
+				class="admin-article-preview-button"
+				size="large"
+				:disabled="submitting || imageUploading || previewLoading"
+				@click="openPreview"
+			>
+				实际效果预览
+			</el-button>
 			<!-- 🔺防坑，如果要写成行内，别忘了加了括号就是立即运行，所以这里的 @click 要写成箭头函数。 -->
 			<!-- e.g. @click="() => mode === 'create' ? handleCreateArticle() : handleUpdateArticle(articleId ?? 0)" -->
 			<el-button
 				type="primary"
 				size="large"
-				class="mx-5 w-full"
+				class="admin-article-submit-button flex-1"
 				:disabled="submitting"
 				:loading="submitting"
 				@click="clickUpsertArticle"
@@ -201,6 +209,14 @@
 				{{ mode === 'create' ? '创建文章' : '更新文章' }}
 			</el-button>
 		</div>
+
+		<AdminArticlePreviewDialog
+			v-model="previewVisible"
+			:loading="previewLoading"
+			:failed="previewFailed"
+			:article="previewArticle"
+			@retry="openPreview"
+		/>
 
 		<!-- 选择标签 -->
 		<el-dialog
@@ -260,6 +276,8 @@ import { IMAGE_ACCEPT } from '@/modules/file/utils/image';
 import { isEqual } from 'lodash';
 import { CATEGORY_STATUS } from '@/modules/category/constants/category';
 import { TAG_STATUS } from '@/modules/tag/constants/tag';
+import AdminArticlePreviewDialog from '../components/AdminArticlePreviewDialog.vue';
+import { useAdminArticlePreview } from '../composables/useAdminArticlePreview';
 
 const route = useRoute();
 const router = useRouter();
@@ -278,6 +296,14 @@ const {
 	handleCreateArticle,
 	handleUpdateArticle,
 } = useAdminArticleForm();
+
+const {
+	visible: previewVisible,
+	loading: previewLoading,
+	failed: previewFailed,
+	article: previewArticle,
+	openPreview,
+} = useAdminArticlePreview(upsertRequest, categoryList, tagList);
 
 // 禁用状态只影响前台展示，后台仍可选二级分类；一级分类仅作为树分组。
 const categoryOptions = computed(() =>

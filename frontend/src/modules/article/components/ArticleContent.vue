@@ -133,11 +133,11 @@
 
 			<!-- 文章内容 -->
 			<!-- 决定还是不用 md-editor-v3 套，而是用 github-markdown-css + 自定义 css 类控制 -->
-			<div
-				ref="contentRef"
-				v-html="article.contentHtml"
-				class="article-markdown markdown-body"
-			></div>
+			<ArticleBody
+				ref="bodyRef"
+				:html="article.contentHtml"
+				@rendered="refreshCatalog"
+			/>
 
 			<!-- 文章作者 & 发布时间 -->
 			<div class="article-author-and-published-at">
@@ -208,7 +208,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue';
+import { computed, ref } from 'vue';
 import { formatDateTime } from '@/utils/datetime';
 import type { PublicArticleDetailData } from '../types/article';
 import AppImage from '@/components/AppImage.vue';
@@ -219,10 +219,8 @@ import getRouteIcon from '@/utils/getRouteIcon';
 import ArticleCatalogSidebar from './ArticleCatalogSidebar.vue';
 import { useArticleCatalog } from '../composables/useArticleCatalog';
 import { useLikeConfetti } from '../composables/useLikeConfetti.ts';
-// 语法高亮渲染器
-import { highlightCodeUnder } from '@/utils/prism';
 import ArticleLikeButton from './ArticleLikeButton.vue';
-import { renderImageCaptions } from '../utils/renderImageCaptions';
+import ArticleBody from './ArticleBody.vue';
 
 // import { useTheme } from '@/composables/useTheme';
 // const { resolvedTheme: ResolvedThemeName } = useTheme();
@@ -233,7 +231,7 @@ defineOptions({
 
 const { triggerConfetti } = useLikeConfetti();
 
-const props = defineProps<{
+defineProps<{
 	article: PublicArticleDetailData | null;
 	isLoading: boolean;
 	errorMessage?: string;
@@ -249,46 +247,10 @@ const emit = defineEmits<{
 const expanded = ref(false);
 
 // 显示文章内容的容器
-const contentRef = ref<HTMLElement | null>(null);
+const bodyRef = ref<InstanceType<typeof ArticleBody> | null>(null);
+const contentRef = computed(() => bodyRef.value?.element ?? null);
 const { activeCatalogId, catalogList, refreshCatalog, scrollToHeading } =
 	useArticleCatalog(contentRef);
-
-watch(
-	() => props.article?.contentHtml,
-	async () => {
-		await nextTick();
-
-		refreshCatalog();
-
-		if (contentRef.value) {
-			const contentElement = contentRef.value;
-			// 将图片 title 转成图注并移除原生悬浮提示，保留 alt、尺寸和链接。
-			renderImageCaptions(contentElement);
-			const contentText = contentElement.textContent || '';
-			if (
-				contentText.includes('$') ||
-				contentText.includes('\\(') ||
-				contentText.includes('\\[')
-			) {
-				const { default: renderMathInElement } = await import('katex/contrib/auto-render');
-				if (contentRef.value !== contentElement) return;
-				renderMathInElement(contentElement, {
-					delimiters: [
-						{ left: '$$', right: '$$', display: true },
-						{ left: '\\[', right: '\\]', display: true },
-						{ left: '$', right: '$', display: false },
-						{ left: '\\(', right: '\\)', display: false },
-					],
-					throwOnError: false,
-					trust: false,
-					ignoredClasses: ['article-image__caption'],
-				});
-			}
-			highlightCodeUnder(contentElement);
-		}
-	},
-	{ immediate: true },
-);
 
 // 点击文章详情区域时，关闭目录侧栏（侧栏展开状态下）
 function closeCatalog() {
@@ -378,11 +340,6 @@ function jumpToComments() {
 		content: '”';
 		font-size: 1.5rem;
 	}
-}
-
-.markdown-body {
-	// 默认会有 45 px 的内边距，移动端布局下内容区域过窄
-	padding-inline: 0.5rem;
 }
 
 .article-author-and-published-at {

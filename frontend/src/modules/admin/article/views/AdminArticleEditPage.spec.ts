@@ -12,6 +12,9 @@ const routeLeave = vi.hoisted(() => ({ guard: undefined as (() => Promise<boolea
 const confirmLeave = vi.hoisted(() => vi.fn());
 const createArticle = vi.hoisted(() => vi.fn());
 const uploadAdminImage = vi.hoisted(() => vi.fn());
+const previewArticle = vi.hoisted(() => vi.fn());
+
+vi.mock('../api/adminArticleApi', () => ({ previewArticle }));
 
 let upsertRequest: ArticleUpsertRequestFilter;
 let categories: AdminCategoryItem[] = [];
@@ -129,6 +132,7 @@ describe('AdminArticleEditPage', () => {
 		routeLeave.guard = undefined;
 		createArticle.mockResolvedValue(true);
 		updateArticle.mockResolvedValue(true);
+		previewArticle.mockResolvedValue({ contentHtml: '<h1>未保存正文</h1>' });
 		categories = [];
 		tags = [];
 		existingArticle = {};
@@ -153,6 +157,28 @@ describe('AdminArticleEditPage', () => {
 		expect(callback).toHaveBeenCalledExactlyOnceWith([
 			{ url: 'https://img.example.com/architecture.png', alt: '架构图.png', title: '' },
 		]);
+		wrapper.unmount();
+	});
+
+	it('opens actual preview without saving or clearing unsaved changes', async () => {
+		const wrapper = await mountPage();
+		upsertRequest.title = '未保存标题';
+		upsertRequest.contentMd = '# 未保存正文';
+		await wrapper.get('.admin-article-preview-button').trigger('click');
+		await flushPromises();
+
+		expect(previewArticle).toHaveBeenCalledExactlyOnceWith('# 未保存正文');
+		expect(
+			wrapper.getComponent({ name: 'AdminArticlePreviewDialog' }).props('article'),
+		).toMatchObject({
+			title: '未保存标题',
+			contentHtml: '<h1>未保存正文</h1>',
+		});
+		expect(createArticle).not.toHaveBeenCalled();
+		expect(updateArticle).not.toHaveBeenCalled();
+		confirmLeave.mockRejectedValueOnce(new Error('cancel'));
+		expect(await routeLeave.guard?.()).toBe(false);
+		expect(confirmLeave).toHaveBeenCalled();
 		wrapper.unmount();
 	});
 
@@ -188,7 +214,7 @@ describe('AdminArticleEditPage', () => {
 			categoryId: 21001,
 		});
 
-		await wrapper.get('.admin-article-edit-footer el-button-stub').trigger('click');
+		await wrapper.get('.admin-article-submit-button').trigger('click');
 		await flushPromises();
 
 		expect(createArticle).toHaveBeenCalledTimes(1);
@@ -262,7 +288,7 @@ describe('AdminArticleEditPage', () => {
 			expect(wrapper.findComponent({ name: 'AppTagCapsule' }).props('name')).toBe(
 				'JWT（已禁用）',
 			);
-			await wrapper.get('.admin-article-edit-footer el-button-stub').trigger('click');
+			await wrapper.get('.admin-article-submit-button').trigger('click');
 			await flushPromises();
 			expect(mode === 'create' ? createArticle : updateArticle).toHaveBeenCalledTimes(1);
 			wrapper.unmount();

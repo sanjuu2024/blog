@@ -135,3 +135,17 @@ export interface UpdatedArticleStatusData {
 export type UpdatedArticleStatusResponse = ApiResult<UpdatedArticleStatusData>;
 
 export type DeleteArticleResponse = ApiResult<null>;
+
+export interface ArticlePreviewData {
+	contentHtml: string;
+}
+
+export type ArticlePreviewResponse = ApiResult<ArticlePreviewData>;
+
+export interface ArticlePreviewSnapshot extends ArticlePreviewData {
+	title: string;
+	summary: string;
+	coverUrl: string;
+	categoryPath: string;
+	tags: { id: number; name: string }[];
+}

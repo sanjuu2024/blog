@@ -6,6 +6,8 @@ import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
 import com.ccsanjuu.blog.modules.article.mapper.ArticleTagMapper;
 import com.ccsanjuu.blog.modules.audit.mapper.AdminAuditLogMapper;
 import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
+import com.ccsanjuu.blog.modules.article.model.dto.ArticlePreviewRequestDTO;
+import com.ccsanjuu.blog.modules.article.model.vo.ArticlePreviewVO;
 import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
 import com.ccsanjuu.blog.modules.article.model.vo.CreatedArticleVO;
 import com.ccsanjuu.blog.modules.article.service.ArticleService;
@@ -43,6 +45,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 
 @WebMvcTest(controllers = AdminArticleController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -94,6 +97,26 @@ class AdminArticleControllerTest {
     @AfterEach
     void tearDown() {
         SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void previewShouldAllowEmptyContentWithoutArticleMetadataAndDisableCaching() throws Exception {
+        when(articleService.previewArticle(any())).thenReturn(new ArticlePreviewVO(""));
+        mockMvc.perform(post("/api/v1/admin/articles/preview")
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"contentMd\":\"\"}"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.data.contentHtml").value(""));
+        ArgumentCaptor<ArticlePreviewRequestDTO> captor = ArgumentCaptor.forClass(ArticlePreviewRequestDTO.class);
+        verify(articleService).previewArticle(captor.capture());
+        assertEquals("", captor.getValue().getContentMd());
+    }
+
+    @Test
+    void previewShouldRejectMissingContent() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/articles/preview")
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value(199001));
     }
 
     @Test

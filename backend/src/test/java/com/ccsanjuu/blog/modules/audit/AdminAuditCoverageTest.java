@@ -18,6 +18,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class AdminAuditCoverageTest {
 
@@ -35,6 +36,11 @@ class AdminAuditCoverageTest {
 
         for (Class<?> controller : controllers) {
             for (Method method : controller.getDeclaredMethods()) {
+                // 正文预览以 POST 传输 Markdown，但不修改数据，不应产生编辑审计。
+                if (controller == AdminArticleController.class && method.getName().equals("previewArticle")) {
+                    assertNull(method.getAnnotation(AdminAudit.class));
+                    continue;
+                }
                 if (!isMutationEndpoint(method)) {
                     continue;
                 }
