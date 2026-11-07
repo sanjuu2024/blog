@@ -51,7 +51,7 @@ External services
 - `init.sql` 只保留启动说明，不创建数据库对象；业务库和测试库统一由 Flyway migration 分别创建 `zhparser` 扩展、文本搜索配置及全文索引，避免备份恢复时与预创建的 `zhparser_cfg` 冲突。
 - Redis 如果用于 Refresh Token 或缓存，也必须配置持久化或明确可丢失策略。
 - 生产环境数据库密码、JWT 密钥、Redis 密码、对象存储密钥不能直接写在 `docker-compose.yaml` 中。
-- 正式部署以根目录 `.env.prod.example` 为唯一 Compose 输入模板，复制为服务器仓库外的 `.env.prod`；根目录 `.env.example` 用于本地开发与通用变量参考，`performance/p2/acceptance.env.example` 用于隔离验收，两者不代替正式模板。当前后端数据源与 Flyway 共用 `POSTGRES_USER`，模板不表示数据库管理账号和应用账号已分离。
+- 正式部署以根目录 `.env.prod.example` 为唯一 Compose 输入模板，复制为服务器仓库外的 `.env.prod`；根目录 `.env.example` 用于本地开发与通用变量参考，`performance/p2/acceptance.env.example` 用于隔离验收，两者不代替正式模板。`POSTGRES_ADMIN_USERNAME/PASSWORD` 仅用于数据库管理及一次性 `db-prepare`，`POSTGRES_APP_USERNAME/PASSWORD` 用于受限业务连接；PostgreSQL 容器内部仍通过官方的 `POSTGRES_USER/PASSWORD` 接收管理凭据。首次部署、版本更新及恢复流程见 [数据库账号与部署流程](./database-accounts.md)。
 - 隐私政策由后端镜像中的 `content/privacy-policy.md` 提供；修改政策必须重新构建并部署 backend，
   应用启动时会校验资源非空并以规范化内容 SHA-256 作为版本。
 - 通过 Compose `environment:` 注入的值通常可被有 Docker 管理权限的用户通过
@@ -109,12 +109,16 @@ git ls-remote https://github.com/amutu/zhparser.git HEAD
 
 ```text
 BLOG_DB_URL
-BLOG_DB_USERNAME
-BLOG_DB_PASSWORD
+POSTGRES_APP_USERNAME
+POSTGRES_APP_PASSWORD
+POSTGRES_ADMIN_USERNAME
+POSTGRES_ADMIN_PASSWORD
 BLOG_JWT_SECRET
 BLOG_TEST_DB_URL
-BLOG_TEST_DB_USERNAME
-BLOG_TEST_DB_PASSWORD
+POSTGRES_TEST_APP_USERNAME
+POSTGRES_TEST_APP_PASSWORD
+POSTGRES_TEST_ADMIN_USERNAME
+POSTGRES_TEST_ADMIN_PASSWORD
 BLOG_TEST_JWT_SECRET
 BLOG_REDIS_HOST
 BLOG_REDIS_PORT
@@ -125,8 +129,6 @@ BLOG_WEB_ALIAS
 BLOG_INGRESS_IP
 BLOG_TEST_REDIS_DATABASE
 POSTGRES_DB
-POSTGRES_USER
-POSTGRES_PASSWORD
 REDIS_PASSWORD
 JWT_SECRET
 BLOG_OBJECT_STORAGE_PROVIDER
@@ -144,8 +146,8 @@ VITE_TURNSTILE_SITE_KEY
 
 Spring Boot 配置按运行场景区分：
 
-- IDEA 本地启动后端时使用 `dev` profile，通过 IDEA Run Configuration 注入 `BLOG_DB_*` 和 `BLOG_JWT_SECRET`
-- 自动化集成测试使用 `test` profile，通过 JUnit 或 Maven Run Configuration 注入 `BLOG_TEST_DB_*` 和 `BLOG_TEST_JWT_SECRET`
+- IDEA 本地启动后端时使用 `dev` profile，通过 IDEA Run Configuration 注入 `BLOG_DB_URL`、`POSTGRES_ADMIN_*`、`POSTGRES_APP_*` 和 `BLOG_JWT_SECRET`；启动时 Flyway 用管理连接迁移并自动授权，业务连接只用应用账号
+- 自动化集成测试使用 `test` profile，通过 JUnit 或 Maven Run Configuration 注入 `BLOG_TEST_DB_URL`、`POSTGRES_TEST_ADMIN_*`、`POSTGRES_TEST_APP_*` 和 `BLOG_TEST_JWT_SECRET`，同样自动迁移并授权
 - 生产容器使用 `prod` profile，通过 Compose 将服务器环境变量或根目录 `.env` 中的生产值注入 backend 容器
 - `application-test.yaml` 只放在 `src/test/resources`，不会打包进生产应用
 - `dev`、`test` 使用本地 HTTP 时 Refresh Token Cookie 的 `Secure` 为 `false`；`prod` 必须为 `true`
@@ -163,6 +165,8 @@ Spring Boot 配置按运行场景区分：
 ## 5. 数据库备份约定
 
 生产环境必须对 PostgreSQL 做定期备份。
+
+备份和恢复使用管理账号；普通 backend 只持有受限账号。`pg_dump` 不包含实例角色，`--no-owner --no-privileges` 恢复后也不保留原授权，搬到新服务器时先运行账号模式，再恢复备份，最后由普通 `up` 自动迁移与授权。完整可复制命令见 [数据库账号与部署流程第 5 节](./database-accounts.md#5-搬到新服务器恢复备份)。
 
 建议策略：
 
@@ -368,6 +372,7 @@ docker compose \
   run --rm --build admin-bootstrap
 ```
 
+该任务先依赖一次性 `db-prepare` 完成 Flyway 和应用授权；不得添加 `--no-deps`。bootstrap 本身使用受限应用账号且关闭 Flyway。
 任务只接受 `prod,bootstrap-admin` profile 组合，执行时会完成与注册接口一致的用户名、邮箱、
 密码校验，并使用 BCrypt 保存密码。以下情况会以非零状态退出：配置缺失或不合法、密码文件
 不存在或不可读、系统中已存在任意管理员、用户名或邮箱已被占用、数据库写入失败。日志只记录

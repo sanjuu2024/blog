@@ -74,7 +74,7 @@ chmod 600 /opt/blog-platform/acceptance/.env.acceptance
 
 从 `performance/p2/acceptance.env.example` 复制的私有 `.env.acceptance` 中填写：
 
-- 数据库名固定 `POSTGRES_DB=blog_p2_performance`；数据库、Redis、JWT 使用验收专用凭据。
+- 数据库名固定 `POSTGRES_DB=blog_p2_performance`；`POSTGRES_ADMIN_USERNAME/PASSWORD` 为管理凭据，`POSTGRES_APP_USERNAME/PASSWORD` 为独立受限应用凭据，`db-prepare` 自动创建并授权。PostgreSQL 容器内部仍使用映射后的官方 `POSTGRES_USER/PASSWORD`，下文容器内的 psql 命令保持使用它们。数据库、Redis、JWT 使用验收专用凭据。
 - `BLOG_SITE_URL`、`BLOG_MAIL_FRONTEND_BASE_URL` 均为实际 staging HTTPS origin；Logo 可先用其 `/favicon.svg`；Turnstile hostname 与实际域名一致。
 - `BLOG_EDGE_NETWORK=blog-staging-edge`、`BLOG_WEB_ALIAS=blog-staging-web`、`BLOG_INGRESS_IP=172.30.11.2` 与共享入口一致。若第 1 步因网段冲突更改了 IP，必须同步此处。
 - 原 `NGINX_HTTP_PORT`、`NGINX_HTTPS_PORT`、`NGINX_TLS_CERT_DIR` 不再使用。项目 Nginx 不发布宿主机端口；应用并发测试仅使用 backend 的 `127.0.0.1:18080` SSH 隧道。
@@ -85,9 +85,10 @@ chmod 600 /opt/blog-platform/acceptance/.env.acceptance
 - `VITE_SITE_LAUNCHED_AT` 填验收站起算时间；正式站首次公开运行起点另定，后续部署不重置。
 - 所有 `CHANGE_ME` 和 example.com 项按实际配置处理。实际环境文件按本手册放仓库外；压测 properties 也可使用仓库内已忽略且未跟踪的路径。
 
-依次生成数据库密码、Redis 密码和 JWT 密钥，填入对应变量；不要把结果放进报告或提交仓库：
+依次生成数据库管理密码、应用密码、Redis 密码和 JWT 密钥，填入对应变量；不要把结果放进报告或提交仓库：
 
 ```bash
+openssl rand -hex 24
 openssl rand -hex 24
 openssl rand -hex 24
 openssl rand -base64 48
@@ -128,10 +129,10 @@ printf '\n'
 (umask 077; printf '%s' "$p2_bootstrap_password" > /opt/blog-platform/acceptance/secrets/bootstrap-password)
 unset p2_bootstrap_password
 boot config -q
-boot run --rm --no-deps admin-bootstrap
+boot run --rm admin-bootstrap
 ```
 
-看到 `ADMIN_BOOTSTRAP_SUCCESS` 才继续。此步骤执行 Flyway 并创建该独立库的管理员，不需要注册接口或 P1 初始化数据；一次性 bootstrap 关闭邮件与 Turnstile，不依赖外部挑战服务配置。不要绕过 Flyway 手动建表。用同一个文件再运行一次命令应明确拒绝已有管理员，验证后删除该临时文件：
+看到 `ADMIN_BOOTSTRAP_SUCCESS` 才继续。Compose 先自动运行 `db-prepare`，以管理连接创建受限应用账号、执行 Flyway 并授权，再由 bootstrap 使用应用账号创建该独立库的管理员；不要添加 `--no-deps`。环境模板中的 `POSTGRES_APP_USERNAME/PASSWORD` 必须与管理凭据不同，不需要注册接口或 P1 初始化数据。一次性 bootstrap 关闭邮件与 Turnstile，不依赖外部挑战服务配置；不要绕过 Flyway 手动建表。用同一个文件再运行一次命令应明确拒绝已有管理员，验证后删除该临时文件：
 
 ```bash
 rm /opt/blog-platform/acceptance/secrets/bootstrap-password

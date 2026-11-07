@@ -24,6 +24,12 @@
 
 ### 2.2 版本范围
 
+数据库管理账号与应用账号分离。管理账号负责实例初始化、Flyway 和备份恢复；应用账号不拥有数据库或业务对象，不具有超级用户、建库、管理角色、复制、绕过 RLS 或其他角色成员身份，仅获得目标数据库 CONNECT、public schema USAGE、业务表 SELECT/INSERT/UPDATE/DELETE 和业务序列 USAGE/SELECT。
+
+业务表、字段、约束和索引仍只通过 Flyway migration 变更，不修改历史 migration。数据库角色及环境相关授权属于部署配置，由受控数据库准备程序和 Flyway BEFORE_MIGRATE / AFTER_MIGRATE 回调维护，不将真实账号密码写进 migration 或 Flyway 历史。回调创建缺失应用账号但不重置已有密码；迁移后配置实际建表账号的默认权限并补齐已有业务对象授权，撤销应用账号对 Flyway 历史表的权限。public schema 专用于本项目对象；数据库的 PUBLIC CONNECT/TEMPORARY 和 schema 的 PUBLIC CREATE 被撤销，其他需要连接的角色应显式授权。
+
+生产默认启动先运行一次性准备任务，使用与 backend 相同的新版镜像，任务成功后才启动业务服务；dev/test 仍由应用启动时自动执行 Flyway。备份恢复前可仅创建账号，不执行业务 migration；恢复后再次自动迁移与授权。账号分离不改变业务表结构，本次不新增业务 schema migration。具体配置和三个部署场景见 [数据库账号与部署流程](./database-accounts.md)。
+
 | 分类 | 表名 | 说明 |
 | --- | --- | --- |
 | P0 必建 | `blog_user` | 用户表 |

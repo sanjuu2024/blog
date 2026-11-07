@@ -89,7 +89,7 @@ Prometheus + Grafana、游客点赞与账号合并、更精细反作弊、SMTP �
 - [x] 固定本次 Commit；前后端、数据库 migration 和文档来自同一版本，工作区改动来源明确。
 - [x] 准备浏览器开发者工具、API 调试工具、数据库只读查询和 Redis 状态检查方式。
 - [x] 自动化使用独立测试数据库与 Redis 逻辑库；人工验收、性能测试各自隔离，不混用生产数据。
-- [x] 自动化环境注入 `BLOG_TEST_DB_URL`、`BLOG_TEST_DB_USERNAME`、`BLOG_TEST_DB_PASSWORD`、`BLOG_TEST_JWT_SECRET` 及 Redis 配置；Spring Boot / Maven 不会自动读取根目录 `.env`。
+- [x] 自动化环境注入 `BLOG_TEST_DB_URL`、`POSTGRES_TEST_APP_*`、`POSTGRES_TEST_ADMIN_*`、`BLOG_TEST_JWT_SECRET` 及 Redis 配置；Spring Boot / Maven 不会自动读取根目录 `.env`。
 - [x] PostgreSQL 安装项目所需 `zhparser`；Flyway 完成迁移，Redis 与后端可连接。
 - [x] 配置仅用于验收的收件邮箱、OSS 图片和 Turnstile 测试站点，确认真实邮件只发给自己控制的地址。
 - [x] 准备当前版本的生产构建；开发环境验收与 Nginx + HTTPS 验收分别记录。
@@ -529,7 +529,7 @@ Vitest 当前配置未设置行 / 分支覆盖率最低阈值。`pnpm test:cover
 
 1. 检出同一最终验收 Commit，确认 CI；记录服务器 `lscpu`、`free -h`、`df -h`、Docker / Compose 版本和镜像。截图套餐值不是实测值；原 WSL 记录只保留为工具调试环境。
 2. 按操作手册安装 Docker，先启动独立共享 Nginx 容器及两个 edge 网络，通过 webroot 签发 staging 证书；仓库外准备 `.env.acceptance`、网络/可信入口 IP 和临时 bootstrap 密码文件，凭据与正式环境分开。
-3. 定义手册中的 `dc` / `boot`，先 `dc config -q`、构建镜像、启动 PostgreSQL / Redis，再 `boot run --rm admin-bootstrap`。bootstrap 创建新管理员并执行 Flyway，不依赖任何 P1 数据；重复运行应拒绝覆盖已有管理员。
+3. 定义手册中的 `dc` / `boot`，先 `dc config -q`、构建镜像、启动 PostgreSQL / Redis，再 `boot run --rm admin-bootstrap`。Compose 先自动执行 `db-prepare` 创建应用账号、迁移并授权，再由 bootstrap 创建新管理员，不依赖任何 P1 数据；重复运行应拒绝覆盖已有管理员。
 4. `dc up -d --wait --wait-timeout 180`，经共享入口完成 HTTPS 首页、API、登录、SEO、RSS 和健康冒烟，检查 staging noindex、真实 IP 与上传大小；用 `sudo docker inspect` / `dc stats` / `ing stats` 核对资源限制。函数内部已提权，普通用户不加入 docker 组。
 5. 复制 `performance/p2/data` 到验收 PostgreSQL 容器，执行独立 `seed.sql`，确认 100 文章、2000 评论、500 留言、100 用户和 P2 通知/统计/投递等数据；按输出真实 ID 填写私有 `p2.properties`（仓库外，或仓库内已忽略且未跟踪）。只操作验收项目和性能库。
 6. 确认服务器与压测机时钟已同步；服务器另开一个终端先 `sudo -v`，再以普通用户运行 `collect_resources.py --sudo-docker`，自动同时采集 iostat/vmstat/sar。先等一轮采样，再在压测机执行 2 秒预热 / 5 秒正式的短调试，之后按默认 120 秒预热、300 秒 × 3 轮执行全部基础与扩展读取。三轮指标各取中位数，任何失败轮不能被掩盖。

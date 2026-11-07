@@ -12,8 +12,8 @@ x-backend-environment: &backend-environment
   BLOG_LOGO_URL: ${BLOG_LOGO_URL:?BLOG_LOGO_URL is required}
   BLOG_SEO_HTML_TEMPLATE: file:/app/frontend-template/index.html
   BLOG_DB_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}"
-  BLOG_DB_USERNAME: ${POSTGRES_USER:?POSTGRES_USER is required}
-  BLOG_DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+  POSTGRES_APP_USERNAME: ${POSTGRES_APP_USERNAME:?POSTGRES_APP_USERNAME is required}
+  POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD is required}
   BLOG_JWT_SECRET: ${BLOG_JWT_SECRET:?BLOG_JWT_SECRET is required}
   BLOG_REDIS_HOST: redis
   BLOG_REDIS_PORT: 6379
@@ -63,8 +63,8 @@ services:
         max-file: "5"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
-      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_USER: ${POSTGRES_ADMIN_USERNAME:?POSTGRES_ADMIN_USERNAME is required}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?POSTGRES_ADMIN_PASSWORD is required}
       TZ: UTC
       PGTZ: UTC
     volumes:
@@ -104,6 +104,31 @@ services:
     networks:
       - backend_net
 
+  db-prepare:
+    image: ${BLOG_BACKEND_IMAGE:-blog-backend:v1.0.0}
+    build: *backend-build
+    command: ["--database-prepare=migrate"]
+    restart: "no"
+    cpus: "2.0"
+    mem_limit: 1g
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    environment:
+      BLOG_DB_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}"
+      POSTGRES_ADMIN_USERNAME: ${POSTGRES_ADMIN_USERNAME:?POSTGRES_ADMIN_USERNAME is required}
+      POSTGRES_ADMIN_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?POSTGRES_ADMIN_PASSWORD is required}
+      POSTGRES_APP_USERNAME: ${POSTGRES_APP_USERNAME:?POSTGRES_APP_USERNAME is required}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD is required}
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx512m
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend_net
+
   backend:
     cpus: "2.0"
     mem_limit: 2560m
@@ -119,6 +144,8 @@ services:
     volumes:
       - frontend_template:/app/frontend-template:ro
     depends_on:
+      db-prepare:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:

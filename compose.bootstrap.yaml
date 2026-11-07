@@ -18,8 +18,8 @@ services:
       BLOG_DESC: ${BLOG_DESC:?BLOG_DESC is required}
       BLOG_LOGO_URL: ${BLOG_LOGO_URL:?BLOG_LOGO_URL is required}
       BLOG_DB_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}"
-      BLOG_DB_USERNAME: ${POSTGRES_USER:?POSTGRES_USER is required}
-      BLOG_DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_APP_USERNAME: ${POSTGRES_APP_USERNAME:?POSTGRES_APP_USERNAME is required}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD is required}
       BLOG_JWT_SECRET: ${BLOG_JWT_SECRET:?BLOG_JWT_SECRET is required}
       BLOG_REDIS_HOST: redis
       BLOG_REDIS_PORT: 6379
@@ -41,6 +41,8 @@ services:
       JAVA_TOOL_OPTIONS: >-
         -Xms512m -Xmx1536m -XX:MaxMetaspaceSize=256m -XX:MaxDirectMemorySize=128m
     depends_on:
+      db-prepare:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
     secrets:
