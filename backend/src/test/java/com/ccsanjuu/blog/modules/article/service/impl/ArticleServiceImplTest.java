@@ -16,6 +16,7 @@ import com.ccsanjuu.blog.modules.article.model.bo.ArticleViewIdentity;
 import com.ccsanjuu.blog.modules.article.model.bo.ArticleLikeIdentity;
 import com.ccsanjuu.blog.modules.article.model.dto.AdminArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
+import com.ccsanjuu.blog.modules.article.model.dto.ArticlePreviewRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.PublicArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.UpdateArticleStatusRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.entity.Article;
@@ -146,6 +147,19 @@ class ArticleServiceImplTest {
         ReflectionTestUtils.setField(articleService, "baseMapper", articleMapper);
         ReflectionTestUtils.setField(articleService, "entityClass", Article.class);
         ReflectionTestUtils.setField(articleService, "mapperClass", ArticleMapper.class);
+    }
+
+    @Test
+    void previewArticleShouldUseTheSavingRendererWithoutQueryingOrChangingData() {
+        ArticlePreviewRequestDTO request = new ArticlePreviewRequestDTO();
+        request.setContentMd("# 未保存正文");
+        when(articleContentRenderer.convertMarkdownToHtml(request.getContentMd())).thenReturn("<h1>未保存正文</h1>");
+
+        assertEquals("<h1>未保存正文</h1>", articleService.previewArticle(request).getContentHtml());
+
+        verify(articleContentRenderer).convertMarkdownToHtml(request.getContentMd());
+        verifyNoInteractions(articleMapper, articleTagMapper, categoryMapper, tagMapper, userMapper,
+                articleViewService, articleLikeService, articleLikeMapper);
     }
 
     private static void initTableInfo(Class<?> entityClass) {

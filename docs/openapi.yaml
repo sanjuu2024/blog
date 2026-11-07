@@ -2131,6 +2131,54 @@ paths:
           $ref: '#/components/responses/ForbiddenResponse'
         '409':
           $ref: '#/components/responses/ArticleConflictResponse'
+  /api/v1/admin/articles/preview:
+    post:
+      tags:
+        - Admin Articles
+      summary: 预览未保存的文章正文
+      description: 权限级别 `ADMIN`。复用文章保存时的 Markdown 转换和 HTML 白名单清洗，仅返回 contentHtml，不查询或写入文章、审计、统计或通知。contentMd 必填且不为 null，允许空字符串；不要求标题、分类、文章 ID 或发布状态。响应使用 Cache-Control no-store，前端复用实际正文的公式、代码高亮和图注处理。
+      operationId: previewAdminArticle
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contentMd]
+              properties:
+                contentMd:
+                  type: string
+                  example: '# 标题'
+      responses:
+        '200':
+          description: 转换成功，不保存文章
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-store]
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [contentHtml]
+                        properties:
+                          contentHtml:
+                            type: string
+                            example: '<h1>标题</h1>'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
   /api/v1/admin/articles/{articleId}:
     get:
       tags:

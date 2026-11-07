@@ -15,8 +15,12 @@ defineOptions({
 	name: 'AppBacktop',
 });
 
+const props = defineProps<{
+	target?: HTMLElement | null;
+}>();
+
 function scrollToTop() {
-	window.scrollTo({
+	(props.target ?? window).scrollTo({
 		top: 0,
 		behavior: 'smooth',
 	});

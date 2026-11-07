@@ -5,6 +5,7 @@ import com.ccsanjuu.blog.common.api.PageQuery;
 import com.ccsanjuu.blog.common.api.PageResult;
 import com.ccsanjuu.blog.modules.article.model.dto.AdminArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
+import com.ccsanjuu.blog.modules.article.model.dto.ArticlePreviewRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.PublicArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.UpdateArticleStatusRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.bo.ArticleViewIdentity;
@@ -15,6 +16,14 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 
 public interface ArticleService extends IService<Article> {
+    /**
+     * 转换未保存的 Markdown，返回与实际文章一致的安全正文。
+     *
+     * @param request 预览正文，允许空字符串
+     * @return 清洗后的 HTML
+     */
+    ArticlePreviewVO previewArticle(ArticlePreviewRequestDTO request);
+
     /**
      * 获取后台文章分页列表
      *

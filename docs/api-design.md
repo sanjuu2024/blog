@@ -257,6 +257,7 @@ Authorization: Bearer <access_token>
 | 后台文章 | `GET` | `/api/v1/admin/articles` | `ADMIN` | 获取后台文章分页列表 |
 | 后台文章 | `GET` | `/api/v1/admin/articles/{articleId}` | `ADMIN` | 获取后台文章详情 |
 | 后台文章 | `POST` | `/api/v1/admin/articles` | `ADMIN` | 创建文章 |
+| 后台文章 | `POST` | `/api/v1/admin/articles/preview` | `ADMIN` | 转换未保存正文，返回实际效果预览 HTML |
 | 后台文章 | `PUT` | `/api/v1/admin/articles/{articleId}` | `ADMIN` | 更新文章 |
 | 后台文章 | `PATCH` | `/api/v1/admin/articles/{articleId}/status` | `ADMIN` | 修改文章状态 |
 | 后台文章 | `DELETE` | `/api/v1/admin/articles/{articleId}` | `ADMIN` | 删除文章 |
@@ -1434,6 +1435,12 @@ Content-Type: application/json
 ```
 
 ## 8. 后台文章管理接口
+
+### 未保存正文的实际效果预览
+
+`POST /api/v1/admin/articles/preview` 仅管理员可用。请求为 `{ "contentMd": "# 标题" }`，`contentMd` 必填且不能为 null，允许空字符串以便未完成正文也可预览；不接收文章 ID，不要求标题、分类、标签或状态。响应为 `{ "code": 0, "message": "成功", "data": { "contentHtml": "<h1>标题</h1>" } }`。
+
+复用文章保存的 Markdown 转换与白名单清洗，保留公式源和图片 title；前端以共享正文组件处理 KaTeX、图注和代码高亮。响应设置 `Cache-Control: no-store`。接口不查询或写入业务数据、不记录编辑审计、不改变发布状态、浏览量或通知；新文章、草稿、下线文章均可预览。未登录返回 401，非管理员返回 403，请求缺失或 contentMd 为 null 返回参数错误 199001。
 
 ## 8.1 获取后台文章分页列表
 

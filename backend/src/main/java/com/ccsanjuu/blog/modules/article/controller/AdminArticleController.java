@@ -7,6 +7,7 @@ import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditAction;
 import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditResourceType;
 import com.ccsanjuu.blog.modules.article.model.dto.AdminArticleQueryDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
+import com.ccsanjuu.blog.modules.article.model.dto.ArticlePreviewRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.dto.UpdateArticleStatusRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.vo.*;
 import com.ccsanjuu.blog.modules.article.service.ArticleService;
@@ -17,6 +18,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,6 +31,19 @@ import org.springframework.web.bind.annotation.*;
 public class AdminArticleController {
 
     private final ArticleService articleService;
+
+    /**
+     * 预览当前未保存正文，不创建或更新文章。
+     *
+     * @param request Markdown 预览请求
+     * @return 不缓存的安全 HTML 响应
+     */
+    @PostMapping("/preview")
+    @Operation(description = "预览未保存的文章正文")
+    public ResponseEntity<Result<ArticlePreviewVO>> previewArticle(@Valid @RequestBody ArticlePreviewRequestDTO request) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(Result.success(articleService.previewArticle(request)));
+    }
 
     /**
      * 获取后台文章分页列表

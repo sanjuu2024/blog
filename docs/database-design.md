@@ -474,6 +474,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_search_vector
 | `created_at` | `TIMESTAMPTZ` | 创建时间 | `2026-04-22 21:30:00+08` |
 | `updated_at` | `TIMESTAMPTZ` | 更新时间 | `2026-04-22 22:45:00+08` |
 
+后台实际效果预览只转换请求中的 Markdown 并返回清洗后的 HTML，不保存文章、快照或临时记录，不修改上述三种正文及统计字段，无需新增 migration。
+
 说明：
 
 - 例如一级分类 `技术` 下可挂二级分类 `Java`、`算法`、`前端三剑客`

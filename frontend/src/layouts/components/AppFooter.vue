@@ -1,15 +1,24 @@
 <template>
 	<footer class="app-footer">
 		<div class="app-footer__inner">
-			<span class="app-footer__copyright"
-				>Copyright © 2026-{{ currentYear }} {{ siteName }}. All Rights Reserved.</span
-			>
+			<span class="app-footer__copyright flex items-center">
+				Copyright © 2026-{{ currentYear }}
+				<a
+					href="https://github.com/sanjuu2024/blog"
+					class="app-footer__link ml-2 inline-flex items-center"
+					target="_blank"
+					rel="noopener noreferrer"
+				>
+					<i-lucide-github class="mr-1" />
+					{{ siteName }} </a
+				>. All Rights Reserved.
+			</span>
 			<a
-				class="app-footer__rss flex items-center"
+				class="app-footer__link flex items-center"
 				href="/rss.xml"
 				type="application/rss+xml"
 			>
-				<i-streamline-ultimate-color-wifi-signal-2 class="mr-1" />
+				<i-lucide-wifi class="mr-1" />
 				RSS 订阅
 			</a>
 			<span
@@ -80,7 +89,7 @@ const uptime = computed(() => {
 	gap: 0.75rem;
 }
 
-.app-footer__rss {
+.app-footer__link {
 	text-decoration: underline;
 
 	&:hover,
