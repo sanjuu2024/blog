@@ -288,6 +288,7 @@ Element Plus 的 `success`、`warning`、`danger`、`info` 按钮也遵循同样
 ## 17. 前台页脚
 
 - `MainLayout` 在前台主内容后渲染唯一的 `AppFooter`，显示当前年份版权、`/rss.xml` 订阅入口和本站运行时长；所有使用该布局的路由均显示，包括文章详情、个人中心、个人资料设置和留言/评论退订页
+- 版权中的站点名称保持读取 `VITE_APP_TITLE`，名称前展示 GitHub 图标并链接到 `https://github.com/sanjuu2024/blog`，使用 `target="_blank"` 和 `rel="noopener noreferrer"`；RSS 入口使用 Lucide WiFi 图标。两个链接统一使用下划线，悬浮或键盘聚焦时变为主题主色。
 - 页脚作为正常文档流内容，不使用 fixed/sticky；桌面端和窄屏端均采用纵向居中排列，窄屏允许文本换行，不遮挡内容或形成额外嵌套滚动区
 - 普通页面使用自然内容高度，短页面由主内容区弹性撑满视口；分类、留言和退订页通过 `fullHeight` 路由元数据将主内容区高度设为 `calc(100dvh - var(--app-header-height))`，保留既有内部滚动，不扣除页脚高度。页脚作为正常文档流内容排在其后，因此这些页面允许产生外层页面滚动以访问页脚
 - 登录注册页、404/50x 错误页和后台布局不显示前台页脚

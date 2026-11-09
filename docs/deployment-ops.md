@@ -235,9 +235,11 @@ BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL=https://img.example.com
 
 P1 留言回复通知和 P2 评论直接回复通知复用同一套 SMTP 配置。生产环境启用邮件通知时需要注入：
 
+下文 `mail.example.com` 和 `no-reply@mail.example.com` 均为示例，部署时替换为自己在 Resend 已验证的发件域名及对应地址；`smtp.resend.com` 为服务商地址，保持不变。
+
 ```text
 BLOG_MAIL_ENABLED=true
-BLOG_MAIL_FROM="青禾边 <no-reply@mail.ccsanjuu.com>"
+BLOG_MAIL_FROM="青禾边 <no-reply@mail.example.com>"
 BLOG_MAIL_FRONTEND_BASE_URL=https://blog.example.com
 BLOG_SMTP_HOST=smtp.resend.com
 BLOG_SMTP_PORT=587
@@ -250,8 +252,8 @@ BLOG_SMTP_READ_TIMEOUT=10000
 BLOG_SMTP_WRITE_TIMEOUT=10000
 ```
 
-- 当前生产邮件服务使用 Resend SMTP；`mail.ccsanjuu.com` 必须在 Resend 控制台显示为已验证。
-- `BLOG_MAIL_FROM` 使用已验证域名下的 `no-reply@mail.ccsanjuu.com`，可带显示名称；`.env` 中建议整体加引号。
+- 当前生产邮件服务使用 Resend SMTP；实际替换后的发件域名必须在 Resend 控制台显示为已验证。
+- `BLOG_MAIL_FROM` 使用已验证域名下的发件地址，例如 `no-reply@mail.example.com`，可带显示名称；`.env` 中建议整体加引号。
 - Resend SMTP 固定使用 `smtp.resend.com:587`、用户名 `resend`、STARTTLS；`BLOG_SMTP_PASSWORD` 填 Resend API Key，建议只授予发信权限。
 - 生产环境的 `BLOG_MAIL_FRONTEND_BASE_URL` 必须使用站点 HTTPS 地址，用于生成留言页和退订链接。
 - 密码或授权码保存在服务器受限 `.env.prod` 中，由 Compose 注入生产环境变量，不写入 Git、镜像或日志。

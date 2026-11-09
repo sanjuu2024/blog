@@ -482,6 +482,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_search_vector
 - 文章的 `category_id` 应指向 `Java`、`算法` 这类二级分类，而不是 `技术` 这类一级分类
 - 管理员保存文章时允许关联禁用分类、父分类和标签，不清除历史关联；分类与父分类必须存在且层级正确，标签必须存在。禁用状态只影响既有前台可见性规则，不新增表或字段
 - 保存或更新文章时，应用层应以 `content_md` 为源生成 `content_html` 与 `content_text`
+- 行内 Markdown 高亮写作 `==文字==`，由 Markdown 转换器生成 `<mark>文字</mark>`；代码区域保留原始等号。相应 HTML 标签经白名单清洗后保留
+- Markdown 生成的 `content_html` 经统一白名单清洗，保留 `<small>`、`<big>`、`<mark>` 等安全语义标签，不放开这些标签的额外属性；文章、关于页与隐私政策共用该规则
 - 正文图片图注复用 Markdown 图片的可选 title 或手写 HTML img 的 title，由现有转译和白名单清洗保留在 `content_html` 中；前台将 title 作为纯文本图注渲染，不回写 `content_md`、`content_html` 或 `content_text`，不增加表、字段或历史数据迁移。
 - 归档复用现有表和索引，不新增结构或改变时间存储。年份按浏览器传入并校验的 IANA 时区一次分组计数，SQL 使用绑定参数执行 `published_at AT TIME ZONE timeZone`；年份筛选按同一时区分别计算当年与下一年年初，再用绝对时间半开范围查询，正确应用各年份的夏令时规则。汇总和列表仅含 PUBLISHED、启用二级分类及启用父分类、作者存在的文章；列表联表返回分类路径，标签使用 EXISTS 过滤，不重复计数或执行 N+1 查询。
 - 公开文章列表和搜索结果的 `commentCount` 直接读取 `blog_article.comment_count`，沿用现有公开评论与回复统计口径，不新增表或逐篇聚合查询
@@ -692,7 +694,7 @@ CREATE TABLE blog_about_page (
 关于页固定使用主键 `1`，migration 只建表、不插入业务内容。管理员第一次保存时创建记录，之后更新
 同一记录；规范化后的 Markdown 未变化时不更新。隐私政策不进入该表，而是由后端 classpath 中的
 `privacy-policy.md` 提供，版本为去除首尾空白后的 Markdown 内容 SHA-256；资源缺失或为空时后端拒绝启动。
-`content_html` 由 Markdown 转换并经白名单清洗；`a[href]` 保留同源相对 URL 及 HTTP、HTTPS、mailto 绝对 URL，危险协议与协议相对 URL 不保留。
+`content_html` 由 Markdown 转换并经白名单清洗；保留 `<small>`、`<big>`、`<mark>` 等安全语义标签但不放开其额外属性；`a[href]` 保留同源相对 URL 及 HTTP、HTTPS、mailto 绝对 URL，危险协议与协议相对 URL 不保留。
 
 ## 4.5 P2 使用表：`blog_article_daily_stat`
 

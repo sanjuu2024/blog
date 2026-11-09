@@ -50,6 +50,66 @@ class ArticleSearchIntegrationTest {
     private TagMapper tagMapper;
 
     @Test
+    void savingArticleShouldPreserveStrikethroughAndRegeneratePreviouslyCleanedHtml() {
+        Long articleId = jdbcTemplate.queryForObject("select id from blog_article where status = 'PUBLISHED' order by id limit 1", Long.class);
+        Article existing = articleMapper.selectById(articleId);
+        String markdown = "普通文字 ~~已删除的 **重点** 内容~~ 后文";
+        ArticleUpsertRequestDTO request = ArticleUpsertRequestDTO.builder()
+                .title("删除线渲染回归").contentMd(markdown).categoryId(existing.getCategoryId())
+                .tagIds(java.util.List.of()).status(ArticleStatus.PUBLISHED).build();
+
+        var created = articleService.createArticle(existing.getAuthorId(), request);
+        Article saved = articleMapper.selectById(created.getId());
+        assertEquals(markdown, saved.getContentMd());
+        assertTrue(saved.getContentHtml().contains("<del>已删除的 <strong>重点</strong> 内容</del>"));
+        assertEquals("普通文字 已删除的 重点 内容 后文", saved.getContentText());
+        assertEquals(saved.getContentHtml(), articleService.getPublicArticleDetail(created.getId(), null, null).getContentHtml());
+
+        articleMapper.updateById(Article.builder().id(created.getId())
+                .contentHtml("<p>普通文字 已删除的 <strong>重点</strong> 内容 后文</p>").build());
+        articleService.updateArticle(created.getId(), existing.getAuthorId(), request);
+
+        assertEquals(saved.getContentHtml(), articleMapper.selectById(created.getId()).getContentHtml());
+        assertEquals(saved.getContentHtml(), articleService.getPublicArticleDetail(created.getId(), null, null).getContentHtml());
+    }
+
+    @Test
+    void savingArticleShouldPreserveSmallBigAndMarkInPublicHtml() {
+        Long articleId = jdbcTemplate.queryForObject("select id from blog_article where status = 'PUBLISHED' order by id limit 1", Long.class);
+        Article existing = articleMapper.selectById(articleId);
+        String markdown = "<small>小字</small> <big>大字</big> <mark>重点</mark>";
+        ArticleUpsertRequestDTO request = ArticleUpsertRequestDTO.builder()
+                .title("行内语义标签回归").contentMd(markdown).categoryId(existing.getCategoryId())
+                .tagIds(java.util.List.of()).status(ArticleStatus.PUBLISHED).build();
+
+        var created = articleService.createArticle(existing.getAuthorId(), request);
+        Article saved = articleMapper.selectById(created.getId());
+
+        assertTrue(saved.getContentHtml().contains("<small>小字</small>"));
+        assertTrue(saved.getContentHtml().contains("<big>大字</big>"));
+        assertTrue(saved.getContentHtml().contains("<mark>重点</mark>"));
+        assertEquals(saved.getContentHtml(), articleService.getPublicArticleDetail(created.getId(), null, null).getContentHtml());
+    }
+
+    @Test
+    void savingArticleShouldConvertDoubleEqualsToMarkInPublicHtml() {
+        Long articleId = jdbcTemplate.queryForObject("select id from blog_article where status = 'PUBLISHED' order by id limit 1", Long.class);
+        Article existing = articleMapper.selectById(articleId);
+        String markdown = "正文 ==高亮 **重点**== 后文";
+        ArticleUpsertRequestDTO request = ArticleUpsertRequestDTO.builder()
+                .title("Markdown 高亮回归").contentMd(markdown).categoryId(existing.getCategoryId())
+                .tagIds(java.util.List.of()).status(ArticleStatus.PUBLISHED).build();
+
+        var created = articleService.createArticle(existing.getAuthorId(), request);
+        Article saved = articleMapper.selectById(created.getId());
+
+        assertEquals(markdown, saved.getContentMd());
+        assertTrue(saved.getContentHtml().contains("<mark>高亮 <strong>重点</strong></mark>"));
+        assertEquals("正文 高亮 重点 后文", saved.getContentText());
+        assertEquals(saved.getContentHtml(), articleService.getPublicArticleDetail(created.getId(), null, null).getContentHtml());
+    }
+
+    @Test
     void savingArticleShouldPreserveLatexSourceAndRegeneratePreviouslyBrokenHtml() {
         Long articleId = jdbcTemplate.queryForObject("select id from blog_article where status = 'PUBLISHED' order by id limit 1", Long.class);
         Article existing = articleMapper.selectById(articleId);
