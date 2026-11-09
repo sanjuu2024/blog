@@ -8,27 +8,6 @@
 	--fontStack-sansSerif: var(--app-font-family);
 	color: var(--app-text);
 
-	p {
-		line-height: 2rem;
-	}
-
-	h1,
-	h2 {
-		margin-top: 4rem;
-	}
-
-	h3 {
-		margin-top: 2rem;
-	}
-
-	h4 {
-		margin-top: 1rem;
-	}
-
-	mark {
-		background-color: var(--app-article-content-mark);
-	}
-
 	.katex-display {
 		max-width: 100%;
 		overflow-x: auto;

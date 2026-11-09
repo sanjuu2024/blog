@@ -59,6 +59,7 @@ onMounted(() => {
 
 .about-content {
 	padding: 0;
+	line-height: 2rem;
 
 	// :deep(p) {
 	// 	text-indent: 2em;

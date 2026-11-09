@@ -136,7 +136,6 @@ declare module 'vue' {
     IStreamlineUltimateColorNetworkBrowser: typeof import('~icons/streamline-ultimate-color/network-browser')['default']
     IStreamlineUltimateColorNotesBook: typeof import('~icons/streamline-ultimate-color/notes-book')['default']
     IStreamlineUltimateColorVipCrownQueen1: typeof import('~icons/streamline-ultimate-color/vip-crown-queen1')['default']
-    IStreamlineUltimateColorWifiSignal2: typeof import('~icons/streamline-ultimate-color/wifi-signal2')['default']
     PublicUserProfilePopover: typeof import('./components/PublicUserProfilePopover.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
