@@ -738,7 +738,7 @@ GET /api/v1/articles/40001
 | `id` | `Long` | 文章 ID | `40001` |
 | `title` | `String` | 文章标题 | `Spring Boot 双 Token 登录实践` |
 | `summary` | `String` | 文章摘要 | `本文记录双 Token 的实现思路与接口设计` |
-| `contentHtml` | `String` | HTML 正文，由 Markdown 转译并经白名单清洗；保留图片 title，前台以纯文本图注展示。公式分隔符及 LaTeX 源保留在 HTML 文本中，由文章详情前端使用 KaTeX 排版，不改写接口或存储内容 | `<h1>公式</h1><p>$2^3$</p>` |
+| `contentHtml` | `String` | HTML 正文，由 Markdown 转译并经白名单清洗；保留图片 title 及无额外属性的 `<small>`、`<big>`、`<mark>` 标签，前台以纯文本图注展示图片 title。公式分隔符及 LaTeX 源保留在 HTML 文本中，由文章详情前端使用 KaTeX 排版，不改写接口或存储内容 | `<h1>公式</h1><p><mark>$2^3$</mark></p>` |
 | `coverUrl` | `String` | 封面地址 | `https://cdn.example.com/cover/token.png` |
 | `isTop` | `Boolean` | 是否置顶 | `true` |
 | `allowComment` | `Boolean` | 是否允许新增评论和回复；关闭后已有 APPROVED 评论仍可展示 | `true` |
@@ -1440,7 +1440,7 @@ Content-Type: application/json
 
 `POST /api/v1/admin/articles/preview` 仅管理员可用。请求为 `{ "contentMd": "# 标题" }`，`contentMd` 必填且不能为 null，允许空字符串以便未完成正文也可预览；不接收文章 ID，不要求标题、分类、标签或状态。响应为 `{ "code": 0, "message": "成功", "data": { "contentHtml": "<h1>标题</h1>" } }`。
 
-复用文章保存的 Markdown 转换与白名单清洗，保留公式源和图片 title；前端以共享正文组件处理 KaTeX、图注和代码高亮。响应设置 `Cache-Control: no-store`。接口不查询或写入业务数据、不记录编辑审计、不改变发布状态、浏览量或通知；新文章、草稿、下线文章均可预览。未登录返回 401，非管理员返回 403，请求缺失或 contentMd 为 null 返回参数错误 199001。
+复用文章保存的 Markdown 转换与白名单清洗，支持 `==文字==` 行内高亮并转换为 `<mark>`，保留公式源、图片 title 以及 `<small>`、`<big>`、`<mark>` 安全语义标签；这些标签的额外属性不放开，代码区域中的等号不作为高亮标记解析。前端以共享正文组件处理 KaTeX、图注和代码高亮。响应设置 `Cache-Control: no-store`。接口不查询或写入业务数据、不记录编辑审计、不改变发布状态、浏览量或通知；新文章、草稿、下线文章均可预览。未登录返回 401，非管理员返回 403，请求缺失或 contentMd 为 null 返回参数错误 199001。
 
 ## 8.1 获取后台文章分页列表
 
@@ -2638,7 +2638,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 已发布过的文章仅允许在 `PUBLISHED` 与 `OFFLINE` 之间流转，不允许回退为 `DRAFT`
 - `publishedAt` 表示首次发布时间，仅在文章第一次变为 `PUBLISHED` 时写入；下线、重新发布或更新已发布文章时不刷新
 - 文章必须绑定二级分类，不能直接绑定一级分类
-- 文章保存或更新时，后端应以 `contentMd` 为源自动生成并持久化经过白名单清洗的 `contentHtml`；链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL，不允许协议相对 URL、危险协议或事件处理属性
+- 文章保存或更新时，后端应以 `contentMd` 为源自动生成并持久化经过白名单清洗的 `contentHtml`；行内 Markdown `==文字==` 转换为 `<mark>文字</mark>`，代码区域中的等号不作为高亮标记解析。白名单保留 `<small>`、`<big>`、`<mark>` 安全语义标签但不放开其额外属性。链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL，不允许协议相对 URL、危险协议或事件处理属性
 - `contentHtml` 保留 `$...$`、`\(...\)`、`$$...$$`、`\[...\]` 公式源；公开文章详情前端使用 KaTeX 排版，后端不存储排版器生成的 HTML
 - 文章保存或更新时，后端应以 `contentMd` 为源自动提取并持久化 `contentText`
 - 前台文章详情接口优先返回 `contentHtml` 用于页面渲染
@@ -2758,9 +2758,9 @@ Redis 只保存验证码哈希、失败次数和 TTL，最多允许 5 次校验�
 
 关于页保存请求只包含 `contentMd`，去除首尾空白后不能为空且最长 100000 个字符。后端生成
 `contentHtml`、`contentText`；规范化后的 Markdown 未变化时不重复更新。公开响应保留现有
-`/about` 前端路由所需内容，前端 Markdown 容器继续使用 `2rem` 行距。HTML 白名单允许 `a[href]` 使用同源相对 URL（例如 `/messages`）及 HTTP、HTTPS、mailto 绝对 URL；协议相对 URL、危险协议和事件处理属性会被清除。
+`/about` 前端路由所需内容，前端 Markdown 容器继续使用 `2rem` 行距，行内 `==文字==` 高亮转换为 `<mark>`。HTML 白名单保留 `<small>`、`<big>`、`<mark>` 安全语义标签但不放开其额外属性；`a[href]` 可使用同源相对 URL（例如 `/messages`）及 HTTP、HTTPS、mailto 绝对 URL；协议相对 URL、危险协议和事件处理属性会被清除。
 
-隐私政策读取后端 classpath 中的 `privacy-policy.md`，返回规范化 Markdown 的 `sha256:` 内容哈希、HTML 和纯文本；HTML 复用相同白名单规则，允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL。
+隐私政策读取后端 classpath 中的 `privacy-policy.md`，返回规范化 Markdown 的 `sha256:` 内容哈希、HTML 和纯文本；HTML 复用相同 Markdown 高亮及白名单规则，`==文字==` 转换为 `<mark>`，保留 `<small>`、`<big>`、`<mark>` 安全语义标签但不放开其额外属性，并允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL。
 响应使用 `ETag` 和 `Cache-Control: no-cache`；`If-None-Match` 命中时返回 304。资源缺失或为空
 时后端拒绝启动。注册请求提交当前哈希，哈希不一致时要求用户重新读取和确认。
 

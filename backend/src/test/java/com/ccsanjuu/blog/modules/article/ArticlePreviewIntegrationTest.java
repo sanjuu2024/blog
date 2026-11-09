@@ -49,6 +49,12 @@ class ArticlePreviewIntegrationTest {
         String markdown = """
                 # 未保存标题
 
+                ==预览高亮 **重点**==
+
+                ~~已删除的 **重点** 内容~~
+
+                <small onclick="alert(1)">小字</small> <big style="color:red">大字</big> <mark class="custom">标记</mark>
+
                 \\(a*b=2^{14}\\)
 
                 ![替代文本](https://img.example.com/example.png "图注")
@@ -69,10 +75,18 @@ class ArticlePreviewIntegrationTest {
         String html = objectMapper.readTree(response).path("data").path("contentHtml").asText();
 
         assertEquals(renderer.convertMarkdownToHtml(markdown), html);
+        assertTrue(html.contains("<mark>预览高亮 <strong>重点</strong></mark>"));
+        assertTrue(html.contains("<del>已删除的 <strong>重点</strong> 内容</del>"));
+        assertTrue(html.contains("<small>小字</small>"));
+        assertTrue(html.contains("<big>大字</big>"));
+        assertTrue(html.contains("<mark>标记</mark>"));
         assertTrue(html.contains("\\(a*b=2^{14}\\)"));
         assertTrue(html.contains("title=\"图注\""));
         assertTrue(html.contains("language-java"));
         assertFalse(html.contains("<script"));
+        assertFalse(html.contains("onclick"));
+        assertFalse(html.contains("style="));
+        assertFalse(html.contains("class=\"custom\""));
         assertFalse(html.contains("onerror"));
         assertEquals(articleCount, jdbcTemplate.queryForObject("select count(*) from blog_article", Long.class));
         assertEquals(auditCount, jdbcTemplate.queryForObject("select count(*) from blog_admin_audit_log", Long.class));

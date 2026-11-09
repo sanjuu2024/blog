@@ -26,6 +26,8 @@ public class ArticleContentRenderer {
 
     // 清洗白名单列表
     private static final Safelist ARTICLE_HTML_SAFELIST = new Safelist(Safelist.relaxed()
+            // 保留安全的语义格式标签，属性仍按白名单清洗
+            .addTags("del", "big", "mark")
             // Markdown 表格 / 手写安全表格
             .addTags(
                     "table", "thead", "tbody", "tfoot", "tr", "th", "td",
@@ -98,6 +100,7 @@ public class ArticleContentRenderer {
                 TablesExtension.create(),
                 TaskListExtension.create(),
                 StrikethroughExtension.create(),
+                new HighlightExtension(),
                 new LatexSourceExtension()
         ));
 

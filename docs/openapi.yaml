@@ -2136,7 +2136,7 @@ paths:
       tags:
         - Admin Articles
       summary: 预览未保存的文章正文
-      description: 权限级别 `ADMIN`。复用文章保存时的 Markdown 转换和 HTML 白名单清洗，仅返回 contentHtml，不查询或写入文章、审计、统计或通知。contentMd 必填且不为 null，允许空字符串；不要求标题、分类、文章 ID 或发布状态。响应使用 Cache-Control no-store，前端复用实际正文的公式、代码高亮和图注处理。
+      description: 权限级别 `ADMIN`。复用文章保存时的 Markdown 转换和 HTML 白名单清洗，仅返回 contentHtml，不查询或写入文章、审计、统计或通知。支持 `==文字==` 转换为 mark，代码区域中的等号保留原样；保留公式源、图片 title 和无额外属性的 small、big、mark 标签。contentMd 必填且不为 null，允许空字符串；不要求标题、分类、文章 ID 或发布状态。响应使用 Cache-Control no-store，前端复用实际正文的公式、代码高亮和图注处理。
       operationId: previewAdminArticle
       security:
         - bearerAuth: []
@@ -2172,6 +2172,7 @@ paths:
                         properties:
                           contentHtml:
                             type: string
+                            description: Markdown 转译并经白名单清洗的 HTML；`==文字==` 转换为 mark，代码区域中的等号保留原样；保留 small、big、mark 标签且不开放额外属性
                             example: '<h1>标题</h1>'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
@@ -3257,7 +3258,7 @@ components:
           example: true
         contentHtml:
           type: string
-          description: 经过白名单清洗的 Markdown 渲染结果；链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL，不允许协议相对 URL、危险协议或事件处理属性
+          description: 经过白名单清洗的 Markdown 渲染结果；`==文字==` 转换为 mark，代码区域中的等号保留原样；保留 small、big、mark 标签且不开放额外属性。链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL，不允许协议相对 URL、危险协议或事件处理属性
           example: '<h1>关于本站</h1><p>欢迎来到青禾边。</p>'
         contentText:
           type: string
@@ -3654,7 +3655,7 @@ components:
           example: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
         contentHtml:
           type: string
-          description: 经过白名单清洗的隐私政策 HTML；链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL
+          description: 经过白名单清洗的隐私政策 HTML；`==文字==` 转换为 mark，代码区域中的等号保留原样；保留 small、big、mark 标签且不开放额外属性，链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL
         contentText:
           type: string
           description: 隐私政策纯文本
@@ -4080,7 +4081,7 @@ components:
           example: 本文记录双 Token 的实现思路与接口设计
         contentHtml:
           type: string
-          description: 由 Markdown 转译并经白名单清洗的 HTML 正文；链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL。保留图片 title，公开文章详情前端将非空 title 作为纯文本图注展示并移除图片悬浮提示，不回写存储内容。公式分隔符及 LaTeX 源保留在 HTML 文本中，前端使用 KaTeX 排版，接口不返回或存储排版器生成的 HTML。
+          description: 由 Markdown 转译并经白名单清洗的 HTML 正文；保留 small、big、mark 标签且不开放额外属性，链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL。保留图片 title，公开文章详情前端将非空 title 作为纯文本图注展示并移除图片悬浮提示，不回写存储内容。公式分隔符及 LaTeX 源保留在 HTML 文本中，前端使用 KaTeX 排版，接口不返回或存储排版器生成的 HTML。
           example: "<h1>公式</h1><p>$2^3$</p>"
         coverUrl:
           type: string
@@ -4743,7 +4744,7 @@ components:
           example: "# 一、背景\n\n这里是正文"
         contentHtml:
           type: string
-          description: 由 Markdown 转译并经白名单清洗的 HTML 正文；链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL
+          description: 由 Markdown 转译并经白名单清洗的 HTML 正文；`==文字==` 转换为 mark，代码区域中的等号保留原样；保留 small、big、mark 标签且不开放额外属性，链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL
           example: "<h1>一、背景</h1><p>这里是正文</p>"
         contentText:
           type: string

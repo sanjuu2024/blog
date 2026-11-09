@@ -27,6 +27,92 @@ class ArticleContentRendererTest {
     }
 
     @Test
+    void markdownStrikethroughShouldSurviveCleaningAndKeepPlainTextSearchable() {
+        String markdown = "普通文字 ~~已删除的 **重点** 内容~~ 后文";
+        var body = Jsoup.parseBodyFragment(articleContentRenderer.convertMarkdownToHtml(markdown)).body();
+
+        assertEquals(1, body.select("del").size());
+        assertEquals("已删除的 重点 内容", body.selectFirst("del").text());
+        assertEquals("重点", body.selectFirst("del strong").text());
+        assertEquals("普通文字 已删除的 重点 内容 后文", articleContentRenderer.convertToText(markdown));
+    }
+
+    @Test
+    void markdownShouldPreserveSmallBigAndMarkWithoutAllowingTheirAttributes() {
+        String html = articleContentRenderer.convertMarkdownToHtml("""
+                <small onclick="alert(1)">小字</small>
+                <big style="color:red">大字</big>
+                <mark class="custom" onmouseover="alert(1)">重点</mark>
+                """);
+        var body = Jsoup.parseBodyFragment(html).body();
+
+        assertEquals("小字", body.selectFirst("small").text());
+        assertEquals("大字", body.selectFirst("big").text());
+        assertEquals("重点", body.selectFirst("mark").text());
+        assertTrue(body.select("small[onclick], big[style], mark[class], mark[onmouseover]").isEmpty());
+        assertFalse(html.contains("onclick"));
+        assertFalse(html.contains("style="));
+        assertFalse(html.contains("onmouseover"));
+        assertFalse(html.contains("custom"));
+    }
+
+    @Test
+    void doubleEqualsShouldHighlightInlineMarkdownAndPreserveNestedFormatting() {
+        String markdown = "正文 ==高亮 **重点**== 后文";
+        String html = articleContentRenderer.convertMarkdownToHtml(markdown);
+        var body = Jsoup.parseBodyFragment(html).body();
+
+        assertEquals("<mark>高亮 <strong>重点</strong></mark>", body.selectFirst("mark").outerHtml());
+        assertEquals("正文 高亮 重点 后文", articleContentRenderer.convertToText(markdown));
+    }
+
+    @Test
+    void doubleEqualsShouldRemainLiteralWhenEscapedUnmatchedOrInsideCode() {
+        String html = articleContentRenderer.convertMarkdownToHtml("""
+                a == b
+
+                \\==转义==
+
+                ==没有闭合
+
+                `==行内代码==`
+
+                ```text
+                ==代码块==
+                ```
+                """);
+        var body = Jsoup.parseBodyFragment(html).body();
+
+        assertTrue(body.select("mark").isEmpty());
+        assertTrue(body.text().contains("a == b"));
+        assertTrue(body.text().contains("==转义=="));
+        assertTrue(body.text().contains("==没有闭合"));
+        assertEquals("==行内代码==", body.selectFirst("p code").text());
+        assertEquals("==代码块==", body.selectFirst("pre code").text());
+    }
+
+    @Test
+    void strikethroughShouldKeepCodeLiteralAndRemoveUnsafeHtmlAttributes() {
+        String html = articleContentRenderer.convertMarkdownToHtml("""
+                `~~行内代码~~`
+
+                ```text
+                ~~代码块~~
+                ```
+
+                <del onclick="alert(1)" style="color:red">删除内容</del>
+                """);
+        var body = Jsoup.parseBodyFragment(html).body();
+
+        assertEquals("~~行内代码~~", body.selectFirst("p code").text());
+        assertEquals("~~代码块~~", body.selectFirst("pre code").text());
+        assertEquals(1, body.select("del").size());
+        assertEquals("删除内容", body.selectFirst("del").text());
+        assertFalse(html.contains("onclick"));
+        assertFalse(html.contains("style="));
+    }
+
+    @Test
     void convertMarkdownToHtmlShouldRemoveUnsafeHtml() {
         String html = articleContentRenderer.convertMarkdownToHtml("""
                 <script>alert(1)</script>

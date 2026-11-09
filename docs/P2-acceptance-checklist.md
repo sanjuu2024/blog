@@ -44,9 +44,11 @@
 
 外部服务环境按“环境标识 + 是否真实服务 + 受控测试对象”填写，不记录密码、API key、secret 或完整收件地址：
 
+下文 `mail.example.com` 和 `no-reply@mail.example.com` 是示例，实际验收时替换为自己已在 Resend 验证的发件域名及地址；服务商 SMTP 地址保持不变。
+
 | 服务      | 建议记录内容                                                                                                                                                                                                                                                                                              |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Resend    | 自动化写 `GreenMail（本地 SMTP 替身，不外发）`；少量真实验收写 `Resend SMTP：smtp.resend.com:587，发件域 mail.ccsanjuu.com（记录控制台当前验证状态），发件人 no-reply@mail.ccsanjuu.com，收件人为本人控制的测试邮箱（脱敏）`。`no-reply` 只作发件地址，需另有可接收邮件的测试邮箱；真实性能环境关闭发信。 |
+| Resend    | 自动化写 `GreenMail（本地 SMTP 替身，不外发）`；少量真实验收写 `Resend SMTP：smtp.resend.com:587，发件域 mail.example.com（记录控制台当前验证状态），发件人 no-reply@mail.example.com，收件人为本人控制的测试邮箱（脱敏）`。`no-reply` 只作发件地址，需另有可接收邮件的测试邮箱；真实性能环境关闭发信。 |
 | OSS       | 写 `阿里云 OSS 测试 bucket：<bucket 标识>，endpoint / public HTTPS 域名：<非敏感域名>`，确认上传凭据仅限该测试 bucket；密钥不写入清单。性能测试不对真实 OSS 并发上传。                                                                                                                                    |
 | Turnstile | 写 `测试 hostname：<隔离测试域名>，action：guest_message，Cloudflare 独立测试站点`；site key 可按需记录公开值或前后几位，secret 不记录。生产 profile 要求 hostname / action 匹配，dev 官方测试 key 不能代替真实测试域名校验。                                                                             |
 
@@ -360,7 +362,7 @@ Vitest 当前配置未设置行 / 分支覆盖率最低阈值。`pnpm test:cover
 
 使用少量真实邮件分别覆盖注册验证码、改邮箱验证码、留言回复、评论回复；查看原始邮件 MIME 和至少两个常用邮件客户端的效果。
 
-- [x] 发件人是配置的显示名和 `no-reply@mail.ccsanjuu.com`，Resend 域名验证有效；不依赖 QQ SMTP。
+- [x] 发件人是配置的显示名和已验证域名下的发件地址（示例 `no-reply@mail.example.com`），Resend 域名验证有效；不依赖 QQ SMTP。
 - [x] 回复邮件为 multipart/alternative，同时含语义一致的 text/plain 和 text/html，中文编码正确。
 - [x] 评论主题为“你在[文章标题]的评论有了新的回复”，留言主题为“你在留言板的评论有了新的回复”。
 - [x] 卡片标题、昵称、原内容 / 回复、`#5f9d64` 品牌区、同色查看文字链接、首页名称链接和退订入口符合模板。
