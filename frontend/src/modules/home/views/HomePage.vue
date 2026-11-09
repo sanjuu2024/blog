@@ -150,7 +150,7 @@
 			</div>
 			<AppLoading
 				:loading="loadingTags"
-				class="tags-cloud"
+				class="tags-cloud flex justify-center"
 			>
 				<div
 					v-if="tagsLoadFailed"
@@ -172,7 +172,7 @@
 				</p>
 				<VueWordCloud
 					v-else
-					style="width: 100%; height: 300px"
+					style="width: min(1024px, 100%); height: 300px"
 					:words="tagCloudWords"
 					:spacing="0.3"
 				>
