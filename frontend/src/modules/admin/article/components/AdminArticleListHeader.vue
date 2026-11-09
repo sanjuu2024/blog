@@ -5,7 +5,7 @@
 			type="primary"
 			@click="router.push('/admin/articles/create')"
 		>
-			编写笔记
+			编写文章
 		</el-button>
 	</div>
 </template>

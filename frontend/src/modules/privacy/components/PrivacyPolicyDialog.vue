@@ -71,7 +71,6 @@ watch(visible, (isVisible) => {
 
 .privacy-policy-content {
 	padding: 16px;
-	line-height: 2rem;
 	font-size: small;
 }
 
