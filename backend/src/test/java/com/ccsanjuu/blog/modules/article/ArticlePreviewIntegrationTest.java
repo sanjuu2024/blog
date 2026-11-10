@@ -51,6 +51,12 @@ class ArticlePreviewIntegrationTest {
 
                 ==预览高亮 **重点**==
 
+                ① **<mark>立大志，自信自励。</mark>**树立正确的人生志向。
+
+                **<u>③ <font color='red' onclick='alert(1)'>xxx观点是xxx首要的观点</font>。</u>**
+
+                <img src="https://img.example.com/upload.png" alt="架构&amp;图&quot;.png" />
+
                 ~~已删除的 **重点** 内容~~
 
                 <small onclick="alert(1)">小字</small> <big style="color:red">大字</big> <mark class="custom">标记</mark>
@@ -76,6 +82,11 @@ class ArticlePreviewIntegrationTest {
 
         assertEquals(renderer.convertMarkdownToHtml(markdown), html);
         assertTrue(html.contains("<mark>预览高亮 <strong>重点</strong></mark>"));
+        assertTrue(html.contains("<strong><mark>立大志，自信自励。</mark></strong>树立正确的人生志向。"));
+        assertTrue(html.contains("<strong><u>③ <font color=\"red\">xxx观点是xxx首要的观点</font>。</u></strong>"));
+        var uploadedImage = org.jsoup.Jsoup.parseBodyFragment(html).selectFirst("img[src$=upload.png]");
+        assertEquals("架构&图\".png", uploadedImage.attr("alt"));
+        assertFalse(uploadedImage.hasAttr("title"));
         assertTrue(html.contains("<del>已删除的 <strong>重点</strong> 内容</del>"));
         assertTrue(html.contains("<small>小字</small>"));
         assertTrue(html.contains("<big>大字</big>"));

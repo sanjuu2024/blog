@@ -57,6 +57,42 @@ class ArticleContentRendererTest {
     }
 
     @Test
+    void fontColorShouldSurviveCleaningInsideBoldAndUnderline() {
+        String markdown = "**<u>③ <font color='red'>xxx观点是xxx首要的观点</font>。</u>**";
+        var body = Jsoup.parseBodyFragment(articleContentRenderer.convertMarkdownToHtml(markdown)).body();
+        var font = body.selectFirst("strong > u > font");
+
+        assertEquals(1, body.select("strong > u > font").size());
+        assertEquals("red", font.attr("color"));
+        assertEquals("xxx观点是xxx首要的观点", font.text());
+        assertEquals("③ xxx观点是xxx首要的观点。", body.text());
+    }
+
+    @Test
+    void fontShouldKeepOnlyColorAndLeaveCodeExamplesLiteral() {
+        String html = articleContentRenderer.convertMarkdownToHtml("""
+                <font color="#ff0000" onclick="alert(1)" style="position:fixed" class="custom" size="7" face="Arial">颜色标注</font>
+
+                `<font color='red'>行内代码</font>`
+
+                ```html
+                <font color="red">代码块</font>
+                ```
+                """);
+        var body = Jsoup.parseBodyFragment(html).body();
+        var fonts = body.select("font");
+
+        assertEquals(1, fonts.size());
+        assertEquals("#ff0000", fonts.getFirst().attr("color"));
+        assertEquals(1, fonts.getFirst().attributes().size());
+        assertEquals("<font color='red'>行内代码</font>", body.selectFirst("p code").text());
+        assertEquals("<font color=\"red\">代码块</font>", body.selectFirst("pre code").text());
+        assertFalse(html.contains("onclick"));
+        assertFalse(html.contains("style="));
+        assertFalse(html.contains("custom"));
+    }
+
+    @Test
     void doubleEqualsShouldHighlightInlineMarkdownAndPreserveNestedFormatting() {
         String markdown = "正文 ==高亮 **重点**== 后文";
         String html = articleContentRenderer.convertMarkdownToHtml(markdown);
@@ -64,6 +100,45 @@ class ArticleContentRendererTest {
 
         assertEquals("<mark>高亮 <strong>重点</strong></mark>", body.selectFirst("mark").outerHtml());
         assertEquals("正文 高亮 重点 后文", articleContentRenderer.convertToText(markdown));
+    }
+
+    @Test
+    void boldAroundMarkShouldRenderWhenFollowedImmediatelyByChineseText() {
+        String markdown = "① **<mark>立大志，就是要有崇高的理想信念，牢记使命，自信自励。</mark>**树立正确的政治方向和远大的人生志向（坚持中国特色社会主义，以民族复兴为己任。）";
+        var body = Jsoup.parseBodyFragment(articleContentRenderer.convertMarkdownToHtml(markdown)).body();
+
+        assertEquals(1, body.select("strong > mark").size());
+        assertEquals("立大志，就是要有崇高的理想信念，牢记使命，自信自励。", body.selectFirst("strong > mark").text());
+        assertTrue(body.text().endsWith("树立正确的政治方向和远大的人生志向（坚持中国特色社会主义，以民族复兴为己任。）"));
+        assertFalse(body.text().contains("**"));
+    }
+
+    @Test
+    void boldHtmlBoundariesShouldKeepCodeEscapesAndUnsafeAttributesIsolated() {
+        String markdown = """
+                前文**<mark onclick="alert(1)">重点</mark>**后文
+
+                **普通加粗**和 *斜体*、**外层 *内层斜体* 粗体**
+
+                `**<mark>行内代码</mark>**`
+
+                \\*\\*转义\\*\\*
+
+                ```text
+                **<mark>代码块</mark>**
+                ```
+                """;
+        String html = articleContentRenderer.convertMarkdownToHtml(markdown);
+        var body = Jsoup.parseBodyFragment(html).body();
+
+        assertEquals(1, body.select("strong > mark").size());
+        assertEquals("重点", body.selectFirst("strong > mark").text());
+        assertEquals(3, body.select("strong").size());
+        assertEquals(2, body.select("em").size());
+        assertFalse(html.contains("onclick"));
+        assertEquals("**<mark>行内代码</mark>**", body.selectFirst("p code").text());
+        assertEquals("**<mark>代码块</mark>**", body.selectFirst("pre code").text());
+        assertTrue(body.text().contains("**转义**"));
     }
 
     @Test

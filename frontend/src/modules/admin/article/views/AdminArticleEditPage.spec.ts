@@ -12,6 +12,7 @@ const routeLeave = vi.hoisted(() => ({ guard: undefined as (() => Promise<boolea
 const confirmLeave = vi.hoisted(() => vi.fn());
 const createArticle = vi.hoisted(() => vi.fn());
 const uploadAdminImage = vi.hoisted(() => vi.fn());
+const editorInsert = vi.hoisted(() => vi.fn());
 const previewArticle = vi.hoisted(() => vi.fn());
 
 vi.mock('../api/adminArticleApi', () => ({ previewArticle }));
@@ -89,7 +90,16 @@ vi.mock('@/modules/admin/file/composables/useAdminImageUpload', () => ({
 }));
 
 vi.mock('md-editor-v3', () => ({
-	MdEditor: { name: 'MdEditor', emits: ['onUploadImg'], template: '<div />' },
+	config: vi.fn(),
+	MdEditor: {
+		name: 'MdEditor',
+		emits: ['onUploadImg'],
+		methods: { insert: editorInsert },
+		setup() {
+			return { getEditorView: () => ({ state: { selection: {} }, dispatch: vi.fn() }) };
+		},
+		template: '<div />',
+	},
 }));
 
 vi.mock('element-plus', async (importOriginal) => ({
@@ -103,6 +113,7 @@ async function mountPage() {
 		global: {
 			renderStubDefaultSlot: true,
 			stubs: {
+				MdEditor: false,
 				ElForm: defineComponent({
 					template: '<form><slot /></form>',
 					methods: { validate: () => Promise.resolve(true) },
@@ -138,7 +149,7 @@ describe('AdminArticleEditPage', () => {
 		existingArticle = {};
 	});
 
-	it('inserts uploaded images with filename alt text and leaves title for author captions', async () => {
+	it('inserts successful uploads as HTML and completes the upload without default Markdown images', async () => {
 		const files = [new File(['image'], '架构图.png'), new File(['image'], '上传失败.png')];
 		uploadAdminImage
 			.mockResolvedValueOnce({
@@ -154,9 +165,56 @@ describe('AdminArticleEditPage', () => {
 
 		expect(uploadAdminImage).toHaveBeenNthCalledWith(1, 'ARTICLE_CONTENT', files[0]);
 		expect(uploadAdminImage).toHaveBeenNthCalledWith(2, 'ARTICLE_CONTENT', files[1]);
-		expect(callback).toHaveBeenCalledExactlyOnceWith([
-			{ url: 'https://img.example.com/architecture.png', alt: '架构图.png', title: '' },
-		]);
+		expect(callback).toHaveBeenCalledExactlyOnceWith([]);
+		expect(editorInsert).toHaveBeenCalledTimes(1);
+		expect(editorInsert.mock.calls[0]![0]('选中文本')).toEqual({
+			targetValue:
+				'<img src="https://img.example.com/architecture.png" alt="架构图.png" />\n\n',
+			select: false,
+		});
+		wrapper.unmount();
+	});
+
+	it('does not change the editor when every upload fails', async () => {
+		uploadAdminImage.mockResolvedValue(undefined);
+		const wrapper = await mountPage();
+		upsertRequest.contentMd = '已有正文';
+		const callback = vi.fn();
+
+		wrapper
+			.getComponent({ name: 'MdEditor' })
+			.vm.$emit('onUploadImg', [new File(['image'], '失败.png')], callback);
+		await flushPromises();
+
+		expect(upsertRequest.contentMd).toBe('已有正文');
+		expect(editorInsert).not.toHaveBeenCalled();
+		expect(callback).not.toHaveBeenCalled();
+		wrapper.unmount();
+	});
+
+	it('loads a Markdown-only editor response and can preview it without stored HTML or plain text', async () => {
+		route.params = { articleId: '40001' };
+		const contentMd = '# 长文章\n\n' + '用于编辑的正文。'.repeat(10000);
+		const editorFields = {
+			title: '长文章',
+			summary: '文章摘要',
+			contentMd,
+			categoryId: 21001,
+			tagIds: [30001],
+			status: 'PUBLISHED',
+			isTop: true,
+			allowComment: true,
+			coverUrl: 'https://img.example.com/cover.png',
+		};
+		existingArticle = { id: 40001, ...editorFields };
+		const wrapper = await mountPage();
+
+		expect(upsertRequest).toMatchObject(editorFields);
+		await wrapper.get('.admin-article-preview-button').trigger('click');
+		await flushPromises();
+		expect(previewArticle).toHaveBeenCalledExactlyOnceWith(contentMd);
+		expect(await routeLeave.guard?.()).toBe(true);
+		expect(confirmLeave).not.toHaveBeenCalled();
 		wrapper.unmount();
 	});
 

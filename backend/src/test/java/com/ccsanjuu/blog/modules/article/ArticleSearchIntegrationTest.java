@@ -92,6 +92,27 @@ class ArticleSearchIntegrationTest {
     }
 
     @Test
+    void savingArticleShouldPreserveFontColorInBoldUnderlinedPublicHtml() {
+        Long articleId = jdbcTemplate.queryForObject("select id from blog_article where status = 'PUBLISHED' order by id limit 1", Long.class);
+        Article existing = articleMapper.selectById(articleId);
+        String markdown = "**<u>③ <font color='red'>xxx观点是xxx首要的观点</font>。</u>**";
+        ArticleUpsertRequestDTO request = ArticleUpsertRequestDTO.builder()
+                .title("颜色标注回归").contentMd(markdown).categoryId(existing.getCategoryId())
+                .tagIds(java.util.List.of()).status(ArticleStatus.PUBLISHED).build();
+
+        var created = articleService.createArticle(existing.getAuthorId(), request);
+        Article saved = articleMapper.selectById(created.getId());
+        assertEquals(markdown, saved.getContentMd());
+        assertTrue(saved.getContentHtml().contains("<strong><u>③ <font color=\"red\">xxx观点是xxx首要的观点</font>。</u></strong>"));
+        assertEquals(saved.getContentHtml(), articleService.getPublicArticleDetail(created.getId(), null, null).getContentHtml());
+
+        articleMapper.updateById(Article.builder().id(created.getId())
+                .contentHtml("<strong><u>③ xxx观点是xxx首要的观点。</u></strong>").build());
+        articleService.updateArticle(created.getId(), existing.getAuthorId(), request);
+        assertEquals(saved.getContentHtml(), articleService.getPublicArticleDetail(created.getId(), null, null).getContentHtml());
+    }
+
+    @Test
     void savingArticleShouldConvertDoubleEqualsToMarkInPublicHtml() {
         Long articleId = jdbcTemplate.queryForObject("select id from blog_article where status = 'PUBLISHED' order by id limit 1", Long.class);
         Article existing = articleMapper.selectById(articleId);
@@ -106,6 +127,31 @@ class ArticleSearchIntegrationTest {
         assertEquals(markdown, saved.getContentMd());
         assertTrue(saved.getContentHtml().contains("<mark>高亮 <strong>重点</strong></mark>"));
         assertEquals("正文 高亮 重点 后文", saved.getContentText());
+        assertEquals(saved.getContentHtml(), articleService.getPublicArticleDetail(created.getId(), null, null).getContentHtml());
+    }
+
+    @Test
+    void savingArticleShouldRenderBoldMarkAndUploadedHtmlImages() {
+        Long articleId = jdbcTemplate.queryForObject("select id from blog_article where status = 'PUBLISHED' order by id limit 1", Long.class);
+        Article existing = articleMapper.selectById(articleId);
+        String markdown = """
+                ① **<mark>立大志，自信自励。</mark>**树立正确的人生志向。
+
+                <img src="https://img.example.com/upload.png" alt="架构&amp;图&quot;.png" />
+                """;
+        ArticleUpsertRequestDTO request = ArticleUpsertRequestDTO.builder()
+                .title("粗体高亮与 HTML 图片回归").contentMd(markdown).categoryId(existing.getCategoryId())
+                .tagIds(java.util.List.of()).status(ArticleStatus.PUBLISHED).build();
+
+        var created = articleService.createArticle(existing.getAuthorId(), request);
+        Article saved = articleMapper.selectById(created.getId());
+        assertEquals(markdown, saved.getContentMd());
+        assertTrue(saved.getContentHtml().contains("<strong><mark>立大志，自信自励。</mark></strong>树立正确的人生志向。"));
+        assertEquals("架构&图\".png", org.jsoup.Jsoup.parseBodyFragment(saved.getContentHtml()).selectFirst("img").attr("alt"));
+
+        articleMapper.updateById(Article.builder().id(created.getId()).contentHtml("<p>旧 HTML</p>").build());
+        articleService.updateArticle(created.getId(), existing.getAuthorId(), request);
+
         assertEquals(saved.getContentHtml(), articleService.getPublicArticleDetail(created.getId(), null, null).getContentHtml());
     }
 
@@ -136,8 +182,9 @@ class ArticleSearchIntegrationTest {
         articleMapper.updateById(Article.builder().id(created.getId()).contentHtml("<p>(a*b=2^{14})</p>").build());
         articleService.updateArticle(created.getId(), existing.getAuthorId(), request);
 
-        assertTrue(articleService.getArticleDetail(created.getId()).getContentHtml().contains("\\(a*b=2^{14}\\)"));
-        assertTrue(articleService.getArticleDetail(created.getId()).getContentHtml().contains("\\[c*d=2^{23}\\]"));
+        assertEquals(markdown, articleService.getArticleDetail(created.getId()).getContentMd());
+        assertTrue(articleService.getPublicArticleDetail(created.getId(), null, null).getContentHtml().contains("\\(a*b=2^{14}\\)"));
+        assertTrue(articleService.getPublicArticleDetail(created.getId(), null, null).getContentHtml().contains("\\[c*d=2^{23}\\]"));
     }
 
     @Test

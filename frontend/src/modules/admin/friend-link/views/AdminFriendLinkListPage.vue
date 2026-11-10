@@ -263,6 +263,19 @@
 					/>
 				</el-form-item>
 				<el-form-item
+					prop="section"
+					label="分区"
+				>
+					<el-select v-model="form.section">
+						<el-option
+							v-for="section in FRIEND_LINK_SECTIONS"
+							:key="section.value"
+							:label="section.label"
+							:value="section.value"
+						/>
+					</el-select>
+				</el-form-item>
+				<el-form-item
 					prop="description"
 					label="网站描述"
 				>
@@ -275,26 +288,13 @@
 				</el-form-item>
 				<el-form-item
 					prop="logoUrl"
-					label="头像图片或网站代表图地址（可选）"
+					label="图片链接"
 				>
 					<el-input
 						v-model.trim="form.logoUrl"
 						maxlength="500"
 						placeholder="https://example.com/avatar.png"
 					/>
-				</el-form-item>
-				<el-form-item
-					prop="section"
-					label="分区"
-				>
-					<el-select v-model="form.section">
-						<el-option
-							v-for="section in FRIEND_LINK_SECTIONS"
-							:key="section.value"
-							:label="section.label"
-							:value="section.value"
-						/>
-					</el-select>
 				</el-form-item>
 				<el-form-item
 					prop="sortNo"
@@ -397,6 +397,11 @@ async function submit() {
 </script>
 
 <style scoped lang="scss">
+:deep(.el-form-item) {
+	/* 将默认的居中对齐改为顶部对齐，完美适配多行 label */
+	align-items: flex-start;
+}
+
 .admin-friend-link {
 	height: 100%;
 	min-height: 0;

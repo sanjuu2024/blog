@@ -23,10 +23,6 @@ public class AdminArticleDetailVO {
 
     private String contentMd;
 
-    private String contentHtml;
-
-    private String contentText;
-
     private String coverUrl;
 
     private ArticleStatus status;

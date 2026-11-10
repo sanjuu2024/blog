@@ -5,6 +5,7 @@
 		destroy-on-close
 		:show-close="false"
 		:teleported="false"
+		:close-on-press-escape="!catalogExpanded"
 		class="admin-article-preview-dialog"
 		@update:model-value="emit('update:modelValue', $event)"
 	>
@@ -42,6 +43,7 @@
 		<article
 			v-else-if="article"
 			class="article-preview"
+			@click="catalogExpanded = false"
 		>
 			<AppImage
 				v-if="article.coverUrl"
@@ -75,8 +77,21 @@
 			>
 				{{ article.summary }}
 			</p>
-			<ArticleBody :html="article.contentHtml" />
+			<ArticleBody
+				ref="bodyRef"
+				:html="article.contentHtml"
+			/>
 		</article>
+
+		<ArticleCatalogSidebar
+			v-if="modelValue && !loading && !failed && scrollTarget && catalogList.length"
+			v-model:expanded="catalogExpanded"
+			:catalog-list="catalogList"
+			:active-catalog-id="activeCatalogId"
+			:teleport-to="scrollTarget"
+			:top-offset="headerHeight"
+			@select="scrollToHeading"
+		/>
 
 		<AppBacktop
 			v-if="scrollTarget"
@@ -86,14 +101,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
+import { useElementSize } from '@vueuse/core';
 import AppBacktop from '@/components/AppBacktop.vue';
 import AppImage from '@/components/AppImage.vue';
 import AppTagCapsule from '@/components/AppTagCapsule.vue';
 import ArticleBody from '@/modules/article/components/ArticleBody.vue';
+import ArticleCatalogSidebar from '@/modules/article/components/ArticleCatalogSidebar.vue';
+import { useArticleCatalog } from '@/modules/article/composables/useArticleCatalog';
 import type { ArticlePreviewSnapshot } from '../types/adminArticle';
 
-defineProps<{
+const props = defineProps<{
 	modelValue: boolean;
 	loading: boolean;
 	failed: boolean;
@@ -108,6 +126,31 @@ const previewHeader = ref<HTMLElement | null>(null);
 // 全屏 el-dialog 自身滚动；关闭销毁后引用清空，重新打开时使用新容器。
 const scrollTarget = computed(
 	() => previewHeader.value?.closest<HTMLElement>('.el-dialog') ?? null,
+);
+const headerElement = computed(
+	() => previewHeader.value?.closest<HTMLElement>('.el-dialog__header') ?? null,
+);
+const { height: headerHeight } = useElementSize(headerElement, undefined, { box: 'border-box' });
+const headingOffset = computed(() => headerHeight.value + 16);
+const catalogExpanded = ref(false);
+const bodyRef = ref<InstanceType<typeof ArticleBody> | null>(null);
+const contentRef = computed(() =>
+	props.modelValue && !props.loading && !props.failed ? (bodyRef.value?.element ?? null) : null,
+);
+const { catalogList, activeCatalogId, refreshCatalog, scrollToHeading } = useArticleCatalog(
+	contentRef,
+	{ scrollTarget, headingOffset },
+);
+
+// 正文替换或弹窗销毁后清理旧目录及滚动监听；只在新正文 DOM 完成后扫描。
+watch(
+	[contentRef, scrollTarget, () => props.article?.contentHtml],
+	async () => {
+		catalogExpanded.value = false;
+		await nextTick();
+		refreshCatalog();
+	},
+	{ flush: 'post' },
 );
 </script>
 

@@ -32,6 +32,7 @@
 				:loading="loading"
 			>
 				<MdEditor
+					ref="editorRef"
 					v-model="contentMd"
 					:theme="resolvedTheme"
 					:maxlength="100000"
@@ -53,15 +54,20 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import '@/modules/admin/file/utils/markdownEditor';
+import { onMounted, ref } from 'vue';
 import { onBeforeRouteLeave } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import 'element-plus/es/components/message-box/style/css';
-import { MdEditor, type UploadImgEvent } from 'md-editor-v3';
+import { MdEditor, type ExposeParam, type UploadImgEvent } from 'md-editor-v3';
 import { useTheme } from '@/composables/useTheme';
 import { formatDateTime } from '@/utils/datetime';
 import { useAdminAboutPage } from '../composables/useAdminAboutPage';
 import { useAdminImageUpload } from '@/modules/admin/file/composables/useAdminImageUpload';
+import {
+	createEditorImageHtml,
+	finishEditorImageUpload,
+} from '@/modules/admin/file/utils/editorImage';
 import { ADMIN_IMAGE_UPLOAD_SCENE } from '@/modules/admin/file/types/adminFile';
 
 defineOptions({
@@ -69,6 +75,7 @@ defineOptions({
 });
 
 const { resolvedTheme } = useTheme();
+const editorRef = ref<ExposeParam>();
 const { imageUploading, handleUploadAdminImage } = useAdminImageUpload();
 const {
 	aboutPage,
@@ -81,16 +88,20 @@ const {
 	saveAboutPage,
 } = useAdminAboutPage();
 
-// 只把成功的上传结果交给编辑器，title 留空供作者手动填写图注。
+// 只插入成功的图片，复用编辑器 insert 保留撤销能力，不自动添加 title 图注。
 const handleContentImageUpload: UploadImgEvent = async (files, callback) => {
 	const images = await Promise.all(
 		files.map((file) => handleUploadAdminImage(ADMIN_IMAGE_UPLOAD_SCENE.ABOUT_CONTENT, file)),
 	);
-	callback(
-		images.flatMap((image) =>
-			image ? [{ url: image.url, alt: image.originalName, title: '' }] : [],
-		),
-	);
+	const html = images
+		.flatMap((image) => (image ? [createEditorImageHtml(image)] : []))
+		.join('\n');
+	// 空行结束原始 HTML 块，确保图片后的 Markdown 仍会解析。
+	const editor = editorRef.value;
+	if (html && editor) {
+		editor.insert(() => ({ targetValue: `${html}\n\n`, select: false }));
+		await finishEditorImageUpload(editor, callback);
+	}
 };
 
 onMounted(() => {

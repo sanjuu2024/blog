@@ -1533,6 +1533,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 路径：`/api/v1/admin/articles/{articleId}`
 - 权限：`ADMIN`
 
+用于编辑回显，正文仅返回 `contentMd`；响应不包含 `contentHtml`、`contentText`。实际效果预览仍通过 `POST /api/v1/admin/articles/preview` 获取 HTML。
+
 ### 请求参数
 
 #### Path 参数
@@ -1558,8 +1560,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | `title` | `String` | 文章标题 | `Spring Boot 双 Token 登录实践` |
 | `summary` | `String` | 摘要 | `本文记录双 Token 的实现思路与接口设计` |
 | `contentMd` | `String` | Markdown 正文，供后台编辑器回显 | `# 一、背景\n...` |
-| `contentHtml` | `String` | HTML 正文，由 Markdown 转译得到 | `<h1>一、背景</h1><p>...</p>` |
-| `contentText` | `String` | 纯文本正文，由 Markdown 提取得到，供全文搜索使用 | `一、背景 ...` |
 | `coverUrl` | `String` | 封面地址 | `https://cdn.example.com/cover/token.png` |
 | `status` | `String` | 文章状态 | `DRAFT` |
 | `isTop` | `Boolean` | 是否置顶 | `true` |
@@ -1581,8 +1581,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
     "title": "Spring Boot 双 Token 登录实践",
     "summary": "本文记录双 Token 的实现思路与接口设计",
     "contentMd": "# 一、背景\n\n这里是正文",
-    "contentHtml": "<h1>一、背景</h1><p>这里是正文</p>",
-    "contentText": "一、背景 这里是正文",
     "coverUrl": "https://cdn.example.com/cover/token.png",
     "status": "DRAFT",
     "isTop": true,
@@ -2608,7 +2606,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 }
 ```
 
-文章封面上传后由前端把 URL 回填至原有封面输入框；文章和关于页正文图片上传后由 `md-editor-v3` 插入 Markdown 图片语法，以原文件名填写 alt，title 留空供作者手动添加图注。`ABOUT_CONTENT` 使用 `about/content/YYYY/MM/UUID.扩展名` 对象 key，其余校验及返回结构不变。该接口仅创建 OSS 对象，不直接修改文章、关于页或项目数据。
+文章封面上传后由前端把 URL 回填至原有封面输入框；文章和关于页正文图片上传后在编辑器中插入 `<img src="图片地址" alt="原文件名" />`，属性值进行 HTML 转义，不自动添加 title，作者可手动补充图注。只插入成功结果，保留文件选择顺序，历史 Markdown 图片语法继续支持。`ABOUT_CONTENT` 使用 `about/content/YYYY/MM/UUID.扩展名` 对象 key，其余校验及返回结构不变。该接口仅创建 OSS 对象，不直接修改文章、关于页或项目数据。
 
 ## 14. 业务规则补充
 
@@ -2639,6 +2637,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - `publishedAt` 表示首次发布时间，仅在文章第一次变为 `PUBLISHED` 时写入；下线、重新发布或更新已发布文章时不刷新
 - 文章必须绑定二级分类，不能直接绑定一级分类
 - 文章保存或更新时，后端应以 `contentMd` 为源自动生成并持久化经过白名单清洗的 `contentHtml`；行内 Markdown `==文字==` 转换为 `<mark>文字</mark>`，代码区域中的等号不作为高亮标记解析。白名单保留 `<small>`、`<big>`、`<mark>` 安全语义标签但不放开其额外属性。链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL，不允许协议相对 URL、危险协议或事件处理属性
+- 文章、实际效果预览、关于页和隐私政策的 HTML 白名单同时保留 `<font>` 标签及 `color` 属性，支持与粗体、下划线嵌套；font 的其他属性（包括 style、class、size、face 和事件处理属性）仍被清洗
 - `contentHtml` 保留 `$...$`、`\(...\)`、`$$...$$`、`\[...\]` 公式源；公开文章详情前端使用 KaTeX 排版，后端不存储排版器生成的 HTML
 - 文章保存或更新时，后端应以 `contentMd` 为源自动提取并持久化 `contentText`
 - 前台文章详情接口优先返回 `contentHtml` 用于页面渲染

@@ -77,8 +77,6 @@ export interface AdminArticleDetailData {
 	title: string;
 	summary: string;
 	contentMd: string;
-	contentHtml: string;
-	contentText: string;
 	coverUrl: string;
 	status: ArticleStatus;
 	isTop: boolean;
