@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ccsanjuu.blog.modules.article.mapper.ArticleMapper">
+    <sql id="archivePublicArticles">
+        FROM blog_article a
+        INNER JOIN blog_category category ON category.id = a.category_id
+            AND category.level = 2 AND category.status = 'ENABLED'
+        INNER JOIN blog_category parent ON parent.id = category.parent_id
+            AND parent.level = 1 AND parent.status = 'ENABLED'
+        INNER JOIN blog_user author ON author.id = a.author_id
+        WHERE a.status = 'PUBLISHED' AND a.published_at IS NOT NULL
+    </sql>
+
+    <resultMap id="archiveArticle" type="com.ccsanjuu.blog.modules.article.model.vo.ArchiveArticleVO">
+        <id property="id" column="id"/>
+        <result property="title" column="title"/>
+        <result property="publishedAt" column="published_at"/>
+        <association property="category" javaType="com.ccsanjuu.blog.modules.article.model.vo.ArticleCategoryVO">
+            <id property="id" column="category_id"/>
+            <result property="name" column="category_name"/>
+            <result property="level" column="category_level"/>
+            <association property="parent" javaType="com.ccsanjuu.blog.modules.article.model.vo.ArticleCategoryParentVO">
+                <id property="id" column="parent_id"/>
+                <result property="name" column="parent_name"/>
+            </association>
+        </association>
+    </resultMap>
+
+    <select id="selectArchiveYears" resultType="com.ccsanjuu.blog.modules.article.model.vo.ArchiveYearVO">
+        SELECT EXTRACT(YEAR FROM a.published_at AT TIME ZONE #{timeZone})::integer AS year,
+               COUNT(*) AS article_count
+        <include refid="archivePublicArticles"/>
+        GROUP BY year
+        ORDER BY year DESC
+    </select>
+
+    <select id="selectArchivePage" resultMap="archiveArticle">
+        SELECT a.id, a.title, a.published_at, category.id AS category_id,
+               category.name AS category_name, category.level AS category_level,
+               parent.id AS parent_id, parent.name AS parent_name
+        <include refid="archivePublicArticles"/>
+        <if test="start != null">
+            AND a.published_at &gt;= #{start} AND a.published_at &lt; #{end}
+        </if>
+        <if test="categoryId != null">
+            AND (category.id = #{categoryId} OR parent.id = #{categoryId})
+        </if>
+        <if test="tagId != null">
+            AND EXISTS (
+                SELECT 1
+                FROM blog_article_tag atag
+                WHERE atag.article_id = a.id AND atag.tag_id = #{tagId}
+            )
+        </if>
+        ORDER BY a.published_at DESC, a.id DESC
+    </select>
+
+    <select id="selectPublicSyndicationArticles" resultType="com.ccsanjuu.blog.modules.article.model.entity.Article">
+        SELECT a.id, a.title, a.summary, a.published_at, a.updated_at
+        FROM blog_article a
+        INNER JOIN blog_category category ON category.id = a.category_id
+            AND category.level = 2 AND category.status = 'ENABLED'
+        INNER JOIN blog_category parent ON parent.id = category.parent_id
+            AND parent.level = 1 AND parent.status = 'ENABLED'
+        INNER JOIN blog_user author ON author.id = a.author_id
+        WHERE a.status = 'PUBLISHED'
+        ORDER BY a.published_at DESC, a.id DESC
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+    <update id="incrementViewCount">
+        UPDATE blog_article
+        SET view_count = view_count + 1
+        WHERE id = #{articleId}
+          AND status = 'PUBLISHED'
+    </update>
+
+    <update id="incrementLikeCount">
+        UPDATE blog_article
+        SET like_count = like_count + 1
+        WHERE id = #{articleId}
+          AND status = 'PUBLISHED'
+    </update>
+
+    <update id="decrementLikeCount">
+        UPDATE blog_article
+        SET like_count = like_count - 1
+        WHERE id = #{articleId}
+          AND like_count > 0
+    </update>
+
+    <select id="getArticleCountByCategoryIds" resultType="com.ccsanjuu.blog.modules.article.model.bo.CategoryArticleCountBO">
+        select category_id as categoryId, count(id) as articleCount
+        from blog_article
+        where category_id in
+        <foreach collection="categoryIds" item="categoryId" separator="," open="(" close=")">
+            #{categoryId}
+        </foreach>
+        <if test="published != null and published">
+            and status = 'PUBLISHED'
+        </if>
+        group by category_id
+    </select>
+
+    <select id="selectPublicArticleSearchPage"
+            resultType="com.ccsanjuu.blog.modules.article.model.bo.PublicArticleSearchBO">
+        with search_query as (
+            select plainto_tsquery('public.zhparser_cfg', #{keyword}) as value,
+                   lower(#{keyword}) as literal_value,
+                   char_length(#{keyword}) as literal_length
+        )
+        select
+            a.id,
+            a.title,
+            a.summary,
+            a.cover_url,
+            a.is_top,
+            a.published_at,
+            a.view_count,
+            a.comment_count,
+            a.category_id,
+            case
+                when to_tsvector('public.zhparser_cfg', a.title) @@ search_query.value then
+                    ts_headline(
+                        'public.zhparser_cfg',
+                        a.title,
+                        search_query.value,
+                        'StartSel=__BLOG_SEARCH_HIGHLIGHT_START__, StopSel=__BLOG_SEARCH_HIGHLIGHT_END__, HighlightAll=true'
+                    )
+                when literal_match.title_position > 0 then a.title
+            end as highlighted_title,
+            case
+                when to_tsvector('public.zhparser_cfg', a.summary) @@ search_query.value then
+                    ts_headline(
+                        'public.zhparser_cfg',
+                        a.summary,
+                        search_query.value,
+                        'StartSel=__BLOG_SEARCH_HIGHLIGHT_START__, StopSel=__BLOG_SEARCH_HIGHLIGHT_END__, HighlightAll=true'
+                    )
+                when literal_match.summary_position > 0 then a.summary
+                when to_tsvector('public.zhparser_cfg', a.content_text) @@ search_query.value then
+                    ts_headline(
+                        'public.zhparser_cfg',
+                        a.content_text,
+                        search_query.value,
+                        'StartSel=__BLOG_SEARCH_HIGHLIGHT_START__, StopSel=__BLOG_SEARCH_HIGHLIGHT_END__, MinWords=10, MaxWords=35, ShortWord=1, MaxFragments=1'
+                    )
+                when literal_match.content_position > 0 then
+                    case when literal_match.content_position > 51 then '…' else '' end
+                    || substring(
+                        a.content_text
+                        from greatest(1, literal_match.content_position - 50)
+                        for least(50, literal_match.content_position - 1) + search_query.literal_length + 50
+                    )
+                    || case
+                        when literal_match.content_position + search_query.literal_length - 1 + 50
+                            &lt; char_length(a.content_text) then '…'
+                        else ''
+                    end
+            end as search_snippet
+        from blog_article a
+        cross join search_query
+        cross join lateral (
+            select strpos(lower(coalesce(a.title, '')), search_query.literal_value) as title_position,
+                   strpos(lower(coalesce(a.summary, '')), search_query.literal_value) as summary_position,
+                   strpos(lower(coalesce(a.content_text, '')), search_query.literal_value) as content_position
+        ) literal_match
+        where a.status = 'PUBLISHED'
+          and a.category_id in
+            <foreach collection="categoryIds" item="categoryId" separator="," open="(" close=")">
+                #{categoryId}
+            </foreach>
+          and (
+              a.search_vector @@ search_query.value
+              or literal_match.title_position > 0
+              or literal_match.summary_position > 0
+              or literal_match.content_position > 0
+          )
+        <if test="articleIds != null and articleIds.size() > 0">
+          and a.id in
+            <foreach collection="articleIds" item="articleId" separator="," open="(" close=")">
+                #{articleId}
+            </foreach>
+        </if>
+        <if test="isTop != null">
+          and a.is_top = #{isTop}
+        </if>
+        order by
+        <if test="prioritizeRelevance">
+            case
+                when literal_match.title_position > 0
+                    or to_tsvector('public.zhparser_cfg', a.title) @@ search_query.value then 1
+                else 0
+            end desc,
+            case
+                when numnode(search_query.value) > 0
+                    then ts_rank(a.search_vector, search_query.value)
+                else 0
+            end desc,
+        </if>
+        <if test="prioritizeTop">
+            a.is_top desc,
+        </if>
+            a.published_at desc,
+            a.id desc
+    </select>
+</mapper>

@@ -1,0 +1,162 @@
+package com.ccsanjuu.blog.modules.article.controller;
+
+import com.ccsanjuu.blog.common.api.PageResult;
+import com.ccsanjuu.blog.common.api.Result;
+import com.ccsanjuu.blog.modules.audit.annotation.AdminAudit;
+import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditAction;
+import com.ccsanjuu.blog.modules.audit.model.enums.AdminAuditResourceType;
+import com.ccsanjuu.blog.modules.article.model.dto.AdminArticleQueryDTO;
+import com.ccsanjuu.blog.modules.article.model.dto.ArticleUpsertRequestDTO;
+import com.ccsanjuu.blog.modules.article.model.dto.ArticlePreviewRequestDTO;
+import com.ccsanjuu.blog.modules.article.model.dto.UpdateArticleStatusRequestDTO;
+import com.ccsanjuu.blog.modules.article.model.vo.*;
+import com.ccsanjuu.blog.modules.article.service.ArticleService;
+import com.ccsanjuu.blog.modules.auth.model.security.JwtPrincipal;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/admin/articles")
+@Validated
+@RequiredArgsConstructor
+@Tag(name = "文章管理接口")
+public class AdminArticleController {
+
+    private final ArticleService articleService;
+
+    /**
+     * 预览当前未保存正文，不创建或更新文章。
+     *
+     * @param request Markdown 预览请求
+     * @return 不缓存的安全 HTML 响应
+     */
+    @PostMapping("/preview")
+    @Operation(description = "预览未保存的文章正文")
+    public ResponseEntity<Result<ArticlePreviewVO>> previewArticle(@Valid @RequestBody ArticlePreviewRequestDTO request) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(Result.success(articleService.previewArticle(request)));
+    }
+
+    /**
+     * 获取后台文章分页列表
+     *
+     * @param adminArticleQueryDTO
+     * @return
+     */
+    @GetMapping
+    @Operation(description = "获取后台文章分页列表")
+    public Result<PageResult<AdminArticleListItemVO>> getArticleList(@Valid @ModelAttribute AdminArticleQueryDTO adminArticleQueryDTO){
+        return Result.success(articleService.getArticleList(adminArticleQueryDTO));
+    }
+
+    /**
+     * 获取后台文章详情
+     *
+     * @param articleId
+     * @return
+     */
+    @GetMapping("/{articleId}")
+    @Operation(description = "获取后台文章详情")
+    public Result<AdminArticleDetailVO> getArticleDetail(@Positive @PathVariable Long articleId){
+        return Result.success(articleService.getArticleDetail(articleId));
+    }
+
+    /**
+     * 创建文章
+     *
+     * @param articleUpsertRequestDTO
+     * @param jwtPrincipal
+     * @return
+     */
+    @PostMapping
+    @Operation(description = "创建文章")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.ARTICLE,
+            action = AdminAuditAction.CREATE,
+            resourceId = "#result.data.id",
+            detail = "#result.data.status"
+    )
+    public Result<CreatedArticleVO> createArticle(
+            @Valid @RequestBody ArticleUpsertRequestDTO articleUpsertRequestDTO,
+            @AuthenticationPrincipal JwtPrincipal jwtPrincipal
+    ){
+        return Result.success(articleService.createArticle(jwtPrincipal.userId(), articleUpsertRequestDTO));
+    }
+
+    /**
+     * 更新文章
+     *
+     * @param articleId
+     * @param articleUpsertRequestDTO
+     * @param jwtPrincipal
+     * @return
+     */
+    @PutMapping("/{articleId}")
+    @Operation(description = "更新文章")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.ARTICLE,
+            action = AdminAuditAction.UPDATE,
+            resourceId = "#p0",
+            detail = "#p1.status"
+    )
+    public Result<UpdatedArticleVO> updateArticle(
+            @Positive @PathVariable Long articleId,
+            @Valid @RequestBody ArticleUpsertRequestDTO articleUpsertRequestDTO,
+            @AuthenticationPrincipal JwtPrincipal jwtPrincipal
+    ){
+        return Result.success(articleService.updateArticle(articleId, jwtPrincipal.userId(), articleUpsertRequestDTO));
+    }
+
+    /**
+     * 删除文章
+     *
+     * @param articleId
+     * @param jwtPrincipal
+     * @return
+     */
+    @DeleteMapping("/{articleId}")
+    @Operation(description = "删除文章")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.ARTICLE,
+            action = AdminAuditAction.DELETE,
+            resourceId = "#p0"
+    )
+    public Result<Void> deleteArticle(
+            @Positive @PathVariable Long articleId,
+            @AuthenticationPrincipal JwtPrincipal jwtPrincipal
+    ){
+        articleService.deleteArticle(jwtPrincipal.userId(), articleId);
+        return Result.success(null);
+    }
+
+    /**
+     * 修改文章状态
+     *
+     * @param articleId
+     * @param updateArticleStatusRequestDTO
+     * @return
+     */
+    @PatchMapping("/{articleId}/status")
+    @Operation(description = "修改文章状态")
+    @AdminAudit(
+            resourceType = AdminAuditResourceType.ARTICLE,
+            action = AdminAuditAction.CHANGE_STATUS,
+            resourceId = "#p0",
+            detail = "#p1.status"
+    )
+    public Result<UpdatedArticleStatusVO> updateArticleStatus(
+            @Positive @PathVariable Long articleId,
+            @Valid @RequestBody UpdateArticleStatusRequestDTO updateArticleStatusRequestDTO,
+            @AuthenticationPrincipal JwtPrincipal jwtPrincipal
+    ){
+        return Result.success(articleService.updateArticleStatus(articleId, jwtPrincipal.userId(), updateArticleStatusRequestDTO));
+    }
+}

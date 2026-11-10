@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ccsanjuu.blog.modules.notification.mapper.NotificationRecipientMapper">
+    <select id="selectIdsForRead" resultType="java.lang.Long">
+        SELECT r.notification_id
+        FROM blog_notification_recipient r
+        INNER JOIN blog_notification n ON n.id = r.notification_id
+        WHERE r.user_id = #{userId}
+          AND r.read_at IS NULL
+          AND n.status = 'PUBLISHED'
+          <if test="category == 'REPLY'">
+            AND n.type IN ('COMMENT_REPLY', 'MESSAGE_REPLY')
+          </if>
+          <if test="category == 'ADMIN_MESSAGE'">
+            AND n.type = 'ADMIN_MESSAGE'
+          </if>
+    </select>
+</mapper>

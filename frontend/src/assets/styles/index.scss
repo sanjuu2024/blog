@@ -1,12 +1,84 @@
-@use "tailwindcss";
-@use "./reset.scss";
+@use './themes.scss';
+@use './buttons.scss';
+@use './components.scss';
+@use './variables.scss';
+@use './scrollbar.scss';
 
+// 全局背景设置
 body {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+	background-color: var(--app-bg);
+	background-repeat: repeat;
+	background-size: auto;
 }
+
+// 全局字体颜色设置
+body {
+	color: var(--app-text);
+}
+
+// 全局字体设置
+:root {
+	--app-font-family:
+		-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+		'PingFang SC', 'Microsoft YaHei', sans-serif;
+	--el-font-family: var(--app-font-family);
+}
+
+// 全局 el 分页组件页码背景设置
+body .el-pagination.is-background {
+	--el-fill-color-light: var(--app-pagination-bg);
+}
+
+// el 分页组件中未选中的页码、上一页、下一页的背景设置
+body .el-pagination.is-background .el-pager li:not(.is-active),
+body .el-pagination.is-background .btn-prev,
+body .el-pagination.is-background .btn-next {
+	background-color: var(--app-pagination-bg);
+	// color: var(--app-text);
+}
+
+// el 分页组件中禁用的上一页 / 下一页背景设置
+body .el-pagination.is-background .btn-prev:disabled,
+body .el-pagination.is-background .btn-next:disabled {
+	background-color: var(--app-pagination-bg-muted);
+}
+
+// 🔺避免移动端输入时自动聚焦放大局部，导致顶部提示信息不在视窗中
+// Element Plus 的输入框默认字号为 14px。iPhone Safari 会自动放大字号小于 16px 的原生 input 和 textarea
+@media (width < 768px) {
+	input,
+	textarea,
+	select {
+		font-size: 16px;
+	}
+
+	input.el-input__inner,
+	textarea.el-textarea__inner {
+		font-size: 16px;
+	}
+}
+
+html,
+body,
+#app {
+	font-family: var(--app-font-family);
+	height: 100%;
+}
+
+button,
+input,
+textarea,
+select {
+	font: inherit;
+}
+
 code,
 pre {
-  font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+	font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
 }

@@ -1,0 +1,53 @@
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: docker/postgres/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      # 管理账号保持已有数据卷的值；业务账号由 dev/test Flyway 回调自动创建和授权。
+      POSTGRES_USER: ${POSTGRES_ADMIN_USERNAME:-sanjuu}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-sanjuu}
+      POSTGRES_DB: blog_db
+      TZ: UTC
+      PGTZ: UTC
+    volumes:
+      - blog_pg_data:/var/lib/postgresql/data
+      - ./backend/scripts/db/bootstrap/init.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - blog_network
+
+  redis:
+    image: redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    environment:
+      TZ: UTC
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - blog_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - blog_network
+
+networks:
+  blog_network:
+    driver: bridge
+
+volumes:
+  blog_pg_data:
+  blog_redis_data:

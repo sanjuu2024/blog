@@ -1,0 +1,149 @@
+package com.ccsanjuu.blog.modules.seo.controller;
+
+import com.ccsanjuu.blog.common.api.ResultCode;
+import com.ccsanjuu.blog.common.exception.BizException;
+import com.ccsanjuu.blog.common.exception.GlobalExceptionHandler;
+import com.ccsanjuu.blog.modules.seo.model.vo.SeoMetadataVO;
+import com.ccsanjuu.blog.modules.seo.service.SeoService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.net.URI;
+
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@ExtendWith(MockitoExtension.class)
+class PublicHtmlControllerTest {
+
+    @Mock
+    private SeoService seoService;
+
+    private MockMvc mockMvc;
+
+    @BeforeEach
+    void setUp() {
+        mockMvc = MockMvcBuilders.standaloneSetup(new PublicHtmlController(seoService), new SeoController(seoService))
+                .setControllerAdvice(new GlobalExceptionHandler()).build();
+    }
+
+    @Test
+    void legacyHomeShouldRedirectToRootWithoutLoadingMetadata() throws Exception {
+        mockMvc.perform(get("/home"))
+                .andExpect(status().isPermanentRedirect())
+                .andExpect(header().string("Location", "/"))
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(content().string(""));
+        verifyNoInteractions(seoService);
+    }
+
+    @Test
+    void legacyHomeShouldPreserveEncodedQueryAndKeepRedirectLocal() throws Exception {
+        String query = "tag=1&from=mail&name=%E9%9D%92%E7%A6%BE&redirect=https%3A%2F%2Fexample.com%2F&tag=2";
+        mockMvc.perform(get(URI.create("/home?" + query)))
+                .andExpect(status().isPermanentRedirect())
+                .andExpect(header().string("Location", "/?" + query))
+                .andExpect(content().string(""));
+        mockMvc.perform(head(URI.create("/home?" + query)))
+                .andExpect(status().isPermanentRedirect())
+                .andExpect(header().string("Location", "/?" + query))
+                .andExpect(content().string(""));
+        verifyNoInteractions(seoService);
+    }
+
+    @Test
+    void htmlShouldHaveUtf8AndNoStoreWithoutIncludingQueryInCanonicalPath() throws Exception {
+        when(seoService.renderHtml("/articles/34")).thenReturn("<h1>中文文章</h1>");
+        mockMvc.perform(get("/articles/34?replyId=51"))
+                .andExpect(status().isOk()).andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(content().contentType("text/html;charset=UTF-8"))
+                .andExpect(content().string("<h1>中文文章</h1>"));
+    }
+
+    @Test
+    void friendLinksHtmlShouldHaveUtf8AndNoStore() throws Exception {
+        when(seoService.renderHtml("/links")).thenReturn("<h1>友链</h1>");
+
+        mockMvc.perform(get("/links"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(content().contentType("text/html;charset=UTF-8"))
+                .andExpect(content().string("<h1>友链</h1>"));
+    }
+
+    @Test
+    void archiveHtmlShouldHaveUtf8AndNoStoreWithoutQueryInCanonicalPath() throws Exception {
+        when(seoService.renderHtml("/archives")).thenReturn("<h1>归档</h1>");
+
+        mockMvc.perform(get("/archives?mode=tag&tagId=30001"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(content().contentType("text/html;charset=UTF-8"))
+                .andExpect(content().string("<h1>归档</h1>"));
+    }
+
+    @Test
+    void disabledCategoryShouldReturnReal404WithVueEntry() throws Exception {
+        when(seoService.renderHtml("/articles/34")).thenThrow(new BizException(ResultCode.ARTICLE_CATEGORY_DISABLED));
+        String html = "<head><meta name=\"robots\" content=\"noindex, follow\"></head>"
+                + "<body><div id=\"app\"></div><script type=\"module\" src=\"/assets/app.js\"></script></body>";
+        when(seoService.renderNotFoundHtml()).thenReturn(html);
+        mockMvc.perform(get("/articles/34")).andExpect(status().isNotFound())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(content().contentType("text/html;charset=UTF-8"))
+                .andExpect(content().string(html));
+    }
+
+    @Test
+    void unavailableTemplateForMissingArticleShouldStillReturn503WithoutLeakingDetails() throws Exception {
+        when(seoService.renderHtml("/articles/34")).thenThrow(new BizException(ResultCode.ARTICLE_NOT_FOUND));
+        when(seoService.renderNotFoundHtml())
+                .thenThrow(new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "/private/path"));
+
+        mockMvc.perform(get("/articles/34")).andExpect(status().isServiceUnavailable())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("/private/path"))));
+    }
+
+    @Test
+    void templateUnavailableShouldNotLeakInternalDetails() throws Exception {
+        when(seoService.renderHtml("/")).thenThrow(new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "/private/path"));
+        mockMvc.perform(get("/")).andExpect(status().isServiceUnavailable())
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("/private/path"))));
+    }
+
+    @Test
+    void metadataShouldUseExistingJsonEnvelopeAndNoStore() throws Exception {
+        when(seoService.getMetadata("/articles/34")).thenReturn(SeoMetadataVO.builder()
+                .title("文章标题").canonicalUrl("https://blog.example.com/articles/34").type("article").build());
+        mockMvc.perform(get("/seo").param("path", "/articles/34"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.title").value("文章标题"))
+                .andExpect(header().string("Cache-Control", "no-store"));
+    }
+
+    @Test
+    void sitemapAndRobotsShouldUseCorrectContentTypes() throws Exception {
+        when(seoService.getSitemap()).thenReturn("<urlset />");
+        when(seoService.getRssFeed()).thenReturn("<rss version=\"2.0\" />");
+        when(seoService.getRobots()).thenReturn("User-agent: *\n");
+        mockMvc.perform(get("/sitemap.xml")).andExpect(status().isOk())
+                .andExpect(content().contentType("application/xml;charset=UTF-8"));
+        mockMvc.perform(get("/rss.xml")).andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(content().contentType("application/rss+xml;charset=UTF-8"))
+                .andExpect(content().string("<rss version=\"2.0\" />"));
+        mockMvc.perform(get("/robots.txt")).andExpect(status().isOk())
+                .andExpect(content().contentType("text/plain;charset=UTF-8"));
+    }
+}

@@ -5,6 +5,7 @@ info:
   description: |
     个人技术博客系统 OpenAPI 规范。
     基础路径统一为 `/api/v1/**`，可直接导入 Apifox 使用。
+    文章、实际效果预览、关于页和隐私政策的 HTML 正文统一保留 font 标签及其 color 属性，支持与粗体、下划线嵌套；font 的其他属性仍被白名单清除。
 servers:
   - url: http://localhost:8080
     description: 本地开发环境
@@ -13,23 +14,681 @@ tags:
     description: 认证模块
   - name: Public Articles
     description: 前台公共文章接口
+  - name: Public Comments
+    description: 前台评论接口
+  - name: Public Users
+    description: 前台公共用户接口
+  - name: Site Content
+    description: 公开站点页面和隐私政策内容
+  - name: Friend Links
+    description: 前台公开友链接口
+  - name: Admin Friend Links
+    description: 后台友链管理接口
   - name: Profile
     description: 个人中心接口
+  - name: Admin Files
+    description: 后台图片上传接口
   - name: Admin Users
     description: 后台用户管理接口
+  - name: Admin Comments
+    description: 后台评论审核接口
+  - name: Messages
+    description: 前台留言接口
+  - name: Admin Messages
+    description: 后台留言管理接口
   - name: Admin Articles
     description: 后台文章管理接口
   - name: Admin Categories
     description: 后台分类管理接口
   - name: Admin Tags
     description: 后台标签管理接口
+  - name: Admin Audit Logs
+    description: 后台操作审计日志接口
+  - name: Admin Site Content
+    description: 后台关于页内容管理
+  - name: Notifications
+    description: 用户站内通知接口
+  - name: Admin Notifications
+    description: 管理员消息接口
+  - name: Admin Dashboard
+    description: 后台 Dashboard 统计接口
 paths:
+  /archives:
+    get:
+      tags: [Site Content]
+      summary: 获取归档页首屏 HTML
+      description: canonical 为 /archives，不含模式、筛选 query 或 hash。
+      responses:
+        '200': { $ref: '#/components/responses/PublicHtmlResponse' }
+        '503': { description: 前端入口模板不可用 }
+  /api/v1/archives/years:
+    get:
+      tags: [Public Articles]
+      summary: 获取公开文章年份及完整篇数
+      description: 按必传的 timeZone 对首次发布时间一次分组聚合，年份倒序；仅 PUBLISHED、启用二级和父分类、作者存在的文章，不增加浏览数。
+      parameters:
+        - $ref: '#/components/parameters/ArchiveTimeZone'
+      responses:
+        '200':
+          description: 获取成功，无文章时 data 为空数组
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, message, data]
+                properties:
+                  code: { type: integer, example: 0 }
+                  message: { type: string, example: 成功 }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [year, articleCount]
+                      properties:
+                        year: { type: integer, example: 2026 }
+                        articleCount: { type: integer, format: int64, example: 18 }
+        '400': { $ref: '#/components/responses/BadRequestResponse' }
+  /api/v1/archives/articles:
+    get:
+      tags: [Public Articles]
+      summary: 分页获取紧凑归档文章
+      description: timeZone 必传；year、categoryId、tagId 最多传一个。年度筛选按 timeZone 分别计算当年和下一年年初的半开范围，应用各自夏令时规则。公开可见条件同年份汇总，按 publishedAt DESC、id DESC，忽略置顶；不含封面、摘要、正文、标签或统计，不增加浏览数。
+      parameters:
+        - $ref: '#/components/parameters/ArchiveTimeZone'
+        - { name: pageNum, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 20, default: 10 } }
+        - { name: year, in: query, schema: { type: integer, minimum: 1, maximum: 9998 }, description: timeZone 下的当地年份 }
+        - { name: categoryId, in: query, schema: { type: integer, format: int64, minimum: 1 }, description: 一级或二级分类 ID }
+        - { name: tagId, in: query, schema: { type: integer, format: int64, minimum: 1 } }
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, message, data]
+                properties:
+                  code: { type: integer, example: 0 }
+                  message: { type: string, example: 成功 }
+                  data:
+                    type: object
+                    required: [total, totalPages, pageNum, pageSize, hasNext, records]
+                    properties:
+                      total: { type: integer, format: int64 }
+                      totalPages: { type: integer, format: int64 }
+                      pageNum: { type: integer, format: int64 }
+                      pageSize: { type: integer, format: int64 }
+                      hasNext: { type: boolean }
+                      records:
+                        type: array
+                        items:
+                          type: object
+                          required: [id, title, publishedAt, category]
+                          properties:
+                            id: { type: integer, format: int64 }
+                            title: { type: string }
+                            publishedAt: { type: string, format: date-time }
+                            category:
+                              type: object
+                              required: [id, name, level, parent]
+                              properties:
+                                id: { type: integer, format: int64 }
+                                name: { type: string }
+                                level: { type: integer, enum: [2] }
+                                parent:
+                                  type: object
+                                  required: [id, name]
+                                  properties:
+                                    id: { type: integer, format: int64 }
+                                    name: { type: string }
+        '400': { $ref: '#/components/responses/BadRequestResponse' }
+        '404': { description: 分类或标签不存在，code 为 103002 或 103005 }
+        '409': { description: 分类或标签禁用，code 为 103004 或 103006 }
+  /:
+    get:
+      tags: [Site Content]
+      summary: 获取首页首屏 HTML
+      responses:
+        '200': { $ref: '#/components/responses/PublicHtmlResponse' }
+        '503': { description: 前端入口模板不可用 }
+  /home:
+    get:
+      tags: [Site Content]
+      summary: 重定向旧首页地址
+      description: 首页规范地址为 /。旧 /home 永久重定向到 /，保留查询参数；不生成独立首页 HTML 或 canonical。
+      responses:
+        '308':
+          description: 永久重定向至规范首页
+          headers:
+            Location:
+              description: 根路径 /，附带原查询参数（如有）
+              schema: { type: string, example: / }
+            Cache-Control:
+              schema: { type: string, example: no-store }
+  /articles:
+    get:
+      tags: [Site Content]
+      summary: 获取文章列表首屏 HTML
+      responses:
+        '200': { $ref: '#/components/responses/PublicHtmlResponse' }
+        '503': { description: 前端入口模板不可用 }
+  /about:
+    get:
+      tags: [Site Content]
+      summary: 获取关于页首屏 HTML
+      responses:
+        '200': { $ref: '#/components/responses/PublicHtmlResponse' }
+        '503': { description: 前端入口模板不可用 }
+  /messages:
+    get:
+      tags: [Site Content]
+      summary: 获取留言板首屏 HTML
+      responses:
+        '200': { $ref: '#/components/responses/PublicHtmlResponse' }
+        '503': { description: 前端入口模板不可用 }
+  /links:
+    get:
+      tags: [Site Content]
+      summary: 获取友链页首屏 HTML
+      responses:
+        '200': { $ref: '#/components/responses/PublicHtmlResponse' }
+        '503': { description: 前端入口模板不可用 }
+  /articles/{articleId}:
+    get:
+      tags: [Site Content]
+      summary: 获取公开文章首屏 HTML
+      description: 仅在入口 HTML head 注入元信息，不生成正文；正文由 Vue 渲染。不记录浏览、不返回个人状态；仅允许公开可见文章，canonical 不含 query/hash。
+      parameters:
+        - $ref: '#/components/parameters/ArticleId'
+      responses:
+        '200': { $ref: '#/components/responses/PublicHtmlResponse' }
+        '404':
+          description: 文章不存在、不可见或分类不可用；返回带 noindex 的前端入口模板，由 Vue 在 MainLayout 中显示文章错误状态，保留原资源及空挂载容器，无 canonical、description、OG 或文章专属标签
+          headers:
+            Cache-Control:
+              schema: { type: string, example: no-store }
+          content:
+            text/html:
+              schema: { type: string }
+        '503': { description: 前端入口模板不可用 }
+  /sitemap.xml:
+    get:
+      tags: [Site Content]
+      summary: 获取公开页面站点地图
+      responses:
+        '200':
+          description: 仅包含公开页面和公开可见文章，不缓存
+          content:
+            application/xml:
+              schema: { type: string }
+  /rss.xml:
+    get:
+      tags: [Site Content]
+      summary: 获取公开文章 RSS 订阅
+      description: 无需登录。返回 RSS 2.0 XML，仅包含最近 20 篇仍公开的已发布文章，按发布时间倒序；每项包含标题、纯文本摘要、发布时间和文章规范地址，不输出全文或用户状态。响应不缓存。
+      responses:
+        '200':
+          description: RSS 2.0 feed
+          headers:
+            Cache-Control:
+              schema: { type: string, example: no-store }
+          content:
+            application/rss+xml:
+              schema: { type: string }
+  /robots.txt:
+    get:
+      tags: [Site Content]
+      summary: 获取爬虫访问规则
+      responses:
+        '200':
+          description: 排除后台、认证和个人中心；API 默认禁止，允许 GET /api/v1/friend-links 及其本站申请资料子路径读取公开友链数据；生产 API 响应带 X-Robots-Tag noindex，JSON 不单独收录。
+          content:
+            text/plain:
+              schema: { type: string }
+  /api/v1/seo:
+    get:
+      tags: [Site Content]
+      summary: 获取公开页面 SEO 元信息
+      description: 非文章公开页面内部导航时按需调用；文章页直接使用文章详情响应的 seo，不额外调用该接口。
+      parameters:
+        - name: path
+          in: query
+          required: true
+          description: 公开页面规范路径，不含 query/hash；支持首页、文章列表、归档、关于、留言板、友链及纯 ID 文章详情
+          schema: { type: string, example: /articles/34 }
+      responses:
+        '200':
+          description: 元信息，不记录浏览，不缓存
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    required: [data]
+                    properties:
+                      data: { $ref: '#/components/schemas/SeoMetadata' }
+        '404': { $ref: '#/components/responses/ResourceNotFoundResponse' }
+  /api/v1/friend-links:
+    get:
+      tags: [Friend Links]
+      summary: 获取已启用友链分区
+      description: 无需登录。始终返回 FRIENDS、EXPERTS、PEERS 三个固定分区；每个分区按 sortNo、id 升序，仅包含 ENABLED 友链。空分区返回空 records；不分页、不缓存。
+      operationId: listPublicFriendLinks
+      responses:
+        '200':
+          description: 查询成功
+          headers:
+            Cache-Control:
+              schema: { type: string, example: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicFriendLinkSectionsResponse' }
+  /api/v1/friend-links/site-profile:
+    get:
+      tags: [Friend Links]
+      summary: 获取本站友链申请资料
+      description: 无需登录。返回由后端运行时配置提供的本站名称、地址、描述和头像图片或网站代表图；响应不缓存。生产地址必须为 HTTPS origin 且图片地址必须为 HTTPS；dev/test 可使用 localhost HTTP 站点地址和 HTTP(S) 图片地址。
+      operationId: getPublicFriendLinkSiteProfile
+      responses:
+        '200':
+          description: 查询成功
+          headers:
+            Cache-Control:
+              schema: { type: string, example: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublicFriendLinkSiteProfileResponse' }
+  /api/v1/admin/friend-links:
+    get:
+      tags: [Admin Friend Links]
+      summary: 分页查询友链
+      description: 权限级别 `ADMIN`。结果包含启用和停用友链，按 createdAt、id 倒序；支持名称模糊查询及分区、状态筛选。
+      operationId: listAdminFriendLinks
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+        - name: keyword
+          in: query
+          required: false
+          schema: { type: string, maxLength: 100 }
+        - name: section
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/FriendLinkSection' }
+        - name: status
+          in: query
+          required: false
+          schema: { $ref: '#/components/schemas/FriendLinkStatus' }
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminFriendLinkPageResponse' }
+        '400': { $ref: '#/components/responses/BadRequestResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedResponse' }
+        '403': { $ref: '#/components/responses/ForbiddenResponse' }
+    post:
+      tags: [Admin Friend Links]
+      summary: 创建友链
+      description: 权限级别 `ADMIN`。成功和失败操作均写后台操作审计日志；创建状态默认为 ENABLED，sortNo 默认为 100。后台列表顺序为 createdAt、id 倒序。
+      operationId: createAdminFriendLink
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FriendLinkCreateRequest' }
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FriendLinkMutationResponse' }
+        '400': { $ref: '#/components/responses/BadRequestResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedResponse' }
+        '403': { $ref: '#/components/responses/ForbiddenResponse' }
+        '409': { $ref: '#/components/responses/FriendLinkConflictResponse' }
+  /api/v1/admin/friend-links/{friendLinkId}:
+    put:
+      tags: [Admin Friend Links]
+      summary: 更新友链
+      description: 权限级别 `ADMIN`。完整替换可编辑字段；成功和失败操作均写后台操作审计日志。
+      operationId: updateAdminFriendLink
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: friendLinkId
+          in: path
+          required: true
+          schema: { type: integer, format: int64, minimum: 1 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FriendLinkUpdateRequest' }
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FriendLinkMutationResponse' }
+        '400': { $ref: '#/components/responses/BadRequestResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedResponse' }
+        '403': { $ref: '#/components/responses/ForbiddenResponse' }
+        '404': { $ref: '#/components/responses/FriendLinkNotFoundResponse' }
+        '409': { $ref: '#/components/responses/FriendLinkConflictResponse' }
+    delete:
+      tags: [Admin Friend Links]
+      summary: 永久删除友链
+      description: 权限级别 `ADMIN`。物理删除指定记录，成功和失败操作均写后台操作审计日志。
+      operationId: deleteAdminFriendLink
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: friendLinkId
+          in: path
+          required: true
+          schema: { type: integer, format: int64, minimum: 1 }
+      responses:
+        '200': { $ref: '#/components/responses/NoDataResponse' }
+        '400': { $ref: '#/components/responses/BadRequestResponse' }
+        '401': { $ref: '#/components/responses/UnauthorizedResponse' }
+        '403': { $ref: '#/components/responses/ForbiddenResponse' }
+        '404': { $ref: '#/components/responses/FriendLinkNotFoundResponse' }
+  /api/v1/admin/dashboard:
+    get:
+      tags:
+        - Admin Dashboard
+      summary: 获取管理员 Dashboard
+      description: 权限级别 `ADMIN`。返回用户、文章、有效浏览、文章点赞、可见评论和可见留言总量；每个趋势点同时提供周期增量 increment 和截至周期结束的累计值 value，前端每个图表独立切换、默认展示增量。周期为 Asia/Shanghai 自然日，未结束周期统计至当前时刻。用户增量包含后来注销的账号；文章趋势按现存文章的首次发布时间统计并包含 OFFLINE 文章；浏览按有效浏览日聚合；文章点赞只统计当前仍保留的明细；评论和留言只统计当前 APPROVED 记录并按 created_at 归期，不按审核时间归期。接口还返回三类已发布文章 Top 10 及分布统计。
+      operationId: getAdminDashboard
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDashboardResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+  /api/v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: 获取当前用户通知
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [ALL, REPLY, ADMIN_MESSAGE]
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPageResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+  /api/v1/notifications/unread-count:
+    get:
+      tags: [Notifications]
+      summary: 获取通知未读数
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationUnreadCountResponse'
+  /api/v1/notifications/{notificationId}/read:
+    patch:
+      tags: [Notifications]
+      summary: 标记单条通知已读
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          $ref: '#/components/responses/NoDataResponse'
+  /api/v1/notifications/read-all:
+    patch:
+      tags: [Notifications]
+      summary: 标记全部或指定分类已读
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [ALL, REPLY, ADMIN_MESSAGE]
+      responses:
+        '200':
+          $ref: '#/components/responses/NoDataResponse'
+  /api/v1/admin/notifications:
+    get:
+      tags: [Admin Notifications]
+      summary: 查询管理员消息
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminNotificationListResponse'
+    post:
+      tags: [Admin Notifications]
+      summary: 创建管理员消息
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAdminNotificationRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminNotificationResponse'
+        '400':
+          $ref: '#/components/responses/AdminNotificationBadRequestResponse'
+  /api/v1/admin/notifications/{notificationId}/status:
+    patch:
+      tags: [Admin Notifications]
+      summary: 发布或下线管理员消息
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: status
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [PUBLISHED, OFFLINE]
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminNotificationResponse'
+        '400':
+          $ref: '#/components/responses/AdminNotificationBadRequestResponse'
+  /api/v1/admin/notifications/{notificationId}:
+    put:
+      tags: [Admin Notifications]
+      summary: 更新管理员消息草稿
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAdminNotificationRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminNotificationResponse'
+        '400':
+          $ref: '#/components/responses/AdminNotificationBadRequestResponse'
+  /api/v1/about:
+    get:
+      tags:
+        - Site Content
+      summary: 获取关于页
+      description: 权限级别 `PUBLIC`。关于页尚未创建时仍返回 200，正文为“暂无内容”。
+      operationId: getAboutPage
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicAboutPageResponse'
+  /api/v1/privacy-policy:
+    get:
+      tags:
+        - Site Content
+      summary: 获取当前隐私政策
+      description: 权限级别 `PUBLIC`。版本为去除首尾空白后的 Markdown 内容 SHA-256；资源缺失或为空时应用拒绝启动。
+      operationId: getPrivacyPolicy
+      parameters:
+        - name: If-None-Match
+          in: header
+          required: false
+          description: 上次响应返回的 ETag；仍为当前版本时返回 304
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 获取最新隐私政策
+          headers:
+            ETag:
+              description: 当前隐私政策内容版本
+              schema:
+                type: string
+                example: '"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"'
+            Cache-Control:
+              schema:
+                type: string
+                example: no-cache
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivacyPolicyResponse'
+        '304':
+          description: 隐私政策未变化，响应体为空
+  /api/v1/admin/about:
+    get:
+      tags:
+        - Admin Site Content
+      summary: 获取关于页编辑数据
+      description: 权限级别 `ADMIN`。尚未创建时返回空 Markdown、`exists=false` 和“暂无内容”预览。
+      operationId: getAdminAboutPage
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAboutPageResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+    put:
+      tags:
+        - Admin Site Content
+      summary: 保存关于页
+      description: 权限级别 `ADMIN`。使用 upsert 保存；规范化后的 Markdown 未变化时不重复更新。
+      operationId: upsertAboutPage
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAboutPageRequest'
+      responses:
+        '200':
+          description: 保存成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAboutPageResponse'
+        '400':
+          $ref: '#/components/responses/CommentBadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+  /api/v1/auth/email-verification-codes:
+    post:
+      tags:
+        - Auth
+      summary: 发送注册邮箱验证码
+      description: 权限级别 `PUBLIC`。验证码有效期 10 分钟；同一邮箱 60 秒内最多发送一次、每小时最多 5 次，同一客户端 IP 每小时最多 20 次。邮箱已注册时返回邮箱已存在，不生成或发送验证码；`deleted.invalid` 保留域名及其子域名返回 199001 参数错误，不预占限流额度或发送邮件。
+      operationId: sendRegistrationEmailVerificationCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendEmailVerificationCodeRequest'
+            example:
+              email: alice@example.com
+      responses:
+        '200':
+          description: 请求已处理
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoDataResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '409':
+          $ref: '#/components/responses/UserConflictResponse'
+        '429':
+          $ref: '#/components/responses/EmailVerificationRateLimitedResponse'
+        '502':
+          $ref: '#/components/responses/EmailVerificationSendFailedResponse'
   /api/v1/auth/register:
     post:
       tags:
         - Auth
       summary: 用户注册
-      description: 权限级别 `PUBLIC`。用户通过用户名、邮箱、密码完成注册。
+      description: 权限级别 `PUBLIC`。用户通过用户名、邮箱、密码、邮箱验证码和当前隐私政策版本完成注册；注册成功后邮箱标记为已验证，并记录接受的隐私政策版本和时间。服务端默认使用用户名初始化昵称；用户名注册后不可修改。用户名和邮箱唯一性均按大小写不敏感处理。
       operationId: registerUser
       requestBody:
         required: true
@@ -41,6 +700,8 @@ paths:
               username: alice_dev
               email: alice@example.com
               password: Passw0rd!
+              verificationCode: '123456'
+              privacyPolicyVersion: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
       responses:
         '200':
           description: 注册成功
@@ -49,26 +710,21 @@ paths:
               schema:
                 $ref: '#/components/schemas/RegisterResponse'
               example:
-                code: '0'
-                message: success
-                data:
-                  userId: 10002
-                  username: alice_dev
-                  nickname: ''
-                  email: alice@example.com
-                  role: USER
-                  status: ACTIVE
-                  createdAt: '2026-04-22T22:20:00+08:00'
-                traceId: 3c5d8f2a0b6344b1
-                timestamp: '2026-04-22T22:20:00+08:00'
+                code: 0
+                message: 成功
+                data: null
         '400':
-          $ref: '#/components/responses/BadRequestResponse'
+          $ref: '#/components/responses/RegisterBadRequestResponse'
+        '429':
+          $ref: '#/components/responses/EmailVerificationAttemptsExceededResponse'
+        '409':
+          $ref: '#/components/responses/RegisterConflictResponse'
   /api/v1/auth/login:
     post:
       tags:
         - Auth
       summary: 用户登录
-      description: 权限级别 `PUBLIC`。支持用户名或邮箱登录。
+      description: 权限级别 `PUBLIC`。支持用户名或邮箱登录；用户名和邮箱登录均按大小写不敏感处理。登录成功后响应体返回 Access Token，Refresh Token 通过 `Set-Cookie` 写入 `refresh_token` HttpOnly Cookie，不返回给前端 JavaScript 读取。Redis 对同一用户/IP 组合限制 15 分钟内最多 5 次登录失败，并对同一 IP 限制 15 分钟内最多 30 次失败；成功登录后清除该用户/IP 组合的失败计数。生产 Nginx 另限制每来源 IP 每秒 1 次、突发 5 次。
       operationId: loginUser
       requestBody:
         required: true
@@ -82,17 +738,22 @@ paths:
       responses:
         '200':
           description: 登录成功
+          headers:
+            Set-Cookie:
+              description: 写入 Refresh Token Cookie。生产 HTTPS 环境应启用 Secure。
+              schema:
+                type: string
+                example: refresh_token=eyJhbGciOiJIUzI1NiJ9.refresh.token; Max-Age=604800; Path=/api/v1/auth; HttpOnly; SameSite=Lax
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoginResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   accessToken: eyJhbGciOiJIUzI1NiJ9.access.token
-                  accessTokenExpiresAt: '2026-04-22T23:20:00+08:00'
-                  refreshToken: eyJhbGciOiJIUzI1NiJ9.refresh.token
+                  accessTokenExpiresAt: '2026-04-22T22:35:00+08:00'
                   refreshTokenExpiresAt: '2026-04-29T22:20:00+08:00'
                   tokenType: Bearer
                   user:
@@ -104,92 +765,96 @@ paths:
                     status: ACTIVE
                     avatarUrl: ''
                     bio: 热爱前后端开发
-                traceId: b3c8900f2d554b4f
-                timestamp: '2026-04-22T22:20:10+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/UserDisabledResponse'
+        '429':
+          $ref: '#/components/responses/LoginRateLimitedResponse'
   /api/v1/auth/refresh:
     post:
       tags:
         - Auth
       summary: 刷新登录态
-      description: 权限级别 `PUBLIC`。通过 Refresh Token 获取新令牌。
+      description: 权限级别 `PUBLIC`。只轮转当前会话。成功轮转的旧 RT 在固定 5 秒窗口内重试可返回同一份 AT、RT 和到期时间，不创建新会话、不延长窗口；必须在用户行锁内确认账号、tokenVersion 和对应新会话仍有效。普通撤销、退出、改密、改邮箱、禁用、注销及新会话再次轮转后不允许复用。结果仅在 Redis 加密短存；缓存缺失、过期或不可用时按 101004 拒绝。缺失、伪造、过期等普通刷新失败不会撤销其他设备会话。
       operationId: refreshToken
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RefreshTokenRequest'
-            example:
-              refreshToken: eyJhbGciOiJIUzI1NiJ9.refresh.token
+      parameters:
+        - $ref: '#/components/parameters/RefreshTokenCookie'
       responses:
         '200':
           description: 刷新成功
+          headers:
+            Set-Cookie:
+              description: 轮转 Refresh Token Cookie。生产 HTTPS 环境应启用 Secure。
+              schema:
+                type: string
+                example: refresh_token=eyJhbGciOiJIUzI1NiJ9.new.refresh; Max-Age=604800; Path=/api/v1/auth; HttpOnly; SameSite=Lax
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/RefreshTokenResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   accessToken: eyJhbGciOiJIUzI1NiJ9.new.access
-                  accessTokenExpiresAt: '2026-04-22T23:50:00+08:00'
-                  refreshToken: eyJhbGciOiJIUzI1NiJ9.new.refresh
+                  accessTokenExpiresAt: '2026-04-22T23:05:00+08:00'
                   refreshTokenExpiresAt: '2026-04-29T22:50:00+08:00'
                   tokenType: Bearer
-                traceId: f30b1ed17c9947a2
-                timestamp: '2026-04-22T22:50:00+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/RefreshTokenInvalidResponse'
+        '403':
+          $ref: '#/components/responses/UserDisabledResponse'
   /api/v1/auth/logout:
     post:
       tags:
         - Auth
       summary: 用户退出登录
-      description: 权限级别 `LOGIN`。退出当前会话并使 Refresh Token 失效。
+      description: 权限级别 `PUBLIC`。退出当前会话不要求有效 Access Token；若携带成功轮转且尚在 5 秒重试窗口内的旧 RT，在用户行锁内撤销其对应的有效新会话，之后旧 RT 不能恢复登录。其他缺失、已过期、已撤销或不存在会话按幂等语义返回成功，并清除 Cookie。
       operationId: logoutUser
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LogoutRequest'
-            example:
-              refreshToken: eyJhbGciOiJIUzI1NiJ9.refresh.token
+      parameters:
+        - $ref: '#/components/parameters/RefreshTokenCookieOptional'
       responses:
         '200':
           description: 退出成功
+          headers:
+            Set-Cookie:
+              description: 清除 Refresh Token Cookie。
+              schema:
+                type: string
+                example: refresh_token=; Max-Age=0; Path=/api/v1/auth; HttpOnly; SameSite=Lax
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/NoDataResponse'
               example:
-                code: '0'
-                message: success
-                data:
-                  success: true
-                traceId: cb16b523eb4f46d2
-                timestamp: '2026-04-22T22:55:00+08:00'
-        '401':
-          $ref: '#/components/responses/UnauthorizedResponse'
+                code: 0
+                message: 成功
+                data: null
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
   /api/v1/articles:
     get:
       tags:
         - Public Articles
       summary: 获取已发布文章分页列表
-      description: 权限级别 `PUBLIC`。仅返回已发布文章。
+      description: 权限级别 `PUBLIC`。仅返回已发布文章。`keyword` 对标题、摘要和纯文本正文合并 PostgreSQL `zhparser` 全文检索及不区分大小写的字面量包含匹配，命中其一即可；全文分支中多个解析后的检索词之间为 AND 关系，字面量分支按去除首尾空白后的整段关键词匹配，不以全文分支无结果为前提，`%`、`_` 和正则字符均按普通文本处理。支持 `At` 命中 `AtCoder`，`code`、`forces` 命中 `codeforces`，`1`、`11` 命中 `111`，并可与分类、标签等条件组合使用。搜索响应可返回安全的标题高亮及摘要/正文高亮片段；摘要命中优先，字面量正文取首次命中前后各最多 50 个字符，省略部分显示省略号。响应中的 `tags` 仅包含当前启用且仍存在的关联标签；通过 `tagIds` 筛选时，传入标签必须存在且启用；通过 `categoryId` 筛选时，传入分类必须存在且启用。文章所属二级分类及其父分类均存在且启用时，文章才对前台可见。有关键词且使用默认排序时，标题全文命中或字面量包含命中的文章优先于仅摘要或正文命中的文章，同组内按全文检索相关度、置顶状态、首次发布时间和文章 ID 倒序；`sort=LATEST` 时忽略标题命中、相关度和置顶状态，仅按首次发布时间和文章 ID 倒序。
       operationId: listPublishedArticles
       parameters:
         - $ref: '#/components/parameters/PageNum'
         - $ref: '#/components/parameters/PageSize'
+        - name: keyword
+          in: query
+          description: 搜索关键词，对文章标题、摘要和纯文本正文合并 zhparser 全文检索与不区分大小写的整段字面量包含匹配；全文分支多词为 AND，`%`、`_` 和正则字符不作通配符；去除首尾空白后为空时不添加搜索条件
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+            example: Spring Boot
         - name: categoryId
           in: query
           description: 分类 ID。支持一级分类或二级分类；传一级分类时返回其下所有二级分类文章
@@ -198,14 +863,38 @@ paths:
             type: integer
             format: int64
             example: 20001
-        - name: tagId
+        - name: tagIds
           in: query
-          description: 标签 ID
+          description: 标签 ID 列表；传多个时表示文章必须同时包含这些标签
+          required: false
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: integer
+              format: int64
+            example:
+              - 30001
+              - 30002
+        - name: isTop
+          in: query
+          description: 是否置顶；true 只返回置顶文章，false 只返回非置顶文章，不传则不限制
           required: false
           schema:
-            type: integer
-            format: int64
-            example: 30001
+            type: boolean
+            example: true
+        - name: sort
+          in: query
+          description: 排序模式。DEFAULT 有关键词时标题全文或字面量命中优先，同组内按相关度、置顶、首次发布时间和 ID 倒序；无关键词时置顶优先；LATEST 忽略标题命中、相关度和置顶，仅按首次发布时间和 ID 倒序
+          required: false
+          schema:
+            type: string
+            enum:
+              - DEFAULT
+              - LATEST
+            default: DEFAULT
+            example: LATEST
       responses:
         '200':
           description: 获取成功
@@ -214,17 +903,21 @@ paths:
               schema:
                 $ref: '#/components/schemas/PublicArticlePageResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   records:
                     - id: 40001
                       title: Spring Boot 双 Token 登录实践
                       summary: 本文记录双 Token 的实现思路与接口设计
+                      highlightedTitle: <mark class="article-search-highlight">Spring Boot</mark> 双 Token 登录实践
+                      searchSnippet: 本文记录 <mark class="article-search-highlight">双 Token</mark> 的实现思路与接口设计
                       coverUrl: https://cdn.example.com/cover/token.png
                       isTop: true
                       publishedAt: '2026-04-22T23:00:00+08:00'
                       viewCount: 128
+                      likeCount: 35
+                      commentCount: 6
                       category:
                         id: 21001
                         name: Java
@@ -240,8 +933,6 @@ paths:
                   total: 1
                   totalPages: 1
                   hasNext: false
-                traceId: 7a4ac2ca74df44ce
-                timestamp: '2026-04-22T23:05:00+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
   /api/v1/articles/{articleId}:
@@ -249,7 +940,7 @@ paths:
       tags:
         - Public Articles
       summary: 获取文章详情
-      description: 权限级别 `PUBLIC`。仅可查看已发布文章详情。
+      description: 权限级别 `PUBLIC`。仅可查看已发布文章详情。公开读取成功后会尝试记录一次有效浏览并返回更新后的 `viewCount`：登录用户按 `userId`、游客按匿名 `visitor_id` HttpOnly Cookie 去重，同一文章一小时内只计一次。Redis 不可用时仍返回文章详情，但本次访问不计数。响应中的 `tags` 仅包含当前启用且仍存在的关联标签；历史关联的禁用标签或已被删除的标签不返回，不影响文章详情展示。文章所属二级分类及其父分类必须均存在且启用；分类不存在返回 `ARTICLE_CATEGORY_NOT_FOUND`，分类已禁用返回 `ARTICLE_CATEGORY_DISABLED`。文章关联作者必须存在；作者不存在返回 `ARTICLE_AUTHOR_NOT_FOUND`。文章详情 API 与前台规范 URL 均以 articleId 稳定定位，前台地址保持 /articles/{articleId}。
       operationId: getPublishedArticleDetail
       parameters:
         - $ref: '#/components/parameters/ArticleId'
@@ -261,20 +952,28 @@ paths:
               schema:
                 $ref: '#/components/schemas/PublicArticleDetailResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   id: 40001
                   title: Spring Boot 双 Token 登录实践
                   summary: 本文记录双 Token 的实现思路与接口设计
                   contentHtml: <h1>一、背景</h1><p>这里是文章正文</p>
+                  seo:
+                    title: Spring Boot 双 Token 登录实践 - 青禾边
+                    description: 本文记录双 Token 的实现思路与接口设计
+                    canonicalUrl: https://blog.example.com/articles/40001
+                    imageUrl: https://cdn.example.com/cover/token.png
+                    type: article
+                    publishedAt: '2026-04-22T23:00:00+08:00'
+                    updatedAt: '2026-04-22T23:10:00+08:00'
                   coverUrl: https://cdn.example.com/cover/token.png
                   isTop: true
                   allowComment: true
                   viewCount: 128
                   commentCount: 0
                   likeCount: 0
-                  favoriteCount: 0
+                  liked: false
                   publishedAt: '2026-04-22T23:00:00+08:00'
                   updatedAt: '2026-04-22T23:10:00+08:00'
                   category:
@@ -291,16 +990,241 @@ paths:
                     id: 10001
                     username: ccsanjuu
                     nickname: sanjuu
-                traceId: 1d65ea705b9b45d5
-                timestamp: '2026-04-22T23:10:00+08:00'
+                    avatarUrl: https://cdn.example.com/avatar/1.png
+                    bio: 专注后端和前端工程化
+        '404':
+          $ref: '#/components/responses/PublicArticleDetailNotFoundResponse'
+        '409':
+          $ref: '#/components/responses/PublicArticleDetailConflictResponse'
+  /api/v1/articles/{articleId}/like:
+    post:
+      tags:
+        - Public Articles
+      summary: 点赞文章
+      description: 权限级别 `PUBLIC`。登录用户按 `userId`、游客按 `visitor_id` Cookie 幂等点赞，仅允许已发布文章。应用层对每个登录用户或游客主体的文章和评论点赞/取消合计限制为每 60 秒 30 次；生产 Nginx 对点赞路径另按来源 IP 限制每秒 2 次、突发 10 次。
+      operationId: likeArticle
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ArticleId'
+      responses:
+        '200':
+          description: 点赞成功或已点赞
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticleLikeResponse'
+        '404':
+          $ref: '#/components/responses/PublicArticleDetailNotFoundResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '429':
+          $ref: '#/components/responses/ArticleLikeRateLimitedResponse'
+    delete:
+      tags:
+        - Public Articles
+      summary: 取消文章点赞
+      description: 权限级别 `PUBLIC`。登录用户或游客取消自己的点赞，操作幂等；文章下线后仍允许取消历史点赞。点赞和取消共享登录用户/游客主体限额，重复的幂等请求也计入。
+      operationId: unlikeArticle
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ArticleId'
+      responses:
+        '200':
+          description: 取消点赞成功或本来未点赞
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArticleLikeResponse'
+        '404':
+          $ref: '#/components/responses/PublicArticleDetailNotFoundResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '429':
+          $ref: '#/components/responses/ArticleLikeRateLimitedResponse'
+  /api/v1/articles/{articleId}/comments:
+    get:
+      tags:
+        - Public Comments
+      summary: 获取文章顶层评论分页列表
+      description: 权限级别 `PUBLIC`，可选携带 Access Token。只返回顶层评论，不预载回复。游客只看到 APPROVED；登录用户还可看到自己发表的 PENDING 和 REJECTED 评论。默认按创建时间倒序。未携带 Token 时按游客处理，已携带的 Token 无效或过期时返回 401，不降级为游客。
+      operationId: listArticleComments
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ArticleId'
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicCommentPageResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
         '404':
           $ref: '#/components/responses/ArticleNotFoundResponse'
+    post:
+      tags:
+        - Public Comments
+      summary: 发表评论或回复
+      description: 权限级别 `LOGIN`。parentId 不传时创建顶层评论，传入时创建回复。普通用户新内容进入 PENDING 审核状态，管理员新内容直接为 APPROVED；同一用户对同一文章 10 秒内只能成功创建一条评论或回复。notifyOnReply=true 时，当前账号邮箱必须已验证。
+      operationId: createArticleComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ArticleId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommentRequest'
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentMutationResponse'
+        '400':
+          $ref: '#/components/responses/CommentBadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/UserDisabledResponse'
+        '404':
+          $ref: '#/components/responses/ArticleNotFoundResponse'
+        '409':
+          $ref: '#/components/responses/CommentConflictResponse'
+        '429':
+          $ref: '#/components/responses/CommentRateLimitResponse'
+  /api/v1/comments/notifications/unsubscribe:
+    post:
+      tags:
+        - Public Comments
+      summary: 退订评论直接回复通知
+      operationId: unsubscribeCommentNotifications
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CommentUnsubscribeRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/NoDataResponse'
+        '400':
+          $ref: '#/components/responses/CommentUnsubscribeTokenResponse'
+  /api/v1/comments/{commentId}/replies:
+    get:
+      tags:
+        - Public Comments
+      summary: 获取顶层评论下的回复
+      description: 权限级别 `PUBLIC`，可选携带 Access Token。commentId 必须是顶层评论 ID。所有层级回复在响应中平铺；当前作者角色为管理员且直接回复该顶层评论的回复优先，其余回复按创建时间和评论 ID 正序排列。首次请求默认取 5 条，后续使用 nextCursor 继续加载。未携带 Token 时按游客处理，已携带的 Token 无效或过期时返回 401，不降级为游客。
+      operationId: listCommentReplies
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+        - $ref: '#/components/parameters/ReplyLimit'
+        - $ref: '#/components/parameters/ReplyCursor'
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentReplyPageResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '404':
+          $ref: '#/components/responses/CommentNotFoundResponse'
+  /api/v1/comments/{commentId}:
+    delete:
+      tags:
+        - Public Comments
+      summary: 删除自己的评论
+      description: 权限级别 `LOGIN`。用户只能删除自己的评论；目标评论及其全部后代会在同一事务中逻辑删除。
+      operationId: deleteOwnComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentDeleteResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/CommentForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/CommentNotFoundResponse'
+  /api/v1/comments/{commentId}/like:
+    post:
+      tags:
+        - Public Comments
+      summary: 点赞评论
+      description: 权限级别 `LOGIN`。仅当前可见的 APPROVED 评论允许新增点赞；重复点赞幂等。评论点赞与文章点赞共享每用户每 60 秒 30 次的应用层限额；生产 Nginx 对点赞路径另按来源 IP 限制每秒 2 次、突发 10 次。
+      operationId: likeComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      responses:
+        '200':
+          description: 点赞成功或已点赞
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentLikeResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '404':
+          $ref: '#/components/responses/CommentNotFoundResponse'
+        '429':
+          $ref: '#/components/responses/CommentLikeRateLimitedResponse'
+    delete:
+      tags:
+        - Public Comments
+      summary: 取消评论点赞
+      description: 权限级别 `LOGIN`。取消当前用户的评论点赞，操作幂等；评论隐藏或删除后仍允许取消历史点赞。点赞和取消共享文章/评论点赞的每用户限额，重复的幂等请求也计入。
+      operationId: unlikeComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      responses:
+        '200':
+          description: 取消点赞成功或本来未点赞
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentLikeResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '404':
+          $ref: '#/components/responses/CommentNotFoundResponse'
+        '429':
+          $ref: '#/components/responses/CommentLikeRateLimitedResponse'
   /api/v1/categories:
     get:
       tags:
         - Public Articles
       summary: 获取启用分类列表
-      description: 权限级别 `PUBLIC`。返回一级分类树，二级分类挂载在 `children` 字段。
+      description: 权限级别 `PUBLIC`。返回一级分类树，二级分类挂载在 `children` 字段。仅返回启用分类；一级分类按 `sortNo ASC, id ASC` 排序，每个一级分类下的二级分类也按 `sortNo ASC, id ASC` 排序。
       operationId: listEnabledCategories
       responses:
         '200':
@@ -310,10 +1234,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/PublicCategoryListResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   - id: 20001
+                    parentId: null
                     name: 技术
                     level: 1
                     description: 技术内容一级分类
@@ -327,6 +1252,7 @@ paths:
                         description: Java 相关文章
                         sortNo: 11
                         articleCount: 6
+                        children: []
                       - id: 21002
                         parentId: 20001
                         name: 算法
@@ -334,8 +1260,58 @@ paths:
                         description: 算法相关内容
                         sortNo: 12
                         articleCount: 4
-                traceId: f28d47e62fd64f3e
-                timestamp: '2026-04-22T23:12:00+08:00'
+                        children: []
+  /api/v1/tags:
+    get:
+      tags:
+        - Public Articles
+      summary: 获取启用标签列表
+      description: 权限级别 `PUBLIC`。用于前台文章列表筛选面板、标签云等公开展示场景，仅返回启用状态的标签；按 `articleCount DESC, name ASC, id ASC` 排序，其中 `articleCount` 为该标签下前台可见已发布文章数量。
+      operationId: listEnabledTags
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicTagListResponse'
+              example:
+                code: 0
+                message: 成功
+                data:
+                  - id: 30001
+                    name: JWT
+                    articleCount: 8
+                  - id: 30002
+                    name: Spring Boot
+                    articleCount: 6
+  /api/v1/users/{userId}/public-profile:
+    get:
+      tags:
+        - Public Users
+      summary: 获取用户公开资料卡
+      description: 权限级别 `PUBLIC`。公开用户资料使用 `userId` 作为路径标识，`username` 作为展示字段。
+      operationId: getPublicUserProfile
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicUserProfileResponse'
+              example:
+                code: 0
+                message: 成功
+                data:
+                  id: 10001
+                  username: ccsanjuu
+                  nickname: sanjuu
+                  avatarUrl: https://cdn.example.com/avatar/1.png
+                  bio: 专注后端和前端工程化
+        '404':
+          $ref: '#/components/responses/UserNotFoundResponse'
   /api/v1/users/me:
     get:
       tags:
@@ -353,8 +1329,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProfileResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   id: 10002
                   username: alice_dev
@@ -366,17 +1342,14 @@ paths:
                   bio: 热爱前后端开发
                   lastLoginAt: '2026-04-22T22:20:10+08:00'
                   createdAt: '2026-04-22T22:20:00+08:00'
-                traceId: 16d68b769fdc4c44
-                timestamp: '2026-04-22T23:15:00+08:00'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
-  /api/v1/users/me/profile:
-    put:
+    delete:
       tags:
         - Profile
-      summary: 更新个人资料
-      description: 权限级别 `LOGIN`。支持修改用户名、昵称、个人简介。
-      operationId: updateCurrentUserProfile
+      summary: 注销当前用户账号
+      description: 权限级别 `LOGIN`。校验当前密码后逻辑注销账号，释放用户名和邮箱并撤销全部登录态，历史业务内容保留。
+      operationId: deleteCurrentUser
       security:
         - bearerAuth: []
       requestBody:
@@ -384,9 +1357,57 @@ paths:
         content:
           application/json:
             schema:
+              $ref: '#/components/schemas/DeleteCurrentUserRequest'
+      responses:
+        '200':
+          description: 注销成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoDataResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+  /api/v1/users/me/liked-articles:
+    get:
+      tags:
+        - Profile
+      summary: 获取当前用户点赞过的文章
+      description: 权限级别 `LOGIN`。按点赞时间倒序返回当前用户点赞过且仍公开可见的文章，复用公开文章列表分页结构。
+      operationId: getLikedArticles
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicArticlePageResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+  /api/v1/users/me/profile:
+    put:
+      tags:
+        - Profile
+      summary: 更新个人资料
+      description: 权限级别 `LOGIN`。以 multipart/form-data 同步保存昵称、个人简介和可选裁剪头像；头像文件仅在点击保存资料时上传，成功后与资料一起生效。不支持修改用户名，用户名注册后不可修改。
+      operationId: updateCurrentUserProfile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
               $ref: '#/components/schemas/UpdateProfileRequest'
             example:
-              username: alice_dev_new
               nickname: Alice
               bio: 专注 Java 与前端工程化
       responses:
@@ -397,28 +1418,90 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateProfileResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   id: 10002
-                  username: alice_dev_new
+                  username: alice_dev
                   nickname: Alice
                   email: alice@example.com
                   avatarUrl: ''
                   bio: 专注 Java 与前端工程化
                   updatedAt: '2026-04-22T23:20:00+08:00'
-                traceId: 727541ef1e1c4f77
-                timestamp: '2026-04-22T23:20:00+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+        '413':
+          $ref: '#/components/responses/ImageTooLargeResponse'
+        '415':
+          $ref: '#/components/responses/UnsupportedImageTypeResponse'
+        '429':
+          $ref: '#/components/responses/AvatarUploadRateLimitResponse'
+        '502':
+          $ref: '#/components/responses/ImageUploadFailedResponse'
+  /api/v1/users/me/email-verification-codes:
+    post:
+      tags:
+        - Profile
+      summary: 发送修改邮箱验证码
+      description: 权限级别 `LOGIN`。向未被占用的新邮箱发送 6 位验证码；验证码有效期 10 分钟，并与注册验证码用途隔离。`deleted.invalid` 保留域名及其子域名返回 199001 参数错误，不预占限流额度或发送邮件。
+      operationId: sendCurrentUserEmailChangeCode
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendEmailChangeCodeRequest'
+      responses:
+        '200':
+          description: 发送成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoDataResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
+  /api/v1/users/me/email:
+    put:
+      tags:
+        - Profile
+      summary: 修改当前用户邮箱
+      description: 权限级别 `LOGIN`。校验当前密码、新邮箱验证码和邮箱唯一性；成功后撤销全部 Refresh Token 并递增 tokenVersion，前端需要重新登录。
+      operationId: changeCurrentUserEmail
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeEmailRequest'
+      responses:
+        '200':
+          description: 修改成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateProfileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
   /api/v1/users/me/password:
     put:
       tags:
         - Profile
       summary: 修改密码
-      description: 权限级别 `LOGIN`。修改当前登录用户密码。
+      description: 权限级别 `LOGIN`。修改当前登录用户密码；成功后撤销该用户全部活跃 Refresh Token，并递增 tokenVersion 使旧 Access Token 立即失效。
       operationId: changeCurrentUserPassword
       security:
         - bearerAuth: []
@@ -437,37 +1520,324 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/NoDataResponse'
               example:
-                code: '0'
-                message: success
-                data:
-                  success: true
-                traceId: b167021c836f4712
-                timestamp: '2026-04-22T23:25:00+08:00'
+                code: 0
+                message: 成功
+                data: null
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+  /api/v1/admin/files/images:
+    post:
+      tags:
+        - Admin Files
+      summary: 上传后台图片
+      description: 权限级别 `ADMIN`。用于文章封面、文章及关于页 Markdown 正文图片；ABOUT_CONTENT 保存到 about/content/ 目录，项目封面场景为未来项目模块预留。后端中转上传至阿里云 OSS，只返回公开 URL 和图片元数据，不直接修改文章、关于页或项目。正文编辑器插入 HTML img 标签，以公开 URL 填写 src、原文件名填写 alt，属性值进行 HTML 转义，不自动添加用于图注的 title；只插入成功图片并保留选择顺序，历史 Markdown 图片语法继续支持。支持 JPG、JPEG、PNG、WebP、GIF，最大 10 MB。
+      operationId: uploadAdminImage
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, scene]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                scene:
+                  type: string
+                  enum: [ARTICLE_COVER, ARTICLE_CONTENT, ABOUT_CONTENT, PROJECT_COVER]
+      responses:
+        '200':
+          description: 上传成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadedImageResponse'
+        '400':
+          $ref: '#/components/responses/AdminImageUploadBadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '413':
+          $ref: '#/components/responses/ImageTooLargeResponse'
+        '415':
+          $ref: '#/components/responses/UnsupportedImageTypeResponse'
+        '502':
+          $ref: '#/components/responses/ImageUploadFailedResponse'
+  /api/v1/admin/security-events:
+    get:
+      tags:
+        - Admin Security Events
+      summary: 获取安全事件分页列表
+      description: 权限级别 `ADMIN`。返回原始账号、来源 IP、User-Agent、请求方法及路径与可读客户端信息。仅记录可信关联的用户 ID；actorId 仅用于管理员操作其他用户。安全事件只允许追加和查询，不记录密码、验证码、Token、Authorization、Cookie、密钥或完整请求/响应正文。
+      operationId: listSecurityEvents
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+        - name: eventType
+          in: query
+          schema:
+            $ref: '#/components/schemas/SecurityEventType'
+        - name: outcome
+          in: query
+          schema:
+            $ref: '#/components/schemas/SecurityEventOutcome'
+        - name: userId
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: createdAtFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: createdAtTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SecurityEventPageResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+  /api/v1/admin/audit-logs:
+    get:
+      tags:
+        - Admin Audit Logs
+      summary: 获取后台操作审计日志分页列表
+      description: 权限级别 `ADMIN`。只允许追加和查询审计日志，默认按创建时间倒序、日志 ID 倒序返回；不记录请求体、查询参数、密码、Token、邮箱或用户内容。
+      operationId: listAdminAuditLogs
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+        - name: operatorId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: resourceType
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AdminAuditResourceType'
+        - name: resourceId
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 255
+        - name: action
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AdminAuditAction'
+        - name: result
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/AdminAuditResult'
+        - name: createdAtFrom
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: createdAtTo
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAuditLogPageResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+  /api/v1/admin/comments:
+    get:
+      tags:
+        - Admin Comments
+      summary: 获取后台评论分页列表
+      description: 权限级别 `ADMIN`。支持按文章、作者、状态和评论层级筛选，默认按创建时间倒序。
+      operationId: listAdminComments
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+        - name: articleId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: userId
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, REJECTED, HIDDEN, DELETED]
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [TOP_LEVEL, REPLY]
+        - name: createdAtFrom
+          in: query
+          description: 创建时间范围开始，ISO 8601 时间
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: createdAtTo
+          in: query
+          description: 创建时间范围结束，ISO 8601 时间
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCommentPageResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+  /api/v1/admin/comments/{commentId}/moderation:
+    patch:
+      tags:
+        - Admin Comments
+      summary: 审核、隐藏或删除评论
+      description: 权限级别 `ADMIN`。管理员不能修改评论正文。REJECT、HIDE、DELETE 必须填写 reason；APPROVE 时清空历史处理原因。删除为逻辑删除，并级联逻辑删除全部后代。
+      operationId: moderateComment
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CommentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModerateCommentRequest'
+      responses:
+        '200':
+          description: 处理成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommentMutationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/CommentNotFoundResponse'
+        '409':
+          $ref: '#/components/responses/CommentConflictResponse'
+  /api/v1/admin/users/{userId}:
+    delete:
+      tags:
+        - Admin Users
+      summary: 注销其他用户账号
+      description: 权限级别 `ADMIN`。管理员不能注销自己，也不能注销最后一个仍可用的管理员；注销为逻辑处理并保留历史业务内容。
+      operationId: deleteAdminUser
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminDeleteUserRequest'
+      responses:
+        '200':
+          description: 注销成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoDataResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ConflictResponse'
   /api/v1/admin/users:
     get:
       tags:
         - Admin Users
       summary: 获取用户分页列表
-      description: 权限级别 `ADMIN`。支持按用户名、邮箱、状态、角色筛选。
+      description: 权限级别 `ADMIN`。支持按用户名、邮箱、状态和角色组合筛选，同时传入多个条件时按 AND 关系查询。用户名和邮箱均按不区分大小写的字面量包含关系进行模糊搜索。默认按创建时间倒序、用户 ID 倒序返回，不提供自定义排序参数。
       operationId: listAdminUsers
       security:
         - bearerAuth: []
       parameters:
         - $ref: '#/components/parameters/PageNum'
         - $ref: '#/components/parameters/PageSize'
-        - name: keyword
+        - name: username
           in: query
-          description: 用户名或邮箱模糊搜索关键字
+          description: 用户名模糊搜索，不区分大小写，`%`、`_` 等字符按字面量匹配
           required: false
           schema:
             type: string
+            maxLength: 20
             example: alice
+        - name: email
+          in: query
+          description: 邮箱模糊搜索，不区分大小写，`%`、`_` 等字符按字面量匹配
+          required: false
+          schema:
+            type: string
+            maxLength: 255
+            example: example.com
         - name: role
           in: query
           description: 角色筛选
@@ -496,8 +1866,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/AdminUserPageResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   records:
                     - id: 10002
@@ -513,8 +1883,6 @@ paths:
                   total: 1
                   totalPages: 1
                   hasNext: false
-                traceId: ccd57c77325a482e
-                timestamp: '2026-04-22T23:30:00+08:00'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
         '403':
@@ -524,7 +1892,7 @@ paths:
       tags:
         - Admin Users
       summary: 修改用户状态
-      description: 权限级别 `ADMIN`。支持启用或禁用用户。
+      description: 权限级别 `ADMIN`。支持启用或禁用用户；管理员不能修改当前登录用户自身状态。状态修改为 DISABLED 时会撤销该用户全部活跃 Refresh Token，并递增 tokenVersion 使旧 Access Token 立即失效；修改为 ACTIVE 时不撤销 Refresh Token，也不再次递增 tokenVersion。
       operationId: updateAdminUserStatus
       security:
         - bearerAuth: []
@@ -546,26 +1914,40 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateUserStatusResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   id: 10002
                   status: DISABLED
-                  updatedAt: '2026-04-22T23:35:00+08:00'
-                traceId: 9f9b6261c0ad40c1
-                timestamp: '2026-04-22T23:35:00+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
         '403':
-          $ref: '#/components/responses/ForbiddenResponse'
+          description: 无权限访问或不允许修改当前登录用户自身状态
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                forbidden:
+                  summary: 无权限访问
+                  value:
+                    code: 101003
+                    message: 无权限访问
+                    data: null
+                selfStatusChangeNotAllowed:
+                  summary: 不允许修改当前登录用户状态
+                  value:
+                    code: 102008
+                    message: 当前用户不允许修改自己的状态
+                    data: null
   /api/v1/admin/users/{userId}/role:
     patch:
       tags:
         - Admin Users
       summary: 修改用户角色
-      description: 权限级别 `ADMIN`。支持将用户修改为管理员或普通用户。
+      description: 权限级别 `ADMIN`。支持将用户修改为管理员或普通用户；管理员不能修改当前登录用户自身角色。角色发生变化后不直接撤销 Refresh Token，但会递增 tokenVersion 使旧 Access Token 立即失效；新的角色在刷新登录态或重新登录后生效。
       operationId: updateAdminUserRole
       security:
         - bearerAuth: []
@@ -587,20 +1969,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateUserRoleResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   id: 10002
                   role: ADMIN
-                  updatedAt: '2026-04-22T23:36:00+08:00'
-                traceId: c4d95157647e4f5d
-                timestamp: '2026-04-22T23:36:00+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
         '403':
-          $ref: '#/components/responses/ForbiddenResponse'
+          description: 无权限访问或不允许修改当前登录用户自身角色
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                forbidden:
+                  summary: 无权限访问
+                  value:
+                    code: 101003
+                    message: 无权限访问
+                    data: null
+                selfRoleChangeNotAllowed:
+                  summary: 不允许修改当前登录用户角色
+                  value:
+                    code: 102007
+                    message: 当前用户不允许修改自己的角色
+                    data: null
   /api/v1/admin/articles:
     get:
       tags:
@@ -654,8 +2050,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/AdminArticlePageResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   records:
                     - id: 40001
@@ -678,8 +2074,6 @@ paths:
                   total: 1
                   totalPages: 1
                   hasNext: false
-                traceId: 71d8f4d1f8c14914
-                timestamp: '2026-04-22T23:40:00+08:00'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
         '403':
@@ -688,7 +2082,9 @@ paths:
       tags:
         - Admin Articles
       summary: 创建文章
-      description: 权限级别 `ADMIN`。创建新文章，支持直接保存为草稿或发布。
+      description: |
+        权限级别 `ADMIN`。创建新文章，仅允许直接保存为草稿或发布，不允许直接创建为下线状态。
+        管理员允许选择禁用分类和标签；仍校验分类与父分类存在、层级正确及标签存在。分类或父分类禁用时即使发布也不在前台展示，禁用标签不在前台展示。
       operationId: createAdminArticle
       security:
         - bearerAuth: []
@@ -721,15 +2117,64 @@ paths:
               schema:
                 $ref: '#/components/schemas/ArticleMutationResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   id: 40001
                   status: DRAFT
                   publishedAt: null
                   createdAt: '2026-04-22T23:45:00+08:00'
-                traceId: a7322db35d784703
-                timestamp: '2026-04-22T23:45:00+08:00'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '409':
+          $ref: '#/components/responses/ArticleConflictResponse'
+  /api/v1/admin/articles/preview:
+    post:
+      tags:
+        - Admin Articles
+      summary: 预览未保存的文章正文
+      description: 权限级别 `ADMIN`。复用文章保存时的 Markdown 转换和 HTML 白名单清洗，仅返回 contentHtml，不查询或写入文章、审计、统计或通知。支持 `==文字==` 转换为 mark，代码区域中的等号保留原样；保留公式源、图片 title 和无额外属性的 small、big、mark 标签。contentMd 必填且不为 null，允许空字符串；不要求标题、分类、文章 ID 或发布状态。响应使用 Cache-Control no-store，前端复用实际正文的公式、代码高亮和图注处理。
+      operationId: previewAdminArticle
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contentMd]
+              properties:
+                contentMd:
+                  type: string
+                  example: '# 标题'
+      responses:
+        '200':
+          description: 转换成功，不保存文章
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                enum: [no-store]
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [contentHtml]
+                        properties:
+                          contentHtml:
+                            type: string
+                            description: Markdown 转译并经白名单清洗的 HTML；`==文字==` 转换为 mark，代码区域中的等号保留原样；保留 small、big、mark 标签且不开放额外属性
+                            example: '<h1>标题</h1>'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '401':
@@ -741,7 +2186,7 @@ paths:
       tags:
         - Admin Articles
       summary: 获取后台文章详情
-      description: 权限级别 `ADMIN`。
+      description: 权限级别 `ADMIN`。用于后台编辑页回显，正文仅返回 contentMd，不包含 contentHtml 和 contentText；实际效果预览继续通过文章预览接口获取 HTML，其余编辑字段保持原有约定。
       operationId: getAdminArticleDetail
       security:
         - bearerAuth: []
@@ -755,8 +2200,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/AdminArticleDetailResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   id: 40001
                   title: Spring Boot 双 Token 登录实践
@@ -765,8 +2210,6 @@ paths:
                     # 一、背景
 
                     这里是正文
-                  contentHtml: <h1>一、背景</h1><p>这里是正文</p>
-                  contentText: 一、背景 这里是正文
                   coverUrl: https://cdn.example.com/cover/token.png
                   status: DRAFT
                   isTop: true
@@ -778,15 +2221,15 @@ paths:
                   publishedAt: null
                   createdAt: '2026-04-22T22:50:00+08:00'
                   updatedAt: '2026-04-22T23:10:00+08:00'
-                traceId: 2435069b7f8d44f8
-                timestamp: '2026-04-22T23:42:00+08:00'
         '404':
           $ref: '#/components/responses/ArticleNotFoundResponse'
     put:
       tags:
         - Admin Articles
       summary: 更新文章
-      description: 权限级别 `ADMIN`。
+      description: |
+        权限级别 `ADMIN`。从未发布过的文章可保持草稿或发布；已发布过的文章仅允许在已发布与已下线之间流转，不允许回退为草稿。
+        管理员允许保留或选择禁用分类和标签，不自动清除关联；仍校验资源存在、二级分类及父分类层级、操作权限和状态流转。前台可见性规则不变。
       operationId: updateAdminArticle
       security:
         - bearerAuth: []
@@ -821,19 +2264,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ArticleUpdateResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   id: 40001
                   status: PUBLISHED
                   publishedAt: '2026-04-22T23:50:00+08:00'
                   updatedAt: '2026-04-22T23:50:00+08:00'
-                traceId: 37b6f479d04a4951
-                timestamp: '2026-04-22T23:50:00+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '404':
           $ref: '#/components/responses/ArticleNotFoundResponse'
+        '409':
+          $ref: '#/components/responses/ArticleConflictResponse'
     delete:
       tags:
         - Admin Articles
@@ -850,14 +2293,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/NoDataResponse'
               example:
-                code: '0'
-                message: success
-                data:
-                  success: true
-                traceId: 9e723234f738461b
-                timestamp: '2026-04-22T23:58:00+08:00'
+                code: 0
+                message: 成功
+                data: null
         '404':
           $ref: '#/components/responses/ArticleNotFoundResponse'
   /api/v1/admin/articles/{articleId}/status:
@@ -865,7 +2305,7 @@ paths:
       tags:
         - Admin Articles
       summary: 修改文章状态
-      description: 权限级别 `ADMIN`。支持草稿、发布、下线的状态流转。
+      description: 权限级别 `ADMIN`。从未发布过的文章仅允许发布；已发布过的文章仅允许在已发布与已下线之间流转。
       operationId: updateAdminArticleStatus
       security:
         - bearerAuth: []
@@ -887,24 +2327,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/ArticleStatusResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   id: 40001
                   status: OFFLINE
                   updatedAt: '2026-04-22T23:55:00+08:00'
-                traceId: 701fd994505645cc
-                timestamp: '2026-04-22T23:55:00+08:00'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
         '404':
           $ref: '#/components/responses/ArticleNotFoundResponse'
+        '409':
+          $ref: '#/components/responses/ArticleConflictResponse'
   /api/v1/admin/categories:
     get:
       tags:
         - Admin Categories
       summary: 获取分类列表
-      description: 权限级别 `ADMIN`。默认返回一级分类树，二级分类挂载在 `children` 字段。
+      description: 权限级别 `ADMIN`。不传 `keyword`、`status`、`level` 和 `parentId` 时返回完整分类树；传入其中任一条件时返回符合条件的平铺列表，节点的 `children` 为空数组，因此状态筛选可以返回父级状态不同的二级分类。`parentId` 不能与 `level=1` 同时使用；`parentId` 与 `level=2` 同时使用时，`level=2` 只是冗余限定。
       operationId: listAdminCategories
       security:
         - bearerAuth: []
@@ -928,7 +2368,7 @@ paths:
             example: ENABLED
         - name: level
           in: query
-          description: 分类层级筛选，1 为一级分类，2 为二级分类
+          description: 分类层级筛选，1 为一级分类平铺列表，2 为二级分类平铺列表
           required: false
           schema:
             type: integer
@@ -938,7 +2378,7 @@ paths:
             example: 2
         - name: parentId
           in: query
-          description: 父分类 ID，查询某个一级分类下的二级分类时使用
+          description: 父分类 ID，查询某个一级分类下的二级分类平铺列表时使用
           required: false
           schema:
             type: integer
@@ -952,8 +2392,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/AdminCategoryListResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   - id: 20001
                     parentId: null
@@ -974,8 +2414,7 @@ paths:
                         status: ENABLED
                         articleCount: 6
                         createdAt: '2026-04-22T21:20:00+08:00'
-                traceId: 145a6f41eb434612
-                timestamp: '2026-04-23T00:00:00+08:00'
+                        children: []
     post:
       tags:
         - Admin Categories
@@ -1005,8 +2444,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/CategoryMutationResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   id: 21001
                   parentId: 20001
@@ -1014,14 +2453,12 @@ paths:
                   name: Java
                   status: ENABLED
                   createdAt: '2026-04-23T00:05:00+08:00'
-                traceId: 8d2eb9cb1ef249bb
-                timestamp: '2026-04-23T00:05:00+08:00'
   /api/v1/admin/categories/{categoryId}:
     put:
       tags:
         - Admin Categories
       summary: 更新分类
-      description: 权限级别 `ADMIN`。支持维护一级/二级分类以及父子关系。
+      description: 权限级别 `ADMIN`。支持维护分类名称、描述、排序、状态和父分类；不允许修改分类层级，`level` 必须与当前分类原层级保持一致。
       operationId: updateAdminCategory
       security:
         - bearerAuth: []
@@ -1048,8 +2485,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/CategoryUpdateResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   id: 21001
                   parentId: 20001
@@ -1057,13 +2494,11 @@ paths:
                   name: Java
                   status: ENABLED
                   updatedAt: '2026-04-23T00:06:00+08:00'
-                traceId: d18c5d9b33464136
-                timestamp: '2026-04-23T00:06:00+08:00'
     delete:
       tags:
         - Admin Categories
       summary: 删除分类
-      description: 权限级别 `ADMIN`。删除一级分类前需校验其自身及全部子分类是否有文章；删除二级分类前需校验该分类下是否有文章。
+      description: 权限级别 `ADMIN`。删除一级分类前必须先删除其下所有二级分类；删除二级分类前需校验该分类下没有文章。
       operationId: deleteAdminCategory
       security:
         - bearerAuth: []
@@ -1075,16 +2510,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/NoDataResponse'
               example:
-                code: '0'
-                message: success
-                data:
-                  success: true
-                traceId: e793d93438b9498a
-                timestamp: '2026-04-23T00:08:00+08:00'
+                code: 0
+                message: 成功
+                data: null
         '409':
-          $ref: '#/components/responses/CategoryHasArticlesResponse'
+          $ref: '#/components/responses/CategoryDeleteConflictResponse'
   /api/v1/admin/tags:
     get:
       tags:
@@ -1120,8 +2552,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/AdminTagListResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   - id: 30001
                     name: JWT
@@ -1129,8 +2561,6 @@ paths:
                     status: ENABLED
                     articleCount: 5
                     createdAt: '2026-04-22T21:15:00+08:00'
-                traceId: 841bd3a5e09d4ad8
-                timestamp: '2026-04-23T00:10:00+08:00'
     post:
       tags:
         - Admin Tags
@@ -1157,15 +2587,281 @@ paths:
               schema:
                 $ref: '#/components/schemas/TagMutationResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   id: 30001
                   name: JWT
                   status: ENABLED
                   createdAt: '2026-04-23T00:12:00+08:00'
-                traceId: af9c44268fdc4fbe
-                timestamp: '2026-04-23T00:12:00+08:00'
+  /api/v1/messages:
+    get:
+      tags:
+        - Messages
+      summary: 获取公开留言分页列表
+      description: 可选携带 Access Token；游客仅看到已通过留言，登录用户还可看到自己的待审核和已拒绝留言。仅当前置顶公告排在最前，其余公告和普通留言按创建时间与 ID 倒序排列。未携带 Token 时按游客处理，已携带的 Token 无效或过期时返回 401，不降级为游客。
+      operationId: listMessages
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessagePageResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+    post:
+      tags:
+        - Messages
+      summary: 发表留言
+      description: 游客和登录用户均可发表顶层留言；普通留言需要审核，管理员留言或公告直接通过。登录用户的昵称和邮箱由服务端从当前账号读取，勾选回复通知时邮箱必须已验证；游客必须提供 Cloudflare Turnstile token，服务端校验成功后才接受留言。未携带 Token 时按游客校验，已携带的 Token 无效或过期时返回 401，不降级为游客。
+      operationId: createMessage
+      security:
+        - {}
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMessageRequest'
+      responses:
+        '200':
+          description: 留言提交成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageMutationResponse'
+        '400':
+          $ref: '#/components/responses/MessageBadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '429':
+          $ref: '#/components/responses/MessageRateLimitedResponse'
+        '503':
+          $ref: '#/components/responses/TurnstileServiceUnavailableResponse'
+  /api/v1/messages/{messageId}:
+    delete:
+      tags:
+        - Messages
+      summary: 删除自己的留言
+      operationId: deleteOwnMessage
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MessageId'
+      responses:
+        '200':
+          $ref: '#/components/responses/NoDataResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/MessageForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/MessageNotFoundResponse'
+  /api/v1/messages/notifications/unsubscribe:
+    post:
+      tags:
+        - Messages
+      summary: 退订留言的回复通知
+      operationId: unsubscribeMessageNotifications
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageUnsubscribeRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/NoDataResponse'
+        '400':
+          $ref: '#/components/responses/MessageUnsubscribeTokenResponse'
+  /api/v1/admin/messages:
+    get:
+      tags:
+        - Admin Messages
+      summary: 获取后台留言分页列表
+      operationId: listAdminMessages
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageNum'
+        - $ref: '#/components/parameters/PageSize'
+        - name: messageId
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: userId
+          in: query
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - name: guestNickname
+          in: query
+          schema:
+            type: string
+            maxLength: 20
+        - name: guestEmail
+          in: query
+          schema:
+            type: string
+            maxLength: 255
+        - name: content
+          in: query
+          schema:
+            type: string
+            maxLength: 1000
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/MessageStatus'
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/MessageType'
+        - name: createdAtFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: createdAtTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMessagePageResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+  /api/v1/admin/messages/{messageId}/moderation:
+    patch:
+      tags:
+        - Admin Messages
+      summary: 审核、隐藏或删除留言
+      operationId: moderateMessage
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MessageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageModerationRequest'
+      responses:
+        '200':
+          description: 处理成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageMutationResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '400':
+          $ref: '#/components/responses/MessageBadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '404':
+          $ref: '#/components/responses/MessageNotFoundResponse'
+        '409':
+          $ref: '#/components/responses/MessageConflictResponse'
+  /api/v1/admin/messages/{messageId}/replies:
+    post:
+      tags:
+        - Admin Messages
+      summary: 管理员回复留言
+      operationId: replyMessage
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/MessageId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMessageReplyRequest'
+      responses:
+        '200':
+          description: 回复成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageMutationResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '400':
+          $ref: '#/components/responses/MessageBadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '404':
+          $ref: '#/components/responses/MessageNotFoundResponse'
+        '409':
+          $ref: '#/components/responses/MessageConflictResponse'
+  /api/v1/admin/messages/batch-approval:
+    patch:
+      tags:
+        - Admin Messages
+      summary: 批量通过待审核顶层留言
+      operationId: approveMessages
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MessageBatchApprovalRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/NoDataResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '400':
+          $ref: '#/components/responses/MessageBadRequestResponse'
+        '409':
+          $ref: '#/components/responses/MessageConflictResponse'
+  /api/v1/admin/messages/announcements:
+    post:
+      tags: [Admin Messages]
+      summary: 发布并置顶公告留言
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: { type: string, minLength: 1, maxLength: 1000 }
+      responses:
+        '200':
+          description: 公告发布成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageMutationResponse'
   /api/v1/admin/tags/{tagId}:
     put:
       tags:
@@ -1195,15 +2891,13 @@ paths:
               schema:
                 $ref: '#/components/schemas/TagUpdateResponse'
               example:
-                code: '0'
-                message: success
+                code: 0
+                message: 成功
                 data:
                   id: 30001
                   name: JWT
                   status: ENABLED
                   updatedAt: '2026-04-23T00:13:00+08:00'
-                traceId: e12e3e0de63c4387
-                timestamp: '2026-04-23T00:13:00+08:00'
     delete:
       tags:
         - Admin Tags
@@ -1220,14 +2914,64 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SuccessResponse'
+                $ref: '#/components/schemas/NoDataResponse'
               example:
-                code: '0'
-                message: success
-                data:
-                  success: true
-                traceId: 7cf3bfdab7ef4d53
-                timestamp: '2026-04-23T00:14:00+08:00'
+                code: 0
+                message: 成功
+                data: null
+  /api/v1/admin/mail-deliveries:
+    get:
+      tags: [Admin Mail Deliveries]
+      summary: 查询邮件投递记录
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/PageNum' }
+        - { $ref: '#/components/parameters/PageSize' }
+        - name: mailType
+          in: query
+          schema: { type: string, enum: [COMMENT_REPLY, MESSAGE_REPLY] }
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, SENT, FAILED] }
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MailDeliveryPageResponse' }
+  /api/v1/admin/mail-deliveries/{deliveryId}:
+    get:
+      tags: [Admin Mail Deliveries]
+      summary: 获取邮件投递详情
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: deliveryId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MailDeliveryResponse' }
+  /api/v1/admin/mail-deliveries/{deliveryId}/retry:
+    post:
+      tags: [Admin Mail Deliveries]
+      summary: 手动重试失败的回复通知邮件
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: deliveryId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 重试已提交
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NoDataResponse' }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1235,6 +2979,16 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    ArchiveTimeZone:
+      name: timeZone
+      in: query
+      required: true
+      description: 浏览器 Intl.DateTimeFormat().resolvedOptions().timeZone 返回的 IANA 命名时区，允许 UTC；缺失、空白或非 JDK 支持的命名时区返回 400/199001。
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 100
+        example: America/Los_Angeles
     PageNum:
       name: pageNum
       in: query
@@ -1256,10 +3010,26 @@ components:
         maximum: 20
         default: 10
         example: 10
+    RefreshTokenCookie:
+      name: refresh_token
+      in: cookie
+      description: Refresh Token HttpOnly Cookie，由浏览器自动携带，前端 JavaScript 不读取该值
+      required: true
+      schema:
+        type: string
+        example: eyJhbGciOiJIUzI1NiJ9.refresh.token
+    RefreshTokenCookieOptional:
+      name: refresh_token
+      in: cookie
+      description: Refresh Token HttpOnly Cookie；退出登录时缺失也按幂等退出处理
+      required: false
+      schema:
+        type: string
+        example: eyJhbGciOiJIUzI1NiJ9.refresh.token
     ArticleId:
       name: articleId
       in: path
-      description: 文章 ID
+      description: 文章 ID。文章详情 API 与前台规范 URL 均以文章 ID 作为稳定定位标识。
       required: true
       schema:
         type: integer
@@ -1292,32 +3062,173 @@ components:
         type: integer
         format: int64
         example: 10002
+    CommentId:
+      name: commentId
+      in: path
+      description: 评论 ID；回复接口中必须是顶层评论 ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+        example: 50001
+    MessageId:
+      name: messageId
+      in: path
+      description: 留言 ID
+      required: true
+      schema:
+        type: integer
+        format: int64
+        example: 90001
+    ReplyLimit:
+      name: limit
+      in: query
+      description: 本次获取回复条数，首次默认 5，后续请求默认 10
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 20
+        default: 5
+    ReplyCursor:
+      name: cursor
+      in: query
+      description: 上一次响应返回的不透明游标，首次请求不传，前端不得解析或构造
+      required: false
+      schema:
+        type: string
   schemas:
+    FriendLinkSection:
+      type: string
+      enum: [FRIENDS, EXPERTS, PEERS]
+      description: 固定分区，依次展示为友人帐、大佬们、同行者
+    FriendLinkStatus:
+      type: string
+      enum: [ENABLED, DISABLED]
+    FriendLinkItem:
+      type: object
+      required: [id, name, url, logoUrl, description, section, sortNo]
+      properties:
+        id: { type: integer, format: int64, example: 110001 }
+        name: { type: string, maxLength: 100, example: 某某技术博客 }
+        url: { type: string, format: uri, maxLength: 500, pattern: '^https://.+', example: https://tech.example.com }
+        logoUrl: { type: string, maxLength: 500, description: 头像图片或网站代表图地址；空字符串表示未配置图片，建议使用清晰的正方形图片, example: https://tech.example.com/avatar.png }
+        description: { type: string, maxLength: 255, example: 专注 Java 与中间件 }
+        section: { $ref: '#/components/schemas/FriendLinkSection' }
+        sortNo: { type: integer, format: int32, example: 100 }
+    PublicFriendLinkSection:
+      type: object
+      required: [section, name, records]
+      properties:
+        section: { $ref: '#/components/schemas/FriendLinkSection' }
+        name: { type: string, example: 友人帐 }
+        records:
+          type: array
+          items: { $ref: '#/components/schemas/FriendLinkItem' }
+    PublicFriendLinkSectionsResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              minItems: 3
+              maxItems: 3
+              items: { $ref: '#/components/schemas/PublicFriendLinkSection' }
+    PublicFriendLinkSiteProfile:
+      type: object
+      required: [name, url, description, logoUrl]
+      properties:
+        name: { type: string, minLength: 1, example: 青禾边 }
+        url: { type: string, format: uri, pattern: '^https?://.+', description: '生产环境为 HTTPS origin；dev/test 可使用 localhost HTTP', example: https://blog.example.com }
+        description: { type: string, minLength: 1, example: 聆听心中最初的声音 }
+        logoUrl: { type: string, format: uri, pattern: '^https?://.+', description: '本站头像图片或网站代表图地址；生产环境必须为 HTTPS，dev/test 可使用 HTTP(S)', example: https://img.example.com/site-avatar.png }
+    PublicFriendLinkSiteProfileResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/PublicFriendLinkSiteProfile' }
+    AdminFriendLinkItem:
+      allOf:
+        - $ref: '#/components/schemas/FriendLinkItem'
+        - type: object
+          required: [status, createdAt, updatedAt]
+          properties:
+            status: { $ref: '#/components/schemas/FriendLinkStatus' }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    AdminFriendLinkPageData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          required: [records]
+          properties:
+            records:
+              type: array
+              items: { $ref: '#/components/schemas/AdminFriendLinkItem' }
+    AdminFriendLinkPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/AdminFriendLinkPageData' }
+    FriendLinkCreateRequest:
+      type: object
+      required: [name, url, section]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        url: { type: string, format: uri, minLength: 1, maxLength: 500, pattern: '^https://.+' }
+        logoUrl: { type: string, maxLength: 500, pattern: '^(https?://.*)?$', description: 头像图片或网站代表图地址，可选，建议使用清晰的正方形图片, default: '' }
+        description: { type: string, maxLength: 255, default: '' }
+        section: { $ref: '#/components/schemas/FriendLinkSection' }
+        sortNo: { type: integer, format: int32, minimum: 0, default: 100 }
+        status:
+          allOf:
+            - $ref: '#/components/schemas/FriendLinkStatus'
+          default: ENABLED
+    FriendLinkUpdateRequest:
+      type: object
+      required: [name, url, section, sortNo, status]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        url: { type: string, format: uri, minLength: 1, maxLength: 500, pattern: '^https://.+' }
+        logoUrl: { type: string, maxLength: 500, pattern: '^(https?://.*)?$', description: 头像图片或网站代表图地址，可选，建议使用清晰的正方形图片, default: '' }
+        description: { type: string, maxLength: 255, default: '' }
+        section: { $ref: '#/components/schemas/FriendLinkSection' }
+        sortNo: { type: integer, format: int32, minimum: 0 }
+        status: { $ref: '#/components/schemas/FriendLinkStatus' }
+    FriendLinkMutationResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/AdminFriendLinkItem' }
+    SeoMetadata:
+      type: object
+      required: [title, description, canonicalUrl, imageUrl, type, publishedAt, updatedAt]
+      properties:
+        title: { type: string }
+        description: { type: string }
+        canonicalUrl: { type: string, format: uri }
+        imageUrl: { type: string, format: uri, nullable: true }
+        type: { type: string, enum: [website, article] }
+        publishedAt: { type: string, format: date-time, nullable: true }
+        updatedAt: { type: string, format: date-time, nullable: true }
     BaseResponse:
       type: object
       required:
         - code
         - message
-        - traceId
-        - timestamp
       properties:
         code:
-          type: string
+          type: integer
           description: 业务状态码，`0` 表示成功
-          example: '0'
+          example: 0
         message:
           type: string
           description: 业务描述信息
-          example: success
-        traceId:
-          type: string
-          description: 链路追踪 ID
-          example: f9a7b6d8c1e24f0b
-        timestamp:
-          type: string
-          format: date-time
-          description: 响应时间
-          example: '2026-04-22T22:10:00+08:00'
+          example: 成功
     ErrorResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
@@ -1327,22 +3238,434 @@ components:
               nullable: true
               description: 错误场景通常为空
               example: null
-    SuccessData:
-      type: object
-      required:
-        - success
-      properties:
-        success:
-          type: boolean
-          description: 是否执行成功
-          example: true
-    SuccessResponse:
+    NoDataResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
         - type: object
           properties:
             data:
-              $ref: '#/components/schemas/SuccessData'
+              nullable: true
+              description: 无业务数据返回
+              example: null
+    PublicAboutPageData:
+      type: object
+      required: [exists, contentHtml, contentText]
+      properties:
+        exists:
+          type: boolean
+          description: 是否已经由管理员保存过关于页
+          example: true
+        contentHtml:
+          type: string
+          description: 经过白名单清洗的 Markdown 渲染结果；`==文字==` 转换为 mark，代码区域中的等号保留原样；保留 small、big、mark 标签且不开放额外属性。链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL，不允许协议相对 URL、危险协议或事件处理属性
+          example: '<h1>关于本站</h1><p>欢迎来到青禾边。</p>'
+        contentText:
+          type: string
+          description: 关于页纯文本
+          example: 关于本站 欢迎来到青禾边。
+        updatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: '2026-09-25T10:00:00Z'
+    PublicAboutPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/PublicAboutPageData'
+    NotificationItem:
+      type: object
+      required: [id, type, title, content, read, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        type:
+          type: string
+          enum: [COMMENT_REPLY, MESSAGE_REPLY, ADMIN_MESSAGE]
+        title: { type: string }
+        content: { type: string }
+        sourceId: { type: integer, format: int64, nullable: true }
+        authorName: { type: string, nullable: true }
+        originalContent: { type: string, nullable: true }
+        articleId: { type: integer, format: int64, nullable: true }
+        articleTitle:
+          type: string
+          nullable: true
+          description: 评论回复关联文章的当前标题；文章信息缺失、留言回复或管理员消息时为 null
+        parentId: { type: integer, format: int64, nullable: true }
+        likeCount:
+          type: integer
+          nullable: true
+          description: 仅 COMMENT_REPLY 返回
+        liked:
+          type: boolean
+          nullable: true
+          description: 仅 COMMENT_REPLY 返回
+        canInteract:
+          type: boolean
+          nullable: true
+          description: 仅 COMMENT_REPLY 返回，表示当前评论回复是否允许点赞或快捷回复
+        read: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    NotificationPageData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          required: [records]
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/NotificationItem'
+    NotificationPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/NotificationPageData'
+    NotificationUnreadCount:
+      type: object
+      required: [total, reply, adminMessage]
+      properties:
+        total: { type: integer, format: int64 }
+        reply: { type: integer, format: int64 }
+        adminMessage: { type: integer, format: int64 }
+    NotificationUnreadCountResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/NotificationUnreadCount'
+    AdminNotificationItem:
+      type: object
+      required: [id, type, targetScope, title, content, status, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        type:
+          type: string
+          enum: [ADMIN_MESSAGE]
+        targetScope:
+          type: string
+          enum: [SELECTED_USERS, ALL_USERS]
+          description: SELECTED_USERS 表示单个指定的未逻辑删除用户，ALL_USERS 表示全部未逻辑删除用户
+        userId: { type: integer, format: int64, nullable: true, description: SELECTED_USERS 时的指定用户 ID }
+        title: { type: string }
+        content: { type: string }
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, OFFLINE]
+        createdBy: { type: integer, format: int64, nullable: true }
+        publishedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+    AdminNotificationListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminNotificationItem'
+    CreateAdminNotificationRequest:
+      type: object
+      required: [targetScope, title, content]
+      properties:
+        targetScope:
+          type: string
+          enum: [SELECTED_USERS, ALL_USERS]
+          description: SELECTED_USERS 表示单个指定的未逻辑删除用户，ALL_USERS 表示全部未逻辑删除用户
+        title: { type: string, maxLength: 100 }
+        content: { type: string, maxLength: 2000 }
+        userId: { type: integer, format: int64, description: SELECTED_USERS 时必填 }
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED]
+          default: PUBLISHED
+    UpdateAdminNotificationRequest:
+      type: object
+      required: [targetScope, title, content]
+      properties:
+        targetScope:
+          type: string
+          enum: [SELECTED_USERS, ALL_USERS]
+          description: SELECTED_USERS 表示单个指定的未逻辑删除用户，ALL_USERS 表示全部未逻辑删除用户
+        title: { type: string, maxLength: 100 }
+        content: { type: string, maxLength: 2000 }
+        userId: { type: integer, format: int64, description: SELECTED_USERS 时必填 }
+    AdminNotificationResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AdminNotificationItem'
+    MailDeliveryItem:
+      type: object
+      required: [id, mailType, sourceId, replyId, recipientEmail, recipientMasked, currentRecipientEmail, userId, userUsername, userNickname, userDeleted, status, attemptCount, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        mailType: { type: string, enum: [COMMENT_REPLY, MESSAGE_REPLY] }
+        sourceId: { type: integer, format: int64 }
+        replyId: { type: integer, format: int64 }
+        recipientEmail: { type: string, nullable: true, description: 创建时或最近发送尝试的完整目标邮箱；旧记录未保存时为 null }
+        recipientMasked: { type: string, nullable: true, description: 旧记录保存的脱敏地址，新记录为空 }
+        currentRecipientEmail: { type: string, nullable: true, description: 关联账号或游客留言的当前邮箱，仅供排错参考，不代表历史实际投递地址；注销账号为空 }
+        userId: { type: integer, format: int64, nullable: true, description: 业务关联的收件用户，游客为空 }
+        userUsername: { type: string, nullable: true, description: 当前用户名，注销时为占位用户名 }
+        userNickname: { type: string, nullable: true, description: 当前昵称，注销后为空 }
+        userDeleted: { type: boolean, nullable: true, description: 当前注销状态；游客或用户资料不存在时为空 }
+        status: { type: string, enum: [PENDING, SENT, FAILED] }
+        attemptCount: { type: integer }
+        lastErrorType: { type: string, nullable: true }
+        lastErrorMessage: { type: string, nullable: true }
+        sentAt: { type: string, format: date-time, nullable: true }
+        lastAttemptAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+    MailDeliveryPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/PagedMailDeliveryData'
+    PagedMailDeliveryData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          properties:
+            records:
+              type: array
+              items: { $ref: '#/components/schemas/MailDeliveryItem' }
+    MailDeliveryResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/MailDeliveryItem' }
+    AboutPageEditor:
+      type: object
+      required: [id, username]
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10001
+        username:
+          type: string
+          example: admin
+    AdminAboutPageData:
+      allOf:
+        - $ref: '#/components/schemas/PublicAboutPageData'
+        - type: object
+          required: [contentMd]
+          properties:
+            contentMd:
+              type: string
+              description: Markdown 编辑源；未创建时为空字符串
+              example: '# 关于本站\n\n欢迎来到青禾边。'
+            updatedBy:
+              allOf:
+                - $ref: '#/components/schemas/AboutPageEditor'
+              nullable: true
+    AdminAboutPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/AdminAboutPageData'
+    DashboardSummary:
+      type: object
+      required: [userCount, articleCount, viewCount, likeCount, commentCount, messageCount]
+      properties:
+        userCount:
+          type: integer
+          format: int64
+        articleCount:
+          type: integer
+          format: int64
+        viewCount:
+          type: integer
+          format: int64
+        likeCount:
+          type: integer
+          format: int64
+        commentCount:
+          type: integer
+          format: int64
+        messageCount:
+          type: integer
+          format: int64
+    DashboardTrendPoint:
+      type: object
+      required: [period, value, increment]
+      properties:
+        period:
+          type: string
+          description: 周期起点，使用 Asia/Shanghai 自然日
+        value:
+          type: integer
+          format: int64
+          description: 截至该周期结束的累计数量
+        increment:
+          type: integer
+          format: int64
+          description: 该周期内符合指标当前统计口径的数量；可见评论和留言按创建时间归期，文章点赞只统计当前仍存在的点赞明细
+    DashboardMetricTrend:
+      type: object
+      required: [day, week, month, year]
+      properties:
+        day:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardTrendPoint'
+          description: 最近 30 天
+        week:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardTrendPoint'
+          description: 最近 12 周
+        month:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardTrendPoint'
+          description: 最近 12 个月
+        year:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardTrendPoint'
+          description: 最近 5 年
+    DashboardTrends:
+      type: object
+      required: [users, publishedArticles, views, likes, comments, messages]
+      properties:
+        users:
+          $ref: '#/components/schemas/DashboardMetricTrend'
+        publishedArticles:
+          $ref: '#/components/schemas/DashboardMetricTrend'
+        views:
+          $ref: '#/components/schemas/DashboardMetricTrend'
+        likes:
+          $ref: '#/components/schemas/DashboardMetricTrend'
+        comments:
+          $ref: '#/components/schemas/DashboardMetricTrend'
+        messages:
+          $ref: '#/components/schemas/DashboardMetricTrend'
+    DashboardArticleRank:
+      type: object
+      required: [id, title, viewCount, likeCount, commentCount]
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        viewCount:
+          type: integer
+        likeCount:
+          type: integer
+        commentCount:
+          type: integer
+    AdminDashboardData:
+      type: object
+      required: [summary, trends, topByViews, topByLikes, topByComments, articleCategoryDistribution, articleStatusDistribution, articleLikeActorDistribution, commentStatusDistribution, messageStatusDistribution]
+      properties:
+        summary:
+          $ref: '#/components/schemas/DashboardSummary'
+        trends:
+          $ref: '#/components/schemas/DashboardTrends'
+        topByViews:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/DashboardArticleRank'
+        topByLikes:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/DashboardArticleRank'
+        topByComments:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/DashboardArticleRank'
+        articleCategoryDistribution:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownItem'
+        articleStatusDistribution:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownItem'
+        articleLikeActorDistribution:
+          type: array
+          description: 当前仍保留的文章点赞主体分布，不代表历史全部点赞
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownItem'
+        commentStatusDistribution:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownItem'
+        messageStatusDistribution:
+          type: array
+          items:
+            $ref: '#/components/schemas/DashboardBreakdownItem'
+    DashboardBreakdownItem:
+      type: object
+      required: [key, label, value]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        value:
+          type: integer
+          format: int64
+    AdminDashboardResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/AdminDashboardData'
+    UpdateAboutPageRequest:
+      type: object
+      required: [contentMd]
+      properties:
+        contentMd:
+          type: string
+          minLength: 1
+          maxLength: 100000
+          description: Markdown 正文；去除首尾空白后不能为空
+    PrivacyPolicyData:
+      type: object
+      required: [version, contentHtml, contentText]
+      properties:
+        version:
+          type: string
+          pattern: '^sha256:[0-9a-f]{64}$'
+          description: 当前 Markdown 源内容的 SHA-256
+          example: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+        contentHtml:
+          type: string
+          description: 经过白名单清洗的隐私政策 HTML；`==文字==` 转换为 mark，代码区域中的等号保留原样；保留 small、big、mark 标签且不开放额外属性，链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL
+        contentText:
+          type: string
+          description: 隐私政策纯文本
+    PrivacyPolicyResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/PrivacyPolicyData'
     PagedMeta:
       type: object
       required:
@@ -1418,10 +3741,15 @@ components:
           $ref: '#/components/schemas/CategoryParentRef'
     SimpleAuthor:
       type: object
+      description: 文章作者公开信息，role 为当前角色，用于管理员头像徽章；已注销账号不展示徽章。
       required:
         - id
         - username
         - nickname
+        - avatarUrl
+        - bio
+        - deleted
+        - role
       properties:
         id:
           type: integer
@@ -1433,6 +3761,18 @@ components:
         nickname:
           type: string
           example: sanjuu
+        avatarUrl:
+          type: string
+          example: https://cdn.example.com/avatar/1.png
+        bio:
+          type: string
+          example: 专注后端和前端工程化
+        deleted:
+          type: boolean
+          example: false
+        role:
+          type: string
+          enum: [ADMIN, USER]
     LoginUserInfo:
       type: object
       required:
@@ -1440,6 +3780,7 @@ components:
         - username
         - nickname
         - email
+        - emailVerified
         - role
         - status
         - avatarUrl
@@ -1459,6 +3800,10 @@ components:
           type: string
           format: email
           example: alice@example.com
+        emailVerified:
+          type: boolean
+          description: 当前账号邮箱是否已验证
+          example: true
         role:
           type: string
           enum:
@@ -1483,21 +3828,53 @@ components:
         - username
         - email
         - password
+        - verificationCode
+        - privacyPolicyVersion
       properties:
         username:
           type: string
-          description: 用户名，需唯一
+          minLength: 2
+          maxLength: 20
+          pattern: '^[A-Za-z0-9_-]{2,20}$'
+          description: 用户名，只允许英文字母、数字、下划线和短横线，不限制首字符类型，需唯一
           example: alice_dev
         email:
           type: string
           format: email
-          description: 邮箱，需唯一
+          maxLength: 255
+          pattern: '^[A-Za-z0-9](?:[A-Za-z0-9._%+\-]{0,62}[A-Za-z0-9])?@(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$'
+          description: 邮箱，仅支持常见邮箱格式，不能包含空格或中文字符，需唯一
           example: alice@example.com
         password:
           type: string
           format: password
-          description: 登录密码
+          minLength: 6
+          maxLength: 32
+          pattern: '^[A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
+          description: 登录密码，允许英文字母、数字、下划线、短横线和常用 ASCII 特殊字符，不允许中文或空白字符
           example: Passw0rd!
+        verificationCode:
+          type: string
+          pattern: '^[0-9]{6}$'
+          description: 发送到当前注册邮箱的 6 位数字验证码
+          example: '123456'
+        privacyPolicyVersion:
+          type: string
+          pattern: '^sha256:[0-9a-f]{64}$'
+          description: 当前隐私政策版本，必须来自 GET /api/v1/privacy-policy
+          example: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    SendEmailVerificationCodeRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          pattern: '^[A-Za-z0-9](?:[A-Za-z0-9._%+\-]{0,62}[A-Za-z0-9])?@(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$'
+          description: 接收注册验证码的邮箱
+          example: alice@example.com
     LoginRequest:
       type: object
       required:
@@ -1506,85 +3883,32 @@ components:
       properties:
         account:
           type: string
-          description: 登录账号，支持用户名或邮箱
+          maxLength: 255
+          pattern: '^(?:[A-Za-z0-9_-]{2,20}|[A-Za-z0-9](?:[A-Za-z0-9._%+\-]{0,62}[A-Za-z0-9])?@(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63})$'
+          description: 登录账号，必须是 2-20 位合法用户名或合法邮箱；包含 `@` 时按邮箱登录，否则按用户名登录
           example: alice@example.com
         password:
           type: string
           format: password
-          description: 登录密码
+          minLength: 6
+          maxLength: 32
+          pattern: '^[A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
+          description: 登录密码，允许英文字母、数字、下划线、短横线和常用 ASCII 特殊字符，不允许中文或空白字符
           example: Passw0rd!
-    RefreshTokenRequest:
-      type: object
-      required:
-        - refreshToken
-      properties:
-        refreshToken:
-          type: string
-          description: Refresh Token
-          example: eyJhbGciOiJIUzI1NiJ9.refresh.token
-    LogoutRequest:
-      type: object
-      required:
-        - refreshToken
-      properties:
-        refreshToken:
-          type: string
-          description: 当前会话的 Refresh Token
-          example: eyJhbGciOiJIUzI1NiJ9.refresh.token
-    RegisterData:
-      type: object
-      required:
-        - userId
-        - username
-        - nickname
-        - email
-        - role
-        - status
-        - createdAt
-      properties:
-        userId:
-          type: integer
-          format: int64
-          example: 10002
-        username:
-          type: string
-          example: alice_dev
-        nickname:
-          type: string
-          example: ''
-        email:
-          type: string
-          format: email
-          example: alice@example.com
-        role:
-          type: string
-          enum:
-            - ADMIN
-            - USER
-          example: USER
-        status:
-          type: string
-          enum:
-            - ACTIVE
-            - DISABLED
-          example: ACTIVE
-        createdAt:
-          type: string
-          format: date-time
-          example: '2026-04-22T22:20:00+08:00'
     RegisterResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
         - type: object
           properties:
             data:
-              $ref: '#/components/schemas/RegisterData'
+              nullable: true
+              description: 注册成功后无需返回用户数据，前端据此提示“注册成功，请登录”
+              example: null
     LoginData:
       type: object
       required:
         - accessToken
         - accessTokenExpiresAt
-        - refreshToken
         - refreshTokenExpiresAt
         - tokenType
         - user
@@ -1595,13 +3919,11 @@ components:
         accessTokenExpiresAt:
           type: string
           format: date-time
-          example: '2026-04-22T23:20:00+08:00'
-        refreshToken:
-          type: string
-          example: eyJhbGciOiJIUzI1NiJ9.refresh.token
+          example: '2026-04-22T22:35:00+08:00'
         refreshTokenExpiresAt:
           type: string
           format: date-time
+          description: Refresh Token Cookie 过期时间
           example: '2026-04-29T22:20:00+08:00'
         tokenType:
           type: string
@@ -1620,7 +3942,6 @@ components:
       required:
         - accessToken
         - accessTokenExpiresAt
-        - refreshToken
         - refreshTokenExpiresAt
         - tokenType
       properties:
@@ -1630,13 +3951,11 @@ components:
         accessTokenExpiresAt:
           type: string
           format: date-time
-          example: '2026-04-22T23:50:00+08:00'
-        refreshToken:
-          type: string
-          example: eyJhbGciOiJIUzI1NiJ9.new.refresh
+          example: '2026-04-22T23:05:00+08:00'
         refreshTokenExpiresAt:
           type: string
           format: date-time
+          description: Refresh Token Cookie 过期时间
           example: '2026-04-29T22:50:00+08:00'
         tokenType:
           type: string
@@ -1658,6 +3977,8 @@ components:
         - isTop
         - publishedAt
         - viewCount
+        - likeCount
+        - commentCount
         - category
         - tags
       properties:
@@ -1671,6 +3992,14 @@ components:
         summary:
           type: string
           example: 本文记录双 Token 的实现思路与接口设计
+        highlightedTitle:
+          type: string
+          description: 搜索且标题命中时返回的安全高亮 HTML；原始文本已转义，仅包含后端生成的 mark 标签；未命中或未搜索时不返回
+          example: <mark class="article-search-highlight">Spring Boot</mark> 双 Token 登录实践
+        searchSnippet:
+          type: string
+          description: 摘要命中时返回高亮摘要；仅正文命中时返回命中位置附近的高亮正文片段；仅标题命中或未搜索时不返回
+          example: 本文记录 <mark class="article-search-highlight">双 Token</mark> 的实现思路与接口设计
         coverUrl:
           type: string
           example: https://cdn.example.com/cover/token.png
@@ -1683,7 +4012,17 @@ components:
           example: '2026-04-22T23:00:00+08:00'
         viewCount:
           type: integer
+          description: 文章有效浏览总数
           example: 128
+        likeCount:
+          type: integer
+          description: 文章点赞总数
+          example: 35
+        commentCount:
+          type: integer
+          minimum: 0
+          description: 公开评论及回复总数，直接读取文章 comment_count
+          example: 6
         category:
           $ref: '#/components/schemas/SimpleCategory'
         tags:
@@ -1721,12 +4060,13 @@ components:
         - viewCount
         - commentCount
         - likeCount
-        - favoriteCount
+        - liked
         - publishedAt
         - updatedAt
         - category
         - tags
         - author
+        - seo
       properties:
         id:
           type: integer
@@ -1740,8 +4080,8 @@ components:
           example: 本文记录双 Token 的实现思路与接口设计
         contentHtml:
           type: string
-          description: 由 Markdown 转译得到的 HTML 正文，供前端渲染
-          example: "<h1>一、背景</h1><p>这里是文章正文</p>"
+          description: 由 Markdown 转译并经白名单清洗的 HTML 正文；保留 small、big、mark 标签且不开放额外属性，链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL。保留图片 title，公开文章详情前端将非空 title 作为纯文本图注展示并移除图片悬浮提示，不回写存储内容。公式分隔符及 LaTeX 源保留在 HTML 文本中，前端使用 KaTeX 排版，接口不返回或存储排版器生成的 HTML。
+          example: "<h1>公式</h1><p>$2^3$</p>"
         coverUrl:
           type: string
           example: https://cdn.example.com/cover/token.png
@@ -1753,6 +4093,7 @@ components:
           example: true
         viewCount:
           type: integer
+          description: 本次详情读取完成后的文章有效浏览总数
           example: 128
         commentCount:
           type: integer
@@ -1760,9 +4101,10 @@ components:
         likeCount:
           type: integer
           example: 0
-        favoriteCount:
-          type: integer
-          example: 0
+        liked:
+          type: boolean
+          description: 当前访问主体是否已点赞
+          example: false
         publishedAt:
           type: string
           format: date-time
@@ -1779,6 +4121,8 @@ components:
             $ref: '#/components/schemas/SimpleTag'
         author:
           $ref: '#/components/schemas/SimpleAuthor'
+        seo:
+          $ref: '#/components/schemas/SeoMetadata'
     PublicArticleDetailResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
@@ -1786,46 +4130,49 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/PublicArticleDetail'
-    PublicCategoryChildItem:
+    ArticleLikeData:
       type: object
       required:
-        - id
-        - parentId
-        - name
-        - level
-        - description
-        - sortNo
-        - articleCount
+        - liked
+        - likeCount
       properties:
-        id:
+        liked:
+          type: boolean
+          example: true
+        likeCount:
           type: integer
-          format: int64
-          example: 21001
-        parentId:
+          example: 35
+    ArticleLikeResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/ArticleLikeData'
+    CommentLikeData:
+      type: object
+      required:
+        - liked
+        - likeCount
+      properties:
+        liked:
+          type: boolean
+          example: true
+        likeCount:
           type: integer
-          format: int64
-          example: 20001
-        name:
-          type: string
-          example: Java
-        level:
-          type: integer
-          enum:
-            - 2
-          example: 2
-        description:
-          type: string
-          example: Java 相关文章
-        sortNo:
-          type: integer
-          example: 11
-        articleCount:
-          type: integer
-          example: 6
+          example: 3
+    CommentLikeResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CommentLikeData'
     PublicCategoryItem:
       type: object
       required:
         - id
+        - parentId
         - name
         - level
         - description
@@ -1837,6 +4184,12 @@ components:
           type: integer
           format: int64
           example: 20001
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 一级分类为空，二级分类为所属一级分类 ID
+          example: null
         name:
           type: string
           example: 技术
@@ -1844,20 +4197,25 @@ components:
           type: integer
           enum:
             - 1
+            - 2
           example: 1
         description:
           type: string
           example: 技术内容一级分类
         sortNo:
           type: integer
+          description: 排序值，值越小越靠前
           example: 10
         articleCount:
           type: integer
+          format: int64
+          description: 前台可见已发布文章数量。一级分类为其下二级分类汇总，二级分类为自身文章数
           example: 18
         children:
           type: array
+          description: 子分类列表。一级分类下返回二级分类，二级分类返回空数组。
           items:
-            $ref: '#/components/schemas/PublicCategoryChildItem'
+            $ref: '#/components/schemas/PublicCategoryItem'
     PublicCategoryListResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
@@ -1867,6 +4225,76 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/PublicCategoryItem'
+    PublicTagItem:
+      type: object
+      required:
+        - id
+        - name
+        - articleCount
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 30001
+        name:
+          type: string
+          example: JWT
+        articleCount:
+          type: integer
+          format: int64
+          description: 该标签下前台可见已发布文章数量
+          example: 8
+    PublicTagListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/PublicTagItem'
+    PublicUserProfile:
+      type: object
+      description: 用户公开资料，role 为当前角色，用于管理员头像徽章；已注销账号不展示徽章。
+      required:
+        - id
+        - username
+        - nickname
+        - avatarUrl
+        - bio
+        - deleted
+        - role
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 10001
+        username:
+          type: string
+          example: ccsanjuu
+        nickname:
+          type: string
+          example: sanjuu
+        avatarUrl:
+          type: string
+          example: https://cdn.example.com/avatar/1.png
+        bio:
+          type: string
+          example: 专注后端和前端工程化
+        deleted:
+          type: boolean
+          description: 账号是否已注销
+          example: false
+        role:
+          type: string
+          enum: [ADMIN, USER]
+    PublicUserProfileResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/PublicUserProfile'
     ProfileData:
       type: object
       required:
@@ -1874,6 +4302,7 @@ components:
         - username
         - nickname
         - email
+        - emailVerified
         - role
         - status
         - avatarUrl
@@ -1895,6 +4324,10 @@ components:
           type: string
           format: email
           example: alice@example.com
+        emailVerified:
+          type: boolean
+          description: 当前账号邮箱是否已验证
+          example: true
         role:
           type: string
           enum:
@@ -1916,6 +4349,7 @@ components:
         lastLoginAt:
           type: string
           format: date-time
+          nullable: true
           example: '2026-04-22T22:20:10+08:00'
         createdAt:
           type: string
@@ -1930,19 +4364,24 @@ components:
               $ref: '#/components/schemas/ProfileData'
     UpdateProfileRequest:
       type: object
+      description: 修改个人资料；avatar 可选，头像文件为已裁剪的 WebP 图片，最大 2 MB。
       properties:
-        username:
-          type: string
-          description: 新用户名，若传入则需唯一
-          example: alice_dev_new
         nickname:
           type: string
-          description: 用户昵称
+          minLength: 1
+          maxLength: 20
+          pattern: '.*\S.*'
+          description: 用户昵称，1-20 个字符，不能全为空白字符
           example: Alice
         bio:
           type: string
-          description: 个人简介
+          maxLength: 100
+          description: 个人简介，最长 100 个字符，换行和空行均计入字符数
           example: 专注 Java 与前端工程化
+        avatar:
+          type: string
+          format: binary
+          description: 可选的 512×512 WebP 裁剪头像，最大 2 MB；动画 GIF 裁剪后为静态图片
     UpdateProfileData:
       type: object
       required:
@@ -1960,7 +4399,7 @@ components:
           example: 10002
         username:
           type: string
-          example: alice_dev_new
+          example: alice_dev
         nickname:
           type: string
           example: Alice
@@ -1985,6 +4424,63 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/UpdateProfileData'
+    SendEmailChangeCodeRequest:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          pattern: '^[A-Za-z0-9](?:[A-Za-z0-9._%+\-]{0,62}[A-Za-z0-9])?@(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$'
+          description: 未被占用的新邮箱
+          example: new-alice@example.com
+    ChangeEmailRequest:
+      type: object
+      required:
+        - currentPassword
+        - newEmail
+        - verificationCode
+      properties:
+        currentPassword:
+          type: string
+          format: password
+          minLength: 6
+          maxLength: 32
+          pattern: '^[A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
+          description: 当前登录密码
+          example: Passw0rd!
+        newEmail:
+          type: string
+          format: email
+          maxLength: 255
+          pattern: '^[A-Za-z0-9](?:[A-Za-z0-9._%+\-]{0,62}[A-Za-z0-9])?@(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$'
+          description: 新邮箱，必须唯一
+          example: new-alice@example.com
+        verificationCode:
+          type: string
+          pattern: '^[0-9]{6}$'
+          description: 发送到新邮箱的 6 位数字验证码
+          example: '123456'
+    DeleteCurrentUserRequest:
+      type: object
+      required: [password]
+      properties:
+        password:
+          type: string
+          format: password
+          minLength: 6
+          maxLength: 32
+          description: 当前登录密码
+    AdminDeleteUserRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          maxLength: 255
+          description: 管理员注销原因
     ChangePasswordRequest:
       type: object
       required:
@@ -1994,10 +4490,18 @@ components:
         oldPassword:
           type: string
           format: password
+          minLength: 6
+          maxLength: 32
+          pattern: '^[A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
+          description: 原密码，允许英文字母、数字、下划线、短横线和常用 ASCII 特殊字符，不允许中文或空白字符
           example: Passw0rd!
         newPassword:
           type: string
           format: password
+          minLength: 6
+          maxLength: 32
+          pattern: '^[A-Za-z0-9_\-!@#$%^&*()+=\[\]{}:;''",.?/~`|\\<>]+$'
+          description: 新密码，允许英文字母、数字、下划线、短横线和常用 ASCII 特殊字符，不允许中文或空白字符
           example: NewPassw0rd!
     AdminUserListItem:
       type: object
@@ -2010,6 +4514,7 @@ components:
         - status
         - lastLoginAt
         - createdAt
+        - deletedAt
       properties:
         id:
           type: integer
@@ -2040,11 +4545,16 @@ components:
         lastLoginAt:
           type: string
           format: date-time
+          nullable: true
           example: '2026-04-22T22:20:10+08:00'
         createdAt:
           type: string
           format: date-time
           example: '2026-04-22T22:20:00+08:00'
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
     AdminUserPageData:
       allOf:
         - $ref: '#/components/schemas/PagedMeta'
@@ -2079,7 +4589,6 @@ components:
       required:
         - id
         - status
-        - updatedAt
       properties:
         id:
           type: integer
@@ -2091,10 +4600,6 @@ components:
             - ACTIVE
             - DISABLED
           example: DISABLED
-        updatedAt:
-          type: string
-          format: date-time
-          example: '2026-04-22T23:35:00+08:00'
     UpdateUserStatusResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
@@ -2118,7 +4623,6 @@ components:
       required:
         - id
         - role
-        - updatedAt
       properties:
         id:
           type: integer
@@ -2130,10 +4634,6 @@ components:
             - ADMIN
             - USER
           example: ADMIN
-        updatedAt:
-          type: string
-          format: date-time
-          example: '2026-04-22T23:36:00+08:00'
     UpdateUserRoleResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
@@ -2166,6 +4666,7 @@ components:
           example: 本文记录双 Token 的实现思路与接口设计
         status:
           type: string
+          description: 文章当前状态。`DRAFT` 表示从未发布过的草稿，`PUBLISHED` 表示前台可见，`OFFLINE` 表示已下线。
           enum:
             - DRAFT
             - PUBLISHED
@@ -2180,6 +4681,7 @@ components:
         publishedAt:
           type: string
           format: date-time
+          description: 首次发布时间，草稿可为空。
           nullable: true
           example: null
         updatedAt:
@@ -2213,8 +4715,6 @@ components:
         - title
         - summary
         - contentMd
-        - contentHtml
-        - contentText
         - coverUrl
         - status
         - isTop
@@ -2239,19 +4739,12 @@ components:
           type: string
           description: Markdown 正文，供后台编辑器回显
           example: "# 一、背景\n\n这里是正文"
-        contentHtml:
-          type: string
-          description: 由 Markdown 转译得到的 HTML 正文
-          example: "<h1>一、背景</h1><p>这里是正文</p>"
-        contentText:
-          type: string
-          description: 从 Markdown 提取的纯文本正文，供全文搜索使用
-          example: "一、背景 这里是正文"
         coverUrl:
           type: string
           example: https://cdn.example.com/cover/token.png
         status:
           type: string
+          description: 文章当前状态。`DRAFT` 表示从未发布过的草稿，`PUBLISHED` 表示前台可见，`OFFLINE` 表示已下线。
           enum:
             - DRAFT
             - PUBLISHED
@@ -2312,7 +4805,7 @@ components:
           example: 本文记录双 Token 的实现思路与接口设计
         contentMd:
           type: string
-          description: Markdown 正文。`contentHtml` 与 `contentText` 由后端自动生成
+          description: Markdown 正文。`contentHtml` 与 `contentText` 由后端自动生成；图片可用可选 title 填写图注，alt 保留为替代文本，前台不从 alt 推断图注。
           example: "# 一、背景\n\n这里是正文"
         categoryId:
           type: integer
@@ -2335,6 +4828,7 @@ components:
           example: true
         status:
           type: string
+          description: 提交后的文章状态。创建时仅允许 `DRAFT` 或 `PUBLISHED`；更新时从未发布过的文章允许 `DRAFT` 或 `PUBLISHED`，已发布过的文章仅允许 `PUBLISHED` 或 `OFFLINE`。
           enum:
             - DRAFT
             - PUBLISHED
@@ -2400,6 +4894,7 @@ components:
         publishedAt:
           type: string
           format: date-time
+          description: 首次发布时间。下线、重新发布或更新已发布文章时不刷新。
           nullable: true
           example: '2026-04-22T23:50:00+08:00'
         updatedAt:
@@ -2420,6 +4915,7 @@ components:
       properties:
         status:
           type: string
+          description: 目标状态。从未发布过的文章仅允许变为 `PUBLISHED`；已发布过的文章仅允许在 `PUBLISHED` 与 `OFFLINE` 间流转。
           enum:
             - DRAFT
             - PUBLISHED
@@ -2454,54 +4950,6 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/ArticleStatusData'
-    AdminCategoryChildItem:
-      type: object
-      required:
-        - id
-        - parentId
-        - level
-        - name
-        - description
-        - sortNo
-        - status
-        - articleCount
-        - createdAt
-      properties:
-        id:
-          type: integer
-          format: int64
-          example: 21001
-        parentId:
-          type: integer
-          format: int64
-          example: 20001
-        level:
-          type: integer
-          enum:
-            - 2
-          example: 2
-        name:
-          type: string
-          example: Java
-        description:
-          type: string
-          example: Java 相关文章
-        sortNo:
-          type: integer
-          example: 11
-        status:
-          type: string
-          enum:
-            - ENABLED
-            - DISABLED
-          example: ENABLED
-        articleCount:
-          type: integer
-          example: 6
-        createdAt:
-          type: string
-          format: date-time
-          example: '2026-04-22T21:20:00+08:00'
     AdminCategoryItem:
       type: object
       required:
@@ -2529,6 +4977,7 @@ components:
           type: integer
           enum:
             - 1
+            - 2
           example: 1
         name:
           type: string
@@ -2538,6 +4987,7 @@ components:
           example: 技术内容一级分类
         sortNo:
           type: integer
+          description: 排序值，值越小越靠前
           example: 10
         status:
           type: string
@@ -2547,6 +4997,7 @@ components:
           example: ENABLED
         articleCount:
           type: integer
+          format: int64
           example: 18
         createdAt:
           type: string
@@ -2554,8 +5005,9 @@ components:
           example: '2026-04-22T21:10:00+08:00'
         children:
           type: array
+          description: 子分类列表。一级分类下返回二级分类，二级分类返回空数组。
           items:
-            $ref: '#/components/schemas/AdminCategoryChildItem'
+            $ref: '#/components/schemas/AdminCategoryItem'
     AdminCategoryListResponse:
       allOf:
         - $ref: '#/components/schemas/BaseResponse'
@@ -2591,6 +5043,7 @@ components:
           example: Java 相关文章
         sortNo:
           type: integer
+          description: 排序值，值越小越靠前，默认 0
           example: 11
         status:
           type: string
@@ -2716,6 +5169,7 @@ components:
           example: ENABLED
         articleCount:
           type: integer
+          format: int64
           example: 5
         createdAt:
           type: string
@@ -2811,7 +5265,725 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/TagUpdateData'
+    CommentAuthor:
+      type: object
+      required: [id, username, nickname, avatarUrl, deleted, role]
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        nickname:
+          type: string
+        avatarUrl:
+          type: string
+        deleted:
+          type: boolean
+          example: false
+        role:
+          type: string
+          enum: [ADMIN, USER]
+    CommentStatus:
+      type: string
+      enum: [PENDING, APPROVED, REJECTED, HIDDEN, DELETED]
+    PublicCommentItem:
+      type: object
+      required: [id, articleId, content, status, moderationReason, author, replyCount, hasVisibleReplies, isMine, likeCount, liked, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        articleId:
+          type: integer
+          format: int64
+        content:
+          type: string
+        status:
+          $ref: '#/components/schemas/CommentStatus'
+        moderationReason:
+          type: string
+          nullable: true
+          description: 本人评论被拒绝时返回；公开评论为空
+        author:
+          $ref: '#/components/schemas/CommentAuthor'
+        replyCount:
+          type: integer
+          format: int64
+          description: 该顶层评论下状态为 APPROVED 的全部层级回复数量；当前用户自己的 PENDING、REJECTED 回复不计入
+        hasVisibleReplies:
+          type: boolean
+          description: 当前请求者是否至少可以看到一条回复，用于保留仅本人可见回复的展开入口
+        isMine:
+          type: boolean
+        likeCount:
+          type: integer
+          description: 评论点赞总数
+          example: 3
+        liked:
+          type: boolean
+          description: 当前登录用户是否已点赞；游客固定为 false
+          example: false
+        createdAt:
+          type: string
+          format: date-time
+    PublicCommentPageData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          required: [records]
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/PublicCommentItem'
+    PublicCommentPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/PublicCommentPageData'
+    CommentReplyItem:
+      allOf:
+        - $ref: '#/components/schemas/PublicCommentItem'
+        - type: object
+          required: [parentId, rootId, replyToUser]
+          properties:
+            parentId:
+              type: integer
+              format: int64
+            rootId:
+              type: integer
+              format: int64
+            replyToUser:
+              $ref: '#/components/schemas/CommentAuthor'
+    CommentReplyPageData:
+      type: object
+      required: [records, nextCursor, hasNext]
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommentReplyItem'
+        nextCursor:
+          type: string
+          nullable: true
+        hasNext:
+          type: boolean
+    CommentReplyPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CommentReplyPageData'
+    CreateCommentRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          description: 纯文本内容，服务端去除首尾空白后校验长度
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+          description: 直接父评论 ID；不传或为空表示顶层评论
+        notifyOnReply:
+          type: boolean
+          default: false
+          description: 是否订阅当前评论未来的直接回复邮件；仅登录且邮箱已验证时有效
+    CommentUnsubscribeRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 20
+          maxLength: 128
+          description: 评论退订令牌
+    CommentMutationData:
+      type: object
+      required: [id, articleId, parentId, rootId, content, status, moderationReason, author, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        articleId:
+          type: integer
+          format: int64
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+        rootId:
+          type: integer
+          format: int64
+          nullable: true
+        content:
+          type: string
+        status:
+          $ref: '#/components/schemas/CommentStatus'
+        moderationReason:
+          type: string
+          nullable: true
+        author:
+          $ref: '#/components/schemas/CommentAuthor'
+        reviewedBy:
+          type: integer
+          format: int64
+          nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        deletedBy:
+          type: integer
+          format: int64
+          nullable: true
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    CommentMutationResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CommentMutationData'
+    CommentDeleteData:
+      type: object
+      required: [deletedApprovedCount]
+      properties:
+        deletedApprovedCount:
+          type: integer
+          format: int64
+          description: 本次删除实际扣减的已通过评论数量
+          example: 4
+    CommentDeleteResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/CommentDeleteData'
+    AdminCommentArticleRef:
+      type: object
+      required: [id, title]
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+    AdminCommentItem:
+      allOf:
+        - $ref: '#/components/schemas/CommentMutationData'
+        - type: object
+          required: [article, type, reviewedBy, reviewedAt, deletedBy, deletedAt]
+          properties:
+            article:
+              $ref: '#/components/schemas/AdminCommentArticleRef'
+            type:
+              type: string
+              enum: [TOP_LEVEL, REPLY]
+    AdminCommentPageData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          required: [records]
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminCommentItem'
+    AdminCommentPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AdminCommentPageData'
+    ModerateCommentRequest:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [APPROVE, REJECT, HIDE, DELETE]
+        reason:
+          type: string
+          maxLength: 255
+          description: REJECT、HIDE、DELETE 时必填；APPROVE 时不传并清空历史处理原因
+    UploadedImageData:
+      type: object
+      required: [url, originalName, contentType, size]
+      properties:
+        url:
+          type: string
+          format: uri
+          example: https://img.example.com/articles/content/2026/08/uuid.png
+        originalName:
+          type: string
+          example: architecture.png
+        contentType:
+          type: string
+          enum: [image/jpeg, image/png, image/webp, image/gif]
+          example: image/png
+        size:
+          type: integer
+          format: int64
+          example: 245760
+    UploadedImageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/UploadedImageData'
+    SecurityEventType:
+      type: string
+      enum: [REGISTER, LOGIN, LOGOUT, TOKEN_REFRESH, EMAIL_VERIFICATION, PASSWORD_CHANGE, EMAIL_CHANGE, USER_DELETE, USER_STATUS_CHANGE, USER_ROLE_CHANGE]
+    SecurityEventOutcome:
+      type: string
+      enum: [SUCCESS, FAILURE]
+    SecurityEventItem:
+      type: object
+      required: [id, eventType, outcome, userId, userUsername, userNickname, userDeleted, actorId, actorUsername, actorNickname, actorDeleted, account, ip, userAgent, requestMethod, requestPath, browser, operatingSystem, device, description, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        eventType: { $ref: '#/components/schemas/SecurityEventType' }
+        outcome: { $ref: '#/components/schemas/SecurityEventOutcome' }
+        userId: { type: integer, format: int64, nullable: true }
+        userUsername: { type: string, nullable: true, description: 目标用户当前用户名，已注销时返回占位用户名 deleted_用户ID }
+        userNickname: { type: string, nullable: true, description: 目标用户当前昵称，已注销时不返回 }
+        userDeleted: { type: boolean, nullable: true, description: 目标用户是否已注销，用户记录不存在时为 null }
+        actorId: { type: integer, format: int64, nullable: true, description: 管理员操作其他用户时的操作者 ID }
+        actorUsername: { type: string, nullable: true, description: 操作者当前用户名，已注销时返回占位用户名 deleted_用户ID }
+        actorNickname: { type: string, nullable: true, description: 操作者当前昵称，已注销时不返回 }
+        actorDeleted: { type: boolean, nullable: true, description: 操作者是否已注销，用户记录不存在时为 null }
+        account: { type: string, nullable: true, description: 原始账号输入（用户名或邮箱） }
+        ip: { type: string, nullable: true, description: 来源 IP }
+        userAgent: { type: string, nullable: true, description: 原始 User-Agent }
+        requestMethod: { type: string, nullable: true }
+        requestPath: { type: string, nullable: true, description: 请求路径，不包含 query 参数 }
+        browser: { type: string, nullable: true }
+        operatingSystem: { type: string, nullable: true }
+        device: { type: string, nullable: true }
+        description: { type: string }
+        createdAt: { type: string, format: date-time }
+    SecurityEventPageData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          required: [records]
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/SecurityEventItem'
+    SecurityEventPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/SecurityEventPageData'
+    AdminAuditResourceType:
+      type: string
+      enum: [USER, ARTICLE, CATEGORY, TAG, COMMENT, MESSAGE, NOTIFICATION, FILE, ABOUT_PAGE, FRIEND_LINK]
+    AdminAuditAction:
+      type: string
+      description: DELETE 对用户资源表示注销，对其他资源表示删除；底层枚举和筛选参数保持不变。
+      enum: [CREATE, UPDATE, DELETE, CHANGE_STATUS, CHANGE_ROLE, MODERATE, REPLY, BATCH_APPROVE, UPLOAD]
+    AdminAuditResult:
+      type: string
+      enum: [SUCCESS, FAILURE]
+    AdminAuditLogItem:
+      type: object
+      required: [id, operatorId, operatorUsername, resourceType, action, result, requestMethod, requestPath, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        operatorId:
+          type: integer
+          format: int64
+        operatorUsername:
+          type: string
+        resourceType:
+          $ref: '#/components/schemas/AdminAuditResourceType'
+        resourceId:
+          type: string
+          nullable: true
+        action:
+          $ref: '#/components/schemas/AdminAuditAction'
+        actionDetail:
+          type: string
+          nullable: true
+        result:
+          $ref: '#/components/schemas/AdminAuditResult'
+        failureCode:
+          type: integer
+          nullable: true
+        failureMessage:
+          type: string
+          nullable: true
+        requestMethod:
+          type: string
+        requestPath:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    AdminAuditLogPageData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          required: [records]
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminAuditLogItem'
+    AdminAuditLogPageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AdminAuditLogPageData'
+    MessageStatus:
+      type: string
+      enum: [PENDING, APPROVED, REJECTED, HIDDEN, DELETED]
+    MessageType:
+      type: string
+      enum: [TOP_LEVEL, REPLY]
+    MessageAuthor:
+      type: object
+      required: [id, username, nickname, avatarUrl, deleted, role]
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        nickname:
+          type: string
+        avatarUrl:
+          type: string
+          nullable: true
+        deleted:
+          type: boolean
+          example: false
+        role:
+          type: string
+          enum: [ADMIN, USER]
+    MessageReply:
+      type: object
+      required: [id, parentId, content, status, author, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        parentId:
+          type: integer
+          format: int64
+        content:
+          type: string
+        status:
+          $ref: '#/components/schemas/MessageStatus'
+        author:
+          allOf:
+            - $ref: '#/components/schemas/MessageAuthor'
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    MessageItem:
+      type: object
+      required: [id, nickname, content, status, moderationReason, author, isMine, isAnnouncement, isPinned, replies, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        nickname:
+          type: string
+        content:
+          type: string
+        isAnnouncement:
+          type: boolean
+          description: 是否为管理员公告
+        isPinned:
+          type: boolean
+          description: 是否置顶
+        status:
+          $ref: '#/components/schemas/MessageStatus'
+        moderationReason:
+          type: string
+          nullable: true
+        author:
+          allOf:
+            - $ref: '#/components/schemas/MessageAuthor'
+          nullable: true
+        isMine:
+          type: boolean
+        replies:
+          type: array
+          items:
+            $ref: '#/components/schemas/MessageReply'
+        createdAt:
+          type: string
+          format: date-time
+    MessagePageData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          required: [records]
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/MessageItem'
+    MessagePageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/MessagePageData'
+    CreateMessageRequest:
+      type: object
+      required: [content]
+      properties:
+        nickname:
+          type: string
+          minLength: 1
+          maxLength: 20
+          nullable: true
+          description: 游客昵称，登录用户忽略
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          nullable: true
+          description: 游客联系邮箱；勾选通知时必填，登录用户忽略
+        content:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        notifyOnReply:
+          type: boolean
+          default: false
+          description: 是否接收该条留言后续管理员回复的邮件通知
+        turnstileToken:
+          type: string
+          maxLength: 2048
+          nullable: true
+          description: 游客必填的 Cloudflare Turnstile token；登录用户和管理员忽略
+    MessageMutationResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/MessageMutationData'
+    MessageMutationData:
+      allOf:
+        - $ref: '#/components/schemas/MessageItem'
+        - type: object
+          required: [parentId]
+          properties:
+            parentId:
+              type: integer
+              format: int64
+              nullable: true
+    MessageUnsubscribeRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 20
+          maxLength: 128
+    MessageModerationRequest:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [APPROVE, REJECT, HIDE, DELETE]
+        reason:
+          type: string
+          maxLength: 255
+    CreateMessageReplyRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 1000
+    MessageBatchApprovalRequest:
+      type: object
+      required: [messageIds]
+      properties:
+        messageIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items:
+            type: integer
+            format: int64
+            minimum: 1
+    AdminMessageItem:
+      type: object
+      required:
+        - id
+        - userId
+        - parentId
+        - nickname
+        - email
+        - content
+        - status
+        - type
+        - notifyOnReply
+        - moderationReason
+        - reviewedBy
+        - reviewedAt
+        - deletedBy
+        - deletedAt
+        - author
+        - createdAt
+        - isAnnouncement
+        - isPinned
+      properties:
+        id:
+          type: integer
+          format: int64
+        userId:
+          type: integer
+          format: int64
+          nullable: true
+        parentId:
+          type: integer
+          format: int64
+          nullable: true
+        nickname:
+          type: string
+        email:
+          type: string
+          description: 仅后台返回的私有联系邮箱
+        content:
+          type: string
+        isAnnouncement:
+          type: boolean
+          description: 是否为管理员公告
+        isPinned:
+          type: boolean
+          description: 是否置顶
+        status:
+          $ref: '#/components/schemas/MessageStatus'
+        type:
+          $ref: '#/components/schemas/MessageType'
+        notifyOnReply:
+          type: boolean
+        moderationReason:
+          type: string
+          nullable: true
+        reviewedBy:
+          type: integer
+          format: int64
+          nullable: true
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+        deletedBy:
+          type: integer
+          format: int64
+          nullable: true
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+        author:
+          allOf:
+            - $ref: '#/components/schemas/MessageAuthor'
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+    AdminMessagePageData:
+      allOf:
+        - $ref: '#/components/schemas/PagedMeta'
+        - type: object
+          required: [records]
+          properties:
+            records:
+              type: array
+              items:
+                $ref: '#/components/schemas/AdminMessageItem'
+    AdminMessagePageResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/AdminMessagePageData'
   responses:
+    PublicHtmlResponse:
+      description: 仅在入口 HTML head 注入 canonical、description 和 Open Graph，Vue 挂载容器为空，不生成正文，不缓存
+      content:
+        text/html:
+          schema: { type: string }
+    NoDataResponse:
+      description: 操作成功，无业务数据返回
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/NoDataResponse'
+          example:
+            code: 0
+            message: 成功
+            data: null
+    ConflictResponse:
+      description: 请求与当前业务状态冲突
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    AdminNotificationBadRequestResponse:
+      description: 管理员消息参数或收件范围不合法；创建、修改及首次发布均校验指定用户
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            invalidParameters:
+              value:
+                code: 199001
+                message: 请求参数不合法
+                data: null
+            recipientNotFound:
+              value:
+                code: 199001
+                message: 指定用户不存在
+                data: null
+            recipientDeleted:
+              value:
+                code: 199001
+                message: 指定用户已注销，无法接收管理员消息
+                data: null
     BadRequestResponse:
       description: 请求参数不合法
       content:
@@ -2819,11 +5991,9 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            code: A001
-            message: request parameter invalid
+            code: 199001
+            message: 请求参数不合法
             data: null
-            traceId: 1d2c3b4a5e6f7788
-            timestamp: '2026-04-23T00:20:00+08:00'
     UnauthorizedResponse:
       description: 未登录或 Access Token 无效
       content:
@@ -2831,11 +6001,9 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            code: A002
-            message: unauthorized
+            code: 101001
+            message: 未登录或 Access Token 无效
             data: null
-            traceId: 2a3b4c5d6e7f8899
-            timestamp: '2026-04-23T00:20:00+08:00'
     ForbiddenResponse:
       description: 无权限访问
       content:
@@ -2843,11 +6011,169 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            code: A003
-            message: forbidden
+            code: 101003
+            message: 无权限访问
             data: null
-            traceId: 3a4b5c6d7e8f9900
-            timestamp: '2026-04-23T00:20:00+08:00'
+    UserDisabledResponse:
+      description: 用户已被禁用
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 102005
+            message: 用户已被禁用
+            data: null
+    UserConflictResponse:
+      description: 用户名或邮箱已存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            usernameExists:
+              summary: 用户名已存在
+              value:
+                code: 102002
+                message: 用户名已存在
+                data: null
+            emailExists:
+              summary: 邮箱已存在
+              value:
+                code: 102004
+                message: 邮箱已存在
+                data: null
+    RegisterConflictResponse:
+      description: 注册业务冲突
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            usernameExists:
+              summary: 用户名已存在
+              value:
+                code: 102002
+                message: 用户名已存在
+                data: null
+            emailExists:
+              summary: 邮箱已存在
+              value:
+                code: 102004
+                message: 邮箱已存在
+                data: null
+            privacyPolicyVersionMismatch:
+              summary: 隐私政策版本已更新
+              value:
+                code: 102009
+                message: 隐私政策已更新，请重新打开隐私政策页面
+                data: null
+    RegisterBadRequestResponse:
+      description: 注册参数或邮箱验证码不合法
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            invalidRequest:
+              summary: 请求参数不合法
+              value:
+                code: 199001
+                message: 请求参数不合法
+                data: null
+            invalidVerificationCode:
+              summary: 邮箱验证码错误或已过期
+              value:
+                code: 102010
+                message: 邮箱验证码错误或已过期
+                data: null
+    EmailVerificationAttemptsExceededResponse:
+      description: 验证码错误次数过多
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 102011
+            message: 验证码错误次数过多，请重新获取
+            data: null
+    EmailVerificationRateLimitedResponse:
+      description: 验证码请求过于频繁
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 102012
+            message: 验证码请求过于频繁，请稍后再试
+            data: null
+    LoginRateLimitedResponse:
+      description: 登录失败次数或来源 IP 请求频率超过限制
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            applicationFailureLimit:
+              summary: Redis 登录失败次数限制
+              value:
+                code: 101005
+                message: 登录尝试过于频繁，请稍后再试
+                data: null
+            nginxIpLimit:
+              summary: Nginx 来源 IP 边缘限流
+              value:
+                code: 199429
+                message: 请求过于频繁，请稍后再试
+                data: null
+    ArticleLikeRateLimitedResponse:
+      description: 文章点赞主体频率或来源 IP 请求频率超过限制
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            applicationActorLimit:
+              summary: Redis 点赞主体限流
+              value:
+                code: 103010
+                message: 点赞操作过于频繁，请稍后再试
+                data: null
+            nginxIpLimit:
+              summary: Nginx 来源 IP 边缘限流
+              value:
+                code: 199429
+                message: 请求过于频繁，请稍后再试
+                data: null
+    CommentLikeRateLimitedResponse:
+      description: 评论点赞主体频率或来源 IP 请求频率超过限制
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            applicationActorLimit:
+              summary: Redis 点赞主体限流
+              value:
+                code: 106010
+                message: 点赞操作过于频繁，请稍后再试
+                data: null
+            nginxIpLimit:
+              summary: Nginx 来源 IP 边缘限流
+              value:
+                code: 199429
+                message: 请求过于频繁，请稍后再试
+                data: null
+    EmailVerificationSendFailedResponse:
+      description: 验证码邮件发送失败
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 102013
+            message: 验证码发送失败，请稍后重试
+            data: null
     RefreshTokenInvalidResponse:
       description: Refresh Token 无效或已过期
       content:
@@ -2855,11 +6181,37 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            code: A004
-            message: refresh token invalid or expired
+            code: 101004
+            message: Refresh Token 无效或已过期
             data: null
-            traceId: 4a5b6c7d8e9f0011
-            timestamp: '2026-04-23T00:20:00+08:00'
+    ResourceNotFoundResponse:
+      description: 请求资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 199404
+            message: 请求资源不存在
+            data: null
+    FriendLinkNotFoundResponse:
+      description: 友链不存在
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            code: 109001
+            message: 友链不存在
+            data: null
+    FriendLinkConflictResponse:
+      description: 友链地址已被其他记录使用
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+          example:
+            code: 109002
+            message: 友链地址已存在
+            data: null
     ArticleNotFoundResponse:
       description: 文章不存在
       content:
@@ -2867,20 +6219,358 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            code: B001
-            message: article not found
+            code: 103001
+            message: 文章不存在
             data: null
-            traceId: 5a6b7c8d9e0f1122
-            timestamp: '2026-04-23T00:20:00+08:00'
-    CategoryHasArticlesResponse:
-      description: 分类或其子分类下存在文章，不能删除
+    PublicArticleDetailNotFoundResponse:
+      description: 文章不存在、不可见、关联分类不存在或关联作者不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            articleNotFound:
+              summary: 文章不存在
+              value:
+                code: 103001
+                message: 文章不存在
+                data: null
+            articleCategoryNotFound:
+              summary: 文章分类不存在
+              value:
+                code: 103002
+                message: 文章分类不存在
+                data: null
+            articleNotVisible:
+              summary: 文章当前不可见
+              value:
+                code: 103008
+                message: 文章当前不可见
+                data: null
+            articleAuthorNotFound:
+              summary: 文章作者不存在
+              value:
+                code: 103009
+                message: 文章作者不存在
+                data: null
+    PublicArticleDetailConflictResponse:
+      description: 文章关联分类已禁用
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            code: B004
-            message: category or its children has articles and cannot be deleted
+            code: 103004
+            message: 文章分类已禁用
             data: null
-            traceId: 6a7b8c9d0e1f2233
-            timestamp: '2026-04-23T00:20:00+08:00'
+    ArticleConflictResponse:
+      description: 文章关联资源冲突或状态流转不合法
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 103007
+            message: 文章状态流转不合法
+            data: null
+    UserNotFoundResponse:
+      description: 用户不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 102001
+            message: 用户不存在
+            data: null
+    CategoryDeleteConflictResponse:
+      description: 分类存在子分类或文章，不能删除
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 104002
+            message: 该分类下存在子分类，请先删除或迁移子分类
+            data: null
+    CommentNotFoundResponse:
+      description: 评论不存在、已删除或当前用户不可见
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 106001
+            message: 评论不存在
+            data: null
+    CommentReasonRequiredResponse:
+      description: 评论处理原因缺失
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 106007
+            message: 评论处理原因不能为空
+            data: null
+    CommentBadRequestResponse:
+      description: 评论请求参数或订阅状态不合法
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            invalidParameter:
+              value:
+                code: 199001
+                message: 请求参数不合法
+                data: null
+            emailNotVerified:
+              value:
+                code: 106008
+                message: 邮箱未验证，无法订阅评论回复通知
+                data: null
+    CommentConflictResponse:
+      description: 评论业务状态冲突
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            commentDisabled:
+              value:
+                code: 106002
+                message: 文章已关闭评论
+                data: null
+            parentUnavailable:
+              value:
+                code: 106003
+                message: 回复目标不可用
+                data: null
+            statusConflict:
+              value:
+                code: 106006
+                message: 评论状态流转不合法
+                data: null
+    CommentForbiddenResponse:
+      description: 无权操作该评论
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 106005
+            message: 无权操作该评论
+            data: null
+    CommentRateLimitResponse:
+      description: 评论频率超过限制
+      headers:
+        Retry-After:
+          description: 建议客户端等待的秒数
+          schema:
+            type: integer
+            example: 10
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 106004
+            message: 评论过于频繁，请稍后再试
+            data: null
+    CommentUnsubscribeTokenResponse:
+      description: 评论退订令牌无效
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 106009
+            message: 评论退订链接无效或已失效
+            data: null
+    MessageNotFoundResponse:
+      description: 留言不存在、已删除或当前用户不可见
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 108001
+            message: 留言不存在
+            data: null
+    MessageBadRequestResponse:
+      description: 留言请求参数或业务参数不合法
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            invalidParameter:
+              value:
+                code: 199001
+                message: 请求参数不合法
+                data: null
+            invalidNickname:
+              value:
+                code: 108008
+                message: 留言昵称不合法
+                data: null
+            emailRequired:
+              value:
+                code: 108009
+                message: 勾选回复通知时必须填写邮箱
+                data: null
+            emailNotVerified:
+              value:
+                code: 108016
+                message: 邮箱未验证，无法订阅留言回复通知
+                data: null
+            invalidUnsubscribeToken:
+              value:
+                code: 108010
+                message: 留言退订链接无效或已失效
+                data: null
+            batchTooLarge:
+              value:
+                code: 108012
+                message: 一次最多通过 100 条留言
+                data: null
+            turnstileVerificationFailed:
+              value:
+                code: 108014
+                message: 人机验证失败，请重试
+                data: null
+    MessageConflictResponse:
+      description: 留言状态或回复目标冲突
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            parentUnavailable:
+              value:
+                code: 108003
+                message: 留言回复目标不可用
+                data: null
+            statusInvalid:
+              value:
+                code: 108006
+                message: 留言状态流转不合法
+                data: null
+            batchInvalid:
+              value:
+                code: 108011
+                message: 批量通过的留言必须是待审核顶层留言
+                data: null
+    MessageForbiddenResponse:
+      description: 无权操作该留言
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 108005
+            message: 无权操作该留言
+            data: null
+    MessageRateLimitedResponse:
+      description: 留言频率超过限制
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 108004
+            message: 留言过于频繁，请稍后再试
+            data: null
+    TurnstileServiceUnavailableResponse:
+      description: Turnstile 验证服务暂不可用
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 108015
+            message: 人机验证服务暂不可用，请稍后重试
+            data: null
+    MessageUnsubscribeTokenResponse:
+      description: 留言退订令牌无效
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 108010
+            message: 留言退订链接无效或已失效
+            data: null
+    ImageRequiredResponse:
+      description: 未携带需要上传的图片
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 107001
+            message: 请选择需要上传的图片
+            data: null
+    AdminImageUploadBadRequestResponse:
+      description: 未携带图片，或图片场景参数缺失、格式错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            imageRequired:
+              summary: 未携带图片
+              value:
+                code: 107001
+                message: 请选择需要上传的图片
+                data: null
+            sceneInvalid:
+              summary: 图片场景参数不合法
+              value:
+                code: 199001
+                message: 请求参数不合法
+                data:
+                  - field: scene
+                    message: 请求参数类型不匹配
+                    rejectedValue: UNKNOWN
+    UnsupportedImageTypeResponse:
+      description: 图片真实类型不受支持
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 107002
+            message: 仅支持 JPG、JPEG、PNG、WebP 和 GIF 图片
+            data: null
+    ImageTooLargeResponse:
+      description: 图片大小超过当前上传场景限制
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 107003
+            message: 图片大小超过限制
+            data: null
+    ImageUploadFailedResponse:
+      description: 对象存储上传失败
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 107004
+            message: 图片上传失败，请稍后重试
+            data: null
+    AvatarUploadRateLimitResponse:
+      description: 当前用户头像上传频率超过限制
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: 107005
+            message: 头像上传过于频繁，请稍后再试
+            data: null

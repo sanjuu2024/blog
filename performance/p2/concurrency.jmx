@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Blog P2 server concurrency" enabled="true">
+      <boolProp name="TestPlan.functional_mode">false</boolProp><boolProp name="TestPlan.serialize_threadgroups">true</boolProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments"><collectionProp name="Arguments.arguments"/></elementProp>
+    </TestPlan>
+    <hashTree>
+      <SetupThreadGroup guiclass="SetupThreadGroupGui" testclass="SetupThreadGroup" testname="Initialize isolated writes" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">stoptest</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController"><boolProp name="LoopController.continue_forever">false</boolProp><stringProp name="LoopController.loops">1</stringProp></elementProp>
+        <stringProp name="ThreadGroup.num_threads">1</stringProp><stringProp name="ThreadGroup.ramp_time">0</stringProp>
+      </SetupThreadGroup>
+      <hashTree>
+        <JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="SETUP isolated data and authentication" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="filename">${__P(scriptDir,.)}/p2-setup.groovy</stringProp><stringProp name="cacheKey">true</stringProp></JSR223Sampler><hashTree/>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="P2 synchronized operations" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController"><boolProp name="LoopController.continue_forever">false</boolProp><stringProp name="LoopController.loops">${__P(loops,1)}</stringProp></elementProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(threads,10)}</stringProp><stringProp name="ThreadGroup.ramp_time">1</stringProp>
+      </ThreadGroup>
+      <hashTree>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="TARGET ${__P(scenario)} ${__P(phase)}" enabled="true">
+          <stringProp name="HTTPSampler.domain">${__P(host,127.0.0.1)}</stringProp><stringProp name="HTTPSampler.port">${__P(port,8080)}</stringProp><stringProp name="HTTPSampler.protocol">${__P(protocol,http)}</stringProp>
+          <stringProp name="HTTPSampler.path">${requestPath}</stringProp><stringProp name="HTTPSampler.method">${requestMethod}</stringProp><stringProp name="HTTPSampler.contentEncoding">UTF-8</stringProp>
+          <stringProp name="HTTPSampler.connect_timeout">10000</stringProp><stringProp name="HTTPSampler.response_timeout">30000</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">false</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"/></elementProp>
+        </HTTPSamplerProxy>
+        <hashTree>
+          <SyncTimer guiclass="TestBeanGUI" testclass="SyncTimer" testname="Synchronize concurrent actors" enabled="true"><intProp name="groupSize">0</intProp><longProp name="timeoutInMs">10000</longProp></SyncTimer><hashTree/>
+          <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="Shared limiter sequence pacing" enabled="true"><stringProp name="ConstantTimer.delay">${__P(operationDelayMs,0)}</stringProp></ConstantTimer><hashTree/>
+          <JSR223PreProcessor guiclass="TestBeanGUI" testclass="JSR223PreProcessor" testname="Select measured request" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="filename">${__P(scriptDir,.)}/p2-request.groovy</stringProp><stringProp name="cacheKey">true</stringProp></JSR223PreProcessor><hashTree/>
+          <JSR223Assertion guiclass="TestBeanGUI" testclass="JSR223Assertion" testname="Classify expected outcomes" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="filename">${__P(scriptDir,.)}/p2-assert.groovy</stringProp><stringProp name="cacheKey">true</stringProp></JSR223Assertion><hashTree/>
+        </hashTree>
+      </hashTree>
+      <PostThreadGroup guiclass="PostThreadGroupGui" testclass="PostThreadGroup" testname="Verify aggregate outcome" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController"><boolProp name="LoopController.continue_forever">false</boolProp><stringProp name="LoopController.loops">1</stringProp></elementProp>
+        <stringProp name="ThreadGroup.num_threads">1</stringProp><stringProp name="ThreadGroup.ramp_time">0</stringProp>
+      </PostThreadGroup>
+      <hashTree>
+        <JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="VERIFY concurrency totals and isolation" enabled="true"><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="filename">${__P(scriptDir,.)}/p2-verify.groovy</stringProp><stringProp name="cacheKey">true</stringProp></JSR223Sampler><hashTree/>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

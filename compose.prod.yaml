@@ -1,0 +1,210 @@
+name: ${COMPOSE_PROJECT_NAME:-blog-prod}
+
+x-backend-build: &backend-build
+  context: backend
+  dockerfile: Dockerfile
+
+x-backend-environment: &backend-environment
+  SPRING_PROFILES_ACTIVE: prod
+  BLOG_APP_NAME: ${BLOG_APP_NAME:?BLOG_APP_NAME is required}
+  BLOG_SITE_URL: ${BLOG_SITE_URL:?BLOG_SITE_URL is required}
+  BLOG_DESC: ${BLOG_DESC:?BLOG_DESC is required}
+  BLOG_LOGO_URL: ${BLOG_LOGO_URL:?BLOG_LOGO_URL is required}
+  BLOG_SEO_HTML_TEMPLATE: file:/app/frontend-template/index.html
+  BLOG_DB_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}"
+  POSTGRES_APP_USERNAME: ${POSTGRES_APP_USERNAME:?POSTGRES_APP_USERNAME is required}
+  POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD is required}
+  BLOG_JWT_SECRET: ${BLOG_JWT_SECRET:?BLOG_JWT_SECRET is required}
+  BLOG_REDIS_HOST: redis
+  BLOG_REDIS_PORT: 6379
+  BLOG_REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+  BLOG_REDIS_DATABASE: ${BLOG_REDIS_DATABASE:-0}
+  BLOG_OBJECT_STORAGE_PROVIDER: ${BLOG_OBJECT_STORAGE_PROVIDER:-aliyun}
+  BLOG_OBJECT_STORAGE_ENDPOINT: ${BLOG_OBJECT_STORAGE_ENDPOINT:?BLOG_OBJECT_STORAGE_ENDPOINT is required}
+  BLOG_OBJECT_STORAGE_BUCKET: ${BLOG_OBJECT_STORAGE_BUCKET:?BLOG_OBJECT_STORAGE_BUCKET is required}
+  BLOG_OBJECT_STORAGE_ACCESS_KEY_ID: ${BLOG_OBJECT_STORAGE_ACCESS_KEY_ID:?BLOG_OBJECT_STORAGE_ACCESS_KEY_ID is required}
+  BLOG_OBJECT_STORAGE_ACCESS_KEY_SECRET: ${BLOG_OBJECT_STORAGE_ACCESS_KEY_SECRET:?BLOG_OBJECT_STORAGE_ACCESS_KEY_SECRET is required}
+  BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL: ${BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL:?BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL is required}
+  BLOG_MAIL_ENABLED: ${BLOG_MAIL_ENABLED:-false}
+  BLOG_MAIL_FROM: ${BLOG_MAIL_FROM:-}
+  BLOG_MAIL_FRONTEND_BASE_URL: ${BLOG_MAIL_FRONTEND_BASE_URL:?BLOG_MAIL_FRONTEND_BASE_URL is required}
+  BLOG_SMTP_HOST: ${BLOG_SMTP_HOST:-}
+  BLOG_SMTP_PORT: ${BLOG_SMTP_PORT:-587}
+  BLOG_SMTP_USERNAME: ${BLOG_SMTP_USERNAME:-}
+  BLOG_SMTP_PASSWORD: ${BLOG_SMTP_PASSWORD:-}
+  BLOG_SMTP_AUTH: ${BLOG_SMTP_AUTH:-true}
+  BLOG_SMTP_STARTTLS: ${BLOG_SMTP_STARTTLS:-true}
+  BLOG_SMTP_CONNECTION_TIMEOUT: ${BLOG_SMTP_CONNECTION_TIMEOUT:-5000}
+  BLOG_SMTP_READ_TIMEOUT: ${BLOG_SMTP_READ_TIMEOUT:-10000}
+  BLOG_SMTP_WRITE_TIMEOUT: ${BLOG_SMTP_WRITE_TIMEOUT:-10000}
+  BLOG_TURNSTILE_ENABLED: ${BLOG_TURNSTILE_ENABLED:-true}
+  BLOG_TURNSTILE_SECRET_KEY: ${BLOG_TURNSTILE_SECRET_KEY:?BLOG_TURNSTILE_SECRET_KEY is required}
+  BLOG_TURNSTILE_EXPECTED_HOSTNAME: ${BLOG_TURNSTILE_EXPECTED_HOSTNAME:?BLOG_TURNSTILE_EXPECTED_HOSTNAME is required}
+  BLOG_TURNSTILE_EXPECTED_ACTION: ${BLOG_TURNSTILE_EXPECTED_ACTION:-guest_message}
+  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "10"
+  SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "2"
+  JAVA_TOOL_OPTIONS: >-
+    -Xms512m -Xmx1536m -XX:MaxMetaspaceSize=256m -XX:MaxDirectMemorySize=128m
+
+services:
+  postgres:
+    image: ${BLOG_POSTGRES_IMAGE:-blog-postgres:v1.0.0}
+    cpus: "1.5"
+    mem_limit: 2g
+    command: ["postgres", "-c", "shared_buffers=512MB", "-c", "max_connections=60"]
+    build:
+      context: .
+      dockerfile: docker/postgres/Dockerfile
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_ADMIN_USERNAME:?POSTGRES_ADMIN_USERNAME is required}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?POSTGRES_ADMIN_PASSWORD is required}
+      TZ: UTC
+      PGTZ: UTC
+    volumes:
+      - prodtest_pg_data:/var/lib/postgresql/data
+      - ./backend/scripts/db/bootstrap/init.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - backend_net
+
+  redis:
+    cpus: "0.25"
+    mem_limit: 512m
+    image: redis:7.4-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD is required}", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    environment:
+      TZ: UTC
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    volumes:
+      - prodtest_redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    networks:
+      - backend_net
+
+  db-prepare:
+    image: ${BLOG_BACKEND_IMAGE:-blog-backend:v1.0.0}
+    build: *backend-build
+    command: ["--database-prepare=migrate"]
+    restart: "no"
+    cpus: "2.0"
+    mem_limit: 1g
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    environment:
+      BLOG_DB_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}"
+      POSTGRES_ADMIN_USERNAME: ${POSTGRES_ADMIN_USERNAME:?POSTGRES_ADMIN_USERNAME is required}
+      POSTGRES_ADMIN_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?POSTGRES_ADMIN_PASSWORD is required}
+      POSTGRES_APP_USERNAME: ${POSTGRES_APP_USERNAME:?POSTGRES_APP_USERNAME is required}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD is required}
+      JAVA_TOOL_OPTIONS: -Xms128m -Xmx512m
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend_net
+
+  backend:
+    cpus: "2.0"
+    mem_limit: 2560m
+    image: ${BLOG_BACKEND_IMAGE:-blog-backend:v1.0.0}
+    build: *backend-build
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: "5"
+    environment: *backend-environment
+    volumes:
+      - frontend_template:/app/frontend-template:ro
+    depends_on:
+      db-prepare:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health/readiness | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks:
+      - backend_net
+
+  nginx:
+    image: ${BLOG_NGINX_IMAGE:-blog-nginx:v1.0.0}
+    cpus: "0.25"
+    mem_limit: 256m
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api/v1
+        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:?VITE_TURNSTILE_SITE_KEY is required}
+        VITE_SITE_LAUNCHED_AT: ${VITE_SITE_LAUNCHED_AT:?VITE_SITE_LAUNCHED_AT is required}
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "5"
+    environment:
+      BLOG_INGRESS_IP: ${BLOG_INGRESS_IP:?BLOG_INGRESS_IP is required}
+      NGINX_ENVSUBST_FILTER: "^BLOG_INGRESS_IP$"
+    volumes:
+      - frontend_template:/seo-template
+      - ./docker/nginx/default.conf:/etc/nginx/templates/default.conf.template:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/nginx-health | grep -q '^ok$'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    networks:
+      backend_net:
+      edge:
+        aliases:
+          - ${BLOG_WEB_ALIAS:?BLOG_WEB_ALIAS is required}
+
+networks:
+  backend_net:
+    driver: bridge
+  edge:
+    external: true
+    name: ${BLOG_EDGE_NETWORK:?BLOG_EDGE_NETWORK is required}
+
+volumes:
+  frontend_template:
+  prodtest_pg_data:
+  prodtest_redis_data:

@@ -1,0 +1,90 @@
+import { describe, expect, it } from 'vitest';
+import { adminRoutes, publicRoutes, routes } from './routes';
+
+describe('P0 route contract', () => {
+	it('contains all required public and admin pages', () => {
+		const publicNames = publicRoutes.map((route) => route.name);
+		const adminNames = adminRoutes.map((route) => route.name);
+		const rootNames = routes.map((route) => route.name);
+		expect(publicNames).not.toContain('Notifications');
+		const authLayout = routes.find((route) => route.name === 'AuthLayout');
+		const authNames = authLayout?.children?.map((route) => route.name) ?? [];
+		const archiveRoute = publicRoutes.find((route) => route.name === 'Archive');
+
+		expect(publicNames).toEqual(
+			expect.arrayContaining([
+				'Home',
+				'ArticleList',
+				'ArticleDetail',
+				'Archive',
+				'UserProfile',
+				'MessageBoard',
+				'MessageUnsubscribe',
+			]),
+		);
+		expect(adminNames).toEqual(
+			expect.arrayContaining([
+				'AdminUserList',
+				'AdminArticle',
+				'AdminCategoryList',
+				'AdminTagList',
+				'AdminFriendLinkList',
+				'AdminCommentList',
+				'AdminMessageList',
+				'AdminAbout',
+				'AdminAuditLogList',
+			]),
+		);
+		expect(rootNames).toContain('NotFound');
+		expect(authNames).toEqual(expect.arrayContaining(['Login', 'Register']));
+		expect(archiveRoute?.path).toBe('/archives');
+		expect(publicRoutes.some((route) => route.path.startsWith('/categories'))).toBe(false);
+	});
+
+	it('places the links page between the message board and about page', () => {
+		const navigationNames = publicRoutes
+			.filter((route) => route.meta?.nav)
+			.map((route) => route.name);
+
+		expect(navigationNames.indexOf('Link')).toBe(navigationNames.indexOf('MessageBoard') + 1);
+		expect(navigationNames.indexOf('About')).toBe(navigationNames.indexOf('Link') + 1);
+	});
+
+	it('uses the root path as the only homepage navigation entry', () => {
+		const home = publicRoutes.find((route) => route.name === 'Home');
+		const mainLayout = routes.find((route) => route.name === 'MainLayout');
+
+		expect(home?.path).toBe('/');
+		expect(home?.meta.nav).toEqual({ pos: 'left' });
+		expect(mainLayout).not.toHaveProperty('redirect');
+		expect(publicRoutes.some((route) => route.path === '/home')).toBe(false);
+	});
+
+	it('does not expose tags as a top navigation entry', () => {
+		const navigationRoutes = publicRoutes.filter((route) => route.meta?.nav);
+
+		expect(navigationRoutes.some((route) => route.path.includes('tag'))).toBe(false);
+		expect(navigationRoutes.some((route) => route.meta?.title === '标签')).toBe(false);
+	});
+
+	it('marks personal and admin pages with required permissions', () => {
+		const profileRoute = publicRoutes.find((route) => route.name === 'UserProfile');
+		const adminLayout = routes.find((route) => route.name === 'AdminLayout');
+
+		expect(profileRoute?.meta?.requiresAuth).toBe(true);
+		expect(adminLayout?.meta?.requiresAuth).toBe(true);
+		expect(adminLayout?.meta?.requiresAdmin).toBe(true);
+	});
+
+	it('marks internal-scroll public pages to preserve the full viewport below the header', () => {
+		for (const routeName of [
+			'Archive',
+			'MessageBoard',
+			'MessageUnsubscribe',
+			'CommentUnsubscribe',
+		]) {
+			const route = publicRoutes.find((candidate) => candidate.name === routeName);
+			expect(route?.meta?.fullHeight).toBe(true);
+		}
+	});
+});

@@ -1,0 +1,421 @@
+<template>
+	<div
+		ref="itemRef"
+		:id="`message-${item.id}`"
+		class="message-item"
+		:class="{ 'message-item--muted': isMuted }"
+	>
+		<div
+			class="message-item__header"
+			:class="{ 'message-item__header--sticky': contentExpanded }"
+		>
+			<div class="message-item__identity">
+				<PublicUserProfilePopover
+					v-if="item.author?.id"
+					:user-id="item.author.id"
+					:disabled="item.author.deleted"
+					class="flex flex-col"
+				>
+					<AppUserAvatar
+						:avatar-url="item.author.avatarUrl"
+						:name="item.author.nickname || item.nickname"
+						:user-id="item.author.id"
+						:deleted="item.author.deleted"
+						:is-admin="item.author.role === 'ADMIN'"
+						:size="36"
+						class="self-start"
+					/>
+				</PublicUserProfilePopover>
+
+				<GuestUserPopover
+					v-else
+					:nickname="item.nickname"
+					class="flex flex-col"
+				>
+					<AppUserAvatar
+						:name="item.nickname"
+						:guest="true"
+						:size="36"
+						class="self-start"
+					/>
+				</GuestUserPopover>
+				<strong :class="{ 'message-item__deleted-name': item.author?.deleted }">
+					{{ item.author?.nickname || item.nickname }}
+				</strong>
+				<el-tag
+					v-if="item.isAnnouncement"
+					type="warning"
+					size="large"
+					class="message-announcement-tag"
+				>
+					<div class="flex items-center gap-1 text-[0.9rem]">
+						<i-lucide-megaphone />
+						公告
+					</div>
+				</el-tag>
+				<el-tag
+					v-if="item.status !== MESSAGE_STATUS.APPROVED"
+					:size="'small'"
+					:type="statusTagType(item.status)"
+				>
+					{{ statusLabel(item.status) }}
+				</el-tag>
+			</div>
+			<div class="message-item__header-actions">
+				<time>{{ formatDateTime(item.createdAt) }}</time>
+			</div>
+		</div>
+		<p
+			ref="contentRef"
+			:id="`message-content-${item.id}`"
+			class="message-item__content"
+			:class="{ 'message-item__content--expanded': contentExpanded }"
+		>
+			{{ item.content }}
+		</p>
+
+		<!-- 回复 -->
+		<div
+			v-if="item.replies.length"
+			class="message-item__replies"
+		>
+			<div
+				v-for="reply in item.replies"
+				:key="reply.id"
+				class="message-reply"
+			>
+				<PublicUserProfilePopover
+					v-if="reply.author?.id"
+					:user-id="reply.author.id"
+					:disabled="reply.author.deleted"
+					class="flex flex-col"
+				>
+					<AppUserAvatar
+						:avatar-url="reply.author.avatarUrl"
+						:name="reply.author.nickname || '管理员'"
+						:user-id="reply.author.id"
+						:deleted="reply.author.deleted"
+						:is-admin="reply.author.role === 'ADMIN'"
+						:size="36"
+						class="self-start"
+					/>
+				</PublicUserProfilePopover>
+
+				<AppUserAvatar
+					v-else
+					:avatar-url="reply.author?.avatarUrl"
+					:name="reply.author?.nickname || '管理员'"
+					:user-id="reply.author?.id"
+					:deleted="reply.author?.deleted"
+					:is-admin="reply.author?.role === 'ADMIN'"
+					:size="36"
+					class="self-start"
+				/>
+				<div>
+					<div class="message-reply__meta">
+						<strong :class="{ 'message-item__deleted-name': reply.author?.deleted }">
+							{{ reply.author?.nickname || '管理员' }}
+						</strong>
+						<time>{{ formatDateTime(reply.createdAt) }}</time>
+					</div>
+					<p class="message-reply__content">{{ reply.content }}</p>
+				</div>
+			</div>
+		</div>
+
+		<!-- 删除按钮（自己的留言）以及折叠、展开按钮 -->
+		<div
+			class="message-reply__bottom-toolbar"
+			:class="{ 'message-reply__bottom-toolbar--sticky': contentExpanded }"
+		>
+			<div class="message-reply__bottom-toolbar__left flex items-center gap-2">
+				<button
+					v-if="item.isMine && item.status !== MESSAGE_STATUS.DELETED"
+					class="message-item__delete"
+					type="button"
+					@click="emit('delete', item)"
+				>
+					<i-lucide-trash-2 />
+					<span>删除</span>
+				</button>
+				<p
+					v-if="
+						item.isMine &&
+						item.status === MESSAGE_STATUS.REJECTED &&
+						item.moderationReason
+					"
+					class="message-item__reason"
+				>
+					处理原因：{{ item.moderationReason }}
+				</p>
+			</div>
+
+			<button
+				v-if="contentOverflows"
+				class="message-item__content-toggle"
+				type="button"
+				:aria-controls="`message-content-${item.id}`"
+				:aria-expanded="contentExpanded"
+				@click="toggleContent"
+			>
+				<div
+					class="message-item__content-toggle-icon transition-transform duration-100 ease-in-out"
+					:class="{
+						'-rotate-180': contentExpanded,
+					}"
+				>
+					<i-lucide-chevron-down />
+				</div>
+				{{ contentExpanded ? '收起' : '展开' }}
+			</button>
+		</div>
+	</div>
+</template>
+
+<script setup lang="ts">
+import { computed, nextTick, ref } from 'vue';
+import { useResizeObserver } from '@vueuse/core';
+import { formatDateTime } from '@/utils/datetime';
+import type { PublicMessageItem, MessageStatus } from '../types/message';
+import { MESSAGE_STATUS } from '../types/message';
+
+defineOptions({
+	name: 'MessageListItem',
+});
+
+const props = defineProps<{
+	item: PublicMessageItem;
+}>();
+
+const emit = defineEmits<{
+	delete: [item: PublicMessageItem];
+}>();
+
+const itemRef = ref<HTMLElement | null>(null); // 整个留言项实例，用于折叠、展开指定留言时定位
+const contentRef = ref<HTMLElement | null>(null);
+const contentExpanded = ref(false);
+const contentOverflows = ref(false);
+const isMuted = computed(
+	() =>
+		props.item.status === MESSAGE_STATUS.REJECTED ||
+		props.item.status === MESSAGE_STATUS.HIDDEN ||
+		props.item.status === MESSAGE_STATUS.DELETED,
+);
+
+// 折叠状态下根据实际渲染高度判断是否需要展示“展开”按钮。
+useResizeObserver(contentRef, () => {
+	if (!contentRef.value || contentExpanded.value) return;
+	contentOverflows.value = contentRef.value.scrollHeight > contentRef.value.clientHeight;
+});
+
+async function toggleContent() {
+	contentExpanded.value = !contentExpanded.value;
+
+	await nextTick();
+
+	if (!contentExpanded.value && contentRef.value) {
+		contentOverflows.value = contentRef.value.scrollHeight > contentRef.value.clientHeight;
+	}
+
+	itemRef.value?.scrollIntoView({
+		behavior: 'smooth',
+		block: 'start',
+	});
+}
+
+function statusLabel(status: MessageStatus) {
+	return {
+		[MESSAGE_STATUS.PENDING]: '待审核',
+		[MESSAGE_STATUS.APPROVED]: '已通过',
+		[MESSAGE_STATUS.REJECTED]: '已拒绝',
+		[MESSAGE_STATUS.HIDDEN]: '已隐藏',
+		[MESSAGE_STATUS.DELETED]: '已删除',
+	}[status];
+}
+
+function statusTagType(status: MessageStatus) {
+	if (status === MESSAGE_STATUS.REJECTED || status === MESSAGE_STATUS.DELETED) return 'danger';
+	if (status === MESSAGE_STATUS.PENDING) return 'warning';
+	return 'info';
+}
+</script>
+
+<style scoped lang="scss">
+.message-item {
+	padding-bottom: 1rem;
+	border-bottom: 1px solid var(--app-border);
+	margin-bottom: 1rem;
+}
+
+.message-item--muted {
+	color: var(--app-text-muted);
+	opacity: 0.78;
+}
+
+.message-item__header,
+.message-item__identity,
+.message-reply__meta {
+	display: flex;
+	align-items: center;
+}
+
+.message-item__header {
+	min-height: 2.125rem;
+	justify-content: space-between;
+	gap: 1rem;
+	background-color: var(--app-message-item-header-bg);
+	padding: 0.5rem 0.75rem;
+	border-radius: 0 0 0.5rem 0.5rem;
+}
+
+.message-item__header--sticky {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+}
+
+.message-item__identity {
+	min-width: 0;
+	gap: 0.5rem;
+}
+
+.message-item__identity strong {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.message-item__deleted-name {
+	color: var(--app-text-muted-more);
+}
+
+.message-item__header-actions {
+	display: flex;
+	flex: none;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+.message-item__header time,
+.message-reply__meta time {
+	color: var(--app-text-muted);
+	font-size: 0.9rem;
+}
+
+.message-item__content {
+	max-height: 10rem;
+	overflow: hidden;
+	margin: 0.8rem 0 0;
+	padding-left: 1.5rem;
+
+	// 保留用户输入的换行、保留必要空白，正常文本在行尾换行
+	white-space: pre-wrap;
+
+	// 防止超长英文单词、URL 或连续字符撑破容器
+	// 优先正常断词；如果一个连续字符串仍然放不下，允许在任意位置断开。适合留言、评论、URL 等用户输入。
+	overflow-wrap: anywhere;
+}
+
+.message-item__content--expanded {
+	max-height: none;
+}
+
+.message-item__reason {
+	color: var(--el-color-danger);
+	font-size: 0.9rem;
+}
+
+.message-item__replies {
+	margin-top: 1rem;
+	margin-left: 1.5rem;
+	padding-left: 1rem;
+	border-left: 2px solid var(--app-border);
+}
+
+.message-reply {
+	display: flex;
+	gap: 0.6rem;
+	padding-block: 0.5rem;
+
+	.message-reply__content {
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+}
+
+.message-reply p {
+	margin: 0.25rem 0 0;
+	white-space: pre-wrap;
+}
+
+.message-reply__meta {
+	gap: 0.5rem;
+}
+
+.message-reply__bottom-toolbar {
+	background-color: var(--app-bg);
+	display: flex;
+	align-items: center;
+	margin-top: 0.8rem;
+	padding: 0.5rem;
+	font-size: 0.9rem;
+	color: var(--app-text-muted);
+
+	.message-item__delete {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		cursor: pointer;
+		font-size: 0.9rem;
+
+		&:hover {
+			color: var(--el-color-danger-dark-2);
+		}
+	}
+
+	.message-item__content-toggle {
+		margin-left: auto;
+		display: flex;
+		align-items: center;
+		gap: 0.3rem;
+		background: transparent;
+		cursor: pointer;
+
+		&:hover,
+		&:focus-visible {
+			color: var(--app-main);
+		}
+	}
+}
+
+.message-reply__bottom-toolbar--sticky {
+	position: sticky;
+	bottom: 0;
+	z-index: 1;
+}
+
+@media (width < 376px) {
+	.message-item__header {
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0.4rem;
+	}
+
+	.message-item__identity {
+		width: 100%;
+	}
+
+	.message-item__header-actions {
+		width: 100%;
+		flex-direction: row;
+		justify-content: flex-end;
+		align-items: center;
+	}
+
+	.message-reply__meta {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+	}
+}
+</style>

@@ -1,0 +1,957 @@
+package com.ccsanjuu.blog.modules.comment.service.impl;
+
+import cn.hutool.core.bean.BeanUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.ccsanjuu.blog.common.api.PageResult;
+import com.ccsanjuu.blog.common.api.ResultCode;
+import com.ccsanjuu.blog.common.exception.BizException;
+import com.ccsanjuu.blog.common.ratelimit.LikeRateLimiter;
+import com.ccsanjuu.blog.modules.article.mapper.ArticleMapper;
+import com.ccsanjuu.blog.modules.article.model.entity.Article;
+import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
+import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
+import com.ccsanjuu.blog.modules.comment.mapper.CommentLikeMapper;
+import com.ccsanjuu.blog.modules.comment.model.bo.CommentReplyCountBO;
+import com.ccsanjuu.blog.modules.comment.model.bo.CommentReplyCursorBO;
+import com.ccsanjuu.blog.modules.comment.model.dto.AdminCommentQueryDTO;
+import com.ccsanjuu.blog.modules.comment.model.dto.CommentModerationRequestDTO;
+import com.ccsanjuu.blog.modules.comment.model.dto.CommentReplyQueryDTO;
+import com.ccsanjuu.blog.modules.comment.model.dto.CreateCommentRequestDTO;
+import com.ccsanjuu.blog.modules.comment.model.dto.PublicCommentQueryDTO;
+import com.ccsanjuu.blog.modules.comment.model.entity.Comment;
+import com.ccsanjuu.blog.modules.comment.model.entity.CommentLike;
+import com.ccsanjuu.blog.modules.comment.model.enums.CommentModerationAction;
+import com.ccsanjuu.blog.modules.comment.model.enums.CommentStatus;
+import com.ccsanjuu.blog.modules.comment.model.enums.CommentType;
+import com.ccsanjuu.blog.modules.comment.model.vo.*;
+import com.ccsanjuu.blog.modules.comment.service.CommentService;
+import com.ccsanjuu.blog.modules.comment.service.CommentReplyNotificationService;
+import com.ccsanjuu.blog.modules.notification.service.NotificationService;
+import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
+import com.ccsanjuu.blog.modules.user.model.entity.User;
+import com.ccsanjuu.blog.modules.user.model.enums.UserRole;
+import com.ccsanjuu.blog.modules.user.model.enums.UserStatus;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.util.StringUtils;
+
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> implements CommentService {
+
+    private static final Duration COMMENT_RATE_LIMIT_DURATION = Duration.ofSeconds(10);
+    private static final String COMMENT_RATE_LIMIT_KEY_PREFIX = "blog:comment:rate";
+    private static final DefaultRedisScript<Long> RELEASE_COMMENT_RATE_LIMIT_SCRIPT = new DefaultRedisScript<>(
+            "if redis.call('get', KEYS[1]) == ARGV[1] then "
+                    + "return redis.call('del', KEYS[1]) "
+                    + "else return 0 end",
+            Long.class
+    );
+
+    private final ArticleMapper articleMapper;
+    private final CommentMapper commentMapper;
+    private final CommentLikeMapper commentLikeMapper;
+    private final UserMapper userMapper;
+    private final StringRedisTemplate stringRedisTemplate;
+    private final NotificationService notificationService;
+    private final CommentReplyNotificationService commentReplyNotificationService;
+    private final LikeRateLimiter likeRateLimiter;
+
+    /**
+     * 获取后台评论分页列表
+     *
+     * @param queryDTO
+     * @return
+     */
+    @Override
+    public PageResult<AdminCommentItemVO> getAdminCommentList(AdminCommentQueryDTO queryDTO) {
+        // 1. 构建分页
+        Page<Comment> page = new Page<>(queryDTO.getPageNum(), queryDTO.getPageSize());
+
+        // 2. 校验条件合法性
+        Article article = null;
+        if (queryDTO.getArticleId() != null){
+            article = articleMapper.selectById(queryDTO.getArticleId());
+            if (article == null){
+                throw new BizException(ResultCode.ARTICLE_NOT_FOUND);
+            }
+        }
+
+        User user = null;
+        if (queryDTO.getUserId() != null){
+            user = userMapper.selectById(queryDTO.getUserId());
+            if (user == null){
+                throw new BizException(ResultCode.USER_NOT_FOUND);
+            }
+        }
+
+        // 3. 获取评论基本信息的分页列表
+        lambdaQuery()
+                .eq(queryDTO.getArticleId() != null, Comment::getArticleId, queryDTO.getArticleId())
+                .eq(queryDTO.getUserId() != null, Comment::getUserId, queryDTO.getUserId())
+                .eq(queryDTO.getStatus() != null, Comment::getStatus , queryDTO.getStatus())
+                .isNull(queryDTO.getType() != null && queryDTO.getType().equals(CommentType.TOP_LEVEL), Comment::getParentId)
+                .isNotNull(queryDTO.getType() != null && queryDTO.getType().equals(CommentType.REPLY), Comment::getParentId)
+                .ge(queryDTO.getCreatedAtFrom() != null, Comment::getCreatedAt, queryDTO.getCreatedAtFrom())
+                .le(queryDTO.getCreatedAtTo() != null, Comment::getCreatedAt, queryDTO.getCreatedAtTo())
+                .orderByDesc(Comment::getCreatedAt)
+                .orderByDesc(Comment::getId)
+                .page(page);
+        List<Comment> records = page.getRecords();
+
+        // 3.1 获取这些评论涉及的相关文章的信息
+        List<Long> articleIds = records.stream().map(Comment::getArticleId).distinct().toList();
+        Map<Long, Article> articleMap = articleIds.isEmpty()
+                ? Map.of()
+                : articleMapper.selectByIds(articleIds).stream().collect(Collectors.toMap(Article::getId, a -> a));
+
+        // 3.2 获取这些评论涉及的相关用户的信息
+        List<Long> userIds = records.stream().map(Comment::getUserId).distinct().toList();
+        Map<Long, User> userMap = userIds.isEmpty()
+                ? Map.of()
+                : userMapper.selectByIds(userIds).stream().collect(Collectors.toMap(User::getId, u -> u));
+
+        // 4. 组装
+        List<AdminCommentItemVO> res = new ArrayList<>();
+        records.forEach(c -> {
+            AdminCommentItemVO tmp = BeanUtil.copyProperties(c, AdminCommentItemVO.class);
+            tmp.setArticle(BeanUtil.copyProperties(articleMap.get(c.getArticleId()), AdminCommentArticleVO.class));
+            tmp.setAuthor(toAuthor(userMap.get(c.getUserId())));
+            if (c.getParentId() == null){
+                tmp.setType(CommentType.TOP_LEVEL);
+            } else {
+                tmp.setType(CommentType.REPLY);
+            }
+            res.add(tmp);
+        });
+
+        // 5. 返回
+        return PageResult.of(page.getTotal(), page.getCurrent(), page.getSize(), res);
+    }
+
+
+    /**
+     * 审核、隐藏或删除评论
+     *
+     * @param commentId
+     * @param userId
+     * @param commentModerationRequestDTO
+     * @return
+     */
+    @Override
+    @Transactional
+    public CommentMutationVO moderateComment(Long commentId, Long userId, CommentModerationRequestDTO commentModerationRequestDTO) {
+        // 1. 初步查询评论，再锁定所属评论树并读取最新状态
+        Comment comment = commentMapper.selectById(commentId);
+        if (comment == null){
+            throw new BizException(ResultCode.COMMENT_NOT_FOUND);
+        }
+        comment = lockCommentTree(comment);
+        if (comment == null){
+            throw new BizException(ResultCode.COMMENT_NOT_FOUND);
+        }
+
+        // 2. 状态流转检验
+        CommentModerationAction action = commentModerationRequestDTO.getAction();
+        String reason = commentModerationRequestDTO.getReason();
+        CommentStatus status = comment.getStatus();
+        if (!canModerate(status, action)) {
+            throw new BizException(ResultCode.COMMENT_STATUS_TRANSITION_INVALID);
+        }
+        CommentStatus targetStatus = moderationActionToCommentStatus(action);
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+
+        // 3. 更新
+        if (action == CommentModerationAction.REJECT || action == CommentModerationAction.HIDE || action == CommentModerationAction.DELETE) {
+            if (!StringUtils.hasText(reason)){
+                throw new BizException(ResultCode.COMMENT_MODERATION_REASON_REQUIRED);
+            }
+            String trimmedReason = reason.trim();
+
+            if (action == CommentModerationAction.DELETE) {
+                deleteCommentSubtree(comment, userId, trimmedReason, now);
+            } else {
+                int updatedRows = commentMapper.update(
+                        new LambdaUpdateWrapper<Comment>()
+                                .eq(Comment::getId, commentId)
+                                .eq(Comment::getStatus, status)
+                                .set(Comment::getModerationReason, trimmedReason)
+                                .set(Comment::getStatus, targetStatus)
+                                .set(Comment::getReviewedBy, userId)
+                                .set(Comment::getReviewedAt, now)
+                );
+                if (updatedRows != 1) {
+                    throw new BizException(ResultCode.COMMENT_STATUS_TRANSITION_INVALID);
+                }
+                updateArticleCommentCount(comment.getArticleId(), calculateCommentCountDelta(status, targetStatus));
+                createReplyNotificationAfterApproval(comment, status, targetStatus);
+            }
+        }
+
+        else {
+            // APPROVED
+            int updatedRows = commentMapper.update(
+                    new LambdaUpdateWrapper<Comment>()
+                            .eq(Comment::getId, commentId)
+                            .eq(Comment::getStatus, status)
+                            .set(Comment::getModerationReason, null)
+                            .set(Comment::getStatus, targetStatus)
+                            .set(Comment::getReviewedBy, userId)
+                            .set(Comment::getReviewedAt, now)
+            );
+            if (updatedRows != 1) {
+                throw new BizException(ResultCode.COMMENT_STATUS_TRANSITION_INVALID);
+            }
+            updateArticleCommentCount(comment.getArticleId(), calculateCommentCountDelta(status, targetStatus));
+            createReplyNotificationAfterApproval(comment, status, targetStatus);
+        }
+
+        // 4. 查询返回
+        Comment updatedComment = commentMapper.selectById(commentId);
+        CommentMutationVO vo = BeanUtil.copyProperties(updatedComment, CommentMutationVO.class);
+        User author = userMapper.selectById(updatedComment.getUserId());
+        vo.setAuthor(toAuthor(author));
+        return vo;
+    }
+
+
+    /**
+     * 获取顶层评论下的回复
+     *
+     * @param commentId
+     * @param currentUserId
+     * @param dto
+     * @return
+     */
+    @Override
+    public CommentReplyPageVO getRepliesByRootId(Long commentId, Long currentUserId, CommentReplyQueryDTO dto) {
+        // 1. 校验顶层评论是否存在、是否可见
+        Comment rootComment = commentMapper.selectById(commentId);
+        if (rootComment == null || rootComment.getParentId() != null || !isVisibleComment(rootComment, currentUserId)){
+            throw new BizException(ResultCode.COMMENT_NOT_FOUND);
+        }
+        Article article = articleMapper.selectById(rootComment.getArticleId());
+        if (article == null || article.getStatus() != ArticleStatus.PUBLISHED){
+            throw new BizException(ResultCode.COMMENT_NOT_FOUND);
+        }
+
+        // 2. 解析游标：首次展开不传 cursor，继续加载时用上一次返回的 nextCursor
+        CommentReplyCursorBO cursor = parseReplyCursor(dto.getCursor());
+
+        // 3. 查询回复列表
+        // 游标分页不查总数。这里多取 1 条：如果查到 limit + 1 条，就说明后面还有数据。
+        Page<Comment> page = new Page<>(1, dto.getLimit() + 1, false);
+        commentMapper.selectReplyPage(page, commentId, currentUserId, cursor);
+        List<Comment> comments = page.getRecords();
+
+        boolean hasNext = comments.size() > dto.getLimit();
+        if (hasNext){
+            comments = comments.subList(0, dto.getLimit());
+        }
+
+        // 4. 封装返回
+        Map<Long, User> replyAuthorMap = getUserMap(comments.stream().map(Comment::getUserId).toList());
+        List<CommentReplyItemVO> records = buildReplyItemVOList(comments, currentUserId, replyAuthorMap);
+        // nextCursor 取当前页最后一条回复的位置和角色优先级，下一次查询从它后面继续。
+        String nextCursor = hasNext
+                ? buildReplyCursor(comments.getLast(), replyAuthorMap.get(comments.getLast().getUserId()))
+                : null;
+
+        return CommentReplyPageVO.builder()
+                .records(records)
+                .nextCursor(nextCursor)
+                .hasNext(hasNext)
+                .build();
+    }
+
+
+    /**
+     * 获取文章顶层评论分页列表
+     *
+     * @param articleId
+     * @param currentUserId
+     * @param publicCommentQueryDTO
+     * @return
+     */
+    @Override
+    public PageResult<PublicCommentItemVO> getPublicCommentList(Long articleId, Long currentUserId, PublicCommentQueryDTO publicCommentQueryDTO) {
+        // 1. 校验文章是否存在、是否已发布
+        checkPublishedArticle(articleId);
+
+        // 2. 查询顶层评论分页
+        Page<Comment> page = Page.of(publicCommentQueryDTO.getPageNum(), publicCommentQueryDTO.getPageSize());
+        LambdaQueryWrapper<Comment> wrapper = new LambdaQueryWrapper<Comment>()
+                .eq(Comment::getArticleId, articleId)
+                .isNull(Comment::getParentId)
+                .orderByDesc(Comment::getCreatedAt)
+                .orderByDesc(Comment::getId);
+        addVisibleCommentCondition(wrapper, currentUserId);
+
+        commentMapper.selectPage(page, wrapper);
+        List<Comment> comments = page.getRecords();
+        if (comments.isEmpty()){
+            return PageResult.of(page.getTotal(), page.getCurrent(), page.getSize(), List.of());
+        }
+
+        // 3. 封装返回
+        List<PublicCommentItemVO> records = buildPublicCommentItemVOList(comments, currentUserId);
+        return PageResult.of(page.getTotal(), page.getCurrent(), page.getSize(), records);
+    }
+
+
+    /**
+     * 发表评论或回复
+     *
+     * @param articleId
+     * @param userId
+     * @param createCommentRequestDTO
+     * @return
+     */
+    @Override
+    @Transactional
+    public CommentMutationVO createComment(Long articleId, Long userId, CreateCommentRequestDTO createCommentRequestDTO) {
+        // 1. 校验文章是否存在、是否允许评论
+        Article article = checkPublishedArticle(articleId);
+        if (article.getAllowComment() != null && !article.getAllowComment()){
+            throw new BizException(ResultCode.COMMENT_DISABLED);
+        }
+
+        // 2. 校验当前用户是否可发表评论
+        User user = userMapper.selectById(userId);
+        if (user == null){
+            throw new BizException(ResultCode.USER_NOT_FOUND);
+        }
+        if (user.getStatus() == UserStatus.DISABLED){
+            throw new BizException(ResultCode.USER_DISABLED);
+        }
+        boolean notifyOnReply = Boolean.TRUE.equals(createCommentRequestDTO.getNotifyOnReply());
+        if (notifyOnReply && (!Boolean.TRUE.equals(user.getEmailVerified())
+                || !StringUtils.hasText(user.getEmail()))) {
+            throw new BizException(ResultCode.COMMENT_EMAIL_NOT_VERIFIED);
+        }
+
+        // 3. 校验父评论，锁定所属评论树并计算 rootId
+        Comment parentComment = null;
+        Long rootId = null;
+        if (createCommentRequestDTO.getParentId() != null){
+            parentComment = commentMapper.selectById(createCommentRequestDTO.getParentId());
+            if (parentComment != null){
+                parentComment = lockCommentTree(parentComment);
+            }
+            if (parentComment == null
+                    || !parentComment.getArticleId().equals(articleId)
+                    || parentComment.getStatus() != CommentStatus.APPROVED){
+                throw new BizException(ResultCode.COMMENT_PARENT_UNAVAILABLE);
+            }
+            // 顶层评论的 rootId 为空；回复的 rootId 指向所属顶层评论
+            rootId = parentComment.getParentId() == null ? parentComment.getId() : parentComment.getRootId();
+        }
+
+        // 4. 检查评论频率
+        checkCommentRateLimit(userId, articleId);
+
+        // 5. 创建评论
+        CommentStatus status = user.getRole() == UserRole.ADMIN ? CommentStatus.APPROVED : CommentStatus.PENDING;
+        Comment comment = Comment.builder()
+                .articleId(articleId)
+                .userId(userId)
+                .parentId(createCommentRequestDTO.getParentId())
+                .rootId(rootId)
+                .content(createCommentRequestDTO.getContent().trim())
+                .notifyOnReply(notifyOnReply)
+                .unsubscribeToken(notifyOnReply ? UUID.randomUUID().toString() : null)
+                .status(status)
+                .build();
+
+        commentMapper.insert(comment);
+        // 管理员回复由于不经过审核，直接创建通知；普通用户回复需要审核通过后才创建通知
+        if (status == CommentStatus.APPROVED && parentComment != null
+                && !parentComment.getUserId().equals(userId)) {
+            notificationService.createCommentReplyNotification(
+                    parentComment.getUserId(),
+                    comment.getId(),
+                    "评论收到新的回复",
+                    comment.getContent()
+            );
+            commentReplyNotificationService.sendAfterCommit(parentComment, comment);
+        }
+        if (status == CommentStatus.APPROVED){
+            updateArticleCommentCount(articleId, 1);
+        }
+
+        // 6. 返回
+        Comment newComment = commentMapper.selectById(comment.getId());
+        CommentMutationVO vo = BeanUtil.copyProperties(newComment, CommentMutationVO.class);
+        vo.setAuthor(toAuthor(user));
+        return vo;
+    }
+
+
+    /**
+     * 删除自己的评论
+     *
+     * @param commentId
+     * @param userId
+     * @return 删除的已通过评论数量
+     */
+    @Override
+    @Transactional
+    public CommentDeleteVO deleteOwnComment(Long commentId, Long userId) {
+        // 1. 初步查询评论并校验操作权限
+        Comment comment = commentMapper.selectById(commentId);
+        if (comment == null || comment.getStatus() == CommentStatus.DELETED){
+            throw new BizException(ResultCode.COMMENT_NOT_FOUND);
+        }
+        if (!comment.getUserId().equals(userId)){
+            throw new BizException(ResultCode.COMMENT_NO_PERMISSION);
+        }
+
+        // 2. 锁定所属评论树并读取最新状态
+        comment = lockCommentTree(comment);
+        if (comment == null || comment.getStatus() == CommentStatus.DELETED){
+            throw new BizException(ResultCode.COMMENT_NOT_FOUND);
+        }
+
+        // 3. 逻辑删除评论子树
+        long deletedApprovedCount = deleteCommentSubtree(
+                comment,
+                userId,
+                null,
+                OffsetDateTime.now(ZoneOffset.UTC)
+        );
+        return CommentDeleteVO.builder()
+                .deletedApprovedCount(deletedApprovedCount)
+                .build();
+    }
+
+    /**
+     * 点赞评论。
+     *
+     * @param commentId 评论 ID
+     * @param userId 当前用户 ID
+     * @return 点赞状态和最新点赞数
+     */
+    @Override
+    @Transactional
+    public CommentLikeMutationVO likeComment(Long commentId, Long userId) {
+        likeRateLimiter.acquire("user:" + userId, ResultCode.COMMENT_LIKE_RATE_LIMITED);
+        Comment comment = requireCommentForLike(commentId);
+        checkPublishedArticle(comment.getArticleId());
+        if (comment.getStatus() != CommentStatus.APPROVED) {
+            throw new BizException(ResultCode.COMMENT_NOT_FOUND);
+        }
+
+        CommentLike existingLike = commentLikeMapper.selectByCommentAndUser(commentId, userId);
+        if (existingLike == null
+                && commentLikeMapper.insertIgnore(CommentLike.builder()
+                .commentId(commentId)
+                .userId(userId)
+                .build()) > 0) {
+            commentMapper.incrementLikeCount(commentId);
+        }
+        return buildLikeMutation(commentId, true);
+    }
+
+    /**
+     * 取消评论点赞。
+     *
+     * @param commentId 评论 ID
+     * @param userId 当前用户 ID
+     * @return 点赞状态和最新点赞数
+     */
+    @Override
+    @Transactional
+    public CommentLikeMutationVO unlikeComment(Long commentId, Long userId) {
+        likeRateLimiter.acquire("user:" + userId, ResultCode.COMMENT_LIKE_RATE_LIMITED);
+        requireCommentForLike(commentId);
+        if (commentLikeMapper.deleteByCommentAndUser(commentId, userId) > 0) {
+            commentMapper.decrementLikeCount(commentId);
+        }
+        return buildLikeMutation(commentId, false);
+    }
+
+    /**
+     * 锁定评论所属的顶层评论，并返回加锁后重新读取的目标评论。
+     *
+     * @param comment 初步查询到的评论
+     * @return 最新的目标评论；所属顶层评论不存在时返回 null
+     */
+    private Comment lockCommentTree(Comment comment) {
+        Long rootId = comment.getParentId() == null ? comment.getId() : comment.getRootId();
+        Comment rootComment = commentMapper.selectByIdForUpdate(rootId);
+        if (rootComment == null){
+            return null;
+        }
+        return comment.getId().equals(rootId) ? rootComment : commentMapper.selectById(comment.getId());
+    }
+
+    /**
+     * 校验文章是否存在并且已发布。
+     *
+     * @param articleId 文章 ID
+     * @return 已发布文章对象
+     */
+    private Article checkPublishedArticle(Long articleId) {
+        Article article = articleMapper.selectById(articleId);
+        if (article == null){
+            throw new BizException(ResultCode.ARTICLE_NOT_FOUND);
+        }
+        if (article.getStatus() != ArticleStatus.PUBLISHED){
+            throw new BizException(ResultCode.ARTICLE_NOT_VISIBLE);
+        }
+        return article;
+    }
+
+    /**
+     * 判断单条评论对当前请求者是否可见。
+     *
+     * @param comment 评论
+     * @param currentUserId 当前登录用户 ID；游客为空
+     * @return 可见则返回 true，否则返回 false
+     */
+    private boolean isVisibleComment(Comment comment, Long currentUserId) {
+        if (comment.getStatus() == CommentStatus.APPROVED){
+            return true;
+        }
+        return currentUserId != null
+                && comment.getUserId().equals(currentUserId)
+                && (comment.getStatus() == CommentStatus.PENDING || comment.getStatus() == CommentStatus.REJECTED);
+    }
+
+    /**
+     * 添加前台评论可见性查询条件。
+     *
+     * @param wrapper 查询条件
+     * @param currentUserId 当前登录用户 ID；游客为空
+     */
+    private void addVisibleCommentCondition(LambdaQueryWrapper<Comment> wrapper, Long currentUserId) {
+        // 游客只看 APPROVED；登录用户还可以看自己的 PENDING / REJECTED。
+        wrapper.and(q -> {
+            q.eq(Comment::getStatus, CommentStatus.APPROVED);
+            if (currentUserId != null){
+                q.or(or -> or
+                        .eq(Comment::getUserId, currentUserId)
+                        .in(Comment::getStatus, List.of(CommentStatus.PENDING, CommentStatus.REJECTED))
+                );
+            }
+        });
+    }
+
+    /**
+     * 解析回复分页游标。
+     *
+     * @param cursor 游标字符串
+     * @return 游标对象；首次请求为空
+     */
+    private CommentReplyCursorBO parseReplyCursor(String cursor) {
+        if (!StringUtils.hasText(cursor)){
+            return null;
+        }
+        try {
+            String decoded = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
+            String[] parts = decoded.split("\\|", 3);
+            if (parts.length != 3){
+                throw new IllegalArgumentException("invalid cursor");
+            }
+            return CommentReplyCursorBO.builder()
+                    .directAdminReplyPriority(Integer.valueOf(parts[0]))
+                    .createdAt(OffsetDateTime.parse(parts[1]))
+                    .id(Long.valueOf(parts[2]))
+                    .build();
+        } catch (RuntimeException ex) {
+            throw new BizException(ResultCode.PARAM_INVALID);
+        }
+    }
+
+    /**
+     * 生成回复分页游标。
+     *
+     * @param comment 当前页最后一条评论
+     * @param author 回复作者的当前用户资料
+     * @return 游标字符串
+     */
+    private String buildReplyCursor(Comment comment, User author) {
+        int directAdminReplyPriority = author != null
+                && author.getRole() == UserRole.ADMIN
+                && comment.getParentId().equals(comment.getRootId()) ? 0 : 1;
+        // 管理员直接回复顶层评论时进入优先组，createdAt 和 id 负责组内稳定顺序。
+        String raw = directAdminReplyPriority + "|" + comment.getCreatedAt() + "|" + comment.getId();
+        return Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(raw.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /**
+     * 批量查询用户并转换为 Map。
+     *
+     * @param userIds 用户 ID 列表
+     * @return 用户 Map
+     */
+    private Map<Long, User> getUserMap(List<Long> userIds) {
+        List<Long> ids = userIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()){
+            return Map.of();
+        }
+        return userMapper.selectByIds(ids).stream().collect(Collectors.toMap(User::getId, u -> u));
+    }
+
+    /**
+     * 批量查询各顶层评论的已通过回复数和当前请求者可见回复数。
+     *
+     * @param comments 顶层评论列表
+     * @param currentUserId 当前登录用户 ID；游客为空
+     * @return 顶层评论 ID 与回复数量的映射
+     */
+    private Map<Long, CommentReplyCountBO> getReplyCountMap(List<Comment> comments, Long currentUserId) {
+        List<Long> rootIds = comments.stream().map(Comment::getId).toList();
+        return commentMapper.selectReplyCounts(rootIds, currentUserId).stream()
+                .collect(Collectors.toMap(CommentReplyCountBO::getRootId, item -> item));
+    }
+
+    /**
+     * 批量查询当前用户已点赞的评论，避免评论列表按条查询点赞明细。
+     *
+     * @param comments 评论列表
+     * @param currentUserId 当前用户 ID；游客为 {@code null}
+     * @return 已点赞的评论 ID 集合
+     */
+    private Set<Long> getLikedCommentIds(List<Comment> comments, Long currentUserId) {
+        if (currentUserId == null || comments.isEmpty()) {
+            return Set.of();
+        }
+        List<Long> commentIds = comments.stream().map(Comment::getId).toList();
+        List<Long> likedCommentIds = commentLikeMapper.selectLikedCommentIds(commentIds, currentUserId);
+        return likedCommentIds == null ? Set.of() : new HashSet<>(likedCommentIds);
+    }
+
+    /**
+     * 封装顶层评论 VO 列表。
+     *
+     * @param comments 评论列表
+     * @param currentUserId 当前登录用户 ID；游客为空
+     * @return 顶层评论 VO 列表
+     */
+    private List<PublicCommentItemVO> buildPublicCommentItemVOList(List<Comment> comments, Long currentUserId) {
+        List<Long> userIds = comments.stream().map(Comment::getUserId).toList();
+        Map<Long, User> userMap = getUserMap(userIds);
+        Map<Long, CommentReplyCountBO> replyCountMap = getReplyCountMap(comments, currentUserId);
+        Set<Long> likedCommentIds = getLikedCommentIds(comments, currentUserId);
+
+        List<PublicCommentItemVO> res = new ArrayList<>();
+        comments.forEach(c -> {
+            User author = userMap.get(c.getUserId());
+            boolean isMine = currentUserId != null && c.getUserId().equals(currentUserId);
+
+            PublicCommentItemVO vo = BeanUtil.copyProperties(c, PublicCommentItemVO.class);
+            CommentReplyCountBO replyCount = replyCountMap.get(c.getId());
+            vo.setAuthor(toAuthor(author));
+            vo.setReplyCount(replyCount == null ? 0L : replyCount.getReplyCount());
+            vo.setHasVisibleReplies(replyCount != null && replyCount.getVisibleReplyCount() > 0);
+            vo.setIsMine(isMine);
+            vo.setLikeCount(c.getLikeCount() == null ? 0 : c.getLikeCount());
+            vo.setLiked(likedCommentIds.contains(c.getId()));
+            vo.setModerationReason(isMine && c.getStatus() == CommentStatus.REJECTED ? c.getModerationReason() : null);
+            res.add(vo);
+        });
+        return res;
+    }
+
+    /**
+     * 封装回复 VO 列表。
+     *
+     * @param comments 回复列表
+     * @param currentUserId 当前登录用户 ID；游客为空
+     * @param replyAuthorMap 回复作者 Map
+     * @return 回复 VO 列表
+     */
+    private List<CommentReplyItemVO> buildReplyItemVOList(
+            List<Comment> comments,
+            Long currentUserId,
+            Map<Long, User> replyAuthorMap
+    ) {
+        if (comments.isEmpty()){
+            return List.of();
+        }
+
+        List<Long> parentIds = comments.stream().map(Comment::getParentId).filter(Objects::nonNull).distinct().toList();
+        Map<Long, Comment> parentMap = parentIds.isEmpty()
+                ? Map.of()
+                : commentMapper.selectByIds(parentIds).stream().collect(Collectors.toMap(Comment::getId, c -> c));
+        Map<Long, User> userMap = new HashMap<>(replyAuthorMap);
+        userMap.putAll(getUserMap(parentMap.values().stream().map(Comment::getUserId).toList()));
+        Set<Long> likedCommentIds = getLikedCommentIds(comments, currentUserId);
+
+        List<CommentReplyItemVO> res = new ArrayList<>();
+        comments.forEach(c -> {
+            Comment parent = parentMap.get(c.getParentId());
+            User author = userMap.get(c.getUserId());
+            User replyToUser = parent == null ? null : userMap.get(parent.getUserId());
+            boolean isMine = currentUserId != null && c.getUserId().equals(currentUserId);
+
+            CommentReplyItemVO vo = BeanUtil.copyProperties(c, CommentReplyItemVO.class);
+            vo.setAuthor(toAuthor(author));
+            vo.setReplyToUser(toAuthor(replyToUser));
+            vo.setReplyCount(0L);
+            vo.setHasVisibleReplies(false);
+            vo.setIsMine(isMine);
+            vo.setLikeCount(c.getLikeCount() == null ? 0 : c.getLikeCount());
+            vo.setLiked(likedCommentIds.contains(c.getId()));
+            vo.setModerationReason(isMine && c.getStatus() == CommentStatus.REJECTED ? c.getModerationReason() : null);
+            res.add(vo);
+        });
+        return res;
+    }
+
+    /**
+     * 查询并锁定评论，保证点赞明细和冗余计数在并发请求下保持一致。
+     *
+     * @param commentId 评论 ID
+     * @return 已锁定的评论
+     */
+    private Comment requireCommentForLike(Long commentId) {
+        Comment comment = commentMapper.selectByIdForUpdate(commentId);
+        if (comment == null) {
+            throw new BizException(ResultCode.COMMENT_NOT_FOUND);
+        }
+        return comment;
+    }
+
+    /**
+     * 组装评论点赞操作响应。
+     *
+     * @param commentId 评论 ID
+     * @param liked 当前用户是否已点赞
+     * @return 点赞操作响应
+     */
+    private CommentLikeMutationVO buildLikeMutation(Long commentId, boolean liked) {
+        Comment comment = commentMapper.selectById(commentId);
+        return CommentLikeMutationVO.builder()
+                .liked(liked)
+                .likeCount(comment.getLikeCount() == null ? 0 : comment.getLikeCount())
+                .build();
+    }
+
+    private void createReplyNotificationAfterApproval(Comment comment, CommentStatus oldStatus, CommentStatus newStatus) {
+        if (oldStatus == CommentStatus.APPROVED || newStatus != CommentStatus.APPROVED || comment.getParentId() == null) {
+            return;
+        }
+        Comment parent = commentMapper.selectById(comment.getParentId());
+        if (parent != null && !parent.getUserId().equals(comment.getUserId())) {
+            notificationService.createCommentReplyNotification(
+                    parent.getUserId(),
+                    comment.getId(),
+                    "评论收到新的回复",
+                    comment.getContent()
+            );
+            commentReplyNotificationService.sendAfterCommit(parent, comment);
+        }
+    }
+
+    /**
+     * 关闭指定评论未来的直接回复邮件通知，重复提交保持幂等。
+     *
+     * @param token 评论退订令牌
+     */
+    @Override
+    @Transactional
+    public void unsubscribeReplyNotification(String token) {
+        Comment comment = commentMapper.selectOne(new LambdaQueryWrapper<Comment>()
+                .eq(Comment::getUnsubscribeToken, token));
+        if (comment == null) {
+            throw new BizException(ResultCode.COMMENT_UNSUBSCRIBE_TOKEN_INVALID);
+        }
+        if (Boolean.TRUE.equals(comment.getNotifyOnReply())) {
+            commentMapper.update(null, new LambdaUpdateWrapper<Comment>()
+                    .eq(Comment::getId, comment.getId())
+                    .set(Comment::getNotifyOnReply, false));
+        }
+    }
+
+    /**
+     * 使用 Redis 原子限流，限制同一用户对同一文章 10 秒内只能成功创建一条评论或回复。
+     *
+     * @param userId 用户 ID
+     * @param articleId 文章 ID
+     */
+    private void checkCommentRateLimit(Long userId, Long articleId) {
+        String key = COMMENT_RATE_LIMIT_KEY_PREFIX + ":user:" + userId + ":article:" + articleId;
+        String token = UUID.randomUUID().toString();
+        Boolean success = stringRedisTemplate.opsForValue().setIfAbsent(key, token, COMMENT_RATE_LIMIT_DURATION);
+        if (!Boolean.TRUE.equals(success)){
+            throw new BizException(ResultCode.COMMENT_RATE_LIMITED);
+        }
+
+        // 数据库事务回滚时，释放本次预占的限流 key；提交时保留 key 直到 TTL 到期。
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    if (status != STATUS_ROLLED_BACK) {
+                        return;
+                    }
+                    try {
+                        stringRedisTemplate.execute(
+                                RELEASE_COMMENT_RATE_LIMIT_SCRIPT,
+                                List.of(key),
+                                token
+                        );
+                    } catch (RuntimeException exception) {
+                        // 清理失败不应覆盖原始事务异常，限流 key 会在 TTL 到期后自动释放。
+                        log.warn("评论事务回滚时清理 Redis 限流 key 失败: {}", key, exception);
+                    }
+                }
+            });
+        }
+    }
+
+    /**
+     * 判断当前评论状态是否允许执行指定审核动作。
+     *
+     * @param status 当前评论状态
+     * @param action 审核动作
+     * @return 允许执行则返回 true，否则返回 false
+     */
+    private boolean canModerate(CommentStatus status, CommentModerationAction action) {
+        return switch (action) {
+            case APPROVE -> status == CommentStatus.PENDING
+                    || status == CommentStatus.REJECTED
+                    || status == CommentStatus.HIDDEN;
+            case REJECT -> status == CommentStatus.PENDING;
+            case HIDE -> status == CommentStatus.APPROVED;
+            case DELETE -> status != CommentStatus.DELETED;
+        };
+    }
+
+    /**
+     * 将审核动作转换为动作执行后的目标评论状态。
+     *
+     * @param action 审核动作
+     * @return 目标评论状态
+     */
+    private CommentStatus moderationActionToCommentStatus(CommentModerationAction action){
+        switch (action){
+            case APPROVE:
+                return CommentStatus.APPROVED;
+            case REJECT:
+                return CommentStatus.REJECTED;
+            case HIDE:
+                return CommentStatus.HIDDEN;
+            default:   // case DELETE
+                return CommentStatus.DELETED;
+        }
+    }
+
+    /**
+     * 根据评论状态变化计算文章 comment_count 的增量。
+     *
+     * @param oldStatus 原评论状态
+     * @param newStatus 新评论状态
+     * @return 进入 APPROVED 时返回 1，离开 APPROVED 时返回 -1，其他情况返回 0
+     */
+    private long calculateCommentCountDelta(CommentStatus oldStatus, CommentStatus newStatus) {
+        if (oldStatus != CommentStatus.APPROVED && newStatus == CommentStatus.APPROVED) {
+            return 1;
+        }
+        if (oldStatus == CommentStatus.APPROVED && newStatus != CommentStatus.APPROVED) {
+            return -1;
+        }
+        return 0;
+    }
+
+    /**
+     * 按增量更新文章评论数，并在扣减时保证 comment_count 不会小于 0。
+     *
+     * @param articleId 文章 ID
+     * @param delta 评论数增量
+     */
+    private void updateArticleCommentCount(Long articleId, long delta) {
+        if (delta == 0) {
+            return;
+        }
+
+        LambdaUpdateWrapper<Article> wrapper = new LambdaUpdateWrapper<Article>()
+                .eq(Article::getId, articleId);
+        if (delta > 0) {
+            wrapper.setSql("comment_count = comment_count + " + delta);
+        } else {
+            wrapper.setSql("comment_count = GREATEST(comment_count - " + Math.abs(delta) + ", 0)");
+        }
+        articleMapper.update(null, wrapper);
+    }
+
+    /**
+     * 逻辑删除指定评论及其所有子孙回复，并同步扣减文章已通过评论数。
+     *
+     * @param comment 待删除的评论
+     * @param userId 执行删除操作的管理员用户 ID
+     * @param reason 删除原因
+     * @param now 删除时间
+     */
+    private long deleteCommentSubtree(Comment comment, Long userId, String reason, OffsetDateTime now) {
+        // 递归 CTE 一次查出目标评论及其全部后代，避免按层反复查询数据库。
+        List<Long> commentIds = commentMapper.selectCommentSubtreeIds(comment.getId());
+        long approvedCount = commentMapper.countApprovedCommentSubtree(comment.getId());
+
+        int updatedRows = commentMapper.update(
+                new LambdaUpdateWrapper<Comment>()
+                        .eq(Comment::getId, comment.getId())
+                        .eq(Comment::getStatus, comment.getStatus())
+                        .set(Comment::getModerationReason, reason)
+                        .set(Comment::getStatus, CommentStatus.DELETED)
+                        .set(Comment::getDeletedBy, userId)
+                        .set(Comment::getDeletedAt, now)
+        );
+        if (updatedRows != 1) {
+            throw new BizException(ResultCode.COMMENT_STATUS_TRANSITION_INVALID);
+        }
+
+        List<Long> childIds = commentIds.stream()
+                .filter(id -> !id.equals(comment.getId()))
+                .toList();
+        if (!childIds.isEmpty()) {
+            commentMapper.update(
+                    new LambdaUpdateWrapper<Comment>()
+                            .in(Comment::getId, childIds)
+                            .ne(Comment::getStatus, CommentStatus.DELETED)
+                            .set(Comment::getModerationReason, reason)
+                            .set(Comment::getStatus, CommentStatus.DELETED)
+                            .set(Comment::getDeletedBy, userId)
+                            .set(Comment::getDeletedAt, now)
+            );
+        }
+        updateArticleCommentCount(comment.getArticleId(), -approvedCount);
+        return approvedCount;
+    }
+
+    private CommentAuthorVO toAuthor(User user) {
+        if (user == null) {
+            return null;
+        }
+        boolean deleted = user.getDeletedAt() != null;
+        return CommentAuthorVO.builder()
+                .id(user.getId())
+                .username(deleted ? "" : user.getUsername())
+                .nickname(deleted ? "账号已注销" : user.getNickname())
+                .avatarUrl(deleted ? "" : user.getAvatarUrl())
+                .deleted(deleted)
+                .role(user.getRole())
+                .build();
+    }
+}

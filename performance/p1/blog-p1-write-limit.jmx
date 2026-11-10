@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+    <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="Blog P1 Write Limit" enabled="true">
+      <stringProp name="TestPlan.comments">PERF-07 评论限流、PERF-08 留言限流；通过 -Jscenario 选择。</stringProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">true</boolProp>
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true"><collectionProp name="Arguments.arguments"/></elementProp>
+      <stringProp name="TestPlan.user_define_classpath"/>
+    </TestPlan>
+    <hashTree>
+      <ConfigTestElement guiclass="HttpDefaultsGui" testclass="ConfigTestElement" testname="HTTP Defaults" enabled="true">
+        <stringProp name="HTTPSampler.domain">${__P(host,127.0.0.1)}</stringProp>
+        <stringProp name="HTTPSampler.port">${__P(port,8080)}</stringProp>
+        <stringProp name="HTTPSampler.protocol">${__P(protocol,http)}</stringProp>
+        <stringProp name="HTTPSampler.contentEncoding">UTF-8</stringProp>
+        <elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"/></elementProp>
+      </ConfigTestElement>
+      <hashTree/>
+      <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="JSON Headers" enabled="true">
+        <collectionProp name="HeaderManager.headers">
+          <elementProp name="Accept" elementType="Header"><stringProp name="Header.name">Accept</stringProp><stringProp name="Header.value">application/json</stringProp></elementProp>
+          <elementProp name="Content-Type" elementType="Header"><stringProp name="Header.name">Content-Type</stringProp><stringProp name="Header.value">application/json</stringProp></elementProp>
+        </collectionProp>
+      </HeaderManager>
+      <hashTree/>
+      <SetupThreadGroup guiclass="SetupThreadGroupGui" testclass="SetupThreadGroup" testname="Initialize and login" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">stoptest</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController"><boolProp name="LoopController.continue_forever">false</boolProp><stringProp name="LoopController.loops">1</stringProp></elementProp>
+        <stringProp name="ThreadGroup.num_threads">1</stringProp><stringProp name="ThreadGroup.ramp_time">1</stringProp><boolProp name="ThreadGroup.scheduler">false</boolProp>
+      </SetupThreadGroup>
+      <hashTree>
+        <JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="Reset counters" enabled="true">
+          <stringProp name="cacheKey">true</stringProp><stringProp name="filename"/><stringProp name="parameters"/><stringProp name="scriptLanguage">groovy</stringProp>
+          <stringProp name="script">props.put('writeSuccessCount', '0')&#10;props.put('writeRateLimitedCount', '0')&#10;props.put('writeUnexpectedCount', '0')&#10;props.remove('sharedAccessToken')</stringProp>
+        </JSR223Sampler>
+        <hashTree/>
+        <IfController guiclass="IfControllerPanel" testclass="IfController" testname="Login performance user" enabled="true">
+          <stringProp name="IfController.condition">true</stringProp>
+          <boolProp name="IfController.evaluateAll">false</boolProp><boolProp name="IfController.useExpression">true</boolProp>
+        </IfController>
+        <hashTree>
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="Login performance user" enabled="true">
+            <stringProp name="HTTPSampler.path">/api/v1/auth/login</stringProp><stringProp name="HTTPSampler.method">POST</stringProp>
+            <boolProp name="HTTPSampler.follow_redirects">false</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp><boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+            <elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{&quot;account&quot;:&quot;${__P(username,perf_user_001)}&quot;,&quot;password&quot;:&quot;${__P(password,123456)}&quot;}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp>
+          </HTTPSamplerProxy>
+          <hashTree>
+            <JSONPostProcessor guiclass="JSONPostProcessorGui" testclass="JSONPostProcessor" testname="Extract Access Token" enabled="true"><stringProp name="JSONPostProcessor.referenceNames">accessToken</stringProp><stringProp name="JSONPostProcessor.jsonPathExprs">$.data.accessToken</stringProp><stringProp name="JSONPostProcessor.match_numbers">1</stringProp><stringProp name="JSONPostProcessor.defaultValues">TOKEN_NOT_FOUND</stringProp></JSONPostProcessor>
+            <hashTree/>
+            <JSR223PostProcessor guiclass="TestBeanGUI" testclass="JSR223PostProcessor" testname="Share Access Token" enabled="true"><stringProp name="cacheKey">true</stringProp><stringProp name="filename"/><stringProp name="parameters"/><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="script">def token = vars.get('accessToken')&#10;if (!token || token == 'TOKEN_NOT_FOUND') { throw new AssertionError('Login did not return an access token') }&#10;props.put('sharedAccessToken', token)</stringProp></JSR223PostProcessor>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+      </hashTree>
+      <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="Concurrent writes" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController"><boolProp name="LoopController.continue_forever">false</boolProp><stringProp name="LoopController.loops">1</stringProp></elementProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(writeThreads,10)}</stringProp><stringProp name="ThreadGroup.ramp_time">1</stringProp><boolProp name="ThreadGroup.scheduler">false</boolProp>
+      </ThreadGroup>
+      <hashTree>
+        <SyncTimer guiclass="TestBeanGUI" testclass="SyncTimer" testname="Release all write threads together" enabled="true"><intProp name="groupSize">0</intProp><longProp name="timeoutInMs">10000</longProp></SyncTimer>
+        <hashTree/>
+        <SwitchController guiclass="SwitchControllerGui" testclass="SwitchController" testname="Select write scenario" enabled="true"><stringProp name="SwitchController.value">${__P(scenario,PERF-07)}</stringProp></SwitchController>
+        <hashTree>
+          <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="PERF-07" enabled="true"/>
+          <hashTree>
+            <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="Authorization" enabled="true"><collectionProp name="HeaderManager.headers"><elementProp name="Authorization" elementType="Header"><stringProp name="Header.name">Authorization</stringProp><stringProp name="Header.value">Bearer ${__P(sharedAccessToken,)}</stringProp></elementProp></collectionProp></HeaderManager>
+            <hashTree/>
+            <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="PERF-07 Concurrent Comment" enabled="true">
+              <stringProp name="HTTPSampler.path">/api/v1/articles/${__P(articleId,1)}/comments</stringProp><stringProp name="HTTPSampler.method">POST</stringProp><boolProp name="HTTPSampler.follow_redirects">false</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp><boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+              <elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{&quot;content&quot;:&quot;[PERF] JMeter comment ${__threadNum}-${__time()}&quot;}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp>
+            </HTTPSamplerProxy>
+            <hashTree/>
+          </hashTree>
+          <GenericController guiclass="LogicControllerGui" testclass="GenericController" testname="PERF-08" enabled="true"/>
+          <hashTree>
+            <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="PERF-08 Concurrent Message" enabled="true">
+              <stringProp name="HTTPSampler.path">/api/v1/messages</stringProp><stringProp name="HTTPSampler.method">POST</stringProp><boolProp name="HTTPSampler.follow_redirects">false</boolProp><boolProp name="HTTPSampler.use_keepalive">true</boolProp><boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+              <elementProp name="HTTPsampler.Arguments" elementType="Arguments"><collectionProp name="Arguments.arguments"><elementProp name="" elementType="HTTPArgument"><boolProp name="HTTPArgument.always_encode">false</boolProp><stringProp name="Argument.value">{&quot;nickname&quot;:&quot;性能游客${__threadNum}&quot;,&quot;email&quot;:&quot;&quot;,&quot;content&quot;:&quot;[PERF] JMeter message ${__threadNum}-${__time()}&quot;,&quot;notifyOnReply&quot;:false}</stringProp><stringProp name="Argument.metadata">=</stringProp></elementProp></collectionProp></elementProp>
+            </HTTPSamplerProxy>
+            <hashTree/>
+          </hashTree>
+        </hashTree>
+        <JSR223Assertion guiclass="TestBeanGUI" testclass="JSR223Assertion" testname="Classify write result" enabled="true">
+          <stringProp name="cacheKey">true</stringProp><stringProp name="filename"/><stringProp name="parameters"/><stringProp name="scriptLanguage">groovy</stringProp>
+          <stringProp name="script">import groovy.json.JsonSlurper&#10;def scenario = props.getProperty('scenario', 'PERF-07')&#10;def expectedRateCode = scenario == 'PERF-07' ? 106004 : 108004&#10;def httpCode = prev.getResponseCode() as int&#10;def body = new JsonSlurper().parseText(prev.getResponseDataAsString())&#10;def businessCode = body.code as int&#10;def bucket = httpCode == 200 &amp;&amp; businessCode == 0 ? 'writeSuccessCount' : httpCode == 429 &amp;&amp; businessCode == expectedRateCode ? 'writeRateLimitedCount' : 'writeUnexpectedCount'&#10;synchronized (props) { props.put(bucket, String.valueOf((props.getProperty(bucket, '0') as int) + 1)) }&#10;if (bucket == 'writeUnexpectedCount') { AssertionResult.setFailure(true); AssertionResult.setFailureMessage('Unexpected HTTP/business code: ' + httpCode + '/' + businessCode) } else { prev.setResponseMessage(bucket == 'writeSuccessCount' ? 'EXPECTED_WRITE_SUCCESS' : 'EXPECTED_RATE_LIMIT_' + businessCode); prev.setSuccessful(true) }</stringProp>
+        </JSR223Assertion>
+        <hashTree/>
+      </hashTree>
+      <PostThreadGroup guiclass="PostThreadGroupGui" testclass="PostThreadGroup" testname="Verify aggregate result" enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp><elementProp name="ThreadGroup.main_controller" elementType="LoopController"><boolProp name="LoopController.continue_forever">false</boolProp><stringProp name="LoopController.loops">1</stringProp></elementProp><stringProp name="ThreadGroup.num_threads">1</stringProp><stringProp name="ThreadGroup.ramp_time">1</stringProp><boolProp name="ThreadGroup.scheduler">false</boolProp>
+      </PostThreadGroup>
+      <hashTree>
+        <JSR223Sampler guiclass="TestBeanGUI" testclass="JSR223Sampler" testname="Assert 1 success and remaining rate-limited" enabled="true"><stringProp name="cacheKey">true</stringProp><stringProp name="filename"/><stringProp name="parameters"/><stringProp name="scriptLanguage">groovy</stringProp><stringProp name="script">def total = props.getProperty('writeThreads', '10') as int&#10;def success = props.getProperty('writeSuccessCount', '0') as int&#10;def limited = props.getProperty('writeRateLimitedCount', '0') as int&#10;def unexpected = props.getProperty('writeUnexpectedCount', '0') as int&#10;if (success != 1 || limited != total - 1 || unexpected != 0) { throw new AssertionError('Expected 1 success and ' + (total - 1) + ' rate-limited; actual success=' + success + ', limited=' + limited + ', unexpected=' + unexpected) }&#10;log.info('Write limit verification passed: success={}, limited={}, unexpected={}', success, limited, unexpected)</stringProp></JSR223Sampler>
+        <hashTree/>
+      </hashTree>
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>

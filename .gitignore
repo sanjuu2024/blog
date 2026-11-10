@@ -19,10 +19,6 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Environment / local config
-.env
-.env.*
-!.env.example
-frontend/.env
 frontend/.env.local
 frontend/.env.*.local
 backend/.env
@@ -31,6 +27,10 @@ backend/.env.*.local
 backend/src/main/resources/application-local.yml
 backend/src/main/resources/application-local.yaml
 backend/src/main/resources/application-local.properties
+/.env
+/.env.*
+!/.env.example
+!/.env.prod.example
 
 # Node.js / Vite / Vue
 node_modules/
@@ -42,6 +42,7 @@ frontend/.vite/
 coverage/
 frontend/coverage/
 *.tsbuildinfo
+coverage/
 
 # Java / Spring Boot / Maven / Gradle
 target/
@@ -69,3 +70,9 @@ temp/
 
 # dev deploy environment files
 deploy/*
+
+# performance
+blog-p1-acceptance/
+blog-p2-acceptance/
+performance/**/__pycache__/
+performance/p2/*.properties

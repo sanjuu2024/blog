@@ -1,0 +1,29 @@
+FROM node:22-alpine@sha256:b6f26b36c8ff49624cfdac716b8ea1138d606df02586a77d364bb5536a634f85 AS build
+
+WORKDIR /build
+
+ARG VITE_API_BASE_URL=/api/v1
+ARG VITE_TURNSTILE_SITE_KEY
+ARG VITE_SITE_LAUNCHED_AT
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ENV VITE_TURNSTILE_SITE_KEY=$VITE_TURNSTILE_SITE_KEY
+ENV VITE_SITE_LAUNCHED_AT=$VITE_SITE_LAUNCHED_AT
+
+RUN corepack enable \
+    && corepack prepare pnpm@10.32.1 --activate
+
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+COPY . ./
+RUN pnpm build
+
+FROM nginx:1.29-alpine@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de
+
+COPY --from=build /build/dist /usr/share/nginx/html
+COPY docker/40-share-seo-template.sh /docker-entrypoint.d/40-share-seo-template.sh
+RUN chmod +x /docker-entrypoint.d/40-share-seo-template.sh
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

@@ -1,0 +1,29 @@
+# Isolation only. Runtime resource limits are inherited from compose.prod.yaml.
+# Use a separate project and the external acceptance env example in performance/p2.
+services:
+  postgres:
+    restart: "on-failure:3"
+    environment:
+      POSTGRES_DB: blog_p2_performance
+  redis:
+    restart: "on-failure:3"
+  db-prepare:
+    environment:
+      BLOG_DB_URL: jdbc:postgresql://postgres:5432/blog_p2_performance
+  backend:
+    restart: "on-failure:3"
+    environment:
+      BLOG_DB_URL: jdbc:postgresql://postgres:5432/blog_p2_performance
+      BLOG_REDIS_DATABASE: "2"
+      BLOG_MAIL_ENABLED: "false"
+      BLOG_SMTP_HOST: ""
+      BLOG_SMTP_USERNAME: ""
+      BLOG_SMTP_PASSWORD: ""
+      BLOG_SMTP_AUTH: "false"
+    # For application-level consistency tests via SSH; HTTPS reads go through shared ingress.
+    ports:
+      - "127.0.0.1:${ACCEPTANCE_BACKEND_PORT:-18080}:8080"
+  nginx:
+    restart: "on-failure:3"
+    volumes:
+      - ./docker/nginx/default.acceptance.conf:/etc/nginx/templates/default.conf.template:ro

@@ -1,0 +1,195 @@
+<template>
+	<el-card class="auth-card">
+		<h1 class="mt-2 mb-4 text-center text-2xl">登录</h1>
+		<hr class="mb-4 text-gray-300" />
+		<el-form
+			class="login-form"
+			label-width="auto"
+			label-position="top"
+			:model="loginForm"
+			:rules="rules"
+			@submit.prevent="handlerLogin"
+		>
+			<el-form-item
+				prop="account"
+				label="用户名 / 邮箱号"
+			>
+				<el-input
+					v-model="loginForm.account"
+					placeholder="请输入用户名 / 邮箱号"
+				>
+					<template #prefix>
+						<i-lucide-user />
+					</template>
+				</el-input>
+			</el-form-item>
+			<el-form-item
+				prop="password"
+				label="密码"
+			>
+				<el-input
+					v-model="loginForm.password"
+					maxlength="32"
+					placeholder="请输入密码"
+					type="password"
+					show-password
+				>
+					<template #prefix>
+						<i-lucide-lock-keyhole />
+					</template>
+				</el-input>
+			</el-form-item>
+			<el-button
+				type="primary"
+				native-type="submit"
+				class="mb-4 w-full"
+				:disabled="!validated"
+			>
+				登录
+			</el-button>
+		</el-form>
+
+		<div class="footer">
+			<div class="links flex justify-between">
+				<el-link
+					type="primary"
+					class="auth-footer-link"
+					@click="goRegister"
+					>没有账号？立即注册
+				</el-link>
+				<el-link
+					type="primary"
+					class="auth-footer-link"
+					@click="router.replace('/')"
+					>返回首页
+				</el-link>
+			</div>
+		</div>
+	</el-card>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+import type { LoginData, LoginRequest } from '../types/auth';
+import { login } from '../api/authApi';
+import type { FormItemRule } from 'element-plus';
+import { ElMessage } from 'element-plus';
+import {
+	ACCOUNT_FORMAT_MESSAGE,
+	ACCOUNT_FORMAT_PATTERN,
+	PASSWORD_FORMAT_MESSAGE,
+	PASSWORD_FORMAT_PATTERN,
+} from '@/constants/validation';
+import { useAuthStore } from '@/stores/authStore';
+import { useUserStore } from '@/stores/userStore';
+import { getAuthRedirect } from '../utils/redirect';
+
+defineOptions({
+	name: 'LoginPage',
+});
+
+const router = useRouter();
+const route = useRoute();
+
+// 登录表单数据
+let loginForm = reactive<LoginRequest>({
+	account: '',
+	password: '',
+});
+
+let accountAvailable = ref<boolean>(false);
+let passwordValid = ref<boolean>(false);
+
+// 表单校验规则
+const rules = {
+	account: [
+		{
+			required: true,
+			trigger: 'change',
+			validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void) => {
+				accountAvailable.value = false;
+				if (!ACCOUNT_FORMAT_PATTERN.test(value)) {
+					callback(new Error(ACCOUNT_FORMAT_MESSAGE));
+				} else {
+					accountAvailable.value = true;
+					callback();
+				}
+			},
+		},
+	],
+	password: [
+		{
+			required: true,
+			trigger: 'change',
+			validator: (_rule: FormItemRule, value: string, callback: (error?: Error) => void) => {
+				passwordValid.value = false;
+				if (!PASSWORD_FORMAT_PATTERN.test(value)) {
+					callback(new Error(PASSWORD_FORMAT_MESSAGE));
+				} else {
+					passwordValid.value = true;
+					callback();
+				}
+			},
+		},
+	],
+};
+
+// 控制登录按钮是否可用
+let validated = ref<boolean>(false);
+
+// 监听并更新按钮是否可用
+watch(
+	() => [accountAvailable.value, passwordValid.value],
+	() => {
+		validated.value = accountAvailable.value && passwordValid.value;
+	},
+);
+
+// 登录
+async function handlerLogin() {
+	if (!validated.value) return;
+	try {
+		const res: LoginData = await login(loginForm);
+		useAuthStore().setAccessToken(res.accessToken);
+		const redirect = getAuthRedirect(router, route.query.redirect);
+		const userStore = useUserStore();
+		userStore.setUserInfo(res.user);
+		router.replace(redirect || '/'); // 如果是从其他需要登录的页面跳过来登录页的，登录后跳转回去。
+		ElMessage.success('登录成功');
+	} catch {
+		// 错误提示已经由 request 响应拦截器统一处理
+	}
+}
+
+function goRegister() {
+	const redirect = getAuthRedirect(router, route.query.redirect);
+	router.replace({ path: '/auth/register', query: redirect ? { redirect } : {} });
+}
+</script>
+
+<style lang="scss" scoped>
+.auth-card {
+	--el-font-size-base: 1rem;
+
+	:deep(.el-form-item__error) {
+		margin-top: 4px;
+		margin-left: 2px;
+		line-height: 0.8rem;
+	}
+}
+
+.auth-footer-link {
+	--el-link-font-size: 0.8rem;
+}
+
+.login-form {
+	:deep(.el-form-item) {
+		margin-bottom: 32px;
+	}
+
+	:deep(.el-form-item__label) {
+		font-weight: 500;
+	}
+}
+</style>

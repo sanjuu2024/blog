@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ccsanjuu.blog.modules.notification.mapper.NotificationMapper">
+    <select id="selectUserPage"
+            resultType="com.ccsanjuu.blog.modules.notification.model.bo.NotificationItemBO">
+        SELECT n.id, n.type, n.title, n.content, n.source_id,
+               COALESCE(reply_user.nickname, reply_message.nickname) AS author_name,
+               COALESCE(parent_comment.content, parent_message.content) AS original_content,
+               reply_comment.article_id,
+               article.title AS article_title,
+               COALESCE(reply_comment.parent_id, reply_message.parent_id) AS parent_id,
+               CASE WHEN n.type = 'COMMENT_REPLY' THEN reply_comment.like_count ELSE NULL END AS like_count,
+               CASE WHEN n.type = 'COMMENT_REPLY' THEN comment_like.id IS NOT NULL ELSE NULL END AS liked,
+               CASE WHEN n.type = 'COMMENT_REPLY' THEN
+                   reply_comment.status = 'APPROVED' AND parent_comment.status = 'APPROVED'
+                       AND article.status = 'PUBLISHED'
+                     ELSE NULL END AS can_interact,
+               (r.read_at IS NOT NULL) AS read,
+               n.created_at
+        FROM blog_notification_recipient r
+        INNER JOIN blog_notification n ON n.id = r.notification_id
+        LEFT JOIN blog_comment reply_comment
+            ON n.type = 'COMMENT_REPLY' AND reply_comment.id = n.source_id
+        LEFT JOIN blog_comment parent_comment ON parent_comment.id = reply_comment.parent_id
+        LEFT JOIN blog_article article ON article.id = reply_comment.article_id
+        LEFT JOIN blog_comment_like comment_like
+            ON comment_like.comment_id = reply_comment.id AND comment_like.user_id = #{userId}
+        LEFT JOIN blog_user reply_user ON reply_user.id = reply_comment.user_id
+        LEFT JOIN blog_message_board reply_message
+            ON n.type = 'MESSAGE_REPLY' AND reply_message.id = n.source_id
+        LEFT JOIN blog_message_board parent_message ON parent_message.id = reply_message.parent_id
+        WHERE r.user_id = #{userId}
+          AND n.status = 'PUBLISHED'
+          <if test="category == 'REPLY'">
+            AND n.type IN ('COMMENT_REPLY', 'MESSAGE_REPLY')
+          </if>
+          <if test="category == 'ADMIN_MESSAGE'">
+            AND n.type = 'ADMIN_MESSAGE'
+          </if>
+          <if test="type != null">
+            AND n.type = #{type}
+          </if>
+        ORDER BY n.created_at DESC, n.id DESC
+    </select>
+
+    <select id="selectUnreadCount"
+            resultType="com.ccsanjuu.blog.modules.notification.model.bo.NotificationUnreadCountBO">
+        SELECT
+            COUNT(*) FILTER (WHERE r.read_at IS NULL) AS total,
+            COUNT(*) FILTER (WHERE r.read_at IS NULL AND n.type IN ('COMMENT_REPLY', 'MESSAGE_REPLY')) AS reply,
+            COUNT(*) FILTER (WHERE r.read_at IS NULL AND n.type = 'ADMIN_MESSAGE') AS admin_message
+        FROM blog_notification_recipient r
+        INNER JOIN blog_notification n ON n.id = r.notification_id
+        WHERE r.user_id = #{userId}
+          AND n.status = 'PUBLISHED'
+    </select>
+
+    <select id="selectAdminList" resultType="com.ccsanjuu.blog.modules.notification.model.entity.Notification">
+        SELECT *
+        FROM blog_notification
+        WHERE type = 'ADMIN_MESSAGE'
+        ORDER BY created_at DESC, id DESC
+    </select>
+
+    <select id="selectNotificationByIdForUpdate"
+            resultType="com.ccsanjuu.blog.modules.notification.model.entity.Notification">
+        SELECT * FROM blog_notification WHERE id = #{notificationId} FOR UPDATE
+    </select>
+
+</mapper>

@@ -1,0 +1,99 @@
+package com.ccsanjuu.blog.modules.user.service;
+
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.ccsanjuu.blog.common.api.PageResult;
+import com.ccsanjuu.blog.modules.user.model.dto.*;
+import com.ccsanjuu.blog.modules.user.model.entity.User;
+import com.ccsanjuu.blog.modules.user.model.vo.*;
+
+public interface UserService extends IService<User> {
+    /**
+     * 获取用户公开资料卡
+     * @param userId
+     * @return
+     */
+    PublicUserProfileVO getPublicUserProfile(Long userId);
+
+    /**
+     * 获取当前登录用户信息
+     * @param userId
+     * @return
+     */
+    CurrentUserProfileVO getCurrentUserProfile(Long userId);
+
+    /**
+     * 更新个人资料
+     * @param userId
+     * @param updateProfileRequestDTO
+     * @return
+     */
+    UpdatedUserProfileVO updateProfile(Long userId, UpdateProfileRequestDTO updateProfileRequestDTO);
+
+    /**
+     * 发送修改邮箱验证码。
+     *
+     * @param userId 当前用户 ID
+     * @param email 新邮箱
+     * @param clientIp 客户端 IP
+     */
+    void sendEmailChangeCode(Long userId, String email, String clientIp);
+
+    /**
+     * 修改当前用户邮箱。
+     *
+     * @param userId 当前用户 ID
+     * @param requestDTO 修改邮箱参数
+     * @return 更新后的个人资料
+     */
+    UpdatedUserProfileVO changeEmail(Long userId, ChangeEmailRequestDTO requestDTO);
+
+    /**
+     * 注销当前用户账号。
+     *
+     * @param userId 当前用户 ID
+     * @param requestDTO 当前密码
+     */
+    void deleteCurrentUser(Long userId, DeleteCurrentUserRequestDTO requestDTO);
+
+    /**
+     * 由管理员注销其他用户账号。
+     *
+     * @param operatorId 操作管理员 ID
+     * @param userId 目标用户 ID
+     * @param requestDTO 注销原因
+     */
+    void deleteUserByAdmin(Long operatorId, Long userId, AdminDeleteUserRequestDTO requestDTO);
+
+    /**
+     * 修改密码
+     * @param userId
+     * @param changePasswordRequestDTO
+     * @return
+     */
+    Void changePassword(Long userId, ChangePasswordRequestDTO changePasswordRequestDTO);
+
+    /**
+     * 获取用户分页列表
+     * @param userManagementPageQueryDTO
+     * @return
+     */
+    PageResult<AdminUserItemVO> userPageQuery(UserManagementPageQueryDTO userManagementPageQueryDTO);
+
+    /**
+     * 修改用户状态
+     * @param currentUserId 当前登录的用户 id
+     * @param userId 要修改角色的目标用户 id
+     * @param updateUserStatusRequestDTO
+     * @return
+     */
+    UpdatedUserStatusVO changeUserStatus(Long currentUserId, Long userId, UpdateUserStatusRequestDTO updateUserStatusRequestDTO);
+
+    /**
+     * 修改用户角色
+     * @param currentUserId 当前登录的用户 id
+     * @param userId 要修改角色的目标用户 id
+     * @param updateUserRoleRequestDTO
+     * @return
+     */
+    UpdatedUserRoleVO changeUserRole(Long currentUserId, Long userId, UpdateUserRoleRequestDTO updateUserRoleRequestDTO);
+}

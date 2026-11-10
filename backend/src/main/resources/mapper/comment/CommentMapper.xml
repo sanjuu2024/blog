@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ccsanjuu.blog.modules.comment.mapper.CommentMapper">
+
+    <select id="selectReplyPage"
+            resultType="com.ccsanjuu.blog.modules.comment.model.entity.Comment">
+        SELECT c.*
+        FROM blog_comment c
+        LEFT JOIN blog_user u ON u.id = c.user_id
+        WHERE c.root_id = #{rootId}
+          AND (
+              c.status = 'APPROVED'
+              <if test="currentUserId != null">
+                  OR (
+                      c.user_id = #{currentUserId}
+                      AND c.status IN ('PENDING', 'REJECTED')
+                  )
+              </if>
+          )
+          <if test="cursor != null">
+              AND (
+                  CASE WHEN u.role = 'ADMIN' AND c.parent_id = c.root_id THEN 0 ELSE 1 END
+                      &gt; #{cursor.directAdminReplyPriority}
+                  OR (
+                      CASE WHEN u.role = 'ADMIN' AND c.parent_id = c.root_id THEN 0 ELSE 1 END
+                          = #{cursor.directAdminReplyPriority}
+                      AND (
+                          c.created_at &gt; #{cursor.createdAt}
+                          OR (
+                              c.created_at = #{cursor.createdAt}
+                              AND c.id &gt; #{cursor.id}
+                          )
+                      )
+                  )
+              )
+          </if>
+        ORDER BY
+            CASE WHEN u.role = 'ADMIN' AND c.parent_id = c.root_id THEN 0 ELSE 1 END ASC,
+            c.created_at ASC,
+            c.id ASC
+    </select>
+
+    <select id="selectByIdForUpdate"
+            resultType="com.ccsanjuu.blog.modules.comment.model.entity.Comment">
+        SELECT *
+        FROM blog_comment
+        WHERE id = #{commentId}
+        FOR UPDATE
+    </select>
+
+    <select id="selectCommentSubtreeIds" resultType="java.lang.Long">
+        WITH RECURSIVE comment_tree AS (
+            SELECT id
+            FROM blog_comment
+            WHERE id = #{commentId}
+
+            UNION ALL
+
+            SELECT c.id
+            FROM blog_comment c
+            INNER JOIN comment_tree ct ON c.parent_id = ct.id
+        )
+        SELECT id
+        FROM comment_tree
+    </select>
+
+    <select id="countApprovedCommentSubtree" resultType="java.lang.Long">
+        WITH RECURSIVE comment_tree AS (
+            SELECT id
+            FROM blog_comment
+            WHERE id = #{commentId}
+
+            UNION ALL
+
+            SELECT c.id
+            FROM blog_comment c
+            INNER JOIN comment_tree ct ON c.parent_id = ct.id
+        )
+        SELECT COUNT(*)
+        FROM blog_comment c
+        INNER JOIN comment_tree ct ON c.id = ct.id
+        WHERE c.status = 'APPROVED'
+    </select>
+
+    <select id="selectReplyCounts"
+            resultType="com.ccsanjuu.blog.modules.comment.model.bo.CommentReplyCountBO">
+        SELECT root_id,
+               COUNT(*) FILTER (WHERE status = 'APPROVED') AS reply_count,
+               COUNT(*) AS visible_reply_count
+        FROM blog_comment
+        WHERE root_id IN
+        <foreach collection="rootIds" item="rootId" open="(" separator="," close=")">
+            #{rootId}
+        </foreach>
+        AND (
+            status = 'APPROVED'
+            <if test="currentUserId != null">
+                OR (
+                    user_id = #{currentUserId}
+                    AND status IN ('PENDING', 'REJECTED')
+                )
+            </if>
+        )
+        GROUP BY root_id
+    </select>
+
+    <update id="incrementLikeCount">
+        UPDATE blog_comment
+        SET like_count = like_count + 1
+        WHERE id = #{commentId}
+    </update>
+
+    <update id="decrementLikeCount">
+        UPDATE blog_comment
+        SET like_count = GREATEST(like_count - 1, 0)
+        WHERE id = #{commentId}
+          AND like_count > 0
+    </update>
+
+</mapper>

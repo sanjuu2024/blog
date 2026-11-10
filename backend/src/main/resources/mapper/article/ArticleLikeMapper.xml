@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.ccsanjuu.blog.modules.article.mapper.ArticleLikeMapper">
+    <select id="selectLikedArticlePage"
+            resultType="com.ccsanjuu.blog.modules.article.model.entity.Article">
+        SELECT a.*
+        FROM blog_article_like al
+        INNER JOIN blog_article a ON a.id = al.article_id
+        INNER JOIN blog_category c ON c.id = a.category_id
+        INNER JOIN blog_category pc ON pc.id = c.parent_id
+        WHERE al.user_id = #{userId}
+          AND a.status = 'PUBLISHED'
+          AND c.level = 2
+          AND c.status = 'ENABLED'
+          AND pc.level = 1
+          AND pc.status = 'ENABLED'
+        ORDER BY al.created_at DESC, al.id DESC
+    </select>
+
+    <select id="selectByActor"
+            resultType="com.ccsanjuu.blog.modules.article.model.entity.ArticleLike">
+        SELECT id, article_id, user_id, visitor_token_hash, created_at
+        FROM blog_article_like
+        WHERE article_id = #{articleId}
+        <choose>
+            <when test="userId != null">
+                AND user_id = #{userId}
+            </when>
+            <otherwise>
+                AND visitor_token_hash = #{visitorTokenHash}
+            </otherwise>
+        </choose>
+        LIMIT 1
+    </select>
+
+    <insert id="insertIgnore"
+            parameterType="com.ccsanjuu.blog.modules.article.model.entity.ArticleLike">
+        INSERT INTO blog_article_like (article_id, user_id, visitor_token_hash)
+        VALUES (#{articleId}, #{userId}, #{visitorTokenHash})
+        ON CONFLICT DO NOTHING
+    </insert>
+
+    <delete id="deleteByActor">
+        DELETE FROM blog_article_like
+        WHERE article_id = #{articleId}
+        <choose>
+            <when test="userId != null">
+                AND user_id = #{userId}
+            </when>
+            <otherwise>
+                AND visitor_token_hash = #{visitorTokenHash}
+            </otherwise>
+        </choose>
+    </delete>
+</mapper>

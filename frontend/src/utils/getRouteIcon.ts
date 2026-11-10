@@ -1,0 +1,51 @@
+// import IconSpeed from '~icons/material-symbols/speed-outline';
+// import IconUser from '~icons/material-symbols/person-outline';
+// import IconDocument from '~icons/material-symbols/article-outline';
+// import IconCategory from '~icons/material-symbols/folder-open-outline';
+// import IconTag from '~icons/mdi/tag-outline';
+import IconSpeed from '~icons/lucide/gauge';
+import IconUser from '~icons/lucide/circle-user';
+import IconDocument from '~icons/lucide/file-text';
+import IconCategory from '~icons/lucide/folder-open';
+import IconTag from '~icons/lucide/tag';
+import IconView from '~icons/lucide/eye';
+// import IconComment from '~icons/lucide/message-square-more';
+import IconComment from '~icons/lucide/message-circle-more';
+import IconLike from '~icons/lucide/thumbs-up';
+import IconMessage from '~icons/lucide/messages-square';
+import IconAdminNotif from '~icons/lucide/bell';
+import IconMailDelivery from '~icons/lucide/mail';
+import IconAbout from '~icons/lucide/info';
+import IconAudit from '~icons/lucide/scroll-text';
+import IconSecurity from '~icons/lucide/shield-alert';
+import IconCalendar from '~icons/lucide/calendar-days';
+import IconFriendLink from '~icons/lucide/link';
+
+const iconMap = {
+	dashboard: IconSpeed,
+	user: IconUser,
+	article: IconDocument,
+	category: IconCategory,
+	tag: IconTag,
+	view: IconView,
+	comment: IconComment,
+	like: IconLike,
+	message: IconMessage,
+	about: IconAbout,
+	audit: IconAudit,
+	security: IconSecurity,
+	adminNotif: IconAdminNotif,
+	mailDelivery: IconMailDelivery,
+	calendar: IconCalendar,
+	friendLink: IconFriendLink,
+};
+
+type AdminMenuIcon = keyof typeof iconMap;
+
+export default function getRouteIcon(icon: unknown) {
+	if (typeof icon === 'string' && icon in iconMap) {
+		return iconMap[icon as AdminMenuIcon];
+	}
+
+	return undefined;
+}

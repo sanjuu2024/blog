@@ -1,0 +1,9 @@
+frontend/docker/40-share-seo-template.sh text eol=lf
+docker/ingress/*.sh text eol=lf
+docker/ingress/templates/*.template text eol=lf
+docker/ingress/snippets/*.conf text eol=lf
+docker/nginx/*.conf text eol=lf
+performance/p2/*.py text eol=lf
+performance/p2/*.groovy text eol=lf
+performance/p2/*.jmx text eol=lf
+performance/p2/data/*.sql text eol=lf

@@ -1,0 +1,18 @@
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${INGRESS_PROD_HOST};
+
+    ssl_certificate /etc/letsencrypt/live/${INGRESS_PROD_HOST}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${INGRESS_PROD_HOST}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    client_max_body_size 12m;
+
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    location / {
+        # Resolve on request so the entrypoint also starts while a project is stopped.
+        set $project_upstream blog-prod-web:80;
+        proxy_pass http://$project_upstream;
+        include /etc/nginx/snippets/proxy.conf;
+    }
+}

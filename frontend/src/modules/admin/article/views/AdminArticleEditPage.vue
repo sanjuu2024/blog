@@ -1,0 +1,607 @@
+<template>
+	<div class="admin-article-edit">
+		<el-card class="admin-article-edit-card">
+			<template #header>
+				<button
+					@click="router.push('/admin/articles')"
+					class="admin-article-edit-header"
+					:disabled="submitting"
+				>
+					<i-ep-back />
+					<span class="ml-2">返回文章列表页</span>
+				</button>
+			</template>
+			<!-- 文章元信息 -->
+			<el-form
+				:model="upsertRequest"
+				:rules="rules"
+				label-position="right"
+				label-width="auto"
+				@submit.prevent
+				class="mt-4 ml-2"
+				ref="theFormRef"
+			>
+				<el-form-item
+					label="文章标题"
+					prop="title"
+				>
+					<el-input
+						v-model="upsertRequest.title"
+						placeholder="请输入文章标题"
+					/>
+				</el-form-item>
+
+				<el-form-item
+					label="文章封面"
+					prop="coverUrl"
+				>
+					<div class="article-cover-control">
+						<el-input
+							v-model="upsertRequest.coverUrl"
+							placeholder="请输入文章封面链接"
+						/>
+						<!-- 点击内部按钮时由 el-upload 唤起文件选择器；选中文件后交给 on-change 自行上传 -->
+						<el-upload
+							:accept="IMAGE_ACCEPT"
+							:auto-upload="false"
+							:disabled="imageUploading"
+							:show-file-list="false"
+							:on-change="handleCoverImageChange"
+						>
+							<el-button
+								:loading="imageUploading"
+								:disabled="imageUploading"
+							>
+								上传图片
+								<template #icon>
+									<i-lucide-upload />
+								</template>
+							</el-button>
+						</el-upload>
+					</div>
+					<div class="preview-cover">
+						<AppImage
+							v-if="upsertRequest.coverUrl"
+							:url="upsertRequest.coverUrl"
+							object-fit="contain"
+							alt="文章封面预览图"
+							class="mt-4 h-48 w-48 rounded"
+						/>
+					</div>
+				</el-form-item>
+
+				<el-form-item
+					label="文章摘要"
+					prop="summary"
+				>
+					<el-input
+						v-model="upsertRequest.summary"
+						type="textarea"
+						placeholder="请输入文章摘要"
+						:rows="3"
+					/>
+				</el-form-item>
+
+				<el-form-item
+					label="文章分类"
+					prop="categoryId"
+				>
+					<el-tree-select
+						v-model="upsertRequest.categoryId"
+						value-key="id"
+						:data="categoryOptions"
+						:props="{
+							label: 'name',
+							disabled: 'disabled',
+						}"
+						check-strictly
+						placeholder="请选择二级分类"
+						clearable
+						default-expand-all
+					/>
+					<p
+						v-if="selectedCategoryDisabled"
+						class="admin-article-visibility-warning"
+					>
+						该分类或父分类已禁用，文章发布后不会在前台显示。
+					</p>
+				</el-form-item>
+
+				<el-form-item
+					label="文章标签"
+					prop="tagIds"
+					class="flex items-center justify-center"
+				>
+					<AppTagCapsule
+						v-for="tagId in upsertRequest.tagIds"
+						:key="tagId"
+						:name="getTagLabel(tagId)"
+						class="admin-article-tag m-2"
+					/>
+					<el-button
+						type="primary"
+						@click="showTagDialog"
+						class="ml-2"
+					>
+						选择标签
+					</el-button>
+					<p
+						v-if="hasDisabledSelectedTag"
+						class="admin-article-visibility-warning"
+					>
+						该标签不会在前台显示。
+					</p>
+				</el-form-item>
+
+				<el-form-item
+					label="文章状态"
+					prop="status"
+				>
+					<el-select
+						v-model="upsertRequest.status"
+						placeholder="请选择文章状态"
+					>
+						<el-option
+							label="草稿"
+							:value="ARTICLE_STATUS.DRAFT"
+							:disabled="
+								articleDetail?.status === ARTICLE_STATUS.PUBLISHED ||
+								articleDetail?.status === ARTICLE_STATUS.OFFLINE
+							"
+						/>
+						<el-option
+							label="发布"
+							:value="ARTICLE_STATUS.PUBLISHED"
+							:disabled="false"
+						/>
+						<el-option
+							label="下线"
+							:value="ARTICLE_STATUS.OFFLINE"
+							:disabled="articleDetail?.status === ARTICLE_STATUS.DRAFT"
+						/>
+					</el-select>
+				</el-form-item>
+
+				<el-form-item
+					label="是否置顶"
+					prop="isTop"
+				>
+					<el-switch v-model="upsertRequest.isTop" />
+				</el-form-item>
+
+				<el-form-item
+					label="是否允许评论"
+					prop="allowComment"
+				>
+					<el-switch v-model="upsertRequest.allowComment" />
+				</el-form-item>
+			</el-form>
+
+			<!-- md 编辑器 -->
+			<MdEditor
+				ref="editorRef"
+				v-model="upsertRequest.contentMd"
+				class="rounded-2xl"
+				:theme="resolvedTheme"
+				@onUploadImg="handleContentImageUpload"
+			/>
+		</el-card>
+
+		<!-- 点击按钮发送请求 -->
+		<div class="admin-article-edit-footer my-12 flex w-full items-center justify-center px-5">
+			<el-button
+				class="admin-article-preview-button"
+				size="large"
+				:disabled="submitting || imageUploading || previewLoading"
+				@click="openPreview"
+			>
+				实际效果预览
+			</el-button>
+			<!-- 🔺防坑，如果要写成行内，别忘了加了括号就是立即运行，所以这里的 @click 要写成箭头函数。 -->
+			<!-- e.g. @click="() => mode === 'create' ? handleCreateArticle() : handleUpdateArticle(articleId ?? 0)" -->
+			<el-button
+				type="primary"
+				size="large"
+				class="admin-article-submit-button flex-1"
+				:disabled="submitting"
+				:loading="submitting"
+				@click="clickUpsertArticle"
+			>
+				{{ mode === 'create' ? '创建文章' : '更新文章' }}
+			</el-button>
+		</div>
+
+		<AdminArticlePreviewDialog
+			v-model="previewVisible"
+			:loading="previewLoading"
+			:failed="previewFailed"
+			:article="previewArticle"
+			@retry="openPreview"
+		/>
+
+		<!-- 选择标签 -->
+		<el-dialog
+			v-model="tagWindowVisible"
+			title="选择标签"
+			width="min(40rem, calc(100vw - 2rem))"
+			@close="tagDialogCancel"
+		>
+			<el-check-tag
+				v-for="tag in tmpCheckTagList"
+				:key="tag.id"
+				:checked="tag.checked"
+				@change="tag.checked = !tag.checked"
+				class="admin-article-check-tag m-2"
+				type="primary"
+			>
+				{{ tag.name }}
+				<span v-if="tag.status === TAG_STATUS.DISABLED">（已禁用）</span>
+			</el-check-tag>
+			<div class="mt-4 flex justify-center">
+				<el-button
+					class="admin-article-tag-dialog-cancel"
+					@click="tagDialogCancel"
+				>
+					取消
+				</el-button>
+				<el-button
+					type="primary"
+					@click="tagDialogConfirm"
+				>
+					确认
+				</el-button>
+			</div>
+		</el-dialog>
+	</div>
+</template>
+
+<script setup lang="ts">
+import 'element-plus/es/components/message-box/style/css';
+import '@/modules/admin/file/utils/markdownEditor';
+import { computed, ref, onMounted, toRaw } from 'vue';
+import { MdEditor, type ExposeParam, type UploadImgEvent } from 'md-editor-v3';
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
+import { useAdminCategoryList } from '../../category/composables/useAdminCategoryList';
+import { useAdminTagList } from '../../tag/composables/useAdminTagList';
+import { useAdminArticleDetail } from '../composables/useAdminArticleDetail';
+import {
+	useAdminArticleForm,
+	type ArticleUpsertRequestFilter,
+} from '../composables/useAdminArticleForm';
+import { useTheme } from '@/composables/useTheme';
+import { ARTICLE_STATUS, type CheckTagItem } from '../types/adminArticle';
+import { ElMessage, ElMessageBox, type FormInstance, type UploadProps } from 'element-plus';
+import AppTagCapsule from '@/components/AppTagCapsule.vue';
+import { useAdminImageUpload } from '@/modules/admin/file/composables/useAdminImageUpload';
+import {
+	createEditorImageHtml,
+	finishEditorImageUpload,
+} from '@/modules/admin/file/utils/editorImage';
+import { ADMIN_IMAGE_UPLOAD_SCENE } from '@/modules/admin/file/types/adminFile';
+import { IMAGE_ACCEPT } from '@/modules/file/utils/image';
+import { isEqual } from 'lodash';
+import { CATEGORY_STATUS } from '@/modules/category/constants/category';
+import { TAG_STATUS } from '@/modules/tag/constants/tag';
+import AdminArticlePreviewDialog from '../components/AdminArticlePreviewDialog.vue';
+import { useAdminArticlePreview } from '../composables/useAdminArticlePreview';
+
+const route = useRoute();
+const router = useRouter();
+const editorRef = ref<ExposeParam>();
+
+const { categoryList, getCategoryList } = useAdminCategoryList();
+
+const { tagList, getTagList } = useAdminTagList();
+
+const { articleDetail, handleGetArticleDetails } = useAdminArticleDetail();
+
+const {
+	submitting,
+	initUpsertRequest,
+	upsertRequest,
+	rules,
+	handleCreateArticle,
+	handleUpdateArticle,
+} = useAdminArticleForm();
+
+const {
+	visible: previewVisible,
+	loading: previewLoading,
+	failed: previewFailed,
+	article: previewArticle,
+	openPreview,
+} = useAdminArticlePreview(upsertRequest, categoryList, tagList);
+
+// 禁用状态只影响前台展示，后台仍可选二级分类；一级分类仅作为树分组。
+const categoryOptions = computed(() =>
+	categoryList.value.map((parent) => ({
+		...parent,
+		name: parent.name + (parent.status === CATEGORY_STATUS.DISABLED ? '（已禁用）' : ''),
+		disabled: true,
+		children: parent.children.map((child) => ({
+			...child,
+			name:
+				child.name +
+				(child.status === CATEGORY_STATUS.DISABLED ||
+				parent.status === CATEGORY_STATUS.DISABLED
+					? '（已禁用）'
+					: ''),
+		})),
+	})),
+);
+
+const selectedCategoryDisabled = computed(() =>
+	categoryList.value.some((parent) =>
+		parent.children.some(
+			(child) =>
+				child.id === upsertRequest.categoryId &&
+				(child.status === CATEGORY_STATUS.DISABLED ||
+					parent.status === CATEGORY_STATUS.DISABLED),
+		),
+	),
+);
+
+const hasDisabledSelectedTag = computed(() =>
+	tagList.value.some(
+		(tag) => tag.status === TAG_STATUS.DISABLED && upsertRequest.tagIds?.includes(tag.id),
+	),
+);
+
+function getTagLabel(tagId: number) {
+	const tag = tagList.value.find((item) => item.id === tagId);
+	return tag ? tag.name + (tag.status === TAG_STATUS.DISABLED ? '（已禁用）' : '') : '未知标签';
+}
+
+const { resolvedTheme } = useTheme();
+
+const { imageUploading, handleUploadAdminImage } = useAdminImageUpload();
+
+// 表单引用
+let theFormRef = ref<FormInstance>();
+
+// 控制标签选择窗口是否可见
+let tagWindowVisible = ref(false);
+
+// 标签选择列表
+let checkTagList = ref<CheckTagItem[]>([]);
+let tmpCheckTagList = ref<CheckTagItem[]>([]);
+
+defineOptions({
+	name: 'AdminArticleEditPage',
+});
+
+// 当前文章id（创建文章时为 null）
+let articleId: number | null = null;
+
+// 当前模式
+let mode = ref<'create' | 'edit'>('create');
+
+// 原先内容
+let originalUpsertRequest: ArticleUpsertRequestFilter = { ...initUpsertRequest };
+
+onMounted(async () => {
+	await getCategoryList();
+	await getTagList();
+
+	articleId = Number(route.params.articleId);
+	if (!isNaN(articleId)) {
+		// 更新文章
+		mode.value = 'edit';
+
+		// 获取文章详情并填充 articleDetail
+		const success = await handleGetArticleDetails(articleId);
+		if (!success) {
+			// 获取失败
+			router.replace('/admin/articles');
+			return;
+		}
+
+		upsertRequest.title = articleDetail?.title || '';
+		upsertRequest.summary = articleDetail?.summary || '';
+		upsertRequest.contentMd = articleDetail?.contentMd || '';
+		upsertRequest.categoryId = articleDetail?.categoryId || null;
+		upsertRequest.tagIds = articleDetail?.tagIds || [];
+		upsertRequest.coverUrl = articleDetail?.coverUrl || '';
+		upsertRequest.isTop = articleDetail?.isTop || false;
+		upsertRequest.status = articleDetail?.status || ARTICLE_STATUS.DRAFT;
+		upsertRequest.allowComment = articleDetail?.allowComment || false;
+		originalUpsertRequest = structuredClone(toRaw(upsertRequest));
+	} else {
+		// 创建文章
+		mode.value = 'create';
+	}
+
+	tagList.value.forEach((tag) => {
+		checkTagList.value.push({
+			...tag,
+			checked: upsertRequest.tagIds?.includes(tag.id) || false,
+		});
+	});
+});
+
+// 离开当前页面时触发路由守卫
+onBeforeRouteLeave(async () => {
+	console.log(
+		'离开编辑页，upsertRequest:',
+		upsertRequest,
+		'originalUpsertRequest:',
+		originalUpsertRequest,
+	);
+	if (isEqual(upsertRequest, originalUpsertRequest)) {
+		return true; // 内容无修改，放行
+	}
+
+	try {
+		await ElMessageBox.confirm(
+			'确认退出文章编辑页面吗？目前修改内容尚未保存，退出后将丢失所有未保存的更改。',
+			'退出编辑',
+			{
+				confirmButtonText: '确定离开',
+				cancelButtonText: '取消',
+				type: 'warning',
+			},
+		);
+		// 用户点击了确定按钮
+		return true;
+	} catch {
+		// 用户点了取消或关闭
+		return false;
+	}
+});
+
+function showTagDialog() {
+	tmpCheckTagList.value = JSON.parse(JSON.stringify(checkTagList.value));
+	tagWindowVisible.value = true;
+}
+
+function tagDialogConfirm() {
+	checkTagList.value = JSON.parse(JSON.stringify(tmpCheckTagList.value));
+	upsertRequest.tagIds = checkTagList.value.filter((tag) => tag.checked).map((tag) => tag.id);
+	tagWindowVisible.value = false;
+}
+
+function tagDialogCancel() {
+	tagWindowVisible.value = false;
+}
+
+// el-upload 唤起文件选择器后，会把用户选中的文件包装成 UploadFile 并传入该函数
+// 上传时需要取出其中的原始 File，上传成功后再把 OSS 公开地址回填到封面输入框
+const handleCoverImageChange: UploadProps['onChange'] = async (uploadFile) => {
+	if (!uploadFile.raw) return;
+
+	const image = await handleUploadAdminImage(
+		ADMIN_IMAGE_UPLOAD_SCENE.ARTICLE_COVER,
+		uploadFile.raw,
+	);
+	if (image) {
+		upsertRequest.coverUrl = image.url;
+	}
+};
+
+// MdEditor 选择图片后会传入文件列表和回调函数，这里同时上传用户选中的所有图片
+// 使用 insert 插入 HTML，避免默认回调生成 Markdown 图片语法；全部失败时不改正文。
+const handleContentImageUpload: UploadImgEvent = async (files, callback) => {
+	const images = await Promise.all(
+		files.map((file) => handleUploadAdminImage(ADMIN_IMAGE_UPLOAD_SCENE.ARTICLE_CONTENT, file)),
+	);
+
+	const html = images
+		.flatMap((image) => (image ? [createEditorImageHtml(image)] : []))
+		.join('\n');
+	// 空行结束原始 HTML 块，确保图片后的 Markdown 仍会解析。
+	const editor = editorRef.value;
+	if (html && editor) {
+		editor.insert(() => ({ targetValue: `${html}\n\n`, select: false }));
+		await finishEditorImageUpload(editor, callback);
+	}
+};
+
+async function clickUpsertArticle() {
+	try {
+		if (!upsertRequest.contentMd?.trim()) {
+			throw new Error('文章正文不能为空');
+		}
+		await theFormRef.value?.validate();
+	} catch (error) {
+		ElMessage.error(error instanceof Error ? error.message : '表单验证失败');
+		return;
+	}
+
+	let success: boolean;
+	if (mode.value === 'create') {
+		success = await handleCreateArticle();
+	} else {
+		success = await handleUpdateArticle(articleId ?? 0);
+	}
+
+	if (success) {
+		originalUpsertRequest = structuredClone(toRaw(upsertRequest));
+		router.push('/admin/articles');
+	}
+}
+</script>
+
+<style lang="scss" scoped>
+.admin-article-edit {
+	box-sizing: border-box;
+	height: 100%;
+	overflow-y: auto;
+}
+
+.admin-article-edit-card {
+	background-color: var(--app-bg);
+}
+
+.admin-article-edit-header {
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+
+	&:hover {
+		color: var(--app-main);
+	}
+}
+
+.article-cover-control {
+	display: grid;
+	width: 100%;
+	grid-template-columns: minmax(0, 1fr) auto;
+	gap: 0.5rem;
+}
+
+.admin-article-tag {
+	font-size: small;
+	font-weight: 450;
+}
+
+.admin-article-visibility-warning {
+	width: 100%;
+	margin-top: 0.5rem;
+	color: var(--el-color-warning);
+	font-size: 0.85rem;
+}
+
+.admin-article-check-tag {
+	transition: none;
+	font-weight: 450;
+	border: 1px solid transparent;
+}
+
+:global([data-theme='dark'] .admin-article-check-tag.el-check-tag) {
+	border-color: #454b43;
+	background-color: #262626;
+	color: #d7ddd4;
+}
+
+:global([data-theme='dark'] .admin-article-check-tag.el-check-tag:hover) {
+	border-color: #5f735f;
+	background-color: #303a30;
+	color: var(--app-text);
+}
+
+:global(
+	[data-theme='dark'] .admin-article-check-tag.el-check-tag.el-check-tag--primary.is-checked
+) {
+	border-color: #789b74;
+	background-color: var(--app-button-bg);
+	color: var(--app-button-text);
+}
+
+:global(
+	[data-theme='dark'] .admin-article-check-tag.el-check-tag.el-check-tag--primary.is-checked:hover
+) {
+	border-color: #8caf87;
+	background-color: var(--app-button-hover);
+	color: var(--app-button-text);
+}
+
+@media (width < 640px) {
+	.article-cover-control {
+		grid-template-columns: minmax(0, 1fr);
+
+		:deep(.el-button) {
+			width: 100%;
+		}
+	}
+}
+</style>

@@ -1,0 +1,55 @@
+# One-time overlay; always use together with compose.prod.yaml.
+services:
+  admin-bootstrap:
+    image: ${BLOG_BACKEND_IMAGE:-blog-backend:v1.0.0}
+    build:
+      context: backend
+      dockerfile: Dockerfile
+    # Compose file secrets are commonly mounted as root-owned bind mounts.
+    # This one-shot task needs root only to read the 0600 password file.
+    user: "0:0"
+    restart: "no"
+    cpus: "2.0"
+    mem_limit: 2560m
+    environment:
+      SPRING_PROFILES_ACTIVE: prod,bootstrap-admin
+      BLOG_APP_NAME: ${BLOG_APP_NAME:?BLOG_APP_NAME is required}
+      BLOG_SITE_URL: ${BLOG_SITE_URL:?BLOG_SITE_URL is required}
+      BLOG_DESC: ${BLOG_DESC:?BLOG_DESC is required}
+      BLOG_LOGO_URL: ${BLOG_LOGO_URL:?BLOG_LOGO_URL is required}
+      BLOG_DB_URL: "jdbc:postgresql://postgres:5432/${POSTGRES_DB:?POSTGRES_DB is required}"
+      POSTGRES_APP_USERNAME: ${POSTGRES_APP_USERNAME:?POSTGRES_APP_USERNAME is required}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD is required}
+      BLOG_JWT_SECRET: ${BLOG_JWT_SECRET:?BLOG_JWT_SECRET is required}
+      BLOG_REDIS_HOST: redis
+      BLOG_REDIS_PORT: 6379
+      BLOG_REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      BLOG_REDIS_DATABASE: ${BLOG_REDIS_DATABASE:-0}
+      BLOG_OBJECT_STORAGE_PROVIDER: ${BLOG_OBJECT_STORAGE_PROVIDER:-aliyun}
+      BLOG_OBJECT_STORAGE_ENDPOINT: ${BLOG_OBJECT_STORAGE_ENDPOINT:?BLOG_OBJECT_STORAGE_ENDPOINT is required}
+      BLOG_OBJECT_STORAGE_BUCKET: ${BLOG_OBJECT_STORAGE_BUCKET:?BLOG_OBJECT_STORAGE_BUCKET is required}
+      BLOG_OBJECT_STORAGE_ACCESS_KEY_ID: ${BLOG_OBJECT_STORAGE_ACCESS_KEY_ID:?BLOG_OBJECT_STORAGE_ACCESS_KEY_ID is required}
+      BLOG_OBJECT_STORAGE_ACCESS_KEY_SECRET: ${BLOG_OBJECT_STORAGE_ACCESS_KEY_SECRET:?BLOG_OBJECT_STORAGE_ACCESS_KEY_SECRET is required}
+      BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL: ${BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL:?BLOG_OBJECT_STORAGE_PUBLIC_BASE_URL is required}
+      BLOG_MAIL_ENABLED: false
+      BLOG_MAIL_FRONTEND_BASE_URL: ${BLOG_MAIL_FRONTEND_BASE_URL:?BLOG_MAIL_FRONTEND_BASE_URL is required}
+      BLOG_TURNSTILE_ENABLED: false
+      BLOG_BOOTSTRAP_ADMIN_USERNAME: ${BLOG_BOOTSTRAP_ADMIN_USERNAME:-}
+      BLOG_BOOTSTRAP_ADMIN_NICKNAME: ${BLOG_BOOTSTRAP_ADMIN_NICKNAME:-站点管理员}
+      BLOG_BOOTSTRAP_ADMIN_EMAIL: ${BLOG_BOOTSTRAP_ADMIN_EMAIL:-}
+      BLOG_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/bootstrap_admin_password
+      JAVA_TOOL_OPTIONS: >-
+        -Xms512m -Xmx1536m -XX:MaxMetaspaceSize=256m -XX:MaxDirectMemorySize=128m
+    depends_on:
+      db-prepare:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    secrets:
+      - bootstrap_admin_password
+    networks:
+      - backend_net
+
+secrets:
+  bootstrap_admin_password:
+    file: ${BLOG_BOOTSTRAP_ADMIN_PASSWORD_PATH:?BLOG_BOOTSTRAP_ADMIN_PASSWORD_PATH is required}

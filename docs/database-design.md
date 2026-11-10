@@ -15,9 +15,20 @@
 - 所有业务表统一使用 `blog_` 前缀，避免与 PostgreSQL 关键字冲突
 - 主键统一使用 `BIGSERIAL`
 - 时间字段统一使用 `TIMESTAMPTZ`
-- `updated_at` 默认给出初始值，后续更新时由应用层维护
+- 后端、数据库与容器环境中的业务时间默认按 UTC 存储；接口返回 ISO 8601 时间，前端展示时再按用户所在时区或站点展示时区格式化
+- `created_at` 和 `updated_at` 在数据库层保留 `DEFAULT NOW()` 作为兜底；正常业务写入时由应用层通过 MyBatis Plus 自动填充维护
+- `updated_at` 默认给出初始值，后续更新时由应用层自动刷新
+- 单行业务更新应优先传入实体对象，使用 MyBatis Plus 的 `insert`、`updateById` 或 `update(entity, wrapper)`，由公共填充器统一维护 `created_at` 和 `updated_at`
+- 避免在普通业务更新中使用 wrapper-only update；该写法没有可填充实体，不作为 `updated_at` 自动维护的默认路径
+- 批量更新、XML SQL 或 `@Update` 自定义 SQL 必须显式维护 `updated_at`；涉及撤销会话等业务时间时，同时显式维护 `revoked_at` 等对应字段
 
 ### 2.2 版本范围
+
+数据库管理账号与应用账号分离。管理账号负责实例初始化、Flyway 和备份恢复；应用账号不拥有数据库或业务对象，不具有超级用户、建库、管理角色、复制、绕过 RLS 或其他角色成员身份，仅获得目标数据库 CONNECT、public schema USAGE、业务表 SELECT/INSERT/UPDATE/DELETE 和业务序列 USAGE/SELECT。
+
+业务表、字段、约束和索引仍只通过 Flyway migration 变更，不修改历史 migration。数据库角色及环境相关授权属于部署配置，由受控数据库准备程序和 Flyway BEFORE_MIGRATE / AFTER_MIGRATE 回调维护，不将真实账号密码写进 migration 或 Flyway 历史。回调创建缺失应用账号但不重置已有密码；迁移后配置实际建表账号的默认权限并补齐已有业务对象授权，撤销应用账号对 Flyway 历史表的权限。public schema 专用于本项目对象；数据库的 PUBLIC CONNECT/TEMPORARY 和 schema 的 PUBLIC CREATE 被撤销，其他需要连接的角色应显式授权。
+
+生产默认启动先运行一次性准备任务，使用与 backend 相同的新版镜像，任务成功后才启动业务服务；dev/test 仍由应用启动时自动执行 Flyway。备份恢复前可仅创建账号，不执行业务 migration；恢复后再次自动迁移与授权。账号分离不改变业务表结构，本次不新增业务 schema migration。具体配置和三个部署场景见 [数据库账号与部署流程](./database-accounts.md)。
 
 | 分类 | 表名 | 说明 |
 | --- | --- | --- |
@@ -27,19 +38,79 @@
 | P0 必建 | `blog_tag` | 标签表 |
 | P0 必建 | `blog_article` | 文章表 |
 | P0 必建 | `blog_article_tag` | 文章标签关联表 |
-| 预留表 | `blog_comment` | 评论表，P1 使用 |
-| 预留表 | `blog_article_like` | 点赞表，P2 使用 |
-| 预留表 | `blog_article_favorite` | 收藏表，P2 使用 |
-| 预留表 | `blog_message_board` | 留言表，P1 使用 |
-| 预留表 | `blog_project` | 项目作品表，P1 使用 |
-| 预留表 | `blog_friend_link` | 友链表，P2 使用 |
+| P1 使用 | `blog_comment` | 评论表，支持审核、无限层级回复和逻辑删除 |
+| P2 使用 | `blog_article_like` | 文章点赞明细，支持登录用户和匿名访客 |
+| P2 使用 | `blog_comment_like` | 评论点赞明细，仅支持登录用户 |
+| P2 使用 | `blog_about_page` | 后台可编辑的单例关于页 Markdown 内容 |
+| P2 使用 | `blog_article_daily_stat` | 文章有效浏览每日聚合 |
+| P2 使用 | `blog_notification` | 回复通知和管理员消息内容 |
+| P2 使用 | `blog_notification_recipient` | 登录用户通知收件与已读状态 |
+| P2 使用 | `blog_mail_delivery` | 回复通知邮件投递状态与重试记录 |
+| P2 使用 | `blog_security_event` | 认证与账号安全事件追加日志 |
+| P2 使用 | `blog_privacy_policy_version` | 隐私政策不可变 Markdown 版本快照 |
+| 历史保留 | `blog_article_favorite` | `V1.0.0` 已创建但当前产品暂不排期，应用不读写 |
+| P1 使用 | `blog_message_board` | 留言表，支持游客留言、审核、登录用户和管理员回复及通知退订 |
+| P1 使用 | `blog_admin_audit_log` | 后台管理操作追加式审计日志 |
+| 预留表 | `blog_project` | 项目作品表，待有实际作品后再评估使用 |
+| P2 使用 | `blog_friend_link` | 友链信息及固定分区归属 |
 
 ### 2.3 设计原则
 
-- `Refresh Token` 运行态以 Redis 为主，数据库保留会话表用于审计、封禁联动和后续扩展
-- 评论、点赞、收藏等互动能力虽然不在 P0 落地，但数据库结构先预留
+- P0 阶段 `Refresh Token` 以数据库会话表为准，刷新、退出、修改密码、禁用用户等安全事件通过会话表做失效控制；修改用户角色不直接撤销 Refresh Token
+- P1 已使用 Redis 缓存用户 `tokenVersion`，用于降低 Access Token 鉴权时的数据库查询成本；缓存未命中或 Redis 不可用时回源数据库，缓存有效期与 Access Token 有效期一致
+- Refresh Token 会话仍以 `blog_auth_session` 为权威来源；Redis 仅以固定 5 秒 TTL 加密缓存成功轮转的令牌结果，不替代数据库会话和 tokenVersion 校验
+- P1 阶段后台管理操作审计日志建议使用独立审计表，记录操作者、目标资源、操作类型、操作结果和操作时间
+- `blog_admin_audit_log` 只允许应用追加和管理员查询，不提供修改或删除接口；成功日志与业务操作同事务提交，失败日志在业务回滚后独立提交
+- `Refresh Token` 使用轮转机制；每次刷新成功后，旧会话记录标记为 `REVOKED`，新 Refresh Token 对应新的 `ACTIVE` 会话记录
+- P0 阶段不因普通刷新失败自动撤销用户全部活跃 Refresh Token；修改密码、用户禁用、管理员强制下线等明确安全事件可按业务规则撤销全部会话
+- 宽限缓存 key 使用旧 Refresh Token 摘要，value 使用 Spring Security AES-GCM 加密的轮转结果及签发时 tokenVersion，携带固定截止时间；不存明文令牌，不新增数据库字段。数据库回滚、账号安全变更、新会话撤销或过期时，即使缓存仍存在也不能使用
+- 评论、点赞等互动能力虽然不在 P0 落地，但数据库结构先预留；P1 启用评论表并通过新 migration 扩展审核、根评论和逻辑删除字段；历史版本遗留的收藏结构单独说明
 - 统计字段如 `comment_count`、`like_count` 放在主表冗余，行为明细拆分到独立表
+- P2 浏览去重使用 Redis 一小时 key，PostgreSQL 只保存文章总量和每日聚合，不保存完整访问轨迹
+- 匿名访客 token 只保存在 HttpOnly Cookie；数据库和 Redis 只保存不可逆哈希
+- 站内通知内容与用户收件状态分表；留言板公告不创建通知收件记录，也不保存已读状态
+- `blog_article.comment_count` 统计文章下全部 `APPROVED` 评论，包括顶层评论和回复
 - 分类采用树形结构建模，当前业务约束为两级分类
+- 数据库不创建业务表之间的物理外键，统一使用逻辑外键；关联完整性、删除校验和级联清理由应用层负责
+
+### 2.4 逻辑外键约定
+
+本项目业务表之间不使用 PostgreSQL `FOREIGN KEY` 物理约束，所有 `xxx_id` 字段均按逻辑外键处理。这样便于开发期重置表结构、后续软删除、数据归档和潜在拆分；代价是 service 层必须显式校验关联数据。
+
+| 表 | 字段 | 逻辑关联 | 应用层约束 |
+| --- | --- | --- | --- |
+| `blog_auth_session` | `user_id` | `blog_user.id` | 创建会话前必须确认用户存在且状态允许登录；用户禁用时刷新 Token 必须失败 |
+| `blog_category` | `parent_id` | `blog_category.id` | 二级分类必须挂载到存在的一级分类；一级分类 `parent_id` 必须为空 |
+| `blog_article` | `category_id` | `blog_category.id` | 创建或发布文章时必须确认分类存在、启用且为二级分类 |
+| `blog_article` | `author_id` | `blog_user.id` | 创建文章时必须确认作者存在且具备管理员权限 |
+| `blog_article_tag` | `article_id` | `blog_article.id` | 写入关联前必须确认文章存在；删除文章时由应用层清理关联记录 |
+| `blog_article_tag` | `tag_id` | `blog_tag.id` | 写入关联前必须确认标签存在且启用；删除标签时由应用层清理关联记录 |
+| `blog_comment` | `article_id` | `blog_article.id` | 评论前必须确认文章存在且允许评论 |
+| `blog_comment` | `user_id` | `blog_user.id` | 评论前必须确认用户存在且未被禁用 |
+| `blog_comment` | `parent_id` | `blog_comment.id` | 回复评论时必须确认父评论存在且属于同一文章 |
+| `blog_comment` | `root_id` | `blog_comment.id` | 顶层评论为空；所有层级回复必须指向所属顶层评论 |
+| `blog_comment` | `reviewed_by` | `blog_user.id` | 审核、拒绝或隐藏评论时记录管理员用户 ID |
+| `blog_comment` | `deleted_by` | `blog_user.id` | 用户或管理员删除评论时记录操作者用户 ID |
+| `blog_article_like` | `article_id` | `blog_article.id` | 点赞前必须确认文章存在且可见 |
+| `blog_article_like` | `user_id` | `blog_user.id` | 点赞前必须确认用户存在且未被禁用 |
+| `blog_comment_like` | `comment_id` | `blog_comment.id` | 点赞前必须确认评论为当前可见的 `APPROVED` 状态 |
+| `blog_comment_like` | `user_id` | `blog_user.id` | 评论点赞只允许未禁用登录用户 |
+| `blog_about_page` | `updated_by` | `blog_user.id` | 只有管理员可以保存关于页 |
+| `blog_article_daily_stat` | `article_id` | `blog_article.id` | 只聚合公开已发布文章的有效浏览 |
+| `blog_notification` | `created_by` | `blog_user.id` | 自动通知可为空；管理员消息必须记录创建管理员 |
+| `blog_notification_recipient` | `notification_id` | `blog_notification.id` | 创建收件记录前必须确认通知已发布或正在同一事务发布 |
+| `blog_notification_recipient` | `user_id` | `blog_user.id` | 只为存在的登录用户创建收件和已读状态 |
+| `blog_security_event` | `user_id` | `blog_user.id` | 可为空；记录事件关联的目标用户，不创建物理外键 |
+| `blog_security_event` | `actor_id` | `blog_user.id` | 可为空；仅记录管理员操作其他用户时的操作者，不创建物理外键 |
+| `blog_user` | `privacy_policy_version` | `blog_privacy_policy_version.version` | 注册时必须保存当前已归档的政策版本 |
+| `blog_message_board` | `user_id` | `blog_user.id` | 登录用户留言时记录用户 ID；游客留言时允许为空，历史游客留言不自动关联后注册用户 |
+| `blog_message_board` | `parent_id` | `blog_message_board.id` | 登录用户或管理员回复时必须确认父留言是已通过的留言 |
+
+删除或下线数据时，不能依赖数据库级联删除。当前核心业务数据只允许逻辑处理，不提供用户可调用的物理删除。用户注销使用 `deleted_at IS NOT NULL` 判断，不新增 `DELETED` 用户状态；注销事务中递增 `token_version`、撤销 Refresh Token，并将 `username`、`email` 替换为基于用户 ID 的唯一占位值，以释放原用户名和邮箱。
+
+公开作者对象由应用层根据 `deleted_at` 返回 `deleted=true`，并统一展示“账号已注销”；不返回原用户名、头像和简介。后台安全事件日志作为后续 P2 独立能力设计，不与用户注销共用业务表。
+
+公开作者和用户资料卡的 `role` 读取已有 `blog_user.role` 当前值，用于管理员头像徽章，不新增角色快照、字段或表；已注销用户不展示徽章。
 
 ## 3. P0 必建表
 
@@ -50,22 +121,32 @@
 ```sql
 CREATE TABLE IF NOT EXISTS blog_user (
     id BIGSERIAL PRIMARY KEY,
-    username VARCHAR(50) NOT NULL,
-    nickname VARCHAR(50) NOT NULL DEFAULT '',
+    username VARCHAR(20) NOT NULL,
+    nickname VARCHAR(20) NOT NULL,
     email VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL DEFAULT 'USER'
         CHECK (role IN ('ADMIN', 'USER')),
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE'
         CHECK (status IN ('ACTIVE', 'DISABLED')),
+    token_version BIGINT NOT NULL DEFAULT 0
+        CHECK (token_version >= 0),
     avatar_url VARCHAR(500) NOT NULL DEFAULT '',
-    bio VARCHAR(500) NOT NULL DEFAULT '',
+    bio VARCHAR(100) NOT NULL DEFAULT '',
     email_verified BOOLEAN NOT NULL DEFAULT FALSE,
     email_verified_at TIMESTAMPTZ,
+    privacy_policy_version VARCHAR(71),
+    privacy_policy_accepted_at TIMESTAMPTZ,
     last_login_at TIMESTAMPTZ,
     deleted_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_blog_user_username_length
+        CHECK (char_length(username) BETWEEN 2 AND 20),
+    CONSTRAINT chk_blog_user_username_format
+        CHECK (username ~ '^[A-Za-z0-9_-]{2,20}$'),
+    CONSTRAINT chk_blog_user_nickname_length
+        CHECK (char_length(nickname) BETWEEN 1 AND 20)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_blog_user_username_lower
@@ -78,25 +159,65 @@ CREATE INDEX IF NOT EXISTS idx_blog_user_role_status
     ON blog_user (role, status);
 ```
 
+说明：
+
+- `username` 长度为 2-20 个字符，只允许英文字母、数字、下划线和短横线，不限制首字符类型；保留注册时输入的原始大小写，用于展示和公开资料；唯一性和登录查询按 `LOWER(username)` 做大小写不敏感处理
+- `email` 唯一性和登录查询按 `LOWER(email)` 做大小写不敏感处理，产品层统一将 `A@example.com` 和 `a@example.com` 视为同一个邮箱账号
+- 例如允许用户注册展示名 `Sanjuu`，但不允许另一个人再注册 `sanjuu`；登录时输入 `sanjuu`、`SANJUU`、`Sanjuu` 都能找到同一个账号
+
 ### 字段表
 
 | 字段名称 | 字段类型 | 字段解释 | 业务例子 |
 | --- | --- | --- | --- |
-| `id` | `BIGSERIAL` | 用户主键 ID | `10001` |
-| `username` | `VARCHAR(50)` | 登录用户名，要求唯一，支持用户名登录 | `ccsanjuu` |
-| `nickname` | `VARCHAR(50)` | 展示昵称，允许先为空字符串，前台可回退显示用户名 | `sanjuu` |
+| `id` | `BIGSERIAL` | 用户主键 ID，可用于公开作者信息、登录态、后台管理和逻辑外键关联 | `10001` |
+| `username` | `VARCHAR(20)` | 登录用户名，长度 2-20 个字符，只允许英文字母、数字、下划线和短横线；要求唯一，注册后不可修改 | `ccsanjuu` |
+| `nickname` | `VARCHAR(20)` | 展示昵称，长度 1-20 个字符，注册时默认使用用户名初始化 | `sanjuu` |
 | `email` | `VARCHAR(255)` | 用户邮箱，要求唯一，支持邮箱登录 | `ccsanjuu@example.com` |
 | `password_hash` | `VARCHAR(255)` | 密码哈希值，禁止明文存储 | `$2a$10$abc...` |
 | `role` | `VARCHAR(20)` | 用户角色，区分管理员和普通用户 | `ADMIN`、`USER` |
 | `status` | `VARCHAR(20)` | 用户状态，控制是否允许登录 | `ACTIVE`、`DISABLED` |
-| `avatar_url` | `VARCHAR(500)` | 用户头像地址，P0 可为空，前端显示默认头像 | `https://cdn.example.com/avatar/1.png` |
-| `bio` | `VARCHAR(500)` | 用户个人简介 | `专注后端和前端工程化` |
-| `email_verified` | `BOOLEAN` | 邮箱是否完成验证，P0 默认未启用，但字段先预留 | `false` |
-| `email_verified_at` | `TIMESTAMPTZ` | 邮箱验证完成时间 | `2026-05-01 10:00:00+08` |
+| `token_version` | `BIGINT` | Access Token 版本号；修改密码、禁用用户或修改角色时原子递增，使旧 Access Token 立即失效 | `0`、`1` |
+| `avatar_url` | `VARCHAR(500)` | 用户头像地址，P0 可为空；P1 保存 OSS 自定义域名的公开 URL | `https://img.example.com/avatars/10002/avatar.jpg` |
+| `bio` | `VARCHAR(100)` | 用户个人简介，换行和空行均计入长度 | `专注后端和前端工程化` |
+| `email_verified` | `BOOLEAN` | 邮箱是否已验证；P2 注册成功及部署者确认邮箱归属后 bootstrap 创建的管理员均为已验证 | `true` |
+| `email_verified_at` | `TIMESTAMPTZ` | 邮箱验证完成时间；bootstrap 管理员记录初始化时部署者确认邮箱归属的时间 | `2026-05-01 10:00:00+08` |
+| `privacy_policy_version` | `VARCHAR(71)` | 注册时接受的隐私政策内容哈希版本；历史用户可为空 | `sha256:012345...` |
+| `privacy_policy_accepted_at` | `TIMESTAMPTZ` | 注册时接受隐私政策的时间；历史用户可为空 | `2026-05-01 10:00:00+08` |
 | `last_login_at` | `TIMESTAMPTZ` | 最近一次登录时间 | `2026-04-22 22:10:00+08` |
-| `deleted_at` | `TIMESTAMPTZ` | 软删除时间，当前版本可不使用 | `NULL` |
+| `deleted_at` | `TIMESTAMPTZ` | 用户逻辑注销时间；非空即表示账号已注销 | `NULL` |
 | `created_at` | `TIMESTAMPTZ` | 记录创建时间 | `2026-04-22 21:00:00+08` |
 | `updated_at` | `TIMESTAMPTZ` | 记录更新时间 | `2026-04-22 22:10:00+08` |
+
+公开用户资料、文章作者资料卡等前台公开场景可以返回 `blog_user.id`，并可使用 `userId` 作为路径标识。`deleted_at IS NOT NULL` 的作者统一展示为“账号已注销”，不再展示原用户名、昵称或头像。
+
+用户注销规则：
+
+- 用户本人注销必须确认当前密码，不需要再次输入邮箱验证码，也不设置冷静期
+- 管理员可以注销其他用户，但不能注销自己或最后一个仍可用的管理员；操作需要审计记录
+- 注销保留评论、留言、点赞、通知、邮件投递和审计日志等关联数据
+- `username` 使用 `deleted_<userId>` 形式的唯一占位值；`email` 使用 `deleted_<userId>@deleted.invalid` 形式的不可投递唯一占位值
+- 注册校验必须保留 `deleted_` 用户名前缀和 `.deleted.invalid` 邮箱域名，避免真实账号与注销占位值冲突
+- 注销清空 `password_hash`、`avatar_url` 和 `bio`；头像对应 OSS 对象不在注销事务中自动删除
+
+P2 通过新 migration 为 `blog_user` 增加：
+
+- `privacy_policy_version VARCHAR(71)`、`privacy_policy_accepted_at TIMESTAMPTZ`，记录注册时接受的 `sha256:` 内容哈希
+- 注册成功时直接写入 `email_verified=true` 和 `email_verified_at`；修改邮箱成功后同样更新这两个字段；验证码只在 Redis 中保存哈希和失败次数，不落数据库
+- 首位管理员的一次性 bootstrap 信任部署者对邮箱归属的确认，直接写入 `email_verified=true`，由 Service 显式设置 UTC `email_verified_at`；不发送邮箱验证码，不自动回填已有管理员，历史账号的确认只针对部署者指定的账号执行。
+
+隐私政策版本使用独立不可变快照表：
+
+```sql
+CREATE TABLE blog_privacy_policy_version (
+    version VARCHAR(71) PRIMARY KEY,
+    content_md TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL
+);
+```
+
+应用启动时读取并规范化 `privacy-policy.md`，计算内容哈希；数据库不存在该版本时插入快照，
+已存在时必须保证正文一致。当前产品只记录注册时的一次同意，不在登录或刷新时要求重新同意，
+因此不新增用户同意历史表。
 
 ## 3.2 表名：`blog_auth_session`
 
@@ -105,7 +226,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_user_role_status
 ```sql
 CREATE TABLE IF NOT EXISTS blog_auth_session (
     id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES blog_user(id),
+    user_id BIGINT NOT NULL,
     token_jti VARCHAR(64) NOT NULL,
     token_hash VARCHAR(255) NOT NULL,
     token_type VARCHAR(20) NOT NULL DEFAULT 'REFRESH'
@@ -149,6 +270,22 @@ CREATE INDEX IF NOT EXISTS idx_blog_auth_session_expires_at
 | `created_at` | `TIMESTAMPTZ` | 会话创建时间 | `2026-04-22 22:10:00+08` |
 | `updated_at` | `TIMESTAMPTZ` | 会话更新时间 | `2026-04-22 22:20:00+08` |
 
+### Refresh Token 轮转状态流转
+
+- 登录成功：创建一条 `ACTIVE` 的 Refresh Token 会话记录。
+- 刷新成功：在同一事务中将旧会话记录更新为 `REVOKED`，设置 `revoked_at` 和 `updated_at`，并为新 Refresh Token 创建新的 `ACTIVE` 会话记录。
+- 刷新失败：Refresh Token 缺失、格式错误、签名无效、已过期、已撤销或找不到对应会话时，统一返回 `Refresh Token 无效或已过期`；P0 阶段不因普通刷新失败自动撤销该用户全部 `ACTIVE` 会话记录。
+- 宽限期重试：仅在成功轮转时建立旧 RT 摘要到新令牌结果的 5 秒加密缓存。旧会话必须为 `REVOKED`，且在用户行锁内校验旧令牌摘要、缓存截止时间、当前 tokenVersion、账号和对应 `ACTIVE` 新会话；复用结果不续期缓存、不再创建会话。对应新会话已再次轮转时拒绝旧结果，不沿缓存链延长旧 RT 的能力。
+- 缓存写入在轮转事务持有用户行锁期间执行；并发重试取得同一用户锁后才读取会话及缓存，因此不能接受未提交或已回滚的新会话。Redis 不可用时保留严格轮转能力，无法恢复丢失响应时要求重新登录。
+- 重放检测：P1 可结合 Redis 短 TTL 宽限期、`token_jti` 状态和 `tokenVersion` 识别高风险重放；确认高风险后再撤销该用户全部 `ACTIVE` 会话记录。
+- 主动退出登录：在同一用户行锁内将当前 RT 对应会话更新为 `REVOKED`；若请求携带成功轮转且尚在重试窗口内的旧 RT，则撤销缓存指向的有效新会话。普通撤销没有轮转结果缓存，不享有宽限期。
+- 修改密码或禁用用户：将该用户全部 `ACTIVE` Refresh Token 会话更新为 `REVOKED`，同时原子递增 `blog_user.token_version`，使已签发 Access Token 立即失效。
+- 修改用户角色：不直接撤销 Refresh Token，但原子递增 `blog_user.token_version`，使旧 Access Token 立即失效；使用现有 Refresh Token 刷新或重新登录后取得携带新角色的新 Access Token。
+- Access Token 携带签发时的 `tokenVersion`；鉴权时优先与 Redis 缓存比较，缓存未命中或 Redis 不可用时回源 `blog_user.token_version`。数据库是持久化权威来源，Redis 只保存可重建缓存。
+- 登录、刷新登录态、修改密码、禁用用户和修改角色时锁定同一条 `blog_user` 记录；登录取得锁后使用最新密码和账号状态继续校验，刷新请求取得锁后必须重新校验旧 Refresh Token，避免并发账号安全操作重新产生有效会话。
+- 定期维护：可将 `expires_at` 早于当前时间且仍为 `ACTIVE` 的记录更新为 `EXPIRED`。
+- 系统每日分批删除 `expires_at` 早于当前时间 7 天的会话；未到期的 `REVOKED` 会话保留，避免影响轮转重试及异常识别。
+
 ## 3.3 表名：`blog_category`
 
 ### SQL（PostgreSQL）
@@ -157,7 +294,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_auth_session_expires_at
 CREATE TABLE IF NOT EXISTS blog_category (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL,
-    parent_id BIGINT REFERENCES blog_category(id) ON DELETE CASCADE,
+    parent_id BIGINT,
     level SMALLINT NOT NULL
         CHECK (level IN (1, 2)),
     description VARCHAR(255) NOT NULL DEFAULT '',
@@ -269,11 +406,16 @@ CREATE TABLE IF NOT EXISTS blog_article (
     content_md TEXT NOT NULL,
     content_html TEXT NOT NULL,
     content_text TEXT NOT NULL,
+    search_vector TSVECTOR GENERATED ALWAYS AS (
+        SETWEIGHT(TO_TSVECTOR('public.zhparser_cfg'::regconfig, title), 'A') ||
+        SETWEIGHT(TO_TSVECTOR('public.zhparser_cfg'::regconfig, summary), 'B') ||
+        SETWEIGHT(TO_TSVECTOR('public.zhparser_cfg'::regconfig, content_text), 'C')
+    ) STORED,
     cover_url VARCHAR(500) NOT NULL DEFAULT '',
     status VARCHAR(20) NOT NULL DEFAULT 'DRAFT'
         CHECK (status IN ('DRAFT', 'PUBLISHED', 'OFFLINE')),
-    category_id BIGINT NOT NULL REFERENCES blog_category(id),
-    author_id BIGINT NOT NULL REFERENCES blog_user(id),
+    category_id BIGINT NOT NULL,
+    author_id BIGINT NOT NULL,
     is_top BOOLEAN NOT NULL DEFAULT FALSE,
     allow_comment BOOLEAN NOT NULL DEFAULT TRUE,
     view_count INTEGER NOT NULL DEFAULT 0 CHECK (view_count >= 0),
@@ -300,6 +442,10 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_author_id
 
 CREATE INDEX IF NOT EXISTS idx_blog_article_top_publish
     ON blog_article (is_top, published_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_blog_article_search_vector
+    ON blog_article
+    USING GIN (search_vector);
 ```
 
 ### 字段表
@@ -308,30 +454,50 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_top_publish
 | --- | --- | --- | --- |
 | `id` | `BIGSERIAL` | 文章主键 ID | `40001` |
 | `title` | `VARCHAR(200)` | 文章标题 | `Spring Boot 双 Token 登录实践` |
-| `slug` | `VARCHAR(200)` | 文章 SEO 路径标识，当前版本可为空 | `spring-boot-dual-token` |
+| `slug` | `VARCHAR(200)` | 历史字段，当前不启用，不参与文章 URL 或 SEO | `NULL` |
 | `summary` | `VARCHAR(500)` | 文章摘要，列表页用于简介展示 | `本文记录双 Token 的实现思路与接口设计` |
 | `content_md` | `TEXT` | Markdown 正文内容，作为后台编辑源 | `# 一、背景\n...` |
 | `content_html` | `TEXT` | 由 Markdown 转译得到的 HTML 正文，供前台渲染使用 | `<h1>一、背景</h1><p>...</p>` |
 | `content_text` | `TEXT` | 从 Markdown 提取的纯文本正文，供全文搜索使用 | `一、背景 ...` |
-| `cover_url` | `VARCHAR(500)` | 文章封面地址，P0 可先手工录入 URL 或留空 | `https://cdn.example.com/cover/token.png` |
+| `search_vector` | `TSVECTOR` | 由标题、摘要和纯文本正文生成的全文检索向量，标题、摘要、正文权重依次为 A、B、C | `'spring':2A '安全':18C` |
+| `cover_url` | `VARCHAR(500)` | 文章封面地址，可手工录入外部 URL，或保存 P1 图片上传接口返回的 OSS URL | `https://img.example.com/articles/covers/2026/08/cover.png` |
 | `status` | `VARCHAR(20)` | 文章状态 | `DRAFT`、`PUBLISHED`、`OFFLINE` |
 | `category_id` | `BIGINT` | 文章所属二级分类 ID，应用层需校验不能绑定一级分类 | `21001` |
 | `author_id` | `BIGINT` | 文章作者 ID，当前通常是管理员 | `10001` |
 | `is_top` | `BOOLEAN` | 是否置顶 | `true` |
 | `allow_comment` | `BOOLEAN` | 是否允许评论，先预留控制字段 | `true` |
-| `view_count` | `INTEGER` | 浏览量冗余字段 | `128` |
+| `view_count` | `INTEGER` | 浏览量冗余字段，P2 确定有效浏览与去重规则后启用真实统计 | `128` |
 | `comment_count` | `INTEGER` | 评论数冗余字段，P1 启用 | `6` |
 | `like_count` | `INTEGER` | 点赞数冗余字段，P2 启用 | `35` |
-| `favorite_count` | `INTEGER` | 收藏数冗余字段，P2 启用 | `12` |
+| `favorite_count` | `INTEGER` | 历史预留收藏数冗余字段，当前 API 不返回且应用不读写 | `12` |
 | `published_at` | `TIMESTAMPTZ` | 发布时间，草稿阶段可为空 | `2026-04-22 23:00:00+08` |
 | `created_at` | `TIMESTAMPTZ` | 创建时间 | `2026-04-22 21:30:00+08` |
 | `updated_at` | `TIMESTAMPTZ` | 更新时间 | `2026-04-22 22:45:00+08` |
+
+后台实际效果预览只转换请求中的 Markdown 并返回清洗后的 HTML，不保存文章、快照或临时记录，不修改上述三种正文及统计字段，无需新增 migration。
+
+后台文章详情的正文响应只返回 `contentMd`，不返回 `contentHtml` 和 `contentText`；数据库继续保存并维护三种正文，公开阅读与全文搜索沿用既有字段，无需新增 migration。
 
 说明：
 
 - 例如一级分类 `技术` 下可挂二级分类 `Java`、`算法`、`前端三剑客`
 - 文章的 `category_id` 应指向 `Java`、`算法` 这类二级分类，而不是 `技术` 这类一级分类
+- 管理员保存文章时允许关联禁用分类、父分类和标签，不清除历史关联；分类与父分类必须存在且层级正确，标签必须存在。禁用状态只影响既有前台可见性规则，不新增表或字段
 - 保存或更新文章时，应用层应以 `content_md` 为源生成 `content_html` 与 `content_text`
+- 行内 Markdown 高亮写作 `==文字==`，由 Markdown 转换器生成 `<mark>文字</mark>`；代码区域保留原始等号。相应 HTML 标签经白名单清洗后保留
+- Markdown 生成的 `content_html` 经统一白名单清洗，保留 `<small>`、`<big>`、`<mark>` 等安全语义标签，不放开这些标签的额外属性；文章、关于页与隐私政策共用该规则
+- HTML 颜色标注保留 `<font>` 标签及其 `color` 属性，font 的其他属性仍被清洗；与粗体、下划线的嵌套结果保存在现有 `content_html` 中，不新增字段或 migration
+- 正文图片图注复用 Markdown 图片的可选 title 或手写 HTML img 的 title，由现有转译和白名单清洗保留在 `content_html` 中；前台将 title 作为纯文本图注渲染，不回写 `content_md`、`content_html` 或 `content_text`，不增加表、字段或历史数据迁移。
+- 正文编辑器上传图片后在 `content_md` 插入 `<img src="图片地址" alt="原文件名" />`，属性值进行 HTML 转义，不自动添加 title；历史 Markdown 图片语法继续支持，不新增字段或迁移。
+- 归档复用现有表和索引，不新增结构或改变时间存储。年份按浏览器传入并校验的 IANA 时区一次分组计数，SQL 使用绑定参数执行 `published_at AT TIME ZONE timeZone`；年份筛选按同一时区分别计算当年与下一年年初，再用绝对时间半开范围查询，正确应用各年份的夏令时规则。汇总和列表仅含 PUBLISHED、启用二级分类及启用父分类、作者存在的文章；列表联表返回分类路径，标签使用 EXISTS 过滤，不重复计数或执行 N+1 查询。
+- 公开文章列表和搜索结果的 `commentCount` 直接读取 `blog_article.comment_count`，沿用现有公开评论与回复统计口径，不新增表或逐篇聚合查询
+- P1 文章搜索使用 PostgreSQL `zhparser` 解析 `title`、`summary` 和 `content_text`，并通过生成列 `search_vector` 与 GIN 索引完成全文检索
+- `search_vector` 为标题、摘要、正文分别设置 A、B、C 权重；有关键词且使用默认排序时，先按标题是否全文命中或字面量包含命中分组，标题命中优先；同组内通过 `ts_rank` 计算相关度，再按置顶、首次发布时间和文章 ID 倒序排列。`LATEST` 忽略标题命中、相关度和置顶，仅按首次发布时间和文章 ID 倒序排列；不改变生成列或索引
+- 搜索查询使用 `plainto_tsquery('public.zhparser_cfg', keyword)`，全文分支中多个解析后的检索词之间为 AND 关系；同时对标题、摘要和纯文本正文执行不区分大小写的字面量包含匹配，两种分支按 OR 合并。字面量分支使用绑定参数和 `strpos(lower(field), lower(keyword))`，按整段关键词匹配，不将 `%`、`_` 或正则字符解释为通配符；不以全文分支无结果为前提。支持 `At` 命中 `AtCoder`、`code` 或 `forces` 命中 `codeforces`、`1` 或 `11` 命中 `111`。本次只调整查询和展示，不改变生成列、索引或词典，不需要 schema migration
+- `zhparser` 扩展和 `public.zhparser_cfg` 均属于数据库级对象；每个由 Flyway 管理的数据库都必须执行对应 migration，不能只依赖容器首次初始化脚本
+- 文章详情规范 URL 为 `/articles/{articleId}`，以 `id` 作为稳定定位标识
+- `slug` 字段及唯一索引由历史 migration 创建，当前不启用；不生成、不回填，也不提供编辑入口
+- SEO 不新增数据库结构。sitemap 从已发布文章读取 ID 和更新时间，过滤不存在或禁用的二级分类及父分类、缺失作者；已注销作者的文章沿用现有公开可见规则。详情响应的 SEO 信息直接使用本次已查询的文章生成，不再次查询文章
 
 ## 3.6 表名：`blog_article_tag`
 
@@ -339,8 +505,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_top_publish
 
 ```sql
 CREATE TABLE IF NOT EXISTS blog_article_tag (
-    article_id BIGINT NOT NULL REFERENCES blog_article(id) ON DELETE CASCADE,
-    tag_id BIGINT NOT NULL REFERENCES blog_tag(id) ON DELETE CASCADE,
+    article_id BIGINT NOT NULL,
+    tag_id BIGINT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (article_id, tag_id)
 );
@@ -357,24 +523,36 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_tag_tag_id
 | `tag_id` | `BIGINT` | 关联标签 ID | `30001` |
 | `created_at` | `TIMESTAMPTZ` | 关联关系创建时间 | `2026-04-22 22:00:00+08` |
 
-## 4. 预留表
+## 4. P1 已启用与 P2 目标表
 
-## 4.1 表名：`blog_comment`
+## 4.1 P1 已启用表：`blog_comment`
 
 ### SQL（PostgreSQL）
 
 ```sql
 CREATE TABLE IF NOT EXISTS blog_comment (
     id BIGSERIAL PRIMARY KEY,
-    article_id BIGINT NOT NULL REFERENCES blog_article(id) ON DELETE CASCADE,
-    user_id BIGINT NOT NULL REFERENCES blog_user(id),
-    parent_id BIGINT REFERENCES blog_comment(id) ON DELETE CASCADE,
+    article_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    parent_id BIGINT,
+    root_id BIGINT,
     content TEXT NOT NULL,
+    notify_on_reply BOOLEAN NOT NULL DEFAULT FALSE,
+    unsubscribe_token VARCHAR(128),
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
-        CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
+        CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'HIDDEN', 'DELETED')),
+    reviewed_by BIGINT,
+    reviewed_at TIMESTAMPTZ,
+    moderation_reason VARCHAR(255),
+    deleted_by BIGINT,
+    deleted_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_blog_comment_unsubscribe_token
+    ON blog_comment (unsubscribe_token)
+    WHERE unsubscribe_token IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_blog_comment_article_status
     ON blog_comment (article_id, status);
@@ -384,6 +562,16 @@ CREATE INDEX IF NOT EXISTS idx_blog_comment_user_id
 
 CREATE INDEX IF NOT EXISTS idx_blog_comment_parent_id
     ON blog_comment (parent_id);
+
+CREATE INDEX IF NOT EXISTS idx_blog_comment_root_status_created_at
+    ON blog_comment (root_id, status, created_at, id);
+
+CREATE INDEX IF NOT EXISTS idx_blog_comment_top_level_paging
+    ON blog_comment (article_id, status, created_at DESC, id DESC)
+    WHERE parent_id IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_blog_comment_user_article_created_at
+    ON blog_comment (user_id, article_id, created_at DESC);
 ```
 
 ### 字段表
@@ -394,26 +582,67 @@ CREATE INDEX IF NOT EXISTS idx_blog_comment_parent_id
 | `article_id` | `BIGINT` | 所属文章 ID | `40001` |
 | `user_id` | `BIGINT` | 评论用户 ID | `10002` |
 | `parent_id` | `BIGINT` | 父评论 ID，一级评论为空，回复评论时有值 | `60000` |
+| `root_id` | `BIGINT` | 所属顶层评论 ID；顶层评论为空，所有后代回复均指向同一顶层评论 | `60001` |
 | `content` | `TEXT` | 评论内容 | `这篇文章对双 Token 的解释很清楚` |
-| `status` | `VARCHAR(20)` | 评论状态，可用于审核流 | `PENDING`、`APPROVED` |
+| `notify_on_reply` | `BOOLEAN` | 是否订阅当前评论的直接回复邮件 | `TRUE` |
+| `unsubscribe_token` | `VARCHAR(128)` | 当前评论的随机退订令牌 | `随机不透明字符串` |
+| `status` | `VARCHAR(20)` | 评论状态 | `PENDING`、`APPROVED`、`REJECTED`、`HIDDEN`、`DELETED` |
+| `reviewed_by` | `BIGINT` | 最近一次审核、拒绝或隐藏操作的管理员用户 ID | `10001` |
+| `reviewed_at` | `TIMESTAMPTZ` | 最近一次审核、拒绝或隐藏时间 | `2026-05-01 10:30:00+08` |
+| `moderation_reason` | `VARCHAR(255)` | 管理员拒绝、隐藏或删除评论时填写的处理原因 | `包含人身攻击内容` |
+| `deleted_by` | `BIGINT` | 删除评论的用户或管理员 ID | `10002` |
+| `deleted_at` | `TIMESTAMPTZ` | 逻辑删除时间 | `2026-05-01 10:40:00+08` |
 | `created_at` | `TIMESTAMPTZ` | 创建时间 | `2026-05-01 10:20:00+08` |
 | `updated_at` | `TIMESTAMPTZ` | 更新时间 | `2026-05-01 10:25:00+08` |
 
-## 4.2 表名：`blog_article_like`
+### 状态、层级与计数规则
 
-### SQL（PostgreSQL）
+- 顶层评论的 `parent_id` 和 `root_id` 均为空
+- 回复的 `parent_id` 指向直接父评论，`root_id` 指向所属顶层评论；无限层级回复在前端统一平铺到第二层
+- 数据库默认将新评论设为 `PENDING`；应用层创建普通用户评论时保持该状态，创建管理员评论时显式写为 `APPROVED`
+- 仅 `APPROVED` 可向其他用户和游客公开；管理员直接创建的 `APPROVED` 评论不填写 `reviewed_by`、`reviewed_at`
+- `REJECTED` 表示审核未通过，`HIDDEN` 表示曾公开后被管理员隐藏，`DELETED` 表示已逻辑删除
+- 用户或管理员删除评论时，在同一事务中将目标评论及全部后代标记为 `DELETED`，并写入 `deleted_by`、`deleted_at`
+- `blog_article.comment_count` 只统计全部 `APPROVED` 评论，包括顶层评论和回复
+- 状态流转、子树删除和 `comment_count` 增减必须在同一事务中完成，避免冗余计数失真
+- 创建回复、审核和删除属于同一评论树的并发写操作，必须在事务中锁定所属顶层评论，并在取得锁后重新校验目标评论状态
+- 统一的评论树锁用于避免删除期间新增回复或审核状态变化造成孤立数据和 `comment_count` 失真
+- 评论审核、拒绝、隐藏或删除的结构化操作历史由 P1 后台操作审计日志记录；评论表字段仅保存当前状态和最近一次处理信息
+
+### P2 评论扩展目标
+
+- P2 为单条评论增加自愿订阅直接回复邮件的能力，订阅者固定为该评论作者，收件地址使用用户账号邮箱
+- 已通过新的 Flyway migration 增加 `notify_on_reply` 和随机不透明 `unsubscribe_token`，不修改已经执行的 P1 migration
+- `unsubscribe_token` 仅能关闭对应评论未来的直接回复通知，并建立非空值唯一索引
+- P2 新增 `like_count INTEGER NOT NULL DEFAULT 0 CHECK (like_count >= 0)`，与 `blog_comment_like` 明细保持事务一致
+- 回复排序通过关联 `blog_user.role` 判断当前管理员身份，不在评论表冗余作者角色
+- 上述变更通过新的 P2 Flyway migration 落地，不修改现有 P1 migration
+
+## 4.2 P2 使用表：`blog_article_like`
+
+现有历史表只支持登录用户。P2 通过新 migration 删除原唯一约束、允许 `user_id` 为空，
+并增加匿名访客哈希和部分唯一索引。目标结构如下：
+
+### P2 目标 SQL（PostgreSQL）
 
 ```sql
 CREATE TABLE IF NOT EXISTS blog_article_like (
     id BIGSERIAL PRIMARY KEY,
-    article_id BIGINT NOT NULL REFERENCES blog_article(id) ON DELETE CASCADE,
-    user_id BIGINT NOT NULL REFERENCES blog_user(id),
+    article_id BIGINT NOT NULL,
+    user_id BIGINT,
+    visitor_token_hash VARCHAR(71),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_blog_article_like UNIQUE (article_id, user_id)
+    CONSTRAINT chk_blog_article_like_actor
+        CHECK ((user_id IS NOT NULL) <> (visitor_token_hash IS NOT NULL))
 );
 
-CREATE INDEX IF NOT EXISTS idx_blog_article_like_user_id
-    ON blog_article_like (user_id);
+CREATE UNIQUE INDEX uq_blog_article_like_user
+    ON blog_article_like (article_id, user_id)
+    WHERE user_id IS NOT NULL;
+
+CREATE UNIQUE INDEX uq_blog_article_like_visitor
+    ON blog_article_like (article_id, visitor_token_hash)
+    WHERE visitor_token_hash IS NOT NULL;
 ```
 
 ### 字段表
@@ -422,18 +651,204 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_like_user_id
 | --- | --- | --- | --- |
 | `id` | `BIGSERIAL` | 点赞记录主键 ID | `70001` |
 | `article_id` | `BIGINT` | 被点赞文章 ID | `40001` |
-| `user_id` | `BIGINT` | 点赞用户 ID | `10002` |
+| `user_id` | `BIGINT` | 登录点赞用户 ID；游客点赞时为空 | `10002` |
+| `visitor_token_hash` | `VARCHAR(71)` | 游客匿名 token 哈希；登录用户点赞时为空 | `sha256:...` |
 | `created_at` | `TIMESTAMPTZ` | 点赞时间 | `2026-05-03 09:30:00+08` |
 
-## 4.3 表名：`blog_article_favorite`
+文章点赞允许登录用户和游客。清除 Cookie 或更换设备可能形成新的游客主体，因此游客点赞属于非严格统计。
+文章和评论点赞/取消共享 Redis 主体限流：登录用户按 `userId`、游客按匿名 token 哈希，每 60 秒最多
+30 次操作；生产 Nginx 再按来源 IP 限制点赞路径每秒 2 次、突发 10 次。文章下线后保留历史点赞，
+但不允许新增点赞。
 
-### SQL（PostgreSQL）
+## 4.3 P2 使用表：`blog_comment_like`
+
+```sql
+CREATE TABLE blog_comment_like (
+    id BIGSERIAL PRIMARY KEY,
+    comment_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_blog_comment_like UNIQUE (comment_id, user_id)
+);
+
+CREATE INDEX idx_blog_comment_like_user_created
+    ON blog_comment_like (user_id, created_at DESC);
+```
+
+- 评论点赞只允许登录用户，`user_id` 不可为空
+- 仅当前可见的 `APPROVED` 评论允许新增点赞；隐藏或删除后保留历史明细但不能新增
+- 评论点赞/取消与文章点赞共用按登录用户 ID 的 Redis 主体限流
+- 点赞/取消点赞与 `blog_comment.like_count` 在同一事务执行
+
+## 4.4 P2 使用表：`blog_about_page`
+
+```sql
+CREATE TABLE blog_about_page (
+    id BIGINT PRIMARY KEY,
+    content_md TEXT NOT NULL,
+    content_html TEXT NOT NULL,
+    content_text TEXT NOT NULL,
+    updated_by BIGINT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_blog_about_page_singleton CHECK (id = 1)
+);
+```
+
+关于页固定使用主键 `1`，migration 只建表、不插入业务内容。管理员第一次保存时创建记录，之后更新
+同一记录；规范化后的 Markdown 未变化时不更新。隐私政策不进入该表，而是由后端 classpath 中的
+`privacy-policy.md` 提供，版本为去除首尾空白后的 Markdown 内容 SHA-256；资源缺失或为空时后端拒绝启动。
+`content_html` 由 Markdown 转换并经白名单清洗；保留 `<small>`、`<big>`、`<mark>` 等安全语义标签但不放开其额外属性；`a[href]` 保留同源相对 URL 及 HTTP、HTTPS、mailto 绝对 URL，危险协议与协议相对 URL 不保留。
+
+## 4.5 P2 使用表：`blog_article_daily_stat`
+
+```sql
+CREATE TABLE blog_article_daily_stat (
+    article_id BIGINT NOT NULL,
+    stat_date DATE NOT NULL,
+    view_count BIGINT NOT NULL DEFAULT 0 CHECK (view_count >= 0),
+    PRIMARY KEY (article_id, stat_date)
+);
+
+CREATE INDEX idx_blog_article_daily_stat_date
+    ON blog_article_daily_stat (stat_date DESC);
+```
+
+文章详情公开读取成功后尝试记录有效浏览。同一文章与同一用户/匿名访客的一小时去重 key 只保存在 Redis。
+每日聚合按 `Asia/Shanghai` 自然日统计。有效浏览产生时，在同一事务中原子递增 `blog_article.view_count` 和当日聚合记录。Redis 不可用时不增加浏览量，
+但文章读取继续。游客身份使用 `visitor_id` HttpOnly Cookie，数据库和 Redis 只保存其哈希。
+
+## 4.6 P2 使用表：`blog_notification`
+
+```sql
+CREATE TABLE blog_notification (
+    id BIGSERIAL PRIMARY KEY,
+    type VARCHAR(30) NOT NULL
+        CHECK (type IN ('COMMENT_REPLY', 'MESSAGE_REPLY', 'ADMIN_MESSAGE')),
+    target_scope VARCHAR(30) NOT NULL
+        CHECK (target_scope IN ('SELECTED_USERS', 'ALL_USERS')),
+    selected_user_id BIGINT,
+    title VARCHAR(100) NOT NULL,
+    content TEXT NOT NULL CHECK (char_length(content) BETWEEN 1 AND 2000),
+    status VARCHAR(20) NOT NULL DEFAULT 'PUBLISHED'
+        CHECK (status IN ('DRAFT', 'PUBLISHED', 'OFFLINE')),
+    source_type VARCHAR(30),
+    source_id BIGINT,
+    created_by BIGINT,
+    published_at TIMESTAMPTZ,
+    offline_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_blog_notification_created
+    ON blog_notification (created_at DESC, id DESC);
+
+CREATE INDEX idx_blog_notification_status_created
+    ON blog_notification (status, created_at DESC, id DESC);
+```
+
+- 自动回复通知使用 `SELECTED_USERS`；管理员消息使用 `SELECTED_USERS` 或 `ALL_USERS`
+- 管理员消息使用 `SELECTED_USERS` 或 `ALL_USERS`；管理员消息的 `SELECTED_USERS` 只保存一个 `selected_user_id`
+- 草稿只保存目标用户配置，不生成 `blog_notification_recipient`；发布时才为目标用户生成正式收件记录
+- 公告不使用 `blog_notification`，而是作为 `blog_message_board` 的管理员顶层留言保存
+- 管理员消息第一版只保存并按纯文本展示；`title` 最长 100 个字符，`content` 最长 2000 个字符
+- `ALL_USERS` 草稿不保存用户 ID；指定用户草稿将目标 ID 保存在 `blog_notification.selected_user_id`
+
+## 4.7 P2 使用表：`blog_notification_recipient`
+
+```sql
+CREATE TABLE blog_notification_recipient (
+    notification_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    read_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (notification_id, user_id)
+);
+
+CREATE INDEX idx_blog_notification_recipient_unread
+    ON blog_notification_recipient (user_id, created_at DESC)
+    WHERE read_at IS NULL;
+```
+
+发布给全部未逻辑删除用户时在事务中生成收件记录。用户禁用后接口拒绝读取通知，但不删除历史记录；用户恢复后可以继续读取禁用期间收到的通知。
+
+## 4.8 P2 使用表：`blog_mail_delivery`
+
+```sql
+CREATE TABLE blog_mail_delivery (
+    id BIGSERIAL PRIMARY KEY,
+    mail_type VARCHAR(30) NOT NULL
+        CHECK (mail_type IN ('COMMENT_REPLY', 'MESSAGE_REPLY')),
+    source_id BIGINT NOT NULL,
+    reply_id BIGINT NOT NULL,
+    recipient_masked VARCHAR(255) NOT NULL DEFAULT '',
+    recipient_email VARCHAR(255),
+    recipient_user_id BIGINT,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+        CHECK (status IN ('PENDING', 'SENT', 'FAILED')),
+    attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+    last_error_type VARCHAR(100),
+    last_error_message VARCHAR(255),
+    sent_at TIMESTAMPTZ,
+    last_attempt_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_blog_mail_delivery_status_created
+    ON blog_mail_delivery (status, created_at DESC, id DESC);
+```
+
+`V1.2.13` 增加 `recipient_email` 和 `recipient_user_id`：完整收件地址保存创建时的目标，每次实际发送尝试前更新；用户 ID 来自评论或留言作者，不根据邮箱猜测身份。查询时联表读取用户当前资料，与安全事件展示一致，不保存昵称 / 用户名快照。游客的用户 ID 为空。
+旧记录只回填可信业务关联的用户 ID，不回填无法确认的历史完整地址。`recipient_masked` 作为历史兼容字段保留，默认空字符串，新投递不再写入；查询可返回该历史值，并另外返回关联账号或游客留言的当前邮箱，不能用当前值覆盖历史完整地址。
+手动重试根据 `source_id`、`reply_id` 读取当前业务数据重新生成正文；不保存完整邮件正文、SMTP 凭据、验证码或异常堆栈。
+
+## 4.9 P2 安全事件表：`blog_security_event`
+
+```sql
+CREATE TABLE blog_security_event (
+    id BIGSERIAL PRIMARY KEY,
+    event_type VARCHAR(50) NOT NULL,
+    outcome VARCHAR(10) NOT NULL CHECK (outcome IN ('SUCCESS', 'FAILURE')),
+    user_id BIGINT,
+    actor_id BIGINT,
+    account VARCHAR(255),
+    ip VARCHAR(64),
+    user_agent TEXT,
+    request_method VARCHAR(10),
+    request_path TEXT,
+    description VARCHAR(255) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL
+);
+```
+
+安全事件表不提供更新和删除接口；系统每日分批清理超过 90 天的事件。正常刷新成功及 RT 缺失不写入，其他异常刷新失败逐条保留。记录事件类型、结果、可信关联的目标用户、管理员操作者、
+原始账号、来源 IP、原始 User-Agent、请求方法、请求路径、原因描述和创建时间，仅管理员可查询。
+`actor_id` 仅用于管理员操作其他用户，自身操作为空。请求路径不含 query 参数；来源 IP 使用服务端
+请求的 remote address，由已有可信反向代理配置处理转发头，不直接信任客户端自报的 IP。
+密码、验证码、Token、Authorization、Cookie、SMTP/OSS 密钥、完整请求/响应
+正文和异常堆栈不得写入该表。`created_at` 由实体字段填充器写入。
+
+`V1.2.11` 新增可读字段并删除旧脱敏账号与 HMAC 摘要字段，不修改 `V1.2.10`。历史事件保留，
+无法还原的原始字段为空，后台显示“未记录”。浏览器、系统和设备类型由查询时解析 User-Agent 得到，
+不额外存储冗余字段。安全事件查询通过已有 `UserMapper` 按当前页的 `user_id` 和 `actor_id` 批量读取
+用户当前的用户名、昵称和 `deleted_at`，不在安全事件表中保存用户资料快照。
+管理员安全事件查询可返回已注销用户的当前占位用户名 `deleted_用户ID`，不还原原用户名。
+
+## 4.10 历史保留表：`blog_article_favorite`
+
+该表由已执行的 `V1.0.0` migration 创建，当前收藏功能暂不排期，应用不提供收藏接口，
+也不读写该表。保留以下结构仅用于说明现有数据库状态；未来如启用收藏，应通过新的
+Flyway migration 和接口设计恢复业务约束，不修改历史 migration。
+
+### 历史 SQL（PostgreSQL）
 
 ```sql
 CREATE TABLE IF NOT EXISTS blog_article_favorite (
     id BIGSERIAL PRIMARY KEY,
-    article_id BIGINT NOT NULL REFERENCES blog_article(id) ON DELETE CASCADE,
-    user_id BIGINT NOT NULL REFERENCES blog_user(id),
+    article_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_blog_article_favorite UNIQUE (article_id, user_id)
 );
@@ -451,20 +866,30 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_favorite_user_id
 | `user_id` | `BIGINT` | 收藏用户 ID | `10002` |
 | `created_at` | `TIMESTAMPTZ` | 收藏时间 | `2026-05-03 09:40:00+08` |
 
-## 4.4 表名：`blog_message_board`
+## 4.10 表名：`blog_message_board`
 
 ### SQL（PostgreSQL）
 
 ```sql
 CREATE TABLE IF NOT EXISTS blog_message_board (
     id BIGSERIAL PRIMARY KEY,
-    user_id BIGINT REFERENCES blog_user(id),
-    parent_id BIGINT REFERENCES blog_message_board(id) ON DELETE CASCADE,
+    user_id BIGINT,
+    parent_id BIGINT,
     nickname VARCHAR(50) NOT NULL DEFAULT '',
     email VARCHAR(255) NOT NULL DEFAULT '',
     content TEXT NOT NULL,
+    like_count INTEGER NOT NULL DEFAULT 0 CHECK (like_count >= 0),
+    is_announcement BOOLEAN NOT NULL DEFAULT FALSE,
+    is_pinned BOOLEAN NOT NULL DEFAULT FALSE,
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
-        CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
+        CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'HIDDEN', 'DELETED')),
+    notify_on_reply BOOLEAN NOT NULL DEFAULT FALSE,
+    unsubscribe_token VARCHAR(128),
+    moderation_reason VARCHAR(255),
+    reviewed_by BIGINT,
+    reviewed_at TIMESTAMPTZ,
+    deleted_by BIGINT,
+    deleted_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -474,6 +899,16 @@ CREATE INDEX IF NOT EXISTS idx_blog_message_board_status
 
 CREATE INDEX IF NOT EXISTS idx_blog_message_board_user_id
     ON blog_message_board (user_id);
+
+CREATE INDEX IF NOT EXISTS idx_blog_message_board_parent_status_created
+    ON blog_message_board (parent_id, status, created_at, id);
+
+CREATE INDEX IF NOT EXISTS idx_blog_message_board_public_sort
+    ON blog_message_board (parent_id, status, is_pinned DESC, created_at DESC, id DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_blog_message_board_unsubscribe_token
+    ON blog_message_board (unsubscribe_token)
+    WHERE unsubscribe_token IS NOT NULL;
 ```
 
 ### 字段表
@@ -483,14 +918,79 @@ CREATE INDEX IF NOT EXISTS idx_blog_message_board_user_id
 | `id` | `BIGSERIAL` | 留言主键 ID | `90001` |
 | `user_id` | `BIGINT` | 登录用户留言时关联的用户 ID，游客留言可为空 | `10002` |
 | `parent_id` | `BIGINT` | 回复留言时指向父留言 ID | `90000` |
-| `nickname` | `VARCHAR(50)` | 留言昵称，游客场景使用 | `路人甲` |
-| `email` | `VARCHAR(255)` | 留言邮箱，游客场景使用 | `guest@example.com` |
+| `nickname` | `VARCHAR(50)` | 留言昵称；登录用户保存当前昵称快照，游客必填 | `路人甲` |
+| `email` | `VARCHAR(255)` | 私有联系邮箱，游客可选；管理员可查看，前台不返回 | `guest@example.com` |
 | `content` | `TEXT` | 留言内容 | `博客很清爽，期待评论功能上线` |
-| `status` | `VARCHAR(20)` | 留言状态，可支持审核 | `PENDING`、`APPROVED` |
+| `is_announcement` | `BOOLEAN` | 是否为管理员公告顶层留言 | `true` |
+| `is_pinned` | `BOOLEAN` | 是否置顶；同一时间只允许一条置顶公告 | `true` |
+| `status` | `VARCHAR(20)` | 留言状态 | `PENDING`、`APPROVED`、`REJECTED`、`HIDDEN`、`DELETED` |
+| `notify_on_reply` | `BOOLEAN` | 是否接收该顶层留言的后续回复通知 | `TRUE` |
+| `unsubscribe_token` | `VARCHAR(128)` | 随机退订令牌，仅用于该顶层留言通知退订 | `随机不透明字符串` |
+| `moderation_reason` | `VARCHAR(255)` | 拒绝、隐藏或删除原因 | `内容不适合公开` |
+| `reviewed_by` | `BIGINT` | 最近一次审核操作的管理员 ID | `10001` |
+| `reviewed_at` | `TIMESTAMPTZ` | 最近一次审核时间 | `2026-05-10 14:05:00+08` |
+| `deleted_by` | `BIGINT` | 逻辑删除操作者 ID | `10001` |
+| `deleted_at` | `TIMESTAMPTZ` | 逻辑删除时间 | `2026-05-10 14:06:00+08` |
 | `created_at` | `TIMESTAMPTZ` | 创建时间 | `2026-05-10 14:00:00+08` |
 | `updated_at` | `TIMESTAMPTZ` | 更新时间 | `2026-05-10 14:10:00+08` |
 
-## 4.5 表名：`blog_project`
+留言和评论回复邮件使用 `multipart/alternative`；这只改变邮件内容格式，不需要修改现有留言订阅字段。
+
+## 4.11 P1 使用表：`blog_admin_audit_log`
+
+### SQL（PostgreSQL）
+
+```sql
+CREATE TABLE IF NOT EXISTS blog_admin_audit_log (
+    id BIGSERIAL PRIMARY KEY,
+    operator_id BIGINT NOT NULL,
+    operator_username VARCHAR(20) NOT NULL,
+    resource_type VARCHAR(30) NOT NULL,
+    resource_id TEXT,
+    action VARCHAR(30) NOT NULL,
+    action_detail VARCHAR(255),
+    result VARCHAR(20) NOT NULL CHECK (result IN ('SUCCESS', 'FAILURE')),
+    failure_code INTEGER,
+    failure_message VARCHAR(255),
+    request_method VARCHAR(10) NOT NULL,
+    request_path VARCHAR(500) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_blog_admin_audit_log_created_at
+    ON blog_admin_audit_log (created_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_blog_admin_audit_log_operator_created
+    ON blog_admin_audit_log (operator_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_blog_admin_audit_log_resource_created
+    ON blog_admin_audit_log (resource_type, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_blog_admin_audit_log_action_result_created
+    ON blog_admin_audit_log (action, result, created_at DESC);
+```
+
+### 字段表
+
+| 字段名称 | 字段类型 | 字段解释 |
+| --- | --- | --- |
+| `id` | `BIGSERIAL` | 审计日志主键和稳定排序标识 |
+| `operator_id` | `BIGINT` | 操作管理员用户 ID |
+| `operator_username` | `VARCHAR(20)` | 操作时的用户名快照 |
+| `resource_type` | `VARCHAR(30)` | 目标资源类型，如 `ARTICLE`、`COMMENT`、`MESSAGE`、`NOTIFICATION` |
+| `resource_id` | `TEXT` | 目标 ID、批量 ID 列表或 OSS 公开 URL；无结果时为空 |
+| `action` | `VARCHAR(30)` | 操作类型，如 `CREATE`、`MODERATE`、`UPLOAD` |
+| `action_detail` | `VARCHAR(255)` | 状态、审核动作或上传场景等非敏感明细 |
+| `result` | `VARCHAR(20)` | `SUCCESS` 或 `FAILURE` |
+| `failure_code` | `INTEGER` | 失败时的业务码，成功时为空 |
+| `failure_message` | `VARCHAR(255)` | 失败时的安全错误说明，成功时为空 |
+| `request_method` | `VARCHAR(10)` | HTTP 方法 |
+| `request_path` | `VARCHAR(500)` | 不包含 query 参数的请求路径 |
+| `created_at` | `TIMESTAMPTZ` | 审计记录创建时间 |
+
+审计日志只允许追加和查询，不保存请求体、查询参数、密码、Token、邮箱、评论或留言正文、文件原名等敏感信息。成功日志和业务操作在同一事务中提交；失败日志在业务事务回滚后通过独立事务保存。
+
+## 4.12 表名：`blog_project`
 
 ### SQL（PostgreSQL）
 
@@ -528,7 +1028,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_project_status_sort
 | --- | --- | --- | --- |
 | `id` | `BIGSERIAL` | 项目主键 ID | `100001` |
 | `title` | `VARCHAR(200)` | 项目名称 | `个人博客系统` |
-| `slug` | `VARCHAR(200)` | 项目 SEO 路径标识 | `personal-blog-system` |
+| `slug` | `VARCHAR(200)` | 历史字段，项目模块当前不启用 | `NULL` |
 | `summary` | `VARCHAR(500)` | 项目简介 | `基于 Vue 和 Spring Boot 的个人博客练手项目` |
 | `content_md` | `TEXT` | 项目详细介绍 Markdown | `## 项目背景\n...` |
 | `cover_url` | `VARCHAR(500)` | 项目封面地址 | `https://cdn.example.com/project/blog-cover.png` |
@@ -542,7 +1042,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_project_status_sort
 | `created_at` | `TIMESTAMPTZ` | 创建时间 | `2026-05-10 10:00:00+08` |
 | `updated_at` | `TIMESTAMPTZ` | 更新时间 | `2026-05-12 18:00:00+08` |
 
-## 4.6 表名：`blog_friend_link`
+## 4.13 P2 使用表：`blog_friend_link`
 
 ### SQL（PostgreSQL）
 
@@ -553,7 +1053,9 @@ CREATE TABLE IF NOT EXISTS blog_friend_link (
     url VARCHAR(500) NOT NULL,
     logo_url VARCHAR(500) NOT NULL DEFAULT '',
     description VARCHAR(255) NOT NULL DEFAULT '',
-    sort_no INTEGER NOT NULL DEFAULT 0,
+    section VARCHAR(20) NOT NULL
+        CHECK (section IN ('FRIENDS', 'EXPERTS', 'PEERS')),
+    sort_no INTEGER NOT NULL DEFAULT 100,
     status VARCHAR(20) NOT NULL DEFAULT 'ENABLED'
         CHECK (status IN ('ENABLED', 'DISABLED')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -563,8 +1065,11 @@ CREATE TABLE IF NOT EXISTS blog_friend_link (
 CREATE UNIQUE INDEX IF NOT EXISTS uq_blog_friend_link_url
     ON blog_friend_link (url);
 
-CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
-    ON blog_friend_link (status, sort_no);
+CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_section_sort
+    ON blog_friend_link (status, section, sort_no, id);
+
+CREATE INDEX IF NOT EXISTS idx_blog_friend_link_created_at
+    ON blog_friend_link (created_at DESC, id DESC);
 ```
 
 ### 字段表
@@ -574,12 +1079,21 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 | `id` | `BIGSERIAL` | 友链主键 ID | `110001` |
 | `name` | `VARCHAR(100)` | 友链名称 | `某某技术博客` |
 | `url` | `VARCHAR(500)` | 友链地址 | `https://tech.example.com` |
-| `logo_url` | `VARCHAR(500)` | 友链 Logo 地址 | `https://tech.example.com/logo.png` |
+| `logo_url` | `VARCHAR(500)` | 友链头像图片或网站代表图地址 | `https://tech.example.com/avatar.png` |
 | `description` | `VARCHAR(255)` | 友链说明 | `专注 Java 与中间件` |
-| `sort_no` | `INTEGER` | 排序值 | `5` |
+| `section` | `VARCHAR(20)` | 固定友链分区：`FRIENDS`、`EXPERTS`、`PEERS`，分别展示为“友人帐”“大佬们”“同行者” | `FRIENDS` |
+| `sort_no` | `INTEGER` | 分区内显示顺序，数值越小越靠前；新建默认 100，可按 100 间隔安排后续插入 | `100` |
 | `status` | `VARCHAR(20)` | 友链状态 | `ENABLED` |
 | `created_at` | `TIMESTAMPTZ` | 创建时间 | `2026-06-01 09:00:00+08` |
 | `updated_at` | `TIMESTAMPTZ` | 更新时间 | `2026-06-01 09:10:00+08` |
+
+业务约束：
+
+- 友链地址 `url` 全局唯一，应用层只接受 HTTPS 绝对 URL；头像图片或网站代表图地址可为空，非空时只接受 HTTP(S) 绝对 URL，建议使用清晰的正方形图片。
+- `section` 是固定枚举，不提供分区管理能力；公开结果按分区固定顺序 `FRIENDS`、`EXPERTS`、`PEERS` 分组，每组按 `sort_no ASC, id ASC` 排序。
+- 公开查询只读取 `status = 'ENABLED'` 的记录；后台查询可包含停用记录。
+- 数据库不创建业务表之间的物理外键；友链是独立内容，不关联申请留言。友链申请通过留言板人工沟通，不在本表记录申请状态。
+- 友链页展示的本站申请资料来自后端必填运行时配置，不持久化到数据库，因此不新增站点资料表或 Flyway migration。
 
 ## 5. 建表顺序建议
 
@@ -593,14 +1107,41 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_status_sort
 6. `blog_article_tag`
 7. `blog_comment`
 8. `blog_article_like`
-9. `blog_article_favorite`
-10. `blog_message_board`
-11. `blog_project`
-12. `blog_friend_link`
+9. `blog_comment_like`
+10. `blog_about_page`
+11. `blog_article_daily_stat`
+12. `blog_notification`
+13. `blog_notification_recipient`
+14. `blog_mail_delivery`
+15. `blog_article_favorite`（历史保留，当前不启用）
+16. `blog_message_board`
+17. `blog_admin_audit_log`
+18. `blog_project`
+19. `blog_friend_link`（P2 使用）
 
 ## 6. 落地建议
 
 - P0 最少先落地 `blog_user`、`blog_auth_session`、`blog_category`、`blog_tag`、`blog_article`、`blog_article_tag`
-- 如果你想避免后续频繁改表，建议本次把预留表一起建好
+- 历史版本已创建的预留表不会因功能暂不排期而回滚，后续结构变更必须新增 migration
 - `blog_auth_session` 可以作为 Redis 的补充审计表，不要求所有鉴权逻辑都依赖数据库
 - 文章封面与头像上传虽然在 P1 实现，但建议 P0 先把 URL 字段建好
+- P1 图片二进制保存在阿里云 OSS，业务表和 Markdown 仅保存公开 URL；当前不新增通用文件资源表
+- P1 不维护图片引用关系，也不自动删除被替换或失去引用的 OSS 对象；后续确有统一资源管理需求时再设计 `blog_asset` 表
+- 用户注销或清空头像时只清空 `blog_user.avatar_url`，不自动调用 OSS 删除接口；OSS 对象清理属于后续独立的资源回收任务
+- 留言表的状态扩展、通知字段和索引通过 `V1.1.4` migration 落地，不修改已执行的初始 migration
+- 留言通知令牌使用随机不透明值；数据库泄露时不会暴露用户密码或登录 Token，令牌仅能关闭对应顶层留言的后续通知
+- 用户名长度和格式约束通过 `V1.1.6` migration 更新；升级前若存在不符合新规则的用户名，迁移会失败并要求先处理存量数据
+- 用户简介字段通过 `V1.1.7` migration 缩短为 `VARCHAR(100)`；升级前若存在超过 100 个字符的简介，迁移会失败并要求先处理存量数据
+- `V1.2.1` migration 新增 `blog_article_daily_stat`，保存文章有效浏览每日聚合；文章总浏览数继续保存在 `blog_article.view_count`
+- `V1.2.2` migration 扩展 `blog_article_like`，支持登录用户和游客匿名哈希主体，并通过部分唯一索引保证幂等
+- `V1.2.3` migration 新增 `blog_comment_like`，并为 `blog_comment` 增加点赞冗余计数及非负约束
+- `V1.2.6` migration 为 `blog_notification` 增加管理员消息草稿的单个指定用户字段
+- `V1.2.8` migration 新增隐私政策版本快照表，并为用户增加注册时接受的政策版本和时间
+- Dashboard 直接聚合现有业务表和 `blog_article_daily_stat`，每个趋势点同时返回周期增量和截至周期结束的累计值，不新增历史点赞事件表；用户趋势包含所有已创建账号，文章点赞趋势按当前仍存在的明细归期，评论和留言趋势按当前 `APPROVED` 状态及 `created_at` 归期
+- P2 所有新表、字段、约束和索引都必须使用新的 Flyway migration；本节目标 SQL 不能用于修改已执行的历史 migration
+- 文章/评论点赞明细与冗余计数必须事务一致；游客点赞不与登录账号自动合并
+- 浏览去重 key 只保存在 Redis 一小时，PostgreSQL 保存文章总量和每日聚合
+- 通知收件记录只面向登录用户；留言板公告不保存通知已读状态
+- 邮件投递失败原因只能保存安全摘要，手动重试根据业务关联重新生成正文
+- 友链分区固定为 FRIENDS、EXPERTS、PEERS，由管理员直接维护友链记录，不保存留言申请状态
+- `V1.0.0` 只创建了空的 `blog_friend_link` 占位表，migration 和 devdata 均未播种友链记录。`V1.2.12` 删除该空占位表并按本节最终结构重建，固定三个分区并将新建友链排序默认值设为 `100`。

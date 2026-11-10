@@ -1,0 +1,34 @@
+:root {
+	--app-header-height: 3.5rem;
+	--app-header-z-index: 1000;
+	// --app-header-shadow: 0 8px 24px rgb(31 41 51 / 8%);
+	--app-header-shadow: 0 1px 0 var(--app-border);
+	--app-container-width: 1200px;
+	--app-page-padding-x: 1rem;
+	--app-main-padding-y: 1.5rem;
+
+	--app-admin-sidebar-width: 200px;
+	--app-admin-min-sidebar-width: 80px;
+	--app-admin-max-sidebar-width: 200px;
+	--app-admin-header-height: 3.5rem;
+	--app-admin-main-padding-x: 0rem;
+	--app-admin-main-padding-y: 0rem;
+
+	--app-article-detail-width: 1024px;
+	--app-article-catalog-sidebar-width: 360px;
+
+	--app-category-mobile-header-height: 2.5rem;
+
+	--app-about-content-width: 900px;
+
+	--app-footer-height: 10rem;
+
+	@media (width < 768px) {
+		--app-page-padding-x: 0.75rem;
+		--app-article-catalog-sidebar-width: 300px;
+	}
+
+	@media (width < 376px) {
+		--app-article-catalog-sidebar-width: 280px;
+	}
+}
