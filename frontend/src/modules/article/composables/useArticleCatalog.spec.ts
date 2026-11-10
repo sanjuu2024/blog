@@ -30,6 +30,18 @@ const WindowCatalogHarness = defineComponent({
 	template: '<div ref="contentRef"><h2>窗口标题</h2></div>',
 });
 
+const DialogCatalogHarness = defineComponent({
+	setup() {
+		const contentRef = ref<HTMLElement | null>(null);
+		const scrollTarget = ref<HTMLElement | null>(null);
+		const headingOffset = ref(120);
+		const catalog = useArticleCatalog(contentRef, { scrollTarget, headingOffset });
+		return { contentRef, scrollTarget, headingOffset, ...catalog };
+	},
+	template:
+		'<div ref="scrollTarget"><div ref="contentRef"><h2 id="shared-heading">预览章节</h2><h3>预览子节</h3></div></div>',
+});
+
 afterEach(() => {
 	document.body.innerHTML = '';
 	vi.restoreAllMocks();
@@ -109,5 +121,51 @@ describe('useArticleCatalog', () => {
 
 		expect(wrapper.vm.catalogList).toEqual([]);
 		expect(wrapper.vm.activeCatalogId).toBe('');
+	});
+
+	it('uses the explicit dialog container and header offset for scoped jumps and active headings', () => {
+		const outsideHeading = document.createElement('h2');
+		outsideHeading.id = 'shared-heading';
+		document.body.appendChild(outsideHeading);
+		const outsideRect = vi.spyOn(outsideHeading, 'getBoundingClientRect');
+		const wrapper = mount(DialogCatalogHarness, { attachTo: document.body });
+		const dialog = wrapper.vm.scrollTarget!;
+		let scrollTop = 50;
+		Object.defineProperties(dialog, {
+			scrollTop: { configurable: true, get: () => scrollTop },
+			clientHeight: { configurable: true, value: 500 },
+			scrollHeight: { configurable: true, value: 1500 },
+		});
+		dialog.scrollTo = vi.fn();
+		vi.spyOn(dialog, 'getBoundingClientRect').mockReturnValue({ top: 10 } as DOMRect);
+		const headings = wrapper.findAll('h2, h3');
+		vi.spyOn(headings[0].element, 'getBoundingClientRect').mockImplementation(
+			() => ({ top: 260 - scrollTop }) as DOMRect,
+		);
+		vi.spyOn(headings[1].element, 'getBoundingClientRect').mockImplementation(
+			() => ({ top: 710 - scrollTop }) as DOMRect,
+		);
+		let frame: FrameRequestCallback | undefined;
+		vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+			frame = callback;
+			return 1;
+		});
+
+		wrapper.vm.refreshCatalog();
+		expect(wrapper.vm.activeCatalogId).toBe('');
+		wrapper.vm.scrollToHeading('shared-heading');
+		expect(dialog.scrollTo).toHaveBeenCalledWith({ top: 130, behavior: 'smooth' });
+		expect(outsideRect).not.toHaveBeenCalled();
+		scrollTop = 150;
+		dialog.dispatchEvent(new Event('scroll'));
+		frame!(0);
+		expect(wrapper.vm.activeCatalogId).toBe('shared-heading');
+
+		const removeListener = vi.spyOn(dialog, 'removeEventListener');
+		wrapper.vm.contentRef = null;
+		wrapper.vm.refreshCatalog();
+		expect(removeListener).toHaveBeenCalledWith('scroll', expect.any(Function));
+		expect(wrapper.vm.catalogList).toEqual([]);
+		wrapper.unmount();
 	});
 });

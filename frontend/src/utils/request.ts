@@ -46,7 +46,7 @@ function handleSessionFailure() {
 // 1. 创建 axios 实例
 const request = axios.create({
 	baseURL: import.meta.env.VITE_API_BASE_URL, // 请求接口基础 url
-	timeout: 5000, // 请求超时时间
+	timeout: 8000, // 请求超时时间
 	paramsSerializer: {
 		indexes: null, // 当 query 参数有数组时，格式会 e.g. tagIds=1&tagIds=2，而不是 tagIds[]=1&tagIds[]=2（虽然两种格式后端目前写法都能正常接收处理）
 	},
@@ -126,6 +126,8 @@ request.interceptors.response.use(
 					break;
 				}
 			}
+		} else if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
+			errMsg = '请求超时，请稍后重试';
 		} else if (err.request) {
 			// 已发出请求，但没有收到响应
 			errMsg = '网络异常，请稍后重试';
@@ -134,7 +136,7 @@ request.interceptors.response.use(
 		}
 
 		if (showError && code !== ApiCode.PRIVACY_POLICY_VERSION_MISMATCH) {
-			ElMessage.error(errMsg);
+			ElMessage.error({ message: errMsg, grouping: true });
 		}
 
 		return Promise.reject(err);

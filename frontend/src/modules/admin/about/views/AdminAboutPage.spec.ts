@@ -18,6 +18,7 @@ const pageState = vi.hoisted(() => ({
 }));
 const getAdminAboutPage = vi.hoisted(() => vi.fn());
 const saveAboutPage = vi.hoisted(() => vi.fn());
+const editorInsert = vi.hoisted(() => vi.fn());
 
 vi.mock('vue-router', () => ({
 	onBeforeRouteLeave: (guard: () => Promise<boolean>) => {
@@ -36,10 +37,15 @@ vi.mock('@/modules/admin/file/api/adminFileApi', () => ({
 }));
 
 vi.mock('md-editor-v3', () => ({
+	config: vi.fn(),
 	MdEditor: {
 		name: 'MdEditor',
 		props: ['modelValue'],
 		emits: ['update:modelValue', 'onUploadImg'],
+		methods: { insert: editorInsert },
+		setup() {
+			return { getEditorView: () => ({ state: { selection: {} }, dispatch: vi.fn() }) };
+		},
 		template: '<textarea :value="modelValue" />',
 	},
 }));
@@ -105,7 +111,7 @@ describe('AdminAboutPage', () => {
 		expect(confirmLeave).toHaveBeenCalledTimes(1);
 	});
 
-	it('uploads about images and leaves title empty for manually entered captions', async () => {
+	it('uploads about images and inserts HTML without an automatic title', async () => {
 		const file = new File(['image'], 'about.png', { type: 'image/png' });
 		vi.mocked(uploadAdminImage).mockResolvedValueOnce({
 			url: 'https://img.example.com/about/content/image.png',
@@ -120,9 +126,13 @@ describe('AdminAboutPage', () => {
 		await flushPromises();
 
 		expect(uploadAdminImage).toHaveBeenCalledWith('ABOUT_CONTENT', file);
-		expect(callback).toHaveBeenCalledExactlyOnceWith([
-			{ url: 'https://img.example.com/about/content/image.png', alt: 'about.png', title: '' },
-		]);
+		expect(callback).toHaveBeenCalledExactlyOnceWith([]);
+		expect(editorInsert).toHaveBeenCalledTimes(1);
+		expect(editorInsert.mock.calls[0]![0]('')).toEqual({
+			targetValue:
+				'<img src="https://img.example.com/about/content/image.png" alt="about.png" />\n\n',
+			select: false,
+		});
 	});
 
 	it('inserts only successful uploads when some files fail validation or uploading', async () => {
@@ -146,9 +156,48 @@ describe('AdminAboutPage', () => {
 		await flushPromises();
 
 		expect(uploadAdminImage).toHaveBeenCalledTimes(2);
-		expect(callback).toHaveBeenCalledExactlyOnceWith([
-			{ url: '/about/ok.png', alt: 'ok.png', title: '' },
-		]);
+		expect(callback).toHaveBeenCalledExactlyOnceWith([]);
+		expect(editorInsert).toHaveBeenCalledTimes(1);
+		expect(editorInsert.mock.calls[0]![0]('')).toEqual({
+			targetValue: '<img src="/about/ok.png" alt="ok.png" />\n\n',
+			select: false,
+		});
+	});
+
+	it('keeps selected file order even when uploads finish in reverse order', async () => {
+		let resolveFirst!: (image: Awaited<ReturnType<typeof uploadAdminImage>>) => void;
+		vi.mocked(uploadAdminImage)
+			.mockReturnValueOnce(new Promise((resolve) => (resolveFirst = resolve)))
+			.mockResolvedValueOnce({
+				url: '/about/second.png',
+				originalName: 'second.png',
+				contentType: 'image/png',
+				size: 1,
+			});
+		const wrapper = mountPage();
+		wrapper
+			.getComponent({ name: 'MdEditor' })
+			.vm.$emit(
+				'onUploadImg',
+				[
+					new File(['1'], 'first.png', { type: 'image/png' }),
+					new File(['2'], 'second.png', { type: 'image/png' }),
+				],
+				vi.fn(),
+			);
+		await flushPromises();
+		expect(editorInsert).not.toHaveBeenCalled();
+
+		resolveFirst({
+			url: '/about/first.png',
+			originalName: 'first.png',
+			contentType: 'image/png',
+			size: 1,
+		});
+		await flushPromises();
+		expect(editorInsert.mock.calls[0]![0]('').targetValue).toBe(
+			'<img src="/about/first.png" alt="first.png" />\n<img src="/about/second.png" alt="second.png" />\n\n',
+		);
 	});
 
 	it('prevents saving and leaving until the pending upload finishes', async () => {

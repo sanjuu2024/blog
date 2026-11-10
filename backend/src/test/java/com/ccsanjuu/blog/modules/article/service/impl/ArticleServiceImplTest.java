@@ -231,6 +231,10 @@ class ArticleServiceImplTest {
         AdminArticleDetailVO result = articleService.getArticleDetail(ARTICLE_ID);
 
         assertEquals(ARTICLE_ID, result.getId());
+        assertEquals(CONTENT_MD, result.getContentMd());
+        assertEquals("Spring Boot notes", result.getTitle());
+        assertEquals(CATEGORY_ID, result.getCategoryId());
+        assertEquals(ArticleStatus.DRAFT, result.getStatus());
         assertEquals(List.of(TAG_ID, SECOND_TAG_ID), result.getTagIds());
     }
 

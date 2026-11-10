@@ -1,4 +1,5 @@
 import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { nextTick } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiCode } from '@/constants/apiCode';
 
@@ -56,6 +57,8 @@ vi.mock('element-plus', () => ({
 }));
 
 await import('./request');
+const { ElMessage: actualMessage } =
+	await vi.importActual<typeof import('element-plus')>('element-plus');
 
 axiosState.requestFulfilled = axiosState.instance.interceptors.request.use.mock.calls[0][0];
 axiosState.responseFulfilled = axiosState.instance.interceptors.response.use.mock.calls[0][0];
@@ -219,7 +222,75 @@ describe('request interceptors', () => {
 
 		expect(authStore.clearAuth).toHaveBeenCalled();
 		expect(router.replace).toHaveBeenCalled();
-		expect(messageError).toHaveBeenCalledWith('请求错误');
+		expect(messageError).toHaveBeenCalledWith({ message: '请求错误', grouping: true });
+	});
+
+	it.each(['ECONNABORTED', 'ETIMEDOUT'])('reports %s as a request timeout', async (code) => {
+		const error = { code, request: {}, config: requestConfig() } as AxiosError;
+
+		await expect(axiosState.responseRejected?.(error)).rejects.toBe(error);
+
+		expect(messageError).toHaveBeenCalledWith({
+			message: '请求超时，请稍后重试',
+			grouping: true,
+		});
+	});
+
+	it('keeps network failures distinct from timeouts', async () => {
+		const error = { code: 'ERR_NETWORK', request: {}, config: requestConfig() } as AxiosError;
+
+		await expect(axiosState.responseRejected?.(error)).rejects.toBe(error);
+
+		expect(messageError).toHaveBeenCalledWith({
+			message: '网络异常，请稍后重试',
+			grouping: true,
+		});
+	});
+
+	it.each(['ECONNABORTED', 'ERR_NETWORK'])(
+		'keeps %s silent when the request disables error messages',
+		async (code) => {
+			const error = {
+				code,
+				request: {},
+				config: requestConfig({ meta: { showError: false } }),
+			} as AxiosError;
+
+			await expect(axiosState.responseRejected?.(error)).rejects.toBe(error);
+
+			expect(messageError).not.toHaveBeenCalled();
+		},
+	);
+
+	it('groups concurrent identical errors and keeps different messages separate', async () => {
+		messageError.mockImplementation(actualMessage.error);
+		try {
+			const errors = ['ERR_NETWORK', 'ERR_NETWORK', 'ERR_NETWORK', 'ETIMEDOUT'].map(
+				(code) => ({ code, request: {}, config: requestConfig() }) as AxiosError,
+			);
+
+			const results = await Promise.allSettled(
+				errors.map((error) => axiosState.responseRejected!(error)),
+			);
+			await nextTick();
+
+			expect(results).toEqual(errors.map((error) => ({ status: 'rejected', reason: error })));
+			const messages = [...document.querySelectorAll('.el-message')];
+			expect(messages).toHaveLength(2);
+			const networkMessage = messages.find((message) =>
+				message.textContent?.includes('网络异常，请稍后重试'),
+			);
+			expect(networkMessage?.querySelector('.el-badge__content')?.textContent).toBe('3');
+			expect(
+				messages.some((message) => message.textContent?.includes('请求超时，请稍后重试')),
+			).toBe(true);
+		} finally {
+			messageError.mockReset();
+			actualMessage.closeAll();
+			await vi.waitFor(() => {
+				expect(document.querySelectorAll('.el-message')).toHaveLength(0);
+			});
+		}
 	});
 
 	it('leaves privacy policy version conflicts to the registration page', async () => {

@@ -179,6 +179,7 @@
 
 			<!-- md 编辑器 -->
 			<MdEditor
+				ref="editorRef"
 				v-model="upsertRequest.contentMd"
 				class="rounded-2xl"
 				:theme="resolvedTheme"
@@ -256,8 +257,9 @@
 
 <script setup lang="ts">
 import 'element-plus/es/components/message-box/style/css';
+import '@/modules/admin/file/utils/markdownEditor';
 import { computed, ref, onMounted, toRaw } from 'vue';
-import { MdEditor, type UploadImgEvent } from 'md-editor-v3';
+import { MdEditor, type ExposeParam, type UploadImgEvent } from 'md-editor-v3';
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { useAdminCategoryList } from '../../category/composables/useAdminCategoryList';
 import { useAdminTagList } from '../../tag/composables/useAdminTagList';
@@ -271,6 +273,10 @@ import { ARTICLE_STATUS, type CheckTagItem } from '../types/adminArticle';
 import { ElMessage, ElMessageBox, type FormInstance, type UploadProps } from 'element-plus';
 import AppTagCapsule from '@/components/AppTagCapsule.vue';
 import { useAdminImageUpload } from '@/modules/admin/file/composables/useAdminImageUpload';
+import {
+	createEditorImageHtml,
+	finishEditorImageUpload,
+} from '@/modules/admin/file/utils/editorImage';
 import { ADMIN_IMAGE_UPLOAD_SCENE } from '@/modules/admin/file/types/adminFile';
 import { IMAGE_ACCEPT } from '@/modules/file/utils/image';
 import { isEqual } from 'lodash';
@@ -281,6 +287,7 @@ import { useAdminArticlePreview } from '../composables/useAdminArticlePreview';
 
 const route = useRoute();
 const router = useRouter();
+const editorRef = ref<ExposeParam>();
 
 const { categoryList, getCategoryList } = useAdminCategoryList();
 
@@ -472,18 +479,21 @@ const handleCoverImageChange: UploadProps['onChange'] = async (uploadFile) => {
 };
 
 // MdEditor 选择图片后会传入文件列表和回调函数，这里同时上传用户选中的所有图片
-// 上传完成后将成功结果交给 callback，由编辑器自动在正文中插入对应的 Markdown 图片语法
+// 使用 insert 插入 HTML，避免默认回调生成 Markdown 图片语法；全部失败时不改正文。
 const handleContentImageUpload: UploadImgEvent = async (files, callback) => {
 	const images = await Promise.all(
 		files.map((file) => handleUploadAdminImage(ADMIN_IMAGE_UPLOAD_SCENE.ARTICLE_CONTENT, file)),
 	);
 
-	callback(
-		// 编辑器回调要求 title 字段；留空以便作者按需填写图注。
-		images.flatMap((image) =>
-			image ? [{ url: image.url, alt: image.originalName, title: '' }] : [],
-		),
-	);
+	const html = images
+		.flatMap((image) => (image ? [createEditorImageHtml(image)] : []))
+		.join('\n');
+	// 空行结束原始 HTML 块，确保图片后的 Markdown 仍会解析。
+	const editor = editorRef.value;
+	if (html && editor) {
+		editor.insert(() => ({ targetValue: `${html}\n\n`, select: false }));
+		await finishEditorImageUpload(editor, callback);
+	}
 };
 
 async function clickUpsertArticle() {

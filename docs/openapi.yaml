@@ -5,6 +5,7 @@ info:
   description: |
     个人技术博客系统 OpenAPI 规范。
     基础路径统一为 `/api/v1/**`，可直接导入 Apifox 使用。
+    文章、实际效果预览、关于页和隐私政策的 HTML 正文统一保留 font 标签及其 color 属性，支持与粗体、下划线嵌套；font 的其他属性仍被白名单清除。
 servers:
   - url: http://localhost:8080
     description: 本地开发环境
@@ -1533,7 +1534,7 @@ paths:
       tags:
         - Admin Files
       summary: 上传后台图片
-      description: 权限级别 `ADMIN`。用于文章封面、文章及关于页 Markdown 正文图片；ABOUT_CONTENT 保存到 about/content/ 目录，项目封面场景为未来项目模块预留。后端中转上传至阿里云 OSS，只返回公开 URL 和图片元数据，不直接修改文章、关于页或项目。编辑器以原文件名填写 alt，不自动填写用于图注的 title。支持 JPG、JPEG、PNG、WebP、GIF，最大 10 MB。
+      description: 权限级别 `ADMIN`。用于文章封面、文章及关于页 Markdown 正文图片；ABOUT_CONTENT 保存到 about/content/ 目录，项目封面场景为未来项目模块预留。后端中转上传至阿里云 OSS，只返回公开 URL 和图片元数据，不直接修改文章、关于页或项目。正文编辑器插入 HTML img 标签，以公开 URL 填写 src、原文件名填写 alt，属性值进行 HTML 转义，不自动添加用于图注的 title；只插入成功图片并保留选择顺序，历史 Markdown 图片语法继续支持。支持 JPG、JPEG、PNG、WebP、GIF，最大 10 MB。
       operationId: uploadAdminImage
       security:
         - bearerAuth: []
@@ -2185,7 +2186,7 @@ paths:
       tags:
         - Admin Articles
       summary: 获取后台文章详情
-      description: 权限级别 `ADMIN`。用于后台编辑页回显完整文章内容。
+      description: 权限级别 `ADMIN`。用于后台编辑页回显，正文仅返回 contentMd，不包含 contentHtml 和 contentText；实际效果预览继续通过文章预览接口获取 HTML，其余编辑字段保持原有约定。
       operationId: getAdminArticleDetail
       security:
         - bearerAuth: []
@@ -2209,8 +2210,6 @@ paths:
                     # 一、背景
 
                     这里是正文
-                  contentHtml: <h1>一、背景</h1><p>这里是正文</p>
-                  contentText: 一、背景 这里是正文
                   coverUrl: https://cdn.example.com/cover/token.png
                   status: DRAFT
                   isTop: true
@@ -4716,8 +4715,6 @@ components:
         - title
         - summary
         - contentMd
-        - contentHtml
-        - contentText
         - coverUrl
         - status
         - isTop
@@ -4742,14 +4739,6 @@ components:
           type: string
           description: Markdown 正文，供后台编辑器回显
           example: "# 一、背景\n\n这里是正文"
-        contentHtml:
-          type: string
-          description: 由 Markdown 转译并经白名单清洗的 HTML 正文；`==文字==` 转换为 mark，代码区域中的等号保留原样；保留 small、big、mark 标签且不开放额外属性，链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL
-          example: "<h1>一、背景</h1><p>这里是正文</p>"
-        contentText:
-          type: string
-          description: 从 Markdown 提取的纯文本正文，供全文搜索使用
-          example: "一、背景 这里是正文"
         coverUrl:
           type: string
           example: https://cdn.example.com/cover/token.png

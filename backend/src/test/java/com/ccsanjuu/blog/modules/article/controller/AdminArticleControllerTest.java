@@ -10,6 +10,7 @@ import com.ccsanjuu.blog.modules.article.model.dto.ArticlePreviewRequestDTO;
 import com.ccsanjuu.blog.modules.article.model.vo.ArticlePreviewVO;
 import com.ccsanjuu.blog.modules.article.model.enums.ArticleStatus;
 import com.ccsanjuu.blog.modules.article.model.vo.CreatedArticleVO;
+import com.ccsanjuu.blog.modules.article.model.vo.AdminArticleDetailVO;
 import com.ccsanjuu.blog.modules.article.service.ArticleService;
 import com.ccsanjuu.blog.modules.auth.mapper.AuthMapper;
 import com.ccsanjuu.blog.modules.auth.model.security.JwtPrincipal;
@@ -125,6 +126,22 @@ class AdminArticleControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(199001))
                 .andExpect(jsonPath("$.data[0].field").value("articleId"));
+    }
+
+    @Test
+    void getArticleDetailShouldReturnMarkdownWithoutRenderedOrPlainTextBody() throws Exception {
+        when(articleService.getArticleDetail(ARTICLE_ID)).thenReturn(AdminArticleDetailVO.builder()
+                .id(ARTICLE_ID).title("编辑文章").contentMd("# 编辑源")
+                .categoryId(CATEGORY_ID).tagIds(List.of(TAG_ID)).status(ArticleStatus.DRAFT).build());
+
+        mockMvc.perform(get("/api/v1/admin/articles/{articleId}", ARTICLE_ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.contentMd").value("# 编辑源"))
+                .andExpect(jsonPath("$.data.contentHtml").doesNotHaveJsonPath())
+                .andExpect(jsonPath("$.data.contentText").doesNotHaveJsonPath())
+                .andExpect(jsonPath("$.data.categoryId").value(CATEGORY_ID))
+                .andExpect(jsonPath("$.data.tagIds[0]").value(TAG_ID))
+                .andExpect(jsonPath("$.data.status").value("DRAFT"));
     }
 
     @Test

@@ -8,8 +8,6 @@ export function useAdminArticleDetail() {
 		title: '',
 		summary: '',
 		contentMd: '',
-		contentHtml: '',
-		contentText: '',
 		coverUrl: '',
 		status: ARTICLE_STATUS.DRAFT,
 		isTop: false,

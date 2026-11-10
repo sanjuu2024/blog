@@ -66,7 +66,13 @@ function createUniqueHeadingId(baseId: string, usedIds: Set<string>) {
 // 从已经渲染到页面上的文章 HTML 中扫描标题，生成目录数据
 // 这里写成 composable，而不是 utils，是因为它需要维护响应式 catalogList，
 // 也依赖组件传入的 DOM ref
-export function useArticleCatalog(contentRef: Ref<HTMLElement | null>) {
+export function useArticleCatalog(
+	contentRef: Ref<HTMLElement | null>,
+	options: {
+		scrollTarget?: Ref<HTMLElement | null>;
+		headingOffset?: Ref<number>;
+	} = {},
+) {
 	const catalogList = ref<ArticleCatalogItem[]>([]);
 	const activeCatalogId = ref('');
 
@@ -102,6 +108,7 @@ export function useArticleCatalog(contentRef: Ref<HTMLElement | null>) {
 	// 从文章正文向上找最近的真实滚动容器。
 	// 找不到时再退回 window，兼容以后页面改回 window 滚动的情况。
 	function getScrollContainer() {
+		if (options.scrollTarget?.value) return options.scrollTarget.value;
 		let element = contentRef.value?.parentElement ?? null;
 
 		while (element) {
@@ -177,7 +184,10 @@ export function useArticleCatalog(contentRef: Ref<HTMLElement | null>) {
 			return;
 		}
 
-		const readingLine = scrollTop + ACTIVE_HEADING_OFFSET + ACTIVE_HEADING_EXTRA_OFFSET;
+		const readingLine =
+			scrollTop +
+			(options.headingOffset?.value ?? ACTIVE_HEADING_OFFSET) +
+			ACTIVE_HEADING_EXTRA_OFFSET;
 		let activeId = '';
 
 		for (const heading of headingElements) {
@@ -266,7 +276,8 @@ export function useArticleCatalog(contentRef: Ref<HTMLElement | null>) {
 
 	// 点击目录项时调用，滚动到正文中对应的标题
 	function scrollToHeading(id: string) {
-		const heading = document.getElementById(id);
+		// 预览弹窗和编辑器可能同时存在同名标题，只在当前正文内定位。
+		const heading = headingElements.find((element) => element.id === id);
 		const container = scrollContainer ?? getScrollContainer();
 
 		if (!heading) return;
@@ -286,7 +297,7 @@ export function useArticleCatalog(contentRef: Ref<HTMLElement | null>) {
 		container.scrollTo({
 			top:
 				getHeadingTopInContainer(heading as HTMLHeadingElement, container) -
-				ACTIVE_HEADING_OFFSET,
+				(options.headingOffset?.value ?? ACTIVE_HEADING_OFFSET),
 			behavior: 'smooth',
 		});
 	}

@@ -28,6 +28,8 @@ public class ArticleContentRenderer {
     private static final Safelist ARTICLE_HTML_SAFELIST = new Safelist(Safelist.relaxed()
             // 保留安全的语义格式标签，属性仍按白名单清洗
             .addTags("del", "big", "mark")
+            .addTags("font")
+            .addAttributes("font", "color")
             // Markdown 表格 / 手写安全表格
             .addTags(
                     "table", "thead", "tbody", "tfoot", "tr", "th", "td",
@@ -94,6 +96,8 @@ public class ArticleContentRenderer {
     public ArticleContentRenderer() {
         // 创建配置集
         MutableDataSet options = new MutableDataSet();
+        // 按标点方向识别强调边界，允许 HTML 闭合标签后的粗体紧接中文正文。
+        options.set(Parser.INLINE_DELIMITER_DIRECTIONAL_PUNCTUATIONS, true);
 
         // 添加插件支持
         options.set(Parser.EXTENSIONS, List.of(
