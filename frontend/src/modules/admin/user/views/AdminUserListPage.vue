@@ -87,6 +87,7 @@
 		<!-- 表格部分 -->
 		<div class="admin-user-table-wrap">
 			<el-table
+				v-loading="loadingUsers"
 				ref="userTableRef"
 				:data="userList"
 				class="admin-user-table"
@@ -298,6 +299,8 @@ defineOptions({
 const userStore = useUserStore();
 
 // 用户列表数据
+const loadingUsers = ref(false);
+let userRequestId = 0;
 let userList = ref<AdminUserListItem[]>([]);
 const userTableRef = ref<TableInstance>();
 
@@ -317,6 +320,8 @@ const listQuery = reactive({
 
 // 获取分页列表
 async function getUserList(page: number = pageNum.value) {
+	const currentRequestId = ++userRequestId;
+	loadingUsers.value = true;
 	pageNum.value = page;
 	try {
 		// role 为空字符串时为 false，则会被设置为 undefined
@@ -329,11 +334,14 @@ async function getUserList(page: number = pageNum.value) {
 			status: listQuery.status || undefined,
 		} as AdminUserListQuery);
 
+		if (currentRequestId !== userRequestId) return;
 		userList.value = data.records;
 		pageSize.value = data.pageSize;
 		total.value = data.total;
 	} catch {
 		ElMessage.error('获取用户列表失败，请稍后重试。');
+	} finally {
+		if (currentRequestId === userRequestId) loadingUsers.value = false;
 	}
 }
 

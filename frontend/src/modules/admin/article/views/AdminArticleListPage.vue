@@ -16,6 +16,7 @@
 			<!-- 🔺🔺🔺用 v-bind 还是 v-model，取决于：子组件需不需要修改这个值 -->
 			<AdminArticleList
 				:article-list="articleList"
+				:loading="loading"
 				:page-meta="pageMeta"
 				v-model:page-num="pageParams.pageNum"
 				v-model:page-size="pageParams.pageSize"
@@ -37,7 +38,7 @@ import { useAdminArticleList } from '../composables/useAdminArticleList';
 import { useAdminArticleActions } from '../composables/useAdminArticleActions.ts';
 import { ARTICLE_STATUS, type AdminArticleListItem } from '../types/adminArticle.ts';
 
-const { articleList, pageMeta, pageParams, filterForm, getArticleList, resetFilterForm } =
+const { loading, articleList, pageMeta, pageParams, filterForm, getArticleList, resetFilterForm } =
 	useAdminArticleList();
 
 const { handleDeleteArticle, handleUpdateArticleStatus } = useAdminArticleActions();

@@ -9,31 +9,29 @@
 			<span>有新的回复时通过账号邮箱提醒我</span>
 			<span v-show="emailVerified === false">（邮箱未验证）</span>
 		</el-checkbox>
-		<el-input
+		<CommentTextInput
 			ref="inputRef"
-			v-model.trim="content"
-			type="textarea"
+			v-model="content"
 			:rows="3"
-			maxlength="1000"
-			show-word-limit
 			placeholder="检测到访客信号......等待评论电波接入！ヾ(≧▽≦*)o"
-		/>
-		<div class="mt-2 flex justify-end">
-			<el-button @click="emit('cancel')">取消</el-button>
-			<el-button
-				type="primary"
-				:loading="loading"
-				@click="emit('submit')"
-			>
-				发表回复
-			</el-button>
-		</div>
+		>
+			<template #actions>
+				<el-button @click="emit('cancel')">取消</el-button>
+				<el-button
+					type="primary"
+					:loading="loading"
+					@click="emit('submit')"
+				>
+					发表回复
+				</el-button>
+			</template>
+		</CommentTextInput>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { nextTick, onMounted, ref } from 'vue';
-import type { InputInstance } from 'element-plus';
+import CommentTextInput from './CommentTextInput.vue';
 
 defineOptions({
 	name: 'PublicCommentReplyEditor',
@@ -49,12 +47,12 @@ const { emailVerified, autofocus = false } = defineProps<{
 	autofocus?: boolean;
 }>();
 
-const inputRef = ref<InputInstance>();
+const inputRef = ref<InstanceType<typeof CommentTextInput>>();
 onMounted(async () => {
 	if (!autofocus) return;
 	await nextTick();
 	// 焦点只在编辑器首次渲染时设置；滚动由文章定位逻辑处理，避免两者抢位置。
-	inputRef.value?.textarea?.focus({ preventScroll: true });
+	inputRef.value?.focus();
 });
 
 const emit = defineEmits<{

@@ -171,4 +171,10 @@ pnpm dev
 - [前端设计](./docs/frontend-design.md)
 - [部署说明](./docs/deployment-ops.md) · [共享 Nginx 与 HTTPS 配置](./docs/shared-nginx-ingress.md)
 
-感谢项目使用的开源框架、组件和资源。网站图标与文字 Logo 所用资源的来源和授权见 [第三方资源声明](./docs/third-party-notices.md)。
+感谢项目使用的开源框架、组件和资源。项目使用的第三方视觉资源包括：
+
+- 网站 favicon 与图形 Logo：基于 [Google Noto Emoji Seedling](https://github.com/googlefonts/noto-emoji) 的 SVG 调整，遵循对应 SVG 资源的 Apache License 2.0。
+- 文字 Logo：[Long Cang](https://fonts.google.com/specimen/Long+Cang) 字体，采用 SIL Open Font License 1.1。
+- 评论表情：Alus、BiliBili、B站小黄脸、QQ、微信，资源及清单来自 [Waline Emojis](https://github.com/walinejs/emojis)，保留上游 GPL v3 许可证及来源说明，各图像、角色和商标的权利归各自权利人。
+
+详细来源与授权说明见 [第三方资源声明](./docs/third-party-notices.md)，部署文件另附 [公开声明](./frontend/public/THIRD_PARTY_NOTICES.txt) 与 [表情资源说明](./frontend/public/stickers/README.md)。

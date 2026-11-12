@@ -1,4 +1,4 @@
-﻿# 个人技术博客系统接口文档
+# 个人技术博客系统接口文档
 
 ## 1. 文档信息
 
@@ -154,7 +154,7 @@ Authorization: Bearer <access_token>
 | `106009` | `400` | `评论退订链接无效或已失效` | 评论退订令牌不存在或已失效 |
 | `106010` | `429` | `点赞操作过于频繁，请稍后再试` | 当前评论点赞用户 60 秒内点赞/取消操作超过 30 次 |
 | `107001` | `400` | `请选择需要上传的图片` | Multipart 图片为空或未携带文件 |
-| `107002` | `415` | `仅支持 JPG、JPEG、PNG、WebP 和 GIF 图片` | 图片真实文件类型不在允许范围内 |
+| `107002` | `415` | `仅支持 JPG、JPEG、PNG、WebP、GIF 和 AVIF 图片` | 图片真实文件类型不在允许范围内 |
 | `107003` | `413` | `图片大小超过限制` | 头像超过 2 MB，或其他图片超过 10 MB |
 | `107004` | `502` | `图片上传失败，请稍后重试` | 后端调用对象存储上传失败 |
 | `107005` | `429` | `头像上传过于频繁，请稍后再试` | 同一用户每分钟超过 1 次，或每 24 小时超过 10 次头像上传 |
@@ -594,7 +594,7 @@ Set-Cookie: refresh_token=; Max-Age=0; Path=/api/v1/auth; HttpOnly; SameSite=Lax
 - 非空关键词通过 PostgreSQL `zhparser` 解析，并使用 `plainto_tsquery` 查询 `title`、`summary` 和 `content_text` 生成的全文检索向量；全文分支中多个解析后的检索词之间为 AND 关系。同时对三个字段执行不区分大小写的字面量包含匹配，两种分支命中其一即可，不以全文分支无结果为前提。字面量分支按去除首尾空白后的整段关键词匹配，`%`、`_` 和正则字符均按普通文本处理；支持 `At` 命中 `AtCoder`，`code`、`forces` 命中 `codeforces`，纯数字子串规则保持一致。
 - 搜索条件可以和 `categoryId`、`tagIds`、`isTop`、`sort` 组合使用，分页结构保持不变，排序遵循下述规则。
 - 仅返回 `PUBLISHED` 文章，草稿和已下线文章即使匹配关键词也不会出现在结果中。
-- 全文匹配使用 `ts_headline`，仅字面量匹配也返回可选的安全标题高亮和摘要/正文片段；摘要命中优先于正文，同一字段全文命中优先使用已有全文高亮。字面量正文片段取首次命中前后各最多 50 个字符，省略部分显示省略号；不新增独立搜索接口。
+- 全文匹配使用 `ts_headline`，仅字面量匹配也返回可选的安全标题高亮和摘要/正文片段；摘要命中优先于正文，同一字段全文命中优先使用已有全文片段。应用层保留全文词项高亮，并补全片段内不区分大小写的完整关键词高亮；分词过滤导致“二叉”只标记“叉”时，高亮仍覆盖完整“二叉”，重叠范围不生成嵌套 mark。字面量正文片段取首次命中前后各最多 50 个字符，省略部分显示省略号；不新增独立搜索接口，不改变检索条件、片段选择或排序。
 - `highlightedTitle` 和 `searchSnippet` 中只有后端生成的 `<mark class="article-search-highlight">` 标签，原始文章文本在返回前会进行 HTML 转义。
 
 ### 排序规则
@@ -2321,6 +2321,14 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ## 11. 评论接口
 
+### 11.0 预置表情目录
+
+`GET /api/v1/comments/stickers`，权限 PUBLIC。返回通用响应，data 为表情库数组；每库包含 `id`、`name`、`iconUrl`、`items`，每项包含 `token`（例如 `[sticker:bilibili:doge]`）、`name`（沿用清单 item 名）、`url`（同源 `/stickers/...` 路径）。目录由前端 public/stickers 下的各库 info.json 按原顺序生成至后端资源，不提供写接口。前端缓存当前应用会话的成功目录，加载失败可重试；失败时普通文本评论仍可提交，无法确认的标记按普通文本计数和展示。
+
+前台评论读取与创建响应的 content 保留标记；后台审核列表 content 转为 `[表情名]`，评论回复通知的 content / originalContent 与邮件只提供文字替代，不解析 HTML。通知快照超过 2000 字符时截断并加省略号，完整评论不受影响。
+
+每库还可返回可选的 `gridMinWidthRem` 正数，单位 rem，来自对应 info.json；未配置时不返回，前端默认 3rem。Alus 配置为 4.5rem。该字段仅控制选择器列的最小宽度，不改变图片高度、宽高比、表情标记或存储结构；生成脚本拒绝非数值、非有限数或非正数。
+
 ## 11.1 获取顶层评论分页列表
 
 - 路由：`GET`
@@ -2379,7 +2387,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 | 字段名称 | 字段类型 | 必填 | 字段解释 |
 | --- | --- | --- | --- |
-| `content` | `String` | 是 | 纯文本内容，去除首尾空白后长度 `1-1000` |
+| `content` | `String` | 是 | 文本与预置表情标记；去除首尾空白后展示长度 `1-1000`，有效目录标记计 1，其他文本按 UTF-16 单元计数；每条最多 20 个有效表情（重复逐个计数），未知标记仅按文本计数；原始字符串最多 2260 单元 |
 | `parentId` | `Long` | 否 | 直接父评论 ID；不传表示顶层评论 |
 | `notifyOnReply` | `Boolean` | 否 | 是否订阅当前评论的直接回复邮件；仅当前账号邮箱已验证时允许为 `true` |
 
@@ -2565,7 +2573,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ## 13. 图片上传接口
 
-图片上传使用 `multipart/form-data`，由后端校验并中转上传到阿里云 OSS 公共读 Bucket。前端不得接触对象存储 AccessKey。支持 JPEG（`.jpg`、`.jpeg`）、PNG、WebP 和 GIF，不支持 SVG；后端以文件真实内容识别结果为准，不信任客户端文件扩展名或 Content-Type。
+图片上传使用 `multipart/form-data`，由后端校验并中转上传到阿里云 OSS 公共读 Bucket。前端不得接触对象存储 AccessKey。支持 JPEG（`.jpg`、`.jpeg`）、PNG、WebP、GIF 和 AVIF（`.avif`，`image/avif`），不支持 SVG；后端以文件真实内容识别结果为准，不信任客户端文件扩展名或 Content-Type。AVIF 要求完整且结构有效的 ftyp 头声明 avif 或 avis 品牌，兼容品牌同样可识别，不泛化接受 MP4/HEIC。
 
 上传对象使用不可变 UUID key，并通过配置的自定义公开域名返回完整 URL。P1 不压缩、不转换格式、不生成缩略图，也不自动删除被替换或失去引用的 OSS 对象。
 
@@ -2663,7 +2671,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 关闭 `allowComment` 只阻止新评论和回复，不影响已有评论展示和作者删除
 - 前台只显示两层，数据层仍保留无限层级的 `parentId` 和 `rootId`
 - 顶层评论分页不预载回复；回复由用户点击“共 x 条回复，点击查看”后按需请求
-- 评论内容只按纯文本展示，不解析 HTML 或 Markdown
+- 评论正文仅解析目录中已知的 `[sticker:库ID:表情ID]` 标记为静态资源图片，未知标记按普通文本展示；不解析 HTML 或 Markdown。每个有效表情计 1，单条评论或回复最多 20 个有效表情（重复逐个计数）。前后端使用同一份目录执行长度及数量校验，长度或数量超限沿用 400/199001，原始字符串最多 2260 个 UTF-16 单元。
 
 ### 14.5 图片上传相关
 

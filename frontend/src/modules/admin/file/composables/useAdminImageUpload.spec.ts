@@ -58,7 +58,9 @@ describe('useAdminImageUpload', () => {
 
 		expect(result).toBeUndefined();
 		expect(uploadAdminImage).not.toHaveBeenCalled();
-		expect(ElMessage.warning).toHaveBeenCalledWith('仅支持 JPG、JPEG、PNG、WebP 和 GIF 图片');
+		expect(ElMessage.warning).toHaveBeenCalledWith(
+			'仅支持 JPG、JPEG、PNG、WebP、GIF 和 AVIF 图片',
+		);
 	});
 
 	it('clears the pending state when the request fails', async () => {

@@ -58,13 +58,13 @@ class CommentReplyNotificationServiceImplTest {
     private CommentReplyNotificationServiceImpl notificationService;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws java.io.IOException {
         BlogMailProperties properties = new BlogMailProperties();
         properties.setEnabled(true);
         properties.setFrontendBaseUrl("https://blog.example.com");
         notificationService = new CommentReplyNotificationServiceImpl(
                 properties, new BlogProperties(), mailDeliveryService, mailNotificationSender,
-                commentMapper, articleMapper, userMapper, categoryMapper);
+                commentMapper, new CommentStickerServiceImpl(new com.fasterxml.jackson.databind.ObjectMapper()), articleMapper, userMapper, categoryMapper);
         org.mockito.Mockito.lenient().when(userMapper.selectById(10001L)).thenReturn(User.builder()
                 .id(10001L).email("alice@example.com").emailVerified(true).build());
         org.mockito.Mockito.lenient().when(userMapper.selectById(10002L)).thenReturn(User.builder()
@@ -104,6 +104,19 @@ class CommentReplyNotificationServiceImplTest {
         verify(mailNotificationSender).submit(any(), captor.capture());
         MailMessageContent content = captor.getValue().get();
         assertTrue(content.html().contains("&lt;原评论&gt;"));
+    }
+
+    @Test
+    void mailShouldUseTextForBothOriginalAndReplyStickers() {
+        commentMapper.selectById(60001L).setContent("原文[sticker:bilibili:doge]");
+        commentMapper.selectById(60002L).setContent("回复[sticker:wechat:微笑]");
+        notificationService.sendAfterCommit(commentMapper.selectById(60001L), commentMapper.selectById(60002L));
+        ArgumentCaptor<Supplier<MailMessageContent>> captor = ArgumentCaptor.forClass(Supplier.class);
+        verify(mailNotificationSender).submit(any(), captor.capture());
+        MailMessageContent content = captor.getValue().get();
+        assertTrue(content.html().contains("原文[doge]"));
+        assertTrue(content.html().contains("回复[微笑]"));
+        assertTrue(content.plainText().contains("原文[doge]"));
     }
 
     @Test

@@ -8,6 +8,23 @@ import PublicCommentSection from './PublicCommentSection.vue';
 import { usePublicCommentList } from '../composables/usePublicCommentList';
 import { COMMENT_STATUS, type CommentReplyState, type PublicCommentItem } from '../types/comment';
 
+vi.mock('../composables/useCommentStickers', () => ({
+	useCommentStickers: () => ({
+		stickers: ref(
+			new Map([
+				[
+					'[sticker:bilibili:doge]',
+					{
+						token: '[sticker:bilibili:doge]',
+						name: 'doge',
+						url: '/stickers/bilibili/bb_doge.png',
+					},
+				],
+			]),
+		),
+	}),
+}));
+
 vi.mock('vue-router', async (importOriginal) => ({
 	...(await importOriginal<typeof import('vue-router')>()),
 	useRoute: vi.fn(),
@@ -58,6 +75,13 @@ const stubs = {
 	ILucideThumbsUp: true,
 	PublicCommentContent: { template: '<div><slot name="reason" /><slot name="actions" /></div>' },
 	PublicCommentReplyEditor: true,
+	CommentTextInput: {
+		name: 'CommentTextInput',
+		props: ['modelValue'],
+		emits: ['update:modelValue'],
+		template:
+			'<div><textarea :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" /><slot name="actions" /></div>',
+	},
 	PublicUserProfilePopover: { template: '<div><slot /></div>' },
 };
 
@@ -114,6 +138,22 @@ describe('PublicCommentSection', () => {
 			removeReply: vi.fn(),
 			toggleCommentLike: vi.fn(),
 		} as never);
+	});
+
+	it('prevents submitting pasted content with more than 20 known stickers', async () => {
+		vi.mocked(useAuthStore).mockReturnValue({ accessToken: 'token', isLogin: true } as never);
+		const submit = vi.mocked(usePublicCommentList)().submitTopLevelComment;
+		const wrapper = mount(PublicCommentSection, {
+			props: { article: { id: 34, allowComment: true, commentCount: 0 } as never },
+			global: { stubs },
+		});
+		await wrapper.get('textarea').setValue('[sticker:bilibili:doge]'.repeat(21));
+		await wrapper
+			.findAll('button')
+			.find((button) => button.text() === '发表评论')!
+			.trigger('click');
+		expect(submit).not.toHaveBeenCalled();
+		wrapper.unmount();
 	});
 
 	it('does not render an empty reply list while locating a reply notification', async () => {

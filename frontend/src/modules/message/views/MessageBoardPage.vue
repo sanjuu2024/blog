@@ -6,6 +6,10 @@
 				<h1>留言板</h1>
 			</header> -->
 			<div class="message-board__scroll app-scrollbar app-scrollbar--stable">
+				<AppLoading
+					v-if="loading && messageList.length === 0"
+					:loading="true"
+				/>
 				<div
 					v-if="!messageList.length && !loading"
 					class="message-board__empty"
@@ -19,6 +23,7 @@
 					@delete="removeMessage"
 				/>
 				<AppLoadMoreTrigger
+					v-if="!loading || messageList.length > 0"
 					:loading="loading"
 					:has-next="pageParams.hasNext"
 					:show-no-more="messageList.length > 0"
@@ -38,6 +43,7 @@
 </template>
 
 <script setup lang="ts">
+import AppLoading from '@/components/AppLoading.vue';
 import { nextTick, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/authStore';

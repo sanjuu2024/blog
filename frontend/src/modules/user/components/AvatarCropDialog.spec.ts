@@ -63,6 +63,64 @@ describe('AvatarCropDialog', () => {
 		vi.stubGlobal('cancelAnimationFrame', vi.fn());
 	});
 
+	it('converts a decoded AVIF avatar to a 512px WebP crop', async () => {
+		const toBlob = vi.fn((callback: BlobCallback) =>
+			callback(new Blob(['crop'], { type: 'image/webp' })),
+		);
+		cropperSelection.$toCanvas.mockResolvedValue({ toBlob });
+		const wrapper = mount(AvatarCropDialog, {
+			props: {
+				modelValue: true,
+				sourceFile: new File(['avif'], 'avatar.avif', { type: 'image/avif' }),
+			},
+			global: {
+				stubs: {
+					ElDialog: defineComponent({
+						template: '<div><slot /><slot name="footer" /></div>',
+					}),
+					ElButton: defineComponent({ template: '<button><slot /></button>' }),
+				},
+			},
+		});
+		await flushPromises();
+		await wrapper
+			.findAll('button')
+			.find((button) => button.text() === '确定')!
+			.trigger('click');
+		await flushPromises();
+		expect(cropperSelection.$toCanvas).toHaveBeenCalledWith({ width: 512, height: 512 });
+		expect(toBlob).toHaveBeenCalledWith(expect.any(Function), 'image/webp', 0.92);
+		expect((wrapper.emitted('confirm')?.[0]?.[0] as File).type).toBe('image/webp');
+		wrapper.unmount();
+	});
+
+	it('reports undecodable AVIF without creating a crop or emitting an upload file', async () => {
+		vi.stubGlobal(
+			'Image',
+			class {
+				src = '';
+				decode = vi.fn().mockRejectedValue(new Error('unsupported'));
+			},
+		);
+		const wrapper = mount(AvatarCropDialog, {
+			props: {
+				modelValue: true,
+				sourceFile: new File(['bad'], 'avatar.avif', { type: 'image/avif' }),
+			},
+			global: {
+				stubs: {
+					ElDialog: defineComponent({ template: '<div><slot /></div>' }),
+					ElButton: true,
+				},
+			},
+		});
+		await flushPromises();
+		expect(wrapper.emitted('error')).toHaveLength(1);
+		expect(wrapper.emitted('confirm')).toBeUndefined();
+		expect(createCropper).not.toHaveBeenCalled();
+		wrapper.unmount();
+	});
+
 	it('initializes a centered square crop inside the square preview', async () => {
 		const wrapper = mount(AvatarCropDialog, {
 			props: {

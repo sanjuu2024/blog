@@ -14,6 +14,8 @@ type AdminTagQueryForm = Omit<AdminTagListQuery, 'status'> & {
 };
 
 export function useAdminTagList() {
+	const loading = ref(false);
+	let requestId = 0;
 	// 标签列表数据
 	const tagList = ref<AdminTagItem[]>([]);
 
@@ -33,11 +35,18 @@ export function useAdminTagList() {
 
 	// 获取标签列表
 	async function getTagList() {
+		const currentRequestId = ++requestId;
+		loading.value = true;
 		try {
 			const res = await listTags(buildTagQueryParams());
+			if (currentRequestId !== requestId) return false;
 			tagList.value = res;
+			return true;
 		} catch {
 			// 错误提示已经由 request 响应拦截器统一处理
+			return false;
+		} finally {
+			if (currentRequestId === requestId) loading.value = false;
 		}
 	}
 
@@ -81,6 +90,7 @@ export function useAdminTagList() {
 	}
 
 	return {
+		loading,
 		tagList,
 		queryParams,
 		getTagList,

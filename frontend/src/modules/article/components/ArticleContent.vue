@@ -4,12 +4,10 @@
 		:class="{ 'article-content-wrapper-squeeze-to-the-right': expanded }"
 		@click="closeCatalog"
 	>
-		<div
+		<AppLoading
 			v-if="isLoading"
-			class="flex items-center justify-center"
-		>
-			<i-lucide-loader class="animate-spin text-2xl text-gray-400" />
-		</div>
+			:loading="true"
+		/>
 
 		<div v-else-if="article">
 			<ArticleCatalogSidebar
@@ -208,6 +206,7 @@
 </template>
 
 <script setup lang="ts">
+import AppLoading from '@/components/AppLoading.vue';
 import { computed, ref } from 'vue';
 import { formatDateTime } from '@/utils/datetime';
 import type { PublicArticleDetailData } from '../types/article';

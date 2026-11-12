@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
 import com.ccsanjuu.blog.modules.file.service.ObjectStorageService;
+import com.ccsanjuu.blog.modules.file.service.ImageUploadService;
+import com.ccsanjuu.blog.modules.file.model.enums.AdminImageUploadScene;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
 import com.ccsanjuu.blog.modules.user.model.entity.User;
 import com.ccsanjuu.blog.modules.user.model.enums.UserStatus;
@@ -54,6 +56,9 @@ class ImageUploadIntegrationTest {
     @MockitoBean
     private ObjectStorageService objectStorageService;
 
+    @Autowired
+    private ImageUploadService imageUploadService;
+
     private String minuteRateLimitKey;
     private String dailyRateLimitKey;
 
@@ -65,6 +70,18 @@ class ImageUploadIntegrationTest {
         if (dailyRateLimitKey != null) {
             stringRedisTemplate.delete(dailyRateLimitKey);
         }
+    }
+
+    @Test
+    void adminImagesShouldStoreAvifWithOriginalBytesAndCorrectMime() throws Exception {
+        byte[] content = getClass().getResourceAsStream("/images/avif-fixture.avif").readAllBytes();
+        when(objectStorageService.upload(anyString(), any(), anyLong(), eq("image/avif")))
+                .thenReturn("https://img.test.example.com/test.avif");
+        var result = imageUploadService.uploadAdminImage(AdminImageUploadScene.ARTICLE_COVER,
+                new MockMultipartFile("file", "test.avif", "image/avif", content));
+        assertEquals("image/avif", result.getContentType());
+        assertEquals(content.length, result.getSize());
+        verify(objectStorageService).upload(anyString(), any(InputStream.class), eq((long) content.length), eq("image/avif"));
     }
 
     @Test

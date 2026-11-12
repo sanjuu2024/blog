@@ -9,6 +9,7 @@ import com.ccsanjuu.blog.modules.comment.mapper.CommentMapper;
 import com.ccsanjuu.blog.modules.comment.model.entity.Comment;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentStatus;
 import com.ccsanjuu.blog.modules.comment.service.CommentReplyNotificationService;
+import com.ccsanjuu.blog.modules.comment.service.CommentStickerService;
 import com.ccsanjuu.blog.modules.mail.model.bo.MailMessageContent;
 import com.ccsanjuu.blog.modules.mail.model.bo.ReplyMailContent;
 import com.ccsanjuu.blog.modules.mail.model.entity.MailDelivery;
@@ -42,6 +43,7 @@ public class CommentReplyNotificationServiceImpl implements CommentReplyNotifica
     private final MailDeliveryService mailDeliveryService;
     private final MailNotificationSender mailNotificationSender;
     private final CommentMapper commentMapper;
+    private final CommentStickerService commentStickerService;
     private final ArticleMapper articleMapper;
     private final UserMapper userMapper;
     private final CategoryMapper categoryMapper;
@@ -133,9 +135,9 @@ public class CommentReplyNotificationServiceImpl implements CommentReplyNotifica
                 null,
                 null,
                 "",
-                parent.getContent(),
+                commentStickerService.toPlainText(parent.getContent()),
                 replyAuthor.getNickname() + " 给您的回复如下：",
-                reply.getContent(),
+                commentStickerService.toPlainText(reply.getContent()),
                 "查看回复完整内容",
                 articleUrl,
                 unsubscribeUrl

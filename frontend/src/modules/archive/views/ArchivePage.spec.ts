@@ -6,6 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getEnabledCategories } from '@/modules/category/api/categoryApi';
 import { getEnabledTags } from '@/modules/tag/api/tagApi';
 import { getArchiveArticles, getArchiveYears } from '../api/archiveApi';
+import type { ArchiveArticlePage } from '../types/archive';
+import AppLoading from '@/components/AppLoading.vue';
+import AppLoadMoreTrigger from '@/components/AppLoadMoreTrigger.vue';
 import ArchivePage from './ArchivePage.vue';
 
 vi.mock('@/modules/category/api/categoryApi', () => ({ getEnabledCategories: vi.fn() }));
@@ -65,6 +68,57 @@ describe('ArchivePage', () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 		document.body.innerHTML = '';
+	});
+
+	it('uses content loading for the first page and keeps articles visible while loading more', async () => {
+		let resolveFirst!: (page: ArchiveArticlePage) => void;
+		let resolveNext!: (page: ArchiveArticlePage) => void;
+		vi.mocked(getArchiveArticles)
+			.mockReturnValueOnce(new Promise((resolve) => (resolveFirst = resolve)))
+			.mockReturnValueOnce(new Promise((resolve) => (resolveNext = resolve)));
+		const { wrapper } = await mountArchivePage('/archives?mode=time&year=2026');
+		const articleArea = wrapper.get('.article-list-wrapper');
+		expect(articleArea.getComponent(AppLoading).props('loading')).toBe(true);
+		expect(articleArea.findComponent(AppLoadMoreTrigger).exists()).toBe(false);
+		const firstPage: ArchiveArticlePage = {
+			total: 2,
+			totalPages: 2,
+			pageNum: 1,
+			pageSize: 10,
+			hasNext: true,
+			records: [
+				{
+					id: 1,
+					title: '归档文章',
+					publishedAt: '2026-11-01T00:00:00Z',
+					category: {
+						id: 2,
+						name: 'Java',
+						level: 2,
+						parent: { id: 1, name: '技术' },
+					},
+				},
+			],
+		};
+		resolveFirst(firstPage);
+		await flushPromises();
+		expect(articleArea.findComponent(AppLoading).exists()).toBe(false);
+		expect(articleArea.findAll('.archive-article')).toHaveLength(1);
+		articleArea.getComponent(AppLoadMoreTrigger).vm.$emit('load-more');
+		await flushPromises();
+		expect(articleArea.findComponent(AppLoading).exists()).toBe(false);
+		expect(articleArea.findAll('.archive-article')).toHaveLength(1);
+		expect(articleArea.getComponent(AppLoadMoreTrigger).props('loading')).toBe(true);
+		resolveNext({
+			...firstPage,
+			pageNum: 2,
+			hasNext: false,
+			records: [{ ...firstPage.records[0]!, id: 2 }],
+		});
+		await flushPromises();
+		expect(articleArea.findAll('.archive-article')).toHaveLength(2);
+		expect(articleArea.getComponent(AppLoadMoreTrigger).props('loading')).toBe(false);
+		wrapper.unmount();
 	});
 
 	it('switches modes through radio buttons and restores the selected tag from browser history', async () => {

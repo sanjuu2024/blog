@@ -14,6 +14,9 @@ const createArticle = vi.hoisted(() => vi.fn());
 const uploadAdminImage = vi.hoisted(() => vi.fn());
 const editorInsert = vi.hoisted(() => vi.fn());
 const previewArticle = vi.hoisted(() => vi.fn());
+const loadCategories = vi.hoisted(() => vi.fn());
+const loadTags = vi.hoisted(() => vi.fn());
+const loadDetails = vi.hoisted(() => vi.fn());
 
 vi.mock('../api/adminArticleApi', () => ({ previewArticle }));
 
@@ -60,21 +63,21 @@ vi.mock('../composables/useAdminArticleForm', () => ({
 vi.mock('../../category/composables/useAdminCategoryList', () => ({
 	useAdminCategoryList: () => ({
 		categoryList: ref(categories),
-		getCategoryList: vi.fn().mockResolvedValue(undefined),
+		getCategoryList: loadCategories,
 	}),
 }));
 
 vi.mock('../../tag/composables/useAdminTagList', () => ({
 	useAdminTagList: () => ({
 		tagList: ref(tags),
-		getTagList: vi.fn().mockResolvedValue(undefined),
+		getTagList: loadTags,
 	}),
 }));
 
 vi.mock('../composables/useAdminArticleDetail', () => ({
 	useAdminArticleDetail: () => ({
 		articleDetail: reactive(existingArticle),
-		handleGetArticleDetails: vi.fn().mockResolvedValue(true),
+		handleGetArticleDetails: loadDetails,
 	}),
 }));
 
@@ -138,6 +141,9 @@ async function mountPage() {
 describe('AdminArticleEditPage', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		loadCategories.mockReset().mockResolvedValue(true);
+		loadTags.mockReset().mockResolvedValue(true);
+		loadDetails.mockReset().mockResolvedValue(true);
 		uploadAdminImage.mockReset();
 		route.params = {};
 		routeLeave.guard = undefined;
@@ -147,6 +153,63 @@ describe('AdminArticleEditPage', () => {
 		categories = [];
 		tags = [];
 		existingArticle = {};
+	});
+
+	it('loads edit dependencies concurrently and enables editing only after all succeed', async () => {
+		route.params = { articleId: '40001' };
+		existingArticle = { title: '已有文章', contentMd: '已有正文', status: 'PUBLISHED' };
+		let resolveDetails!: (value: boolean) => void;
+		loadDetails.mockReturnValueOnce(
+			new Promise<boolean>((resolve) => {
+				resolveDetails = resolve;
+			}),
+		);
+		const wrapper = await mountPage();
+		expect(loadCategories).toHaveBeenCalledTimes(1);
+		expect(loadTags).toHaveBeenCalledTimes(1);
+		expect(loadDetails).toHaveBeenCalledWith(40001);
+		expect(wrapper.findComponent({ name: 'MdEditor' }).exists()).toBe(false);
+		expect(wrapper.get('.admin-article-submit-button').attributes('disabled')).toBeDefined();
+		expect(wrapper.get('.admin-article-submit-button').text()).toBe('更新文章');
+		expect(upsertRequest.title).toBe('');
+		expect(await routeLeave.guard?.()).toBe(true);
+		resolveDetails(true);
+		await flushPromises();
+		expect(upsertRequest.title).toBe('已有文章');
+		expect(wrapper.findComponent({ name: 'MdEditor' }).exists()).toBe(true);
+		expect(await routeLeave.guard?.()).toBe(true);
+		wrapper.unmount();
+	});
+
+	it('keeps failed initialization disabled and retries all dependencies', async () => {
+		loadCategories.mockResolvedValueOnce(false);
+		const wrapper = await mountPage();
+		expect(wrapper.text()).toContain('文章编辑数据加载失败');
+		expect(wrapper.findComponent({ name: 'MdEditor' }).exists()).toBe(false);
+		const retry = wrapper
+			.findAll('el-button-stub')
+			.find((button) => button.text() === '重新加载')!;
+		await retry.trigger('click');
+		await flushPromises();
+		expect(loadCategories).toHaveBeenCalledTimes(2);
+		expect(wrapper.findComponent({ name: 'MdEditor' }).exists()).toBe(true);
+		wrapper.unmount();
+	});
+
+	it('does not fill the form after leaving during initialization', async () => {
+		route.params = { articleId: '40001' };
+		existingArticle = { title: '旧响应', contentMd: '正文' };
+		let resolveDetails!: (value: boolean) => void;
+		loadDetails.mockReturnValueOnce(
+			new Promise<boolean>((resolve) => {
+				resolveDetails = resolve;
+			}),
+		);
+		const wrapper = await mountPage();
+		wrapper.unmount();
+		resolveDetails(true);
+		await flushPromises();
+		expect(upsertRequest.title).toBe('');
 	});
 
 	it('inserts successful uploads as HTML and completes the upload without default Markdown images', async () => {

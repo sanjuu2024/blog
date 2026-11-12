@@ -18,6 +18,7 @@ import {
 } from '../types/adminMessage';
 
 export function useAdminMessageList() {
+	const loading = ref(false);
 	let requestId = 0;
 	const messageList = ref<AdminMessageItem[]>([]);
 	const selectedMessageIds = ref<number[]>([]);
@@ -56,6 +57,7 @@ export function useAdminMessageList() {
 	async function getMessageList(page = pageParams.pageNum) {
 		const currentRequestId = ++requestId;
 		pageParams.pageNum = page;
+		loading.value = true;
 		try {
 			const data: AdminMessagePageData = await listMessages(buildQuery());
 			if (currentRequestId !== requestId) return;
@@ -68,6 +70,8 @@ export function useAdminMessageList() {
 			pageMeta.hasNext = data.hasNext;
 		} catch {
 			// 请求错误由统一响应拦截器提示。
+		} finally {
+			if (currentRequestId === requestId) loading.value = false;
 		}
 	}
 
@@ -182,6 +186,7 @@ export function useAdminMessageList() {
 	}
 
 	return {
+		loading,
 		messageList,
 		selectedMessageIds,
 		submitting,

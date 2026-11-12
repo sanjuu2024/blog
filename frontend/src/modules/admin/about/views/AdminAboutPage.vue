@@ -7,7 +7,13 @@
 					<el-button
 						type="primary"
 						:loading="submitting || imageUploading"
-						:disabled="submitting || imageUploading || !hasUnsavedChanges"
+						:disabled="
+							loading ||
+							loadFailed ||
+							submitting ||
+							imageUploading ||
+							!hasUnsavedChanges
+						"
 						@click="saveAboutPage"
 					>
 						保存

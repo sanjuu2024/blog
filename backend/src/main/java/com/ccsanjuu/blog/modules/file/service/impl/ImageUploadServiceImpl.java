@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.YearMonth;
@@ -80,8 +81,15 @@ public class ImageUploadServiceImpl implements ImageUploadService {
 
         try (InputStream inputStream = file.getInputStream()) {
             // 只信任文件头，不使用扩展名兜底，避免文本文件伪装成 .jpg 上传。
-            String detectedType = FileTypeUtil.getType(inputStream);
-            ImageFileType fileType = ImageFileType.fromDetectedType(detectedType);
+            byte[] header = inputStream.readNBytes(4096);
+            String detectedType = FileTypeUtil.getType(new ByteArrayInputStream(header));
+            boolean avifHeader = ImageFileType.isAvifHeader(header);
+            ImageFileType fileType = avifHeader
+                    ? ImageFileType.AVIF : ImageFileType.fromDetectedType(detectedType);
+            // 即使底层库认出 avif，也须通过上面的完整品牌校验。
+            if (fileType == ImageFileType.AVIF && !avifHeader) {
+                throw new BizException(ResultCode.IMAGE_TYPE_NOT_SUPPORTED);
+            }
             if (fileType == null) {
                 throw new BizException(ResultCode.IMAGE_TYPE_NOT_SUPPORTED);
             }
