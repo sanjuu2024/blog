@@ -1,5 +1,6 @@
 package com.ccsanjuu.blog.modules.notification.service.impl;
 
+import com.ccsanjuu.blog.modules.comment.service.CommentStickerService;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -43,6 +44,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationMapper notificationMapper;
     private final NotificationRecipientMapper notificationRecipientMapper;
     private final UserMapper userMapper;
+    private final CommentStickerService commentStickerService;
     private final TransactionTemplate replyNotificationTransaction;
 
     /**
@@ -51,16 +53,19 @@ public class NotificationServiceImpl implements NotificationService {
      * @param notificationMapper 通知持久层
      * @param userMapper 用户持久层
      * @param transactionManager 事务管理器
+     * @param commentStickerService 评论表情文字转换
      */
     public NotificationServiceImpl(
             NotificationMapper notificationMapper,
             NotificationRecipientMapper notificationRecipientMapper,
             UserMapper userMapper,
-            PlatformTransactionManager transactionManager
+            PlatformTransactionManager transactionManager,
+            CommentStickerService commentStickerService
     ) {
         this.notificationMapper = notificationMapper;
         this.notificationRecipientMapper = notificationRecipientMapper;
         this.userMapper = userMapper;
+        this.commentStickerService = commentStickerService;
         this.replyNotificationTransaction = new TransactionTemplate(transactionManager);
         this.replyNotificationTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
@@ -84,10 +89,12 @@ public class NotificationServiceImpl implements NotificationService {
                         .id(item.getId())
                         .type(item.getType())
                         .title(item.getTitle())
-                        .content(item.getContent())
+                        .content(item.getType() == NotificationType.COMMENT_REPLY
+                                ? commentStickerService.toPlainText(item.getContent()) : item.getContent())
                         .sourceId(item.getSourceId())
                         .authorName(item.getAuthorName())
-                        .originalContent(item.getOriginalContent())
+                        .originalContent(item.getType() == NotificationType.COMMENT_REPLY
+                                ? commentStickerService.toPlainText(item.getOriginalContent()) : item.getOriginalContent())
                         .articleId(item.getArticleId())
                         .articleTitle(item.getArticleTitle())
                         .parentId(item.getParentId())
@@ -284,7 +291,12 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public void createCommentReplyNotification(Long recipientUserId, Long sourceId, String title, String content) {
-        createReplyNotification(NotificationType.COMMENT_REPLY, recipientUserId, sourceId, title, content);
+        String plainText = commentStickerService.toPlainText(content);
+        // 表情文字替代可能长于原来的展示字数，通知快照继续遵守既有 2000 字符约束。
+        if (plainText.codePointCount(0, plainText.length()) > 2000) {
+            plainText = plainText.substring(0, plainText.offsetByCodePoints(0, 1999)) + "…";
+        }
+        createReplyNotification(NotificationType.COMMENT_REPLY, recipientUserId, sourceId, title, plainText);
     }
 
     /**

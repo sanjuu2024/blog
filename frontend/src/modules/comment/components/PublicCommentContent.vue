@@ -6,7 +6,17 @@
 			class="comment-content"
 			:class="{ 'comment-content--expanded': contentExpanded }"
 		>
-			{{ content }}
+			<template
+				v-for="(part, index) in parts"
+				:key="index"
+			>
+				<CommentSticker
+					v-if="part.sticker"
+					:name="part.sticker.name"
+					:url="part.sticker.url"
+				/>
+				<template v-else>{{ part.text }}</template>
+			</template>
 		</p>
 
 		<slot name="reason"></slot>
@@ -37,18 +47,24 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import { useResizeObserver } from '@vueuse/core';
+import { useCommentStickers } from '../composables/useCommentStickers';
+import { splitCommentContent } from '../utils/sticker';
+import CommentSticker from './CommentSticker.vue';
 
 defineOptions({
 	name: 'PublicCommentContent',
 });
 
-defineProps<{
+const props = defineProps<{
 	commentId: number;
 	content: string;
 	showActions?: boolean;
 }>();
+
+const { stickers } = useCommentStickers();
+const parts = computed(() => splitCommentContent(props.content, stickers.value));
 
 const contentRef = ref<HTMLElement | null>(null);
 const contentExpanded = ref(false);

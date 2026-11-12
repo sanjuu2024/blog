@@ -1,5 +1,19 @@
 第三方资源声明
 
+评论预置表情
+
+Alus、BiliBili、B站小黄脸、QQ、微信表情及 info.json 来自 Waline Emojis：
+https://github.com/walinejs/emojis
+https://github.com/walinejs/emojis/blob/main/README.md
+
+上游仓库根许可证为 GNU GPL v3：
+https://github.com/walinejs/emojis/blob/main/LICENSE
+许可证副本：/stickers/LICENSE.Waline-GPL-3.0.txt
+本地资源与维护说明：/stickers/README.md
+
+Waline README 注明 alus、bilibili、qq 等资源整理自 https://github.com/MiniValine。
+保留原图片、文件名和清单顺序；本项目另生成评论目录。各图像、角色和商标的权利归各自权利人，不表示其对本项目的背书。
+
 网站 favicon 与页面 Logo
 
 本网站 favicon 与页面 Logo 基于 Google Noto Emoji 项目中的 Seedling emoji SVG 调整而来。

@@ -28,6 +28,7 @@ import com.ccsanjuu.blog.modules.comment.model.enums.CommentStatus;
 import com.ccsanjuu.blog.modules.comment.model.enums.CommentType;
 import com.ccsanjuu.blog.modules.comment.model.vo.*;
 import com.ccsanjuu.blog.modules.comment.service.CommentService;
+import com.ccsanjuu.blog.modules.comment.service.CommentStickerService;
 import com.ccsanjuu.blog.modules.comment.service.CommentReplyNotificationService;
 import com.ccsanjuu.blog.modules.notification.service.NotificationService;
 import com.ccsanjuu.blog.modules.user.mapper.UserMapper;
@@ -73,6 +74,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
     private final NotificationService notificationService;
     private final CommentReplyNotificationService commentReplyNotificationService;
     private final LikeRateLimiter likeRateLimiter;
+    private final CommentStickerService commentStickerService;
 
     /**
      * 获取后台评论分页列表
@@ -132,6 +134,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
         List<AdminCommentItemVO> res = new ArrayList<>();
         records.forEach(c -> {
             AdminCommentItemVO tmp = BeanUtil.copyProperties(c, AdminCommentItemVO.class);
+            tmp.setContent(commentStickerService.toPlainText(c.getContent()));
             tmp.setArticle(BeanUtil.copyProperties(articleMap.get(c.getArticleId()), AdminCommentArticleVO.class));
             tmp.setAuthor(toAuthor(userMap.get(c.getUserId())));
             if (c.getParentId() == null){

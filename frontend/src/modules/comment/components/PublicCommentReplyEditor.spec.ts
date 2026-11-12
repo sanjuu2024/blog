@@ -3,6 +3,10 @@ import { defineComponent, ref } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import PublicCommentReplyEditor from './PublicCommentReplyEditor.vue';
 
+vi.mock('../composables/useCommentStickers', () => ({
+	useCommentStickers: () => ({ stickers: ref(new Map()) }),
+}));
+
 const ElInputStub = defineComponent({
 	setup(_, { expose }) {
 		const textarea = ref<HTMLTextAreaElement>();
@@ -40,7 +44,9 @@ describe('PublicCommentReplyEditor', () => {
 		await wrapper.get('textarea').setValue('回复内容');
 		expect(wrapper.emitted('update:modelValue')?.[0]).toEqual(['回复内容']);
 
-		const buttons = wrapper.findAll('button');
+		const buttons = wrapper
+			.findAll('button')
+			.filter((button) => ['取消', '发表回复'].includes(button.text()));
 		await buttons[0].trigger('click');
 		await buttons[1].trigger('click');
 		expect(wrapper.emitted('cancel')).toHaveLength(1);

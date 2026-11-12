@@ -51,9 +51,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = ArticleCommentController.class)
+@WebMvcTest(controllers = {ArticleCommentController.class, CommentStickerController.class})
 @Import({
         SecurityConfig.class,
+        com.ccsanjuu.blog.modules.comment.service.impl.CommentStickerServiceImpl.class,
         GlobalExceptionHandler.class,
         WebMvcConfig.class,
         ArticleCommentControllerTest.SecurityTestConfig.class
@@ -176,6 +177,55 @@ class ArticleCommentControllerTest {
         ArgumentCaptor<CreateCommentRequestDTO> captor = ArgumentCaptor.forClass(CreateCommentRequestDTO.class);
         verify(commentService).createComment(eq(ARTICLE_ID), eq(USER_ID), captor.capture());
         assertEquals("这篇文章不错", captor.getValue().getContent());
+    }
+
+    @Test
+    void stickerCatalogShouldBePublicAndPreserveManifestOrder() throws Exception {
+        mockMvc.perform(get("/api/v1/comments/stickers"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value("alus"))
+                .andExpect(jsonPath("$.data[0].gridMinWidthRem").value(4.5))
+                .andExpect(jsonPath("$.data[1].id").value("bilibili"))
+                .andExpect(jsonPath("$.data[1].gridMinWidthRem").doesNotExist())
+                .andExpect(jsonPath("$.data[1].items[0].token").value("[sticker:bilibili:doge]"));
+    }
+
+    @Test
+    void shouldAcceptTwentyStickersAndRejectTwentyOne() throws Exception {
+        when(commentService.createComment(eq(ARTICLE_ID), eq(USER_ID), any()))
+                .thenReturn(CommentMutationVO.builder().id(COMMENT_ID).build());
+        String token = "[sticker:bilibili:doge]";
+        mockMvc.perform(post("/api/v1/articles/{articleId}/comments", ARTICLE_ID)
+                        .header("Authorization", "Bearer " + accessToken(USER_ID, UserRole.USER))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\":\"" + "字".repeat(980) + token.repeat(20) + "\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/articles/{articleId}/comments", ARTICLE_ID)
+                        .header("Authorization", "Bearer " + accessToken(USER_ID, UserRole.USER))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\":\"" + token.repeat(21) + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(199001));
+    }
+
+    @Test
+    void shouldEnforceRawAndDisplayLengthIndependently() throws Exception {
+        when(commentService.createComment(eq(ARTICLE_ID), eq(USER_ID), any()))
+                .thenReturn(CommentMutationVO.builder().id(COMMENT_ID).build());
+        String boundary = " ".repeat(1260) + "字".repeat(1000);
+        mockMvc.perform(post("/api/v1/articles/{articleId}/comments", ARTICLE_ID)
+                        .header("Authorization", "Bearer " + accessToken(USER_ID, UserRole.USER))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\":\"" + boundary + "\"}"))
+                .andExpect(status().isOk());
+        for (String invalid : List.of(boundary + " ", "字".repeat(1001))) {
+            mockMvc.perform(post("/api/v1/articles/{articleId}/comments", ARTICLE_ID)
+                            .header("Authorization", "Bearer " + accessToken(USER_ID, UserRole.USER))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"content\":\"" + invalid + "\"}"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value(199001));
+        }
     }
 
     private String accessToken(Long userId, UserRole role) {

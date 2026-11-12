@@ -34,3 +34,15 @@
 - 许可证：SIL Open Font License, Version 1.1
 
 说明：Long Cang 使用 SIL Open Font License 1.1，可免费用于个人与商业项目，也可用于网站 Logo、图片、页面文本和应用内嵌字体。若项目分发字体文件本身，需要保留对应版权信息与 OFL 许可证文本；使用该字体生成的 Logo 图片、页面截图或其他设计输出不需要按 OFL 继续分发。
+
+## 评论预置表情
+
+评论选择器使用的 `alus`、`bilibili`、`bmoji`、`qq`、`wechat` 五个表情库及其 `info.json` 来源于 [Waline Emojis](https://github.com/walinejs/emojis)，保存在 `frontend/public/stickers/`，通过本站静态资源提供，不从第三方 CDN 热链加载。本项目保留原图片、文件名与清单顺序，另从清单生成供评论功能使用的目录。
+
+- 上游仓库：https://github.com/walinejs/emojis
+- 上游说明：https://github.com/walinejs/emojis/blob/main/README.md
+- 上游仓库根许可证：https://github.com/walinejs/emojis/blob/main/LICENSE（GNU GPL v3，副本随资源保存在 `public/stickers/LICENSE.Waline-GPL-3.0.txt`）
+- 上游 README 另注明 alus、bilibili、qq 等资源整理自 [MiniValine](https://github.com/MiniValine)。
+- 各表情图像、角色与商标的权利归各自权利人；仓库根许可证和资源来源均保留，不将其解释为本项目取得各品牌或角色的所有权或背书。
+
+部署后的来源说明还可通过 `/THIRD_PARTY_NOTICES.txt` 和 `/stickers/README.md` 查看。

@@ -1,7 +1,24 @@
 import { mount } from '@vue/test-utils';
-import { nextTick } from 'vue';
+import { nextTick, ref } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import PublicCommentContent from './PublicCommentContent.vue';
+
+vi.mock('../composables/useCommentStickers', () => ({
+	useCommentStickers: () => ({
+		stickers: ref(
+			new Map([
+				[
+					'[sticker:bilibili:doge]',
+					{
+						token: '[sticker:bilibili:doge]',
+						name: 'doge',
+						url: '/stickers/bilibili/bb_doge.png',
+					},
+				],
+			]),
+		),
+	}),
+}));
 
 const resizeObserver = vi.hoisted(() => ({ callback: undefined as (() => void) | undefined }));
 
@@ -42,6 +59,18 @@ function mountContent(showActions = false) {
 }
 
 describe('PublicCommentContent', () => {
+	it('renders known stickers while keeping HTML and unknown tokens as text', () => {
+		const wrapper = mount(PublicCommentContent, {
+			props: {
+				commentId: 1,
+				content: '<script>alert(1)</script>[sticker:bilibili:doge][sticker:unknown:doge]',
+			},
+		});
+		expect(wrapper.find('script').exists()).toBe(false);
+		expect(wrapper.get('img').attributes('src')).toBe('/stickers/bilibili/bb_doge.png');
+		expect(wrapper.text()).toContain('<script>alert(1)</script>');
+		expect(wrapper.text()).toContain('[sticker:unknown:doge]');
+	});
 	it('does not show the toggle for a one-pixel rendering difference', async () => {
 		const { wrapper } = mountContent();
 		const content = wrapper.get('.comment-content');
