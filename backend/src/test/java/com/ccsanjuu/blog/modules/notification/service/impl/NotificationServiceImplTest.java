@@ -3,6 +3,9 @@ package com.ccsanjuu.blog.modules.notification.service.impl;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.exception.BizException;
+import com.ccsanjuu.blog.modules.comment.service.CommentStickerService;
+import com.ccsanjuu.blog.modules.comment.service.impl.CommentStickerServiceImpl;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ccsanjuu.blog.modules.notification.mapper.NotificationMapper;
 import com.ccsanjuu.blog.modules.notification.mapper.NotificationRecipientMapper;
 import com.ccsanjuu.blog.modules.notification.model.bo.NotificationItemBO;
@@ -30,6 +33,7 @@ import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.OffsetDateTime;
+import java.io.IOException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -59,7 +63,7 @@ class NotificationServiceImplTest {
 
     @Test
     void shouldReturnArticleTitleOnlyForCommentReplyNotifications() {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager, stickerService());
         NotificationItemBO commentReply = new NotificationItemBO();
         commentReply.setType(NotificationType.COMMENT_REPLY);
         commentReply.setArticleId(40001L);
@@ -84,7 +88,7 @@ class NotificationServiceImplTest {
 
     @Test
     void shouldCreateAdminMessageForAllUsers() {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager, stickerService());
         when(notificationMapper.insert(any(Notification.class))).thenAnswer(invocation -> {
             Notification notification = invocation.getArgument(0);
             notification.setId(70001L);
@@ -110,7 +114,7 @@ class NotificationServiceImplTest {
 
     @Test
     void shouldCreateDraftWithoutRecipientsAndSendWhenPublished() {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager, stickerService());
         Notification draft = Notification.builder()
                 .id(70002L)
                 .type(NotificationType.ADMIN_MESSAGE)
@@ -140,7 +144,7 @@ class NotificationServiceImplTest {
 
     @Test
     void shouldCreateSelectedDraftWithoutRecipientsUntilPublished() {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager, stickerService());
         when(notificationMapper.insert(any(Notification.class))).thenAnswer(invocation -> {
             Notification notification = invocation.getArgument(0);
             notification.setId(70003L);
@@ -168,7 +172,7 @@ class NotificationServiceImplTest {
 
     @Test
     void shouldRejectSelectedUserWhenInsertDoesNotCreateRecipient() {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager, stickerService());
         when(notificationMapper.insert(any(Notification.class))).thenAnswer(invocation -> {
             ((Notification) invocation.getArgument(0)).setId(70003L);
             return 1;
@@ -188,7 +192,7 @@ class NotificationServiceImplTest {
     @ParameterizedTest
     @CsvSource({"DRAFT, false", "DRAFT, true", "PUBLISHED, false", "PUBLISHED, true"})
     void shouldRejectInvalidRecipientBeforeCreatingMessage(NotificationStatus status, boolean deleted) {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager, stickerService());
         when(userMapper.selectById(10002L)).thenReturn(deleted
                 ? User.builder().id(10002L).deletedAt(OffsetDateTime.now()).build() : null);
         CreateAdminNotificationRequestDTO request = new CreateAdminNotificationRequestDTO();
@@ -209,7 +213,7 @@ class NotificationServiceImplTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void shouldKeepDraftWhenUpdatedRecipientIsInvalid(boolean deleted) {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager, stickerService());
         Notification draft = Notification.builder()
                 .id(70002L)
                 .type(NotificationType.ADMIN_MESSAGE)
@@ -238,7 +242,7 @@ class NotificationServiceImplTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void shouldRevalidateRecipientBeforePublishingDraft(boolean deleted) {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager, stickerService());
         Notification draft = Notification.builder()
                 .id(70002L)
                 .type(NotificationType.ADMIN_MESSAGE)
@@ -262,7 +266,7 @@ class NotificationServiceImplTest {
 
     @Test
     void shouldRejectUnknownReadCategory() {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager, stickerService());
 
         BizException error = assertThrows(BizException.class, () -> service.markAllRead(10001L, "UNKNOWN"));
 
@@ -272,7 +276,7 @@ class NotificationServiceImplTest {
 
     @Test
     void shouldPersistReplySource() {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager, stickerService());
         when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
         when(notificationMapper.insert(any(Notification.class))).thenAnswer(invocation -> {
             ((Notification) invocation.getArgument(0)).setId(70004L);
@@ -295,8 +299,20 @@ class NotificationServiceImplTest {
     }
 
     @Test
+    void commentStickerTextShouldRespectExistingNotificationLengthLimit() {
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper,
+                userMapper, transactionManager, stickerService());
+        when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
+        service.createCommentReplyNotification(10002L, 30001L, "回复", "[sticker:bilibili:doge]".repeat(1000));
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationMapper).insert(captor.capture());
+        assertEquals(2000, captor.getValue().getContent().length());
+        assertEquals("[doge]".repeat(333) + "[…", captor.getValue().getContent());
+    }
+
+    @Test
     void shouldNotPropagateReplyNotificationFailureAfterCommit() {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager, stickerService());
         when(transactionManager.getTransaction(any())).thenThrow(new IllegalStateException("database unavailable"));
 
         TransactionSynchronizationManager.initSynchronization();
@@ -313,7 +329,7 @@ class NotificationServiceImplTest {
 
     @Test
     void shouldReturnUnreadCounts() {
-        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager);
+        NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper, userMapper, transactionManager, stickerService());
         NotificationUnreadCountBO count = new NotificationUnreadCountBO();
         count.setTotal(3L);
         count.setReply(2L);
@@ -325,5 +341,18 @@ class NotificationServiceImplTest {
         assertEquals(3L, result.getTotal());
         assertEquals(2L, result.getReply());
         assertEquals(1L, result.getAdminMessage());
+    }
+
+    /**
+     * 读取真实目录，避免文字转换测试依赖模拟的表情结果。
+     *
+     * @return 表情服务
+     */
+    private CommentStickerService stickerService() {
+        try {
+            return new CommentStickerServiceImpl(new ObjectMapper());
+        } catch (IOException exception) {
+            throw new IllegalStateException(exception);
+        }
     }
 }

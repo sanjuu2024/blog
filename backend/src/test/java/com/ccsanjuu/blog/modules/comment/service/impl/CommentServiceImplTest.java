@@ -116,10 +116,10 @@ class CommentServiceImplTest {
     }
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws java.io.IOException {
         commentService = new CommentServiceImpl(articleMapper, commentMapper, commentLikeMapper,
                 userMapper, stringRedisTemplate, notificationService, commentReplyNotificationService,
-                likeRateLimiter);
+                likeRateLimiter, new CommentStickerServiceImpl(new com.fasterxml.jackson.databind.ObjectMapper()));
         ReflectionTestUtils.setField(commentService, "baseMapper", commentMapper);
         ReflectionTestUtils.setField(commentService, "entityClass", Comment.class);
         ReflectionTestUtils.setField(commentService, "mapperClass", CommentMapper.class);
@@ -152,7 +152,7 @@ class CommentServiceImplTest {
                 .id(COMMENT_ID)
                 .articleId(ARTICLE_ID)
                 .userId(USER_ID)
-                .content("这篇文章不错")
+                .content("这篇文章不错[sticker:bilibili:doge]")
                 .status(CommentStatus.APPROVED)
                 .createdAt(CREATED_AT)
                 .build();
@@ -170,6 +170,8 @@ class CommentServiceImplTest {
         assertEquals(1, result.getTotal());
         assertEquals(1, result.getRecords().size());
         assertEquals(CommentType.TOP_LEVEL, result.getRecords().getFirst().getType());
+        assertEquals("这篇文章不错[doge]", result.getRecords().getFirst().getContent());
+        assertEquals("这篇文章不错[sticker:bilibili:doge]", comment.getContent());
         verify(commentMapper).selectPage(any(Page.class), any());
     }
 

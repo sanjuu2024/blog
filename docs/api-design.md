@@ -1,4 +1,4 @@
-﻿# 个人技术博客系统接口文档
+# 个人技术博客系统接口文档
 
 ## 1. 文档信息
 
@@ -2321,6 +2321,14 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ## 11. 评论接口
 
+### 11.0 预置表情目录
+
+`GET /api/v1/comments/stickers`，权限 PUBLIC。返回通用响应，data 为表情库数组；每库包含 `id`、`name`、`iconUrl`、`items`，每项包含 `token`（例如 `[sticker:bilibili:doge]`）、`name`（沿用清单 item 名）、`url`（同源 `/stickers/...` 路径）。目录由前端 public/stickers 下的各库 info.json 按原顺序生成至后端资源，不提供写接口。前端缓存当前应用会话的成功目录，加载失败可重试；失败时普通文本评论仍可提交，无法确认的标记按普通文本计数和展示。
+
+前台评论读取与创建响应的 content 保留标记；后台审核列表 content 转为 `[表情名]`，评论回复通知的 content / originalContent 与邮件只提供文字替代，不解析 HTML。通知快照超过 2000 字符时截断并加省略号，完整评论不受影响。
+
+每库还可返回可选的 `gridMinWidthRem` 正数，单位 rem，来自对应 info.json；未配置时不返回，前端默认 3rem。Alus 配置为 4.5rem。该字段仅控制选择器列的最小宽度，不改变图片高度、宽高比、表情标记或存储结构；生成脚本拒绝非数值、非有限数或非正数。
+
 ## 11.1 获取顶层评论分页列表
 
 - 路由：`GET`
@@ -2379,7 +2387,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 | 字段名称 | 字段类型 | 必填 | 字段解释 |
 | --- | --- | --- | --- |
-| `content` | `String` | 是 | 纯文本内容，去除首尾空白后长度 `1-1000` |
+| `content` | `String` | 是 | 文本与预置表情标记；去除首尾空白后展示长度 `1-1000`，有效目录标记计 1，其他文本按 UTF-16 单元计数；每条最多 20 个有效表情（重复逐个计数），未知标记仅按文本计数；原始字符串最多 2260 单元 |
 | `parentId` | `Long` | 否 | 直接父评论 ID；不传表示顶层评论 |
 | `notifyOnReply` | `Boolean` | 否 | 是否订阅当前评论的直接回复邮件；仅当前账号邮箱已验证时允许为 `true` |
 
@@ -2663,7 +2671,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 关闭 `allowComment` 只阻止新评论和回复，不影响已有评论展示和作者删除
 - 前台只显示两层，数据层仍保留无限层级的 `parentId` 和 `rootId`
 - 顶层评论分页不预载回复；回复由用户点击“共 x 条回复，点击查看”后按需请求
-- 评论内容只按纯文本展示，不解析 HTML 或 Markdown
+- 评论正文仅解析目录中已知的 `[sticker:库ID:表情ID]` 标记为静态资源图片，未知标记按普通文本展示；不解析 HTML 或 Markdown。每个有效表情计 1，单条评论或回复最多 20 个有效表情（重复逐个计数）。前后端使用同一份目录执行长度及数量校验，长度或数量超限沿用 400/199001，原始字符串最多 2260 个 UTF-16 单元。
 
 ### 14.5 图片上传相关
 

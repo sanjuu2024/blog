@@ -1045,6 +1045,27 @@ paths:
           $ref: '#/components/responses/UnauthorizedResponse'
         '429':
           $ref: '#/components/responses/ArticleLikeRateLimitedResponse'
+  /api/v1/comments/stickers:
+    get:
+      tags: [Public Comments]
+      summary: 获取预置评论表情目录
+      description: PUBLIC，只读静态目录。按各库 info.json 顺序返回；图片使用同源静态路径，用户不能上传表情。前台仅将目录中的有效 token 渲染为图片。
+      operationId: listCommentStickers
+      security: []
+      responses:
+        '200':
+          description: 表情库目录
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/CommentStickerPack'
   /api/v1/articles/{articleId}/comments:
     get:
       tags:
@@ -5299,6 +5320,7 @@ components:
           format: int64
         content:
           type: string
+          description: 原始评论文本，保留预置表情标记；前端仅对目录内的有效标记渲染图片，其他内容按文本展示。
         status:
           $ref: '#/components/schemas/CommentStatus'
         moderationReason:
@@ -5378,6 +5400,28 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/CommentReplyPageData'
+    CommentStickerPack:
+      type: object
+      required: [id, name, iconUrl, items]
+      properties:
+        id: { type: string, example: bilibili }
+        name: { type: string, example: BiliBili }
+        iconUrl: { type: string, example: /stickers/bilibili/bb_cute.png }
+        gridMinWidthRem:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          example: 4.5
+          description: 可选的选择器网格列最小宽度，单位 rem，来自各库 info.json；未配置时不返回，前端使用 3rem，Alus 配置为 4.5rem。仅控制列宽，不改变图片比例。
+        items:
+          type: array
+          items:
+            type: object
+            required: [token, name, url]
+            properties:
+              token: { type: string, example: '[sticker:bilibili:doge]' }
+              name: { type: string, example: doge }
+              url: { type: string, example: /stickers/bilibili/bb_doge.png }
     CreateCommentRequest:
       type: object
       required: [content]
@@ -5385,8 +5429,8 @@ components:
         content:
           type: string
           minLength: 1
-          maxLength: 1000
-          description: 纯文本内容，服务端去除首尾空白后校验长度
+          maxLength: 2260
+          description: 文本与预置表情标记。服务端去除首尾空白后按展示长度校验 1-1000；目录中有效的 [sticker:库ID:表情ID] 计 1，其余按 UTF-16 单元计数，未知标记为普通文本。每条评论或回复最多 20 个有效表情，同一表情重复出现逐个计数；未知标记不计入表情数量。每个有效标记最多 64 单元，原始字符串最多 2260 个 UTF-16 单元；长度或数量超限返回 400/199001。公开评论响应保留标记；后台审核、评论回复通知和邮件展示文字替代，通知快照最多 2000 字符并以省略号截断。
         parentId:
           type: integer
           format: int64
@@ -5425,6 +5469,7 @@ components:
           nullable: true
         content:
           type: string
+          description: 保存后的评论源文本，保留 [sticker:库ID:表情ID] 标记。
         status:
           $ref: '#/components/schemas/CommentStatus'
         moderationReason:
@@ -5489,6 +5534,9 @@ components:
         - type: object
           required: [article, type, reviewedBy, reviewedAt, deletedBy, deletedAt]
           properties:
+            content:
+              type: string
+              description: 审核用纯文本，预置表情替换为 [表情名]，不返回图片 HTML。
             article:
               $ref: '#/components/schemas/AdminCommentArticleRef'
             type:

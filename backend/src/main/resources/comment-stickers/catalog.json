@@ -1,0 +1,2533 @@
+[
+  {
+    "id": "alus",
+    "name": "Alus",
+    "iconUrl": "/stickers/alus/alus_happy.png",
+    "gridMinWidthRem": 4.5,
+    "items": [
+      {
+        "token": "[sticker:alus:happy]",
+        "name": "happy",
+        "url": "/stickers/alus/alus_happy.png"
+      },
+      {
+        "token": "[sticker:alus:satisfied]",
+        "name": "satisfied",
+        "url": "/stickers/alus/alus_satisfied.png"
+      },
+      {
+        "token": "[sticker:alus:unhappy]",
+        "name": "unhappy",
+        "url": "/stickers/alus/alus_unhappy.png"
+      },
+      {
+        "token": "[sticker:alus:rage]",
+        "name": "rage",
+        "url": "/stickers/alus/alus_rage.png"
+      },
+      {
+        "token": "[sticker:alus:shy]",
+        "name": "shy",
+        "url": "/stickers/alus/alus_shy.png"
+      },
+      {
+        "token": "[sticker:alus:blush]",
+        "name": "blush",
+        "url": "/stickers/alus/alus_blush.png"
+      },
+      {
+        "token": "[sticker:alus:kiss]",
+        "name": "kiss",
+        "url": "/stickers/alus/alus_kiss.png"
+      },
+      {
+        "token": "[sticker:alus:clap]",
+        "name": "clap",
+        "url": "/stickers/alus/alus_clap.png"
+      },
+      {
+        "token": "[sticker:alus:embarrassed]",
+        "name": "embarrassed",
+        "url": "/stickers/alus/alus_embarrassed.png"
+      },
+      {
+        "token": "[sticker:alus:expect]",
+        "name": "expect",
+        "url": "/stickers/alus/alus_expect.png"
+      },
+      {
+        "token": "[sticker:alus:die]",
+        "name": "die",
+        "url": "/stickers/alus/alus_die.png"
+      },
+      {
+        "token": "[sticker:alus:helpless]",
+        "name": "helpless",
+        "url": "/stickers/alus/alus_helpless.png"
+      },
+      {
+        "token": "[sticker:alus:wise]",
+        "name": "wise",
+        "url": "/stickers/alus/alus_wise.png"
+      },
+      {
+        "token": "[sticker:alus:observe]",
+        "name": "observe",
+        "url": "/stickers/alus/alus_observe.png"
+      },
+      {
+        "token": "[sticker:alus:ponder]",
+        "name": "ponder",
+        "url": "/stickers/alus/alus_ponder.png"
+      },
+      {
+        "token": "[sticker:alus:silent]",
+        "name": "silent",
+        "url": "/stickers/alus/alus_silent.png"
+      },
+      {
+        "token": "[sticker:alus:stare]",
+        "name": "stare",
+        "url": "/stickers/alus/alus_stare.png"
+      },
+      {
+        "token": "[sticker:alus:surrender]",
+        "name": "surrender",
+        "url": "/stickers/alus/alus_surrender.png"
+      },
+      {
+        "token": "[sticker:alus:sweat]",
+        "name": "sweat",
+        "url": "/stickers/alus/alus_sweat.png"
+      },
+      {
+        "token": "[sticker:alus:think]",
+        "name": "think",
+        "url": "/stickers/alus/alus_think.png"
+      },
+      {
+        "token": "[sticker:alus:vomit]",
+        "name": "vomit",
+        "url": "/stickers/alus/alus_vomit.png"
+      },
+      {
+        "token": "[sticker:alus:wait]",
+        "name": "wait",
+        "url": "/stickers/alus/alus_wait.png"
+      },
+      {
+        "token": "[sticker:alus:shit]",
+        "name": "shit",
+        "url": "/stickers/alus/alus_shit.png"
+      },
+      {
+        "token": "[sticker:alus:smoke]",
+        "name": "smoke",
+        "url": "/stickers/alus/alus_smoke.png"
+      },
+      {
+        "token": "[sticker:alus:grass]",
+        "name": "grass",
+        "url": "/stickers/alus/alus_grass.png"
+      },
+      {
+        "token": "[sticker:alus:rich]",
+        "name": "rich",
+        "url": "/stickers/alus/alus_rich.png"
+      },
+      {
+        "token": "[sticker:alus:dark]",
+        "name": "dark",
+        "url": "/stickers/alus/alus_dark.png"
+      },
+      {
+        "token": "[sticker:alus:bystand]",
+        "name": "bystand",
+        "url": "/stickers/alus/alus_bystand.png"
+      },
+      {
+        "token": "[sticker:alus:expressionless]",
+        "name": "expressionless",
+        "url": "/stickers/alus/alus_expressionless.png"
+      },
+      {
+        "token": "[sticker:alus:grin]",
+        "name": "grin",
+        "url": "/stickers/alus/alus_grin.png"
+      },
+      {
+        "token": "[sticker:alus:hide]",
+        "name": "hide",
+        "url": "/stickers/alus/alus_hide.png"
+      },
+      {
+        "token": "[sticker:alus:persevere]",
+        "name": "persevere",
+        "url": "/stickers/alus/alus_persevere.png"
+      },
+      {
+        "token": "[sticker:alus:unamused]",
+        "name": "unamused",
+        "url": "/stickers/alus/alus_unamused.png"
+      },
+      {
+        "token": "[sticker:alus:slap]",
+        "name": "slap",
+        "url": "/stickers/alus/alus_slap.png"
+      },
+      {
+        "token": "[sticker:alus:gunshot]",
+        "name": "gunshot",
+        "url": "/stickers/alus/alus_gunshot.png"
+      },
+      {
+        "token": "[sticker:alus:wound]",
+        "name": "wound",
+        "url": "/stickers/alus/alus_wound.png"
+      },
+      {
+        "token": "[sticker:alus:injured]",
+        "name": "injured",
+        "url": "/stickers/alus/alus_injured.png"
+      },
+      {
+        "token": "[sticker:alus:knockdown]",
+        "name": "knockdown",
+        "url": "/stickers/alus/alus_knockdown.png"
+      },
+      {
+        "token": "[sticker:alus:candle]",
+        "name": "candle",
+        "url": "/stickers/alus/alus_candle.png"
+      },
+      {
+        "token": "[sticker:alus:flower]",
+        "name": "flower",
+        "url": "/stickers/alus/alus_flower.png"
+      },
+      {
+        "token": "[sticker:alus:cucumber]",
+        "name": "cucumber",
+        "url": "/stickers/alus/alus_cucumber.png"
+      },
+      {
+        "token": "[sticker:alus:high_five]",
+        "name": "high_five",
+        "url": "/stickers/alus/alus_high_five.png"
+      },
+      {
+        "token": "[sticker:alus:huge_sweat]",
+        "name": "huge_sweat",
+        "url": "/stickers/alus/alus_huge_sweat.png"
+      },
+      {
+        "token": "[sticker:alus:observe_dark]",
+        "name": "observe_dark",
+        "url": "/stickers/alus/alus_observe_dark.png"
+      },
+      {
+        "token": "[sticker:alus:small_eye]",
+        "name": "small_eye",
+        "url": "/stickers/alus/alus_small_eye.png"
+      },
+      {
+        "token": "[sticker:alus:smirk]",
+        "name": "smirk",
+        "url": "/stickers/alus/alus_smirk.png"
+      },
+      {
+        "token": "[sticker:alus:astonished]",
+        "name": "astonished",
+        "url": "/stickers/alus/alus_astonished.png"
+      },
+      {
+        "token": "[sticker:alus:sunglasses]",
+        "name": "sunglasses",
+        "url": "/stickers/alus/alus_sunglasses.png"
+      },
+      {
+        "token": "[sticker:alus:sweat_smile]",
+        "name": "sweat_smile",
+        "url": "/stickers/alus/alus_sweat_smile.png"
+      },
+      {
+        "token": "[sticker:alus:sob]",
+        "name": "sob",
+        "url": "/stickers/alus/alus_sob.png"
+      },
+      {
+        "token": "[sticker:alus:fu]",
+        "name": "fu",
+        "url": "/stickers/alus/alus_fu.png"
+      },
+      {
+        "token": "[sticker:alus:thumbsup]",
+        "name": "thumbsup",
+        "url": "/stickers/alus/alus_thumbsup.png"
+      },
+      {
+        "token": "[sticker:alus:yum]",
+        "name": "yum",
+        "url": "/stickers/alus/alus_yum.png"
+      },
+      {
+        "token": "[sticker:alus:hocho]",
+        "name": "hocho",
+        "url": "/stickers/alus/alus_hocho.png"
+      },
+      {
+        "token": "[sticker:alus:greddy]",
+        "name": "greddy",
+        "url": "/stickers/alus/alus_greddy.png"
+      },
+      {
+        "token": "[sticker:alus:pick_nose]",
+        "name": "pick_nose",
+        "url": "/stickers/alus/alus_pick_nose.png"
+      },
+      {
+        "token": "[sticker:alus:awkward]",
+        "name": "awkward",
+        "url": "/stickers/alus/alus_awkward.png"
+      },
+      {
+        "token": "[sticker:alus:vomit_blood]",
+        "name": "vomit_blood",
+        "url": "/stickers/alus/alus_vomit_blood.png"
+      },
+      {
+        "token": "[sticker:alus:vomit_water]",
+        "name": "vomit_water",
+        "url": "/stickers/alus/alus_vomit_water.png"
+      },
+      {
+        "token": "[sticker:alus:whatever]",
+        "name": "whatever",
+        "url": "/stickers/alus/alus_whatever.png"
+      }
+    ]
+  },
+  {
+    "id": "bilibili",
+    "name": "Bili 小电视",
+    "iconUrl": "/stickers/bilibili/bb_cute.png",
+    "items": [
+      {
+        "token": "[sticker:bilibili:doge]",
+        "name": "doge",
+        "url": "/stickers/bilibili/bb_doge.png"
+      },
+      {
+        "token": "[sticker:bilibili:sob]",
+        "name": "sob",
+        "url": "/stickers/bilibili/bb_sob.png"
+      },
+      {
+        "token": "[sticker:bilibili:heart_eyes]",
+        "name": "heart_eyes",
+        "url": "/stickers/bilibili/bb_heart_eyes.png"
+      },
+      {
+        "token": "[sticker:bilibili:cry]",
+        "name": "cry",
+        "url": "/stickers/bilibili/bb_cry.png"
+      },
+      {
+        "token": "[sticker:bilibili:sad]",
+        "name": "sad",
+        "url": "/stickers/bilibili/bb_sad.png"
+      },
+      {
+        "token": "[sticker:bilibili:smirk]",
+        "name": "smirk",
+        "url": "/stickers/bilibili/bb_smirk.png"
+      },
+      {
+        "token": "[sticker:bilibili:sweat]",
+        "name": "sweat",
+        "url": "/stickers/bilibili/bb_sweat.png"
+      },
+      {
+        "token": "[sticker:bilibili:antic]",
+        "name": "antic",
+        "url": "/stickers/bilibili/bb_antic.png"
+      },
+      {
+        "token": "[sticker:bilibili:miantian]",
+        "name": "miantian",
+        "url": "/stickers/bilibili/bb_miantian.png"
+      },
+      {
+        "token": "[sticker:bilibili:spit_blodd]",
+        "name": "spit_blodd",
+        "url": "/stickers/bilibili/bb_spit_blodd.png"
+      },
+      {
+        "token": "[sticker:bilibili:tiaokan]",
+        "name": "tiaokan",
+        "url": "/stickers/bilibili/bb_tiaokan.png"
+      },
+      {
+        "token": "[sticker:bilibili:zhoumei]",
+        "name": "zhoumei",
+        "url": "/stickers/bilibili/bb_zhoumei.png"
+      },
+      {
+        "token": "[sticker:bilibili:bye]",
+        "name": "bye",
+        "url": "/stickers/bilibili/bb_bye.png"
+      },
+      {
+        "token": "[sticker:bilibili:clap]",
+        "name": "clap",
+        "url": "/stickers/bilibili/bb_clap.png"
+      },
+      {
+        "token": "[sticker:bilibili:confused]",
+        "name": "confused",
+        "url": "/stickers/bilibili/bb_confused.png"
+      },
+      {
+        "token": "[sticker:bilibili:crazy]",
+        "name": "crazy",
+        "url": "/stickers/bilibili/bb_crazy.png"
+      },
+      {
+        "token": "[sticker:bilibili:cute]",
+        "name": "cute",
+        "url": "/stickers/bilibili/bb_cute.png"
+      },
+      {
+        "token": "[sticker:bilibili:money]",
+        "name": "money",
+        "url": "/stickers/bilibili/bb_money.png"
+      },
+      {
+        "token": "[sticker:bilibili:rage]",
+        "name": "rage",
+        "url": "/stickers/bilibili/bb_rage.png"
+      },
+      {
+        "token": "[sticker:bilibili:scared]",
+        "name": "scared",
+        "url": "/stickers/bilibili/bb_scared.png"
+      },
+      {
+        "token": "[sticker:bilibili:shy]",
+        "name": "shy",
+        "url": "/stickers/bilibili/bb_shy.png"
+      },
+      {
+        "token": "[sticker:bilibili:think]",
+        "name": "think",
+        "url": "/stickers/bilibili/bb_think.png"
+      },
+      {
+        "token": "[sticker:bilibili:vomit]",
+        "name": "vomit",
+        "url": "/stickers/bilibili/bb_vomit.png"
+      },
+      {
+        "token": "[sticker:bilibili:sleepy]",
+        "name": "sleepy",
+        "url": "/stickers/bilibili/bb_sleepy.png"
+      },
+      {
+        "token": "[sticker:bilibili:flushed]",
+        "name": "flushed",
+        "url": "/stickers/bilibili/bb_flushed.png"
+      },
+      {
+        "token": "[sticker:bilibili:kiss]",
+        "name": "kiss",
+        "url": "/stickers/bilibili/bb_kiss.png"
+      },
+      {
+        "token": "[sticker:bilibili:rolling_eyes]",
+        "name": "rolling_eyes",
+        "url": "/stickers/bilibili/bb_rolling_eyes.png"
+      },
+      {
+        "token": "[sticker:bilibili:thumbsup]",
+        "name": "thumbsup",
+        "url": "/stickers/bilibili/bb_thumbsup.png"
+      },
+      {
+        "token": "[sticker:bilibili:yum]",
+        "name": "yum",
+        "url": "/stickers/bilibili/bb_yum.png"
+      },
+      {
+        "token": "[sticker:bilibili:yum1]",
+        "name": "yum1",
+        "url": "/stickers/bilibili/bb_yum1.png"
+      },
+      {
+        "token": "[sticker:bilibili:lovely]",
+        "name": "lovely",
+        "url": "/stickers/bilibili/bb_lovely.png"
+      },
+      {
+        "token": "[sticker:bilibili:sunglasses]",
+        "name": "sunglasses",
+        "url": "/stickers/bilibili/bb_sunglasses.png"
+      },
+      {
+        "token": "[sticker:bilibili:pick_nose]",
+        "name": "pick_nose",
+        "url": "/stickers/bilibili/bb_pick_nose.png"
+      },
+      {
+        "token": "[sticker:bilibili:annoyed]",
+        "name": "annoyed",
+        "url": "/stickers/bilibili/bb_annoyed.png"
+      },
+      {
+        "token": "[sticker:bilibili:awkward]",
+        "name": "awkward",
+        "url": "/stickers/bilibili/bb_awkward.png"
+      },
+      {
+        "token": "[sticker:bilibili:grievance]",
+        "name": "grievance",
+        "url": "/stickers/bilibili/bb_grievance.png"
+      },
+      {
+        "token": "[sticker:bilibili:no_mouth]",
+        "name": "no_mouth",
+        "url": "/stickers/bilibili/bb_no_mouth.png"
+      },
+      {
+        "token": "[sticker:bilibili:slap]",
+        "name": "slap",
+        "url": "/stickers/bilibili/bb_slap.png"
+      },
+      {
+        "token": "[sticker:bilibili:slient]",
+        "name": "slient",
+        "url": "/stickers/bilibili/bb_slient.png"
+      },
+      {
+        "token": "[sticker:bilibili:sleep]",
+        "name": "sleep",
+        "url": "/stickers/bilibili/bb_sleep.png"
+      },
+      {
+        "token": "[sticker:bilibili:greddy]",
+        "name": "greddy",
+        "url": "/stickers/bilibili/bb_greddy.png"
+      },
+      {
+        "token": "[sticker:bilibili:chuckle]",
+        "name": "chuckle",
+        "url": "/stickers/bilibili/bb_chuckle.png"
+      },
+      {
+        "token": "[sticker:bilibili:nosebleed]",
+        "name": "nosebleed",
+        "url": "/stickers/bilibili/bb_nosebleed.png"
+      },
+      {
+        "token": "[sticker:bilibili:not_care]",
+        "name": "not_care",
+        "url": "/stickers/bilibili/bb_not_care.png"
+      },
+      {
+        "token": "[sticker:bilibili:trollface]",
+        "name": "trollface",
+        "url": "/stickers/bilibili/bb_trollface.png"
+      },
+      {
+        "token": "[sticker:bilibili:face_cry]",
+        "name": "face_cry",
+        "url": "/stickers/bilibili/bb_face_cry.png"
+      },
+      {
+        "token": "[sticker:bilibili:look_down]",
+        "name": "look_down",
+        "url": "/stickers/bilibili/bb_look_down.png"
+      },
+      {
+        "token": "[sticker:bilibili:mask]",
+        "name": "mask",
+        "url": "/stickers/bilibili/bb_mask.png"
+      },
+      {
+        "token": "[sticker:bilibili:dizzy_face]",
+        "name": "dizzy_face",
+        "url": "/stickers/bilibili/bb_dizzy_face.png"
+      },
+      {
+        "token": "[sticker:bilibili:test]",
+        "name": "test",
+        "url": "/stickers/bilibili/bb_test.png"
+      },
+      {
+        "token": "[sticker:bilibili:question_mask]",
+        "name": "question_mask",
+        "url": "/stickers/bilibili/bb_question_mask.png"
+      }
+    ]
+  },
+  {
+    "id": "bmoji",
+    "name": "Bili 表情",
+    "iconUrl": "/stickers/bmoji/bmoji_unavailble_doge.png",
+    "items": [
+      {
+        "token": "[sticker:bmoji:unavailble_doge]",
+        "name": "unavailble_doge",
+        "url": "/stickers/bmoji/bmoji_unavailble_doge.png"
+      },
+      {
+        "token": "[sticker:bmoji:hot]",
+        "name": "hot",
+        "url": "/stickers/bmoji/bmoji_hot.png"
+      },
+      {
+        "token": "[sticker:bmoji:silme]",
+        "name": "silme",
+        "url": "/stickers/bmoji/bmoji_silme.png"
+      },
+      {
+        "token": "[sticker:bmoji:mask]",
+        "name": "mask",
+        "url": "/stickers/bmoji/bmoji_mask.png"
+      },
+      {
+        "token": "[sticker:bmoji:doge]",
+        "name": "doge",
+        "url": "/stickers/bmoji/bmoji_doge.png"
+      },
+      {
+        "token": "[sticker:bmoji:bravo]",
+        "name": "bravo",
+        "url": "/stickers/bmoji/bmoji_bravo.png"
+      },
+      {
+        "token": "[sticker:bmoji:ok]",
+        "name": "ok",
+        "url": "/stickers/bmoji/bmoji_ok.png"
+      },
+      {
+        "token": "[sticker:bmoji:wow]",
+        "name": "wow",
+        "url": "/stickers/bmoji/bmoji_wow.png"
+      },
+      {
+        "token": "[sticker:bmoji:not_open]",
+        "name": "not_open",
+        "url": "/stickers/bmoji/bmoji_not_open.png"
+      },
+      {
+        "token": "[sticker:bmoji:onlooker]",
+        "name": "onlooker",
+        "url": "/stickers/bmoji/bmoji_onlooker.png"
+      },
+      {
+        "token": "[sticker:bmoji:comical]",
+        "name": "comical",
+        "url": "/stickers/bmoji/bmoji_comical.png"
+      },
+      {
+        "token": "[sticker:bmoji:grin]",
+        "name": "grin",
+        "url": "/stickers/bmoji/bmoji_grin.png"
+      },
+      {
+        "token": "[sticker:bmoji:call]",
+        "name": "call",
+        "url": "/stickers/bmoji/bmoji_call.png"
+      },
+      {
+        "token": "[sticker:bmoji:hei]",
+        "name": "hei",
+        "url": "/stickers/bmoji/bmoji_hei.png"
+      },
+      {
+        "token": "[sticker:bmoji:naughty]",
+        "name": "naughty",
+        "url": "/stickers/bmoji/bmoji_naughty.png"
+      },
+      {
+        "token": "[sticker:bmoji:bao_fu]",
+        "name": "bao_fu",
+        "url": "/stickers/bmoji/bmoji_bao_fu.png"
+      },
+      {
+        "token": "[sticker:bmoji:crack_melon_seeds]",
+        "name": "crack_melon_seeds",
+        "url": "/stickers/bmoji/bmoji_crack_melon_seeds.png"
+      },
+      {
+        "token": "[sticker:bmoji:smile_cry]",
+        "name": "smile_cry",
+        "url": "/stickers/bmoji/bmoji_smile_cry.png"
+      },
+      {
+        "token": "[sticker:bmoji:tibetan_fox]",
+        "name": "tibetan_fox",
+        "url": "/stickers/bmoji/bmoji_tibetan_fox.png"
+      },
+      {
+        "token": "[sticker:bmoji:blush]",
+        "name": "blush",
+        "url": "/stickers/bmoji/bmoji_blush.png"
+      },
+      {
+        "token": "[sticker:bmoji:give_love]",
+        "name": "give_love",
+        "url": "/stickers/bmoji/bmoji_give_love.png"
+      },
+      {
+        "token": "[sticker:bmoji:dudu]",
+        "name": "dudu",
+        "url": "/stickers/bmoji/bmoji_dudu.png"
+      },
+      {
+        "token": "[sticker:bmoji:oh]",
+        "name": "oh",
+        "url": "/stickers/bmoji/bmoji_oh.png"
+      },
+      {
+        "token": "[sticker:bmoji:heartbeat]",
+        "name": "heartbeat",
+        "url": "/stickers/bmoji/bmoji_heartbeat.png"
+      },
+      {
+        "token": "[sticker:bmoji:lemon]",
+        "name": "lemon",
+        "url": "/stickers/bmoji/bmoji_lemon.png"
+      },
+      {
+        "token": "[sticker:bmoji:wail]",
+        "name": "wail",
+        "url": "/stickers/bmoji/bmoji_wail.png"
+      },
+      {
+        "token": "[sticker:bmoji:blushing]",
+        "name": "blushing",
+        "url": "/stickers/bmoji/bmoji_blushing.png"
+      },
+      {
+        "token": "[sticker:bmoji:what]",
+        "name": "what",
+        "url": "/stickers/bmoji/bmoji_what.png"
+      },
+      {
+        "token": "[sticker:bmoji:haha]",
+        "name": "haha",
+        "url": "/stickers/bmoji/bmoji_haha.png"
+      },
+      {
+        "token": "[sticker:bmoji:smirking]",
+        "name": "smirking",
+        "url": "/stickers/bmoji/bmoji_smirking.png"
+      },
+      {
+        "token": "[sticker:bmoji:hehe]",
+        "name": "hehe",
+        "url": "/stickers/bmoji/bmoji_hehe.png"
+      },
+      {
+        "token": "[sticker:bmoji:titter]",
+        "name": "titter",
+        "url": "/stickers/bmoji/bmoji_titter.png"
+      },
+      {
+        "token": "[sticker:bmoji:ah]",
+        "name": "ah",
+        "url": "/stickers/bmoji/bmoji_ah.png"
+      },
+      {
+        "token": "[sticker:bmoji:um]",
+        "name": "um",
+        "url": "/stickers/bmoji/bmoji_um.png"
+      },
+      {
+        "token": "[sticker:bmoji:insidious]",
+        "name": "insidious",
+        "url": "/stickers/bmoji/bmoji_insidious.png"
+      },
+      {
+        "token": "[sticker:bmoji:jiong]",
+        "name": "jiong",
+        "url": "/stickers/bmoji/bmoji_jiong.png"
+      },
+      {
+        "token": "[sticker:bmoji:stagnate]",
+        "name": "stagnate",
+        "url": "/stickers/bmoji/bmoji_stagnate.png"
+      },
+      {
+        "token": "[sticker:bmoji:heihei]",
+        "name": "heihei",
+        "url": "/stickers/bmoji/bmoji_heihei.png"
+      },
+      {
+        "token": "[sticker:bmoji:wa]",
+        "name": "wa",
+        "url": "/stickers/bmoji/bmoji_wa.png"
+      },
+      {
+        "token": "[sticker:bmoji:cute]",
+        "name": "cute",
+        "url": "/stickers/bmoji/bmoji_cute.png"
+      },
+      {
+        "token": "[sticker:bmoji:emm]",
+        "name": "emm",
+        "url": "/stickers/bmoji/bmoji_emm.png"
+      },
+      {
+        "token": "[sticker:bmoji:good]",
+        "name": "good",
+        "url": "/stickers/bmoji/bmoji_good.png"
+      },
+      {
+        "token": "[sticker:bmoji:applaud]",
+        "name": "applaud",
+        "url": "/stickers/bmoji/bmoji_applaud.png"
+      },
+      {
+        "token": "[sticker:bmoji:um_2]",
+        "name": "um_2",
+        "url": "/stickers/bmoji/bmoji_um_2.png"
+      },
+      {
+        "token": "[sticker:bmoji:oops]",
+        "name": "oops",
+        "url": "/stickers/bmoji/bmoji_oops.png"
+      },
+      {
+        "token": "[sticker:bmoji:sad]",
+        "name": "sad",
+        "url": "/stickers/bmoji/bmoji_sad.png"
+      },
+      {
+        "token": "[sticker:bmoji:hem]",
+        "name": "hem",
+        "url": "/stickers/bmoji/bmoji_hem.png"
+      },
+      {
+        "token": "[sticker:bmoji:hurt]",
+        "name": "hurt",
+        "url": "/stickers/bmoji/bmoji_hurt.png"
+      },
+      {
+        "token": "[sticker:bmoji:cold]",
+        "name": "cold",
+        "url": "/stickers/bmoji/bmoji_cold.png"
+      },
+      {
+        "token": "[sticker:bmoji:ill]",
+        "name": "ill",
+        "url": "/stickers/bmoji/bmoji_ill.png"
+      },
+      {
+        "token": "[sticker:bmoji:scared]",
+        "name": "scared",
+        "url": "/stickers/bmoji/bmoji_scared.png"
+      },
+      {
+        "token": "[sticker:bmoji:spit]",
+        "name": "spit",
+        "url": "/stickers/bmoji/bmoji_spit.png"
+      },
+      {
+        "token": "[sticker:bmoji:palming]",
+        "name": "palming",
+        "url": "/stickers/bmoji/bmoji_palming.png"
+      },
+      {
+        "token": "[sticker:bmoji:shh]",
+        "name": "shh",
+        "url": "/stickers/bmoji/bmoji_shh.png"
+      },
+      {
+        "token": "[sticker:bmoji:hmm]",
+        "name": "hmm",
+        "url": "/stickers/bmoji/bmoji_hmm.png"
+      },
+      {
+        "token": "[sticker:bmoji:bye]",
+        "name": "bye",
+        "url": "/stickers/bmoji/bmoji_bye.png"
+      },
+      {
+        "token": "[sticker:bmoji:roll_eye]",
+        "name": "roll_eye",
+        "url": "/stickers/bmoji/bmoji_roll_eye.png"
+      },
+      {
+        "token": "[sticker:bmoji:sleeply]",
+        "name": "sleeply",
+        "url": "/stickers/bmoji/bmoji_sleeply.png"
+      },
+      {
+        "token": "[sticker:bmoji:hard]",
+        "name": "hard",
+        "url": "/stickers/bmoji/bmoji_hard.png"
+      },
+      {
+        "token": "[sticker:bmoji:cool]",
+        "name": "cool",
+        "url": "/stickers/bmoji/bmoji_cool.png"
+      },
+      {
+        "token": "[sticker:bmoji:unhappy]",
+        "name": "unhappy",
+        "url": "/stickers/bmoji/bmoji_unhappy.png"
+      },
+      {
+        "token": "[sticker:bmoji:grimace]",
+        "name": "grimace",
+        "url": "/stickers/bmoji/bmoji_grimace.png"
+      },
+      {
+        "token": "[sticker:bmoji:aaa]",
+        "name": "aaa",
+        "url": "/stickers/bmoji/bmoji_aaa.png"
+      },
+      {
+        "token": "[sticker:bmoji:angry]",
+        "name": "angry",
+        "url": "/stickers/bmoji/bmoji_angry.png"
+      },
+      {
+        "token": "[sticker:bmoji:shui_dao]",
+        "name": "shui_dao",
+        "url": "/stickers/bmoji/bmoji_shui_dao.png"
+      },
+      {
+        "token": "[sticker:bmoji:koi]",
+        "name": "koi",
+        "url": "/stickers/bmoji/bmoji_koi.png"
+      },
+      {
+        "token": "[sticker:bmoji:fu]",
+        "name": "fu",
+        "url": "/stickers/bmoji/bmoji_fu.png"
+      },
+      {
+        "token": "[sticker:bmoji:drumstick]",
+        "name": "drumstick",
+        "url": "/stickers/bmoji/bmoji_drumstick.png"
+      },
+      {
+        "token": "[sticker:bmoji:snow]",
+        "name": "snow",
+        "url": "/stickers/bmoji/bmoji_snow.png"
+      },
+      {
+        "token": "[sticker:bmoji:cheers]",
+        "name": "cheers",
+        "url": "/stickers/bmoji/bmoji_cheers.png"
+      },
+      {
+        "token": "[sticker:bmoji:love]",
+        "name": "love",
+        "url": "/stickers/bmoji/bmoji_love.png"
+      },
+      {
+        "token": "[sticker:bmoji:win]",
+        "name": "win",
+        "url": "/stickers/bmoji/bmoji_win.png"
+      },
+      {
+        "token": "[sticker:bmoji:strong]",
+        "name": "strong",
+        "url": "/stickers/bmoji/bmoji_strong.png"
+      },
+      {
+        "token": "[sticker:bmoji:thanks]",
+        "name": "thanks",
+        "url": "/stickers/bmoji/bmoji_thanks.png"
+      },
+      {
+        "token": "[sticker:bmoji:please]",
+        "name": "please",
+        "url": "/stickers/bmoji/bmoji_please.png"
+      },
+      {
+        "token": "[sticker:bmoji:thumb_up]",
+        "name": "thumb_up",
+        "url": "/stickers/bmoji/bmoji_thumb_up.png"
+      },
+      {
+        "token": "[sticker:bmoji:hug_together]",
+        "name": "hug_together",
+        "url": "/stickers/bmoji/bmoji_hug_together.png"
+      },
+      {
+        "token": "[sticker:bmoji:knees]",
+        "name": "knees",
+        "url": "/stickers/bmoji/bmoji_knees.png"
+      },
+      {
+        "token": "[sticker:bmoji:my_fault]",
+        "name": "my_fault",
+        "url": "/stickers/bmoji/bmoji_my_fault.png"
+      },
+      {
+        "token": "[sticker:bmoji:abandon]",
+        "name": "abandon",
+        "url": "/stickers/bmoji/bmoji_abandon.png"
+      }
+    ]
+  },
+  {
+    "id": "qq",
+    "name": "QQ",
+    "iconUrl": "/stickers/qq/qq_lovely.gif",
+    "items": [
+      {
+        "token": "[sticker:qq:smile]",
+        "name": "smile",
+        "url": "/stickers/qq/qq_smile.gif"
+      },
+      {
+        "token": "[sticker:qq:mouth_squirm]",
+        "name": "mouth_squirm",
+        "url": "/stickers/qq/qq_mouth_squirm.gif"
+      },
+      {
+        "token": "[sticker:qq:heart_eyes]",
+        "name": "heart_eyes",
+        "url": "/stickers/qq/qq_heart_eyes.gif"
+      },
+      {
+        "token": "[sticker:qq:flushed]",
+        "name": "flushed",
+        "url": "/stickers/qq/qq_flushed.gif"
+      },
+      {
+        "token": "[sticker:qq:sunglasses]",
+        "name": "sunglasses",
+        "url": "/stickers/qq/qq_sunglasses.gif"
+      },
+      {
+        "token": "[sticker:qq:sob]",
+        "name": "sob",
+        "url": "/stickers/qq/qq_sob.gif"
+      },
+      {
+        "token": "[sticker:qq:shy]",
+        "name": "shy",
+        "url": "/stickers/qq/qq_shy.gif"
+      },
+      {
+        "token": "[sticker:qq:silent]",
+        "name": "silent",
+        "url": "/stickers/qq/qq_silent.gif"
+      },
+      {
+        "token": "[sticker:qq:sleep]",
+        "name": "sleep",
+        "url": "/stickers/qq/qq_sleep.gif"
+      },
+      {
+        "token": "[sticker:qq:cry]",
+        "name": "cry",
+        "url": "/stickers/qq/qq_cry.gif"
+      },
+      {
+        "token": "[sticker:qq:awkward]",
+        "name": "awkward",
+        "url": "/stickers/qq/qq_awkward.gif"
+      },
+      {
+        "token": "[sticker:qq:rage]",
+        "name": "rage",
+        "url": "/stickers/qq/qq_rage.gif"
+      },
+      {
+        "token": "[sticker:qq:yum]",
+        "name": "yum",
+        "url": "/stickers/qq/qq_yum.gif"
+      },
+      {
+        "token": "[sticker:qq:grin]",
+        "name": "grin",
+        "url": "/stickers/qq/qq_grin.gif"
+      },
+      {
+        "token": "[sticker:qq:confounded]",
+        "name": "confounded",
+        "url": "/stickers/qq/qq_confounded.gif"
+      },
+      {
+        "token": "[sticker:qq:sad]",
+        "name": "sad",
+        "url": "/stickers/qq/qq_sad.gif"
+      },
+      {
+        "token": "[sticker:qq:cool]",
+        "name": "cool",
+        "url": "/stickers/qq/qq_cool.gif"
+      },
+      {
+        "token": "[sticker:qq:cold_sweat]",
+        "name": "cold_sweat",
+        "url": "/stickers/qq/qq_cold_sweat.gif"
+      },
+      {
+        "token": "[sticker:qq:crazy]",
+        "name": "crazy",
+        "url": "/stickers/qq/qq_crazy.gif"
+      },
+      {
+        "token": "[sticker:qq:vomit]",
+        "name": "vomit",
+        "url": "/stickers/qq/qq_vomit.gif"
+      },
+      {
+        "token": "[sticker:qq:chuckle]",
+        "name": "chuckle",
+        "url": "/stickers/qq/qq_chuckle.gif"
+      },
+      {
+        "token": "[sticker:qq:lovely]",
+        "name": "lovely",
+        "url": "/stickers/qq/qq_lovely.gif"
+      },
+      {
+        "token": "[sticker:qq:rolling_eyes]",
+        "name": "rolling_eyes",
+        "url": "/stickers/qq/qq_rolling_eyes.gif"
+      },
+      {
+        "token": "[sticker:qq:arrogant]",
+        "name": "arrogant",
+        "url": "/stickers/qq/qq_arrogant.gif"
+      },
+      {
+        "token": "[sticker:qq:yummy]",
+        "name": "yummy",
+        "url": "/stickers/qq/qq_yummy.gif"
+      },
+      {
+        "token": "[sticker:qq:sleepy]",
+        "name": "sleepy",
+        "url": "/stickers/qq/qq_sleepy.gif"
+      },
+      {
+        "token": "[sticker:qq:scared]",
+        "name": "scared",
+        "url": "/stickers/qq/qq_scared.gif"
+      },
+      {
+        "token": "[sticker:qq:sweat]",
+        "name": "sweat",
+        "url": "/stickers/qq/qq_sweat.gif"
+      },
+      {
+        "token": "[sticker:qq:laugh]",
+        "name": "laugh",
+        "url": "/stickers/qq/qq_laugh.gif"
+      },
+      {
+        "token": "[sticker:qq:solder]",
+        "name": "solder",
+        "url": "/stickers/qq/qq_solder.gif"
+      },
+      {
+        "token": "[sticker:qq:fighting]",
+        "name": "fighting",
+        "url": "/stickers/qq/qq_fighting.gif"
+      },
+      {
+        "token": "[sticker:qq:scold]",
+        "name": "scold",
+        "url": "/stickers/qq/qq_scold.gif"
+      },
+      {
+        "token": "[sticker:qq:shush]",
+        "name": "shush",
+        "url": "/stickers/qq/qq_shush.gif"
+      },
+      {
+        "token": "[sticker:qq:dizzy_face]",
+        "name": "dizzy_face",
+        "url": "/stickers/qq/qq_dizzy_face.gif"
+      },
+      {
+        "token": "[sticker:qq:mad]",
+        "name": "mad",
+        "url": "/stickers/qq/qq_mad.gif"
+      },
+      {
+        "token": "[sticker:qq:feeble]",
+        "name": "feeble",
+        "url": "/stickers/qq/qq_feeble.gif"
+      },
+      {
+        "token": "[sticker:qq:skull]",
+        "name": "skull",
+        "url": "/stickers/qq/qq_skull.gif"
+      },
+      {
+        "token": "[sticker:qq:knock]",
+        "name": "knock",
+        "url": "/stickers/qq/qq_knock.gif"
+      },
+      {
+        "token": "[sticker:qq:bye]",
+        "name": "bye",
+        "url": "/stickers/qq/qq_bye.gif"
+      },
+      {
+        "token": "[sticker:qq:pick_nose]",
+        "name": "pick_nose",
+        "url": "/stickers/qq/qq_pick_nose.gif"
+      },
+      {
+        "token": "[sticker:qq:clap]",
+        "name": "clap",
+        "url": "/stickers/qq/qq_clap.gif"
+      },
+      {
+        "token": "[sticker:qq:embarassed]",
+        "name": "embarassed",
+        "url": "/stickers/qq/qq_embarassed.gif"
+      },
+      {
+        "token": "[sticker:qq:snigger]",
+        "name": "snigger",
+        "url": "/stickers/qq/qq_snigger.gif"
+      },
+      {
+        "token": "[sticker:qq:annoyed_left]",
+        "name": "annoyed_left",
+        "url": "/stickers/qq/qq_annoyed_left.gif"
+      },
+      {
+        "token": "[sticker:qq:annoyed_right]",
+        "name": "annoyed_right",
+        "url": "/stickers/qq/qq_annoyed_right.gif"
+      },
+      {
+        "token": "[sticker:qq:yawn]",
+        "name": "yawn",
+        "url": "/stickers/qq/qq_yawn.gif"
+      },
+      {
+        "token": "[sticker:qq:look_down]",
+        "name": "look_down",
+        "url": "/stickers/qq/qq_look_down.gif"
+      },
+      {
+        "token": "[sticker:qq:grievance]",
+        "name": "grievance",
+        "url": "/stickers/qq/qq_grievance.gif"
+      },
+      {
+        "token": "[sticker:qq:pensive]",
+        "name": "pensive",
+        "url": "/stickers/qq/qq_pensive.gif"
+      },
+      {
+        "token": "[sticker:qq:smirk]",
+        "name": "smirk",
+        "url": "/stickers/qq/qq_smirk.gif"
+      },
+      {
+        "token": "[sticker:qq:kiss_right]",
+        "name": "kiss_right",
+        "url": "/stickers/qq/qq_kiss_right.gif"
+      },
+      {
+        "token": "[sticker:qq:kiss]",
+        "name": "kiss",
+        "url": "/stickers/qq/qq_kiss.gif"
+      },
+      {
+        "token": "[sticker:qq:fearful]",
+        "name": "fearful",
+        "url": "/stickers/qq/qq_fearful.gif"
+      },
+      {
+        "token": "[sticker:qq:poor]",
+        "name": "poor",
+        "url": "/stickers/qq/qq_poor.gif"
+      },
+      {
+        "token": "[sticker:qq:wink]",
+        "name": "wink",
+        "url": "/stickers/qq/qq_wink.gif"
+      },
+      {
+        "token": "[sticker:qq:joy]",
+        "name": "joy",
+        "url": "/stickers/qq/qq_joy.gif"
+      },
+      {
+        "token": "[sticker:qq:doge]",
+        "name": "doge",
+        "url": "/stickers/qq/qq_doge.gif"
+      },
+      {
+        "token": "[sticker:qq:cover_face_cry]",
+        "name": "cover_face_cry",
+        "url": "/stickers/qq/qq_cover_face_cry.gif"
+      },
+      {
+        "token": "[sticker:qq:whatever]",
+        "name": "whatever",
+        "url": "/stickers/qq/qq_whatever.gif"
+      },
+      {
+        "token": "[sticker:qq:lift_check]",
+        "name": "lift_check",
+        "url": "/stickers/qq/qq_lift_check.gif"
+      },
+      {
+        "token": "[sticker:qq:cute]",
+        "name": "cute",
+        "url": "/stickers/qq/qq_cute.gif"
+      },
+      {
+        "token": "[sticker:qq:antic]",
+        "name": "antic",
+        "url": "/stickers/qq/qq_antic.gif"
+      },
+      {
+        "token": "[sticker:qq:vomit_blood]",
+        "name": "vomit_blood",
+        "url": "/stickers/qq/qq_vomit_blood.gif"
+      },
+      {
+        "token": "[sticker:qq:surprised]",
+        "name": "surprised",
+        "url": "/stickers/qq/qq_surprised.gif"
+      },
+      {
+        "token": "[sticker:qq:pock_face]",
+        "name": "pock_face",
+        "url": "/stickers/qq/qq_pock_face.gif"
+      },
+      {
+        "token": "[sticker:qq:tangled]",
+        "name": "tangled",
+        "url": "/stickers/qq/qq_tangled.gif"
+      },
+      {
+        "token": "[sticker:qq:pretty]",
+        "name": "pretty",
+        "url": "/stickers/qq/qq_pretty.gif"
+      },
+      {
+        "token": "[sticker:qq:mask_fighting]",
+        "name": "mask_fighting",
+        "url": "/stickers/qq/qq_mask_fighting.gif"
+      },
+      {
+        "token": "[sticker:qq:mask_hug]",
+        "name": "mask_hug",
+        "url": "/stickers/qq/qq_mask_hug.gif"
+      },
+      {
+        "token": "[sticker:qq:mask]",
+        "name": "mask",
+        "url": "/stickers/qq/qq_mask.gif"
+      },
+      {
+        "token": "[sticker:qq:working]",
+        "name": "working",
+        "url": "/stickers/qq/qq_working.gif"
+      },
+      {
+        "token": "[sticker:qq:busy]",
+        "name": "busy",
+        "url": "/stickers/qq/qq_busy.gif"
+      },
+      {
+        "token": "[sticker:qq:headache]",
+        "name": "headache",
+        "url": "/stickers/qq/qq_headache.gif"
+      },
+      {
+        "token": "[sticker:qq:worry]",
+        "name": "worry",
+        "url": "/stickers/qq/qq_worry.gif"
+      },
+      {
+        "token": "[sticker:qq:cover_face]",
+        "name": "cover_face",
+        "url": "/stickers/qq/qq_cover_face.gif"
+      },
+      {
+        "token": "[sticker:qq:burning_eyes]",
+        "name": "burning_eyes",
+        "url": "/stickers/qq/qq_burning_eyes.gif"
+      },
+      {
+        "token": "[sticker:qq:wowyo]",
+        "name": "wowyo",
+        "url": "/stickers/qq/qq_wowyo.gif"
+      },
+      {
+        "token": "[sticker:qq:hair_loss]",
+        "name": "hair_loss",
+        "url": "/stickers/qq/qq_hair_loss.gif"
+      },
+      {
+        "token": "[sticker:qq:question_mask]",
+        "name": "question_mask",
+        "url": "/stickers/qq/qq_question_mask.gif"
+      },
+      {
+        "token": "[sticker:qq:peep]",
+        "name": "peep",
+        "url": "/stickers/qq/qq_peep.gif"
+      },
+      {
+        "token": "[sticker:qq:emm]",
+        "name": "emm",
+        "url": "/stickers/qq/qq_emm.gif"
+      },
+      {
+        "token": "[sticker:qq:waterlemon_face]",
+        "name": "waterlemon_face",
+        "url": "/stickers/qq/qq_waterlemon_face.gif"
+      },
+      {
+        "token": "[sticker:qq:rolling_face]",
+        "name": "rolling_face",
+        "url": "/stickers/qq/qq_rolling_face.gif"
+      },
+      {
+        "token": "[sticker:qq:hug]",
+        "name": "hug",
+        "url": "/stickers/qq/qq_hug.gif"
+      },
+      {
+        "token": "[sticker:qq:doubt]",
+        "name": "doubt",
+        "url": "/stickers/qq/qq_doubt.gif"
+      },
+      {
+        "token": "[sticker:qq:sweat1]",
+        "name": "sweat1",
+        "url": "/stickers/qq/qq_sweat1.gif"
+      },
+      {
+        "token": "[sticker:qq:white-yum]",
+        "name": "white-yum",
+        "url": "/stickers/qq/qq_white-yum.gif"
+      },
+      {
+        "token": "[sticker:qq:white1]",
+        "name": "white1",
+        "url": "/stickers/qq/qq_white1.gif"
+      },
+      {
+        "token": "[sticker:qq:white2]",
+        "name": "white2",
+        "url": "/stickers/qq/qq_white2.gif"
+      },
+      {
+        "token": "[sticker:qq:white_kiss]",
+        "name": "white_kiss",
+        "url": "/stickers/qq/qq_white_kiss.gif"
+      },
+      {
+        "token": "[sticker:qq:white_shit]",
+        "name": "white_shit",
+        "url": "/stickers/qq/qq_white_shit.gif"
+      },
+      {
+        "token": "[sticker:qq:white_slap]",
+        "name": "white_slap",
+        "url": "/stickers/qq/qq_white_slap.gif"
+      },
+      {
+        "token": "[sticker:qq:white_sunglasses]",
+        "name": "white_sunglasses",
+        "url": "/stickers/qq/qq_white_sunglasses.gif"
+      },
+      {
+        "token": "[sticker:qq:white_thumbsup]",
+        "name": "white_thumbsup",
+        "url": "/stickers/qq/qq_white_thumbsup.gif"
+      },
+      {
+        "token": "[sticker:qq:bear1]",
+        "name": "bear1",
+        "url": "/stickers/qq/qq_bear1.gif"
+      },
+      {
+        "token": "[sticker:qq:bear2]",
+        "name": "bear2",
+        "url": "/stickers/qq/qq_bear2.gif"
+      },
+      {
+        "token": "[sticker:qq:bear3]",
+        "name": "bear3",
+        "url": "/stickers/qq/qq_bear3.gif"
+      },
+      {
+        "token": "[sticker:qq:bear4]",
+        "name": "bear4",
+        "url": "/stickers/qq/qq_bear4.gif"
+      },
+      {
+        "token": "[sticker:qq:bear5]",
+        "name": "bear5",
+        "url": "/stickers/qq/qq_bear5.gif"
+      },
+      {
+        "token": "[sticker:qq:bird1]",
+        "name": "bird1",
+        "url": "/stickers/qq/qq_bird1.gif"
+      },
+      {
+        "token": "[sticker:qq:bird2]",
+        "name": "bird2",
+        "url": "/stickers/qq/qq_bird2.gif"
+      },
+      {
+        "token": "[sticker:qq:bird3]",
+        "name": "bird3",
+        "url": "/stickers/qq/qq_bird3.gif"
+      },
+      {
+        "token": "[sticker:qq:bird4]",
+        "name": "bird4",
+        "url": "/stickers/qq/qq_bird4.gif"
+      },
+      {
+        "token": "[sticker:qq:heart]",
+        "name": "heart",
+        "url": "/stickers/qq/qq_heart.gif"
+      },
+      {
+        "token": "[sticker:qq:rose]",
+        "name": "rose",
+        "url": "/stickers/qq/qq_rose.gif"
+      },
+      {
+        "token": "[sticker:qq:rose_dead]",
+        "name": "rose_dead",
+        "url": "/stickers/qq/qq_rose_dead.gif"
+      },
+      {
+        "token": "[sticker:qq:ghost]",
+        "name": "ghost",
+        "url": "/stickers/qq/qq_ghost.gif"
+      },
+      {
+        "token": "[sticker:qq:anger]",
+        "name": "anger",
+        "url": "/stickers/qq/qq_anger.gif"
+      },
+      {
+        "token": "[sticker:qq:lip]",
+        "name": "lip",
+        "url": "/stickers/qq/qq_lip.gif"
+      },
+      {
+        "token": "[sticker:qq:broken_heart]",
+        "name": "broken_heart",
+        "url": "/stickers/qq/qq_broken_heart.gif"
+      },
+      {
+        "token": "[sticker:qq:coffee]",
+        "name": "coffee",
+        "url": "/stickers/qq/qq_coffee.gif"
+      },
+      {
+        "token": "[sticker:qq:alpaca]",
+        "name": "alpaca",
+        "url": "/stickers/qq/qq_alpaca.gif"
+      },
+      {
+        "token": "[sticker:qq:hongbao]",
+        "name": "hongbao",
+        "url": "/stickers/qq/qq_hongbao.gif"
+      },
+      {
+        "token": "[sticker:qq:firecracker]",
+        "name": "firecracker",
+        "url": "/stickers/qq/qq_firecracker.gif"
+      },
+      {
+        "token": "[sticker:qq:lantern]",
+        "name": "lantern",
+        "url": "/stickers/qq/qq_lantern.gif"
+      },
+      {
+        "token": "[sticker:qq:xi]",
+        "name": "xi",
+        "url": "/stickers/qq/qq_xi.gif"
+      },
+      {
+        "token": "[sticker:qq:thumbsup]",
+        "name": "thumbsup",
+        "url": "/stickers/qq/qq_thumbsup.gif"
+      },
+      {
+        "token": "[sticker:qq:ok]",
+        "name": "ok",
+        "url": "/stickers/qq/qq_ok.gif"
+      },
+      {
+        "token": "[sticker:qq:hold_fist]",
+        "name": "hold_fist",
+        "url": "/stickers/qq/qq_hold_fist.gif"
+      },
+      {
+        "token": "[sticker:qq:hand_shake]",
+        "name": "hand_shake",
+        "url": "/stickers/qq/qq_hand_shake.gif"
+      },
+      {
+        "token": "[sticker:qq:come]",
+        "name": "come",
+        "url": "/stickers/qq/qq_come.gif"
+      },
+      {
+        "token": "[sticker:qq:v]",
+        "name": "v",
+        "url": "/stickers/qq/qq_v.gif"
+      },
+      {
+        "token": "[sticker:qq:fist]",
+        "name": "fist",
+        "url": "/stickers/qq/qq_fist.gif"
+      },
+      {
+        "token": "[sticker:qq:diss]",
+        "name": "diss",
+        "url": "/stickers/qq/qq_diss.gif"
+      },
+      {
+        "token": "[sticker:qq:thumbsdown]",
+        "name": "thumbsdown",
+        "url": "/stickers/qq/qq_thumbsdown.gif"
+      },
+      {
+        "token": "[sticker:qq:metal]",
+        "name": "metal",
+        "url": "/stickers/qq/qq_metal.gif"
+      },
+      {
+        "token": "[sticker:qq:no]",
+        "name": "no",
+        "url": "/stickers/qq/qq_no.gif"
+      },
+      {
+        "token": "[sticker:qq:lemon_face]",
+        "name": "lemon_face",
+        "url": "/stickers/qq/qq_lemon_face.gif"
+      },
+      {
+        "token": "[sticker:qq:moon]",
+        "name": "moon",
+        "url": "/stickers/qq/qq_moon.gif"
+      },
+      {
+        "token": "[sticker:qq:sun]",
+        "name": "sun",
+        "url": "/stickers/qq/qq_sun.gif"
+      },
+      {
+        "token": "[sticker:qq:pig]",
+        "name": "pig",
+        "url": "/stickers/qq/qq_pig.gif"
+      },
+      {
+        "token": "[sticker:qq:knife]",
+        "name": "knife",
+        "url": "/stickers/qq/qq_knife.gif"
+      },
+      {
+        "token": "[sticker:qq:hocho]",
+        "name": "hocho",
+        "url": "/stickers/qq/qq_hocho.gif"
+      },
+      {
+        "token": "[sticker:qq:gun]",
+        "name": "gun",
+        "url": "/stickers/qq/qq_gun.gif"
+      },
+      {
+        "token": "[sticker:qq:tea]",
+        "name": "tea",
+        "url": "/stickers/qq/qq_tea.gif"
+      },
+      {
+        "token": "[sticker:qq:shit]",
+        "name": "shit",
+        "url": "/stickers/qq/qq_shit.gif"
+      },
+      {
+        "token": "[sticker:qq:tada]",
+        "name": "tada",
+        "url": "/stickers/qq/qq_tada.gif"
+      },
+      {
+        "token": "[sticker:qq:candy]",
+        "name": "candy",
+        "url": "/stickers/qq/qq_candy.gif"
+      },
+      {
+        "token": "[sticker:qq:watermelon]",
+        "name": "watermelon",
+        "url": "/stickers/qq/qq_watermelon.gif"
+      },
+      {
+        "token": "[sticker:qq:rice]",
+        "name": "rice",
+        "url": "/stickers/qq/qq_rice.gif"
+      },
+      {
+        "token": "[sticker:qq:feeding_bottle]",
+        "name": "feeding_bottle",
+        "url": "/stickers/qq/qq_feeding_bottle.gif"
+      },
+      {
+        "token": "[sticker:qq:beer]",
+        "name": "beer",
+        "url": "/stickers/qq/qq_beer.gif"
+      },
+      {
+        "token": "[sticker:qq:karaoke]",
+        "name": "karaoke",
+        "url": "/stickers/qq/qq_karaoke.gif"
+      },
+      {
+        "token": "[sticker:qq:cake]",
+        "name": "cake",
+        "url": "/stickers/qq/qq_cake.gif"
+      },
+      {
+        "token": "[sticker:qq:egg]",
+        "name": "egg",
+        "url": "/stickers/qq/qq_egg.gif"
+      },
+      {
+        "token": "[sticker:qq:bomb]",
+        "name": "bomb",
+        "url": "/stickers/qq/qq_bomb.gif"
+      },
+      {
+        "token": "[sticker:qq:dollar]",
+        "name": "dollar",
+        "url": "/stickers/qq/qq_dollar.gif"
+      },
+      {
+        "token": "[sticker:qq:light]",
+        "name": "light",
+        "url": "/stickers/qq/qq_light.gif"
+      },
+      {
+        "token": "[sticker:qq:gift]",
+        "name": "gift",
+        "url": "/stickers/qq/qq_gift.gif"
+      },
+      {
+        "token": "[sticker:qq:flower]",
+        "name": "flower",
+        "url": "/stickers/qq/qq_flower.gif"
+      },
+      {
+        "token": "[sticker:qq:plane]",
+        "name": "plane",
+        "url": "/stickers/qq/qq_plane.gif"
+      },
+      {
+        "token": "[sticker:qq:candle]",
+        "name": "candle",
+        "url": "/stickers/qq/qq_candle.gif"
+      },
+      {
+        "token": "[sticker:qq:ladybug]",
+        "name": "ladybug",
+        "url": "/stickers/qq/qq_ladybug.gif"
+      },
+      {
+        "token": "[sticker:qq:pill]",
+        "name": "pill",
+        "url": "/stickers/qq/qq_pill.gif"
+      },
+      {
+        "token": "[sticker:qq:basketball]",
+        "name": "basketball",
+        "url": "/stickers/qq/qq_basketball.gif"
+      },
+      {
+        "token": "[sticker:qq:pingpong]",
+        "name": "pingpong",
+        "url": "/stickers/qq/qq_pingpong.gif"
+      },
+      {
+        "token": "[sticker:qq:soccer]",
+        "name": "soccer",
+        "url": "/stickers/qq/qq_soccer.gif"
+      },
+      {
+        "token": "[sticker:qq:panda]",
+        "name": "panda",
+        "url": "/stickers/qq/qq_panda.gif"
+      },
+      {
+        "token": "[sticker:qq:pinwheel]",
+        "name": "pinwheel",
+        "url": "/stickers/qq/qq_pinwheel.gif"
+      },
+      {
+        "token": "[sticker:qq:ramen]",
+        "name": "ramen",
+        "url": "/stickers/qq/qq_ramen.gif"
+      },
+      {
+        "token": "[sticker:qq:umbrella]",
+        "name": "umbrella",
+        "url": "/stickers/qq/qq_umbrella.gif"
+      },
+      {
+        "token": "[sticker:qq:banana]",
+        "name": "banana",
+        "url": "/stickers/qq/qq_banana.gif"
+      },
+      {
+        "token": "[sticker:qq:toilet_paper]",
+        "name": "toilet_paper",
+        "url": "/stickers/qq/qq_toilet_paper.gif"
+      },
+      {
+        "token": "[sticker:qq:bag]",
+        "name": "bag",
+        "url": "/stickers/qq/qq_bag.gif"
+      },
+      {
+        "token": "[sticker:qq:fa]",
+        "name": "fa",
+        "url": "/stickers/qq/qq_fa.gif"
+      },
+      {
+        "token": "[sticker:qq:handsome]",
+        "name": "handsome",
+        "url": "/stickers/qq/qq_handsome.gif"
+      },
+      {
+        "token": "[sticker:qq:mail]",
+        "name": "mail",
+        "url": "/stickers/qq/qq_mail.gif"
+      },
+      {
+        "token": "[sticker:qq:balloon]",
+        "name": "balloon",
+        "url": "/stickers/qq/qq_balloon.gif"
+      },
+      {
+        "token": "[sticker:qq:board]",
+        "name": "board",
+        "url": "/stickers/qq/qq_board.gif"
+      },
+      {
+        "token": "[sticker:qq:bow]",
+        "name": "bow",
+        "url": "/stickers/qq/qq_bow.gif"
+      },
+      {
+        "token": "[sticker:qq:boy1]",
+        "name": "boy1",
+        "url": "/stickers/qq/qq_boy1.gif"
+      },
+      {
+        "token": "[sticker:qq:boy2]",
+        "name": "boy2",
+        "url": "/stickers/qq/qq_boy2.gif"
+      },
+      {
+        "token": "[sticker:qq:bulb]",
+        "name": "bulb",
+        "url": "/stickers/qq/qq_bulb.gif"
+      },
+      {
+        "token": "[sticker:qq:car]",
+        "name": "car",
+        "url": "/stickers/qq/qq_car.gif"
+      },
+      {
+        "token": "[sticker:qq:clock]",
+        "name": "clock",
+        "url": "/stickers/qq/qq_clock.gif"
+      },
+      {
+        "token": "[sticker:qq:cloudy]",
+        "name": "cloudy",
+        "url": "/stickers/qq/qq_cloudy.gif"
+      },
+      {
+        "token": "[sticker:qq:crab]",
+        "name": "crab",
+        "url": "/stickers/qq/qq_crab.gif"
+      },
+      {
+        "token": "[sticker:qq:example]",
+        "name": "example",
+        "url": "/stickers/qq/qq_example.gif"
+      },
+      {
+        "token": "[sticker:qq:frog]",
+        "name": "frog",
+        "url": "/stickers/qq/qq_frog.gif"
+      },
+      {
+        "token": "[sticker:qq:rain]",
+        "name": "rain",
+        "url": "/stickers/qq/qq_rain.gif"
+      },
+      {
+        "token": "[sticker:qq:ring]",
+        "name": "ring",
+        "url": "/stickers/qq/qq_ring.gif"
+      },
+      {
+        "token": "[sticker:qq:sofa]",
+        "name": "sofa",
+        "url": "/stickers/qq/qq_sofa.gif"
+      },
+      {
+        "token": "[sticker:qq:train_body]",
+        "name": "train_body",
+        "url": "/stickers/qq/qq_train_body.gif"
+      },
+      {
+        "token": "[sticker:qq:train_tail]",
+        "name": "train_tail",
+        "url": "/stickers/qq/qq_train_tail.gif"
+      },
+      {
+        "token": "[sticker:qq:tran_head]",
+        "name": "tran_head",
+        "url": "/stickers/qq/qq_tran_head.gif"
+      },
+      {
+        "token": "[sticker:qq:1]",
+        "name": "1",
+        "url": "/stickers/qq/qq_1.gif"
+      },
+      {
+        "token": "[sticker:qq:10]",
+        "name": "10",
+        "url": "/stickers/qq/qq_10.gif"
+      },
+      {
+        "token": "[sticker:qq:11]",
+        "name": "11",
+        "url": "/stickers/qq/qq_11.gif"
+      },
+      {
+        "token": "[sticker:qq:2]",
+        "name": "2",
+        "url": "/stickers/qq/qq_2.gif"
+      },
+      {
+        "token": "[sticker:qq:3]",
+        "name": "3",
+        "url": "/stickers/qq/qq_3.gif"
+      },
+      {
+        "token": "[sticker:qq:4]",
+        "name": "4",
+        "url": "/stickers/qq/qq_4.gif"
+      },
+      {
+        "token": "[sticker:qq:5]",
+        "name": "5",
+        "url": "/stickers/qq/qq_5.gif"
+      },
+      {
+        "token": "[sticker:qq:6]",
+        "name": "6",
+        "url": "/stickers/qq/qq_6.gif"
+      },
+      {
+        "token": "[sticker:qq:7]",
+        "name": "7",
+        "url": "/stickers/qq/qq_7.gif"
+      },
+      {
+        "token": "[sticker:qq:8]",
+        "name": "8",
+        "url": "/stickers/qq/qq_8.gif"
+      },
+      {
+        "token": "[sticker:qq:9]",
+        "name": "9",
+        "url": "/stickers/qq/qq_9.gif"
+      },
+      {
+        "token": "[sticker:qq:surrender]",
+        "name": "surrender",
+        "url": "/stickers/qq/qq_surrender.gif"
+      },
+      {
+        "token": "[sticker:qq:taiji_boy]",
+        "name": "taiji_boy",
+        "url": "/stickers/qq/qq_taiji_boy.gif"
+      },
+      {
+        "token": "[sticker:qq:taiji_girl]",
+        "name": "taiji_girl",
+        "url": "/stickers/qq/qq_taiji_girl.gif"
+      }
+    ]
+  },
+  {
+    "id": "wechat",
+    "name": "微信",
+    "iconUrl": "/stickers/wechat/wechat_%E5%BE%AE%E7%AC%91.webp",
+    "items": [
+      {
+        "token": "[sticker:wechat:微笑]",
+        "name": "微笑",
+        "url": "/stickers/wechat/wechat_%E5%BE%AE%E7%AC%91.webp"
+      },
+      {
+        "token": "[sticker:wechat:撇嘴]",
+        "name": "撇嘴",
+        "url": "/stickers/wechat/wechat_%E6%92%87%E5%98%B4.webp"
+      },
+      {
+        "token": "[sticker:wechat:色]",
+        "name": "色",
+        "url": "/stickers/wechat/wechat_%E8%89%B2.webp"
+      },
+      {
+        "token": "[sticker:wechat:发呆]",
+        "name": "发呆",
+        "url": "/stickers/wechat/wechat_%E5%8F%91%E5%91%86.webp"
+      },
+      {
+        "token": "[sticker:wechat:得意]",
+        "name": "得意",
+        "url": "/stickers/wechat/wechat_%E5%BE%97%E6%84%8F.webp"
+      },
+      {
+        "token": "[sticker:wechat:流泪]",
+        "name": "流泪",
+        "url": "/stickers/wechat/wechat_%E6%B5%81%E6%B3%AA.webp"
+      },
+      {
+        "token": "[sticker:wechat:害羞]",
+        "name": "害羞",
+        "url": "/stickers/wechat/wechat_%E5%AE%B3%E7%BE%9E.webp"
+      },
+      {
+        "token": "[sticker:wechat:闭嘴]",
+        "name": "闭嘴",
+        "url": "/stickers/wechat/wechat_%E9%97%AD%E5%98%B4.webp"
+      },
+      {
+        "token": "[sticker:wechat:睡]",
+        "name": "睡",
+        "url": "/stickers/wechat/wechat_%E7%9D%A1.webp"
+      },
+      {
+        "token": "[sticker:wechat:大哭]",
+        "name": "大哭",
+        "url": "/stickers/wechat/wechat_%E5%A4%A7%E5%93%AD.webp"
+      },
+      {
+        "token": "[sticker:wechat:尴尬]",
+        "name": "尴尬",
+        "url": "/stickers/wechat/wechat_%E5%B0%B4%E5%B0%AC.webp"
+      },
+      {
+        "token": "[sticker:wechat:发怒]",
+        "name": "发怒",
+        "url": "/stickers/wechat/wechat_%E5%8F%91%E6%80%92.webp"
+      },
+      {
+        "token": "[sticker:wechat:调皮]",
+        "name": "调皮",
+        "url": "/stickers/wechat/wechat_%E8%B0%83%E7%9A%AE.webp"
+      },
+      {
+        "token": "[sticker:wechat:龇牙]",
+        "name": "龇牙",
+        "url": "/stickers/wechat/wechat_%E9%BE%87%E7%89%99.webp"
+      },
+      {
+        "token": "[sticker:wechat:惊讶]",
+        "name": "惊讶",
+        "url": "/stickers/wechat/wechat_%E6%83%8A%E8%AE%B6.webp"
+      },
+      {
+        "token": "[sticker:wechat:难过]",
+        "name": "难过",
+        "url": "/stickers/wechat/wechat_%E9%9A%BE%E8%BF%87.webp"
+      },
+      {
+        "token": "[sticker:wechat:囧]",
+        "name": "囧",
+        "url": "/stickers/wechat/wechat_%E5%9B%A7.webp"
+      },
+      {
+        "token": "[sticker:wechat:抓狂]",
+        "name": "抓狂",
+        "url": "/stickers/wechat/wechat_%E6%8A%93%E7%8B%82.webp"
+      },
+      {
+        "token": "[sticker:wechat:吐]",
+        "name": "吐",
+        "url": "/stickers/wechat/wechat_%E5%90%90.webp"
+      },
+      {
+        "token": "[sticker:wechat:偷笑]",
+        "name": "偷笑",
+        "url": "/stickers/wechat/wechat_%E5%81%B7%E7%AC%91.webp"
+      },
+      {
+        "token": "[sticker:wechat:愉快]",
+        "name": "愉快",
+        "url": "/stickers/wechat/wechat_%E6%84%89%E5%BF%AB.webp"
+      },
+      {
+        "token": "[sticker:wechat:白眼]",
+        "name": "白眼",
+        "url": "/stickers/wechat/wechat_%E7%99%BD%E7%9C%BC.webp"
+      },
+      {
+        "token": "[sticker:wechat:傲慢]",
+        "name": "傲慢",
+        "url": "/stickers/wechat/wechat_%E5%82%B2%E6%85%A2.webp"
+      },
+      {
+        "token": "[sticker:wechat:困]",
+        "name": "困",
+        "url": "/stickers/wechat/wechat_%E5%9B%B0.webp"
+      },
+      {
+        "token": "[sticker:wechat:惊恐]",
+        "name": "惊恐",
+        "url": "/stickers/wechat/wechat_%E6%83%8A%E6%81%90.webp"
+      },
+      {
+        "token": "[sticker:wechat:憨笑]",
+        "name": "憨笑",
+        "url": "/stickers/wechat/wechat_%E6%86%A8%E7%AC%91.webp"
+      },
+      {
+        "token": "[sticker:wechat:悠闲]",
+        "name": "悠闲",
+        "url": "/stickers/wechat/wechat_%E6%82%A0%E9%97%B2.webp"
+      },
+      {
+        "token": "[sticker:wechat:咒骂]",
+        "name": "咒骂",
+        "url": "/stickers/wechat/wechat_%E5%92%92%E9%AA%82.webp"
+      },
+      {
+        "token": "[sticker:wechat:疑问]",
+        "name": "疑问",
+        "url": "/stickers/wechat/wechat_%E7%96%91%E9%97%AE.webp"
+      },
+      {
+        "token": "[sticker:wechat:嘘]",
+        "name": "嘘",
+        "url": "/stickers/wechat/wechat_%E5%98%98.webp"
+      },
+      {
+        "token": "[sticker:wechat:晕]",
+        "name": "晕",
+        "url": "/stickers/wechat/wechat_%E6%99%95.webp"
+      },
+      {
+        "token": "[sticker:wechat:衰]",
+        "name": "衰",
+        "url": "/stickers/wechat/wechat_%E8%A1%B0.webp"
+      },
+      {
+        "token": "[sticker:wechat:骷髅]",
+        "name": "骷髅",
+        "url": "/stickers/wechat/wechat_%E9%AA%B7%E9%AB%85.webp"
+      },
+      {
+        "token": "[sticker:wechat:敲打]",
+        "name": "敲打",
+        "url": "/stickers/wechat/wechat_%E6%95%B2%E6%89%93.webp"
+      },
+      {
+        "token": "[sticker:wechat:再见]",
+        "name": "再见",
+        "url": "/stickers/wechat/wechat_%E5%86%8D%E8%A7%81.webp"
+      },
+      {
+        "token": "[sticker:wechat:擦汗]",
+        "name": "擦汗",
+        "url": "/stickers/wechat/wechat_%E6%93%A6%E6%B1%97.webp"
+      },
+      {
+        "token": "[sticker:wechat:抠鼻]",
+        "name": "抠鼻",
+        "url": "/stickers/wechat/wechat_%E6%8A%A0%E9%BC%BB.webp"
+      },
+      {
+        "token": "[sticker:wechat:鼓掌]",
+        "name": "鼓掌",
+        "url": "/stickers/wechat/wechat_%E9%BC%93%E6%8E%8C.webp"
+      },
+      {
+        "token": "[sticker:wechat:坏笑]",
+        "name": "坏笑",
+        "url": "/stickers/wechat/wechat_%E5%9D%8F%E7%AC%91.webp"
+      },
+      {
+        "token": "[sticker:wechat:右哼哼]",
+        "name": "右哼哼",
+        "url": "/stickers/wechat/wechat_%E5%8F%B3%E5%93%BC%E5%93%BC.webp"
+      },
+      {
+        "token": "[sticker:wechat:鄙视]",
+        "name": "鄙视",
+        "url": "/stickers/wechat/wechat_%E9%84%99%E8%A7%86.webp"
+      },
+      {
+        "token": "[sticker:wechat:委屈]",
+        "name": "委屈",
+        "url": "/stickers/wechat/wechat_%E5%A7%94%E5%B1%88.webp"
+      },
+      {
+        "token": "[sticker:wechat:快哭了]",
+        "name": "快哭了",
+        "url": "/stickers/wechat/wechat_%E5%BF%AB%E5%93%AD%E4%BA%86.webp"
+      },
+      {
+        "token": "[sticker:wechat:阴险]",
+        "name": "阴险",
+        "url": "/stickers/wechat/wechat_%E9%98%B4%E9%99%A9.webp"
+      },
+      {
+        "token": "[sticker:wechat:亲亲]",
+        "name": "亲亲",
+        "url": "/stickers/wechat/wechat_%E4%BA%B2%E4%BA%B2.webp"
+      },
+      {
+        "token": "[sticker:wechat:可怜]",
+        "name": "可怜",
+        "url": "/stickers/wechat/wechat_%E5%8F%AF%E6%80%9C.webp"
+      },
+      {
+        "token": "[sticker:wechat:笑脸]",
+        "name": "笑脸",
+        "url": "/stickers/wechat/wechat_%E7%AC%91%E8%84%B8.webp"
+      },
+      {
+        "token": "[sticker:wechat:生病]",
+        "name": "生病",
+        "url": "/stickers/wechat/wechat_%E7%94%9F%E7%97%85.webp"
+      },
+      {
+        "token": "[sticker:wechat:脸红]",
+        "name": "脸红",
+        "url": "/stickers/wechat/wechat_%E8%84%B8%E7%BA%A2.webp"
+      },
+      {
+        "token": "[sticker:wechat:破涕为笑]",
+        "name": "破涕为笑",
+        "url": "/stickers/wechat/wechat_%E7%A0%B4%E6%B6%95%E4%B8%BA%E7%AC%91.webp"
+      },
+      {
+        "token": "[sticker:wechat:恐惧]",
+        "name": "恐惧",
+        "url": "/stickers/wechat/wechat_%E6%81%90%E6%83%A7.webp"
+      },
+      {
+        "token": "[sticker:wechat:失望]",
+        "name": "失望",
+        "url": "/stickers/wechat/wechat_%E5%A4%B1%E6%9C%9B.webp"
+      },
+      {
+        "token": "[sticker:wechat:无语]",
+        "name": "无语",
+        "url": "/stickers/wechat/wechat_%E6%97%A0%E8%AF%AD.webp"
+      },
+      {
+        "token": "[sticker:wechat:嘿哈]",
+        "name": "嘿哈",
+        "url": "/stickers/wechat/wechat_%E5%98%BF%E5%93%88.webp"
+      },
+      {
+        "token": "[sticker:wechat:捂脸]",
+        "name": "捂脸",
+        "url": "/stickers/wechat/wechat_%E6%8D%82%E8%84%B8.webp"
+      },
+      {
+        "token": "[sticker:wechat:奸笑]",
+        "name": "奸笑",
+        "url": "/stickers/wechat/wechat_%E5%A5%B8%E7%AC%91.webp"
+      },
+      {
+        "token": "[sticker:wechat:机智]",
+        "name": "机智",
+        "url": "/stickers/wechat/wechat_%E6%9C%BA%E6%99%BA.webp"
+      },
+      {
+        "token": "[sticker:wechat:皱眉]",
+        "name": "皱眉",
+        "url": "/stickers/wechat/wechat_%E7%9A%B1%E7%9C%89.webp"
+      },
+      {
+        "token": "[sticker:wechat:耶]",
+        "name": "耶",
+        "url": "/stickers/wechat/wechat_%E8%80%B6.webp"
+      },
+      {
+        "token": "[sticker:wechat:吃瓜]",
+        "name": "吃瓜",
+        "url": "/stickers/wechat/wechat_%E5%90%83%E7%93%9C.webp"
+      },
+      {
+        "token": "[sticker:wechat:加油]",
+        "name": "加油",
+        "url": "/stickers/wechat/wechat_%E5%8A%A0%E6%B2%B9.webp"
+      },
+      {
+        "token": "[sticker:wechat:汗]",
+        "name": "汗",
+        "url": "/stickers/wechat/wechat_%E6%B1%97.webp"
+      },
+      {
+        "token": "[sticker:wechat:天啊]",
+        "name": "天啊",
+        "url": "/stickers/wechat/wechat_%E5%A4%A9%E5%95%8A.webp"
+      },
+      {
+        "token": "[sticker:wechat:Emm]",
+        "name": "Emm",
+        "url": "/stickers/wechat/wechat_Emm.webp"
+      },
+      {
+        "token": "[sticker:wechat:社会社会]",
+        "name": "社会社会",
+        "url": "/stickers/wechat/wechat_%E7%A4%BE%E4%BC%9A%E7%A4%BE%E4%BC%9A.webp"
+      },
+      {
+        "token": "[sticker:wechat:旺柴]",
+        "name": "旺柴",
+        "url": "/stickers/wechat/wechat_%E6%97%BA%E6%9F%B4.webp"
+      },
+      {
+        "token": "[sticker:wechat:好的]",
+        "name": "好的",
+        "url": "/stickers/wechat/wechat_%E5%A5%BD%E7%9A%84.webp"
+      },
+      {
+        "token": "[sticker:wechat:打脸]",
+        "name": "打脸",
+        "url": "/stickers/wechat/wechat_%E6%89%93%E8%84%B8.webp"
+      },
+      {
+        "token": "[sticker:wechat:哇]",
+        "name": "哇",
+        "url": "/stickers/wechat/wechat_%E5%93%87.webp"
+      },
+      {
+        "token": "[sticker:wechat:翻白眼]",
+        "name": "翻白眼",
+        "url": "/stickers/wechat/wechat_%E7%BF%BB%E7%99%BD%E7%9C%BC.webp"
+      },
+      {
+        "token": "[sticker:wechat:666]",
+        "name": "666",
+        "url": "/stickers/wechat/wechat_666.webp"
+      },
+      {
+        "token": "[sticker:wechat:让我看看]",
+        "name": "让我看看",
+        "url": "/stickers/wechat/wechat_%E8%AE%A9%E6%88%91%E7%9C%8B%E7%9C%8B.webp"
+      },
+      {
+        "token": "[sticker:wechat:叹气]",
+        "name": "叹气",
+        "url": "/stickers/wechat/wechat_%E5%8F%B9%E6%B0%94.webp"
+      },
+      {
+        "token": "[sticker:wechat:苦涩]",
+        "name": "苦涩",
+        "url": "/stickers/wechat/wechat_%E8%8B%A6%E6%B6%A9.webp"
+      },
+      {
+        "token": "[sticker:wechat:裂开]",
+        "name": "裂开",
+        "url": "/stickers/wechat/wechat_%E8%A3%82%E5%BC%80.webp"
+      },
+      {
+        "token": "[sticker:wechat:嘴唇]",
+        "name": "嘴唇",
+        "url": "/stickers/wechat/wechat_%E5%98%B4%E5%94%87.webp"
+      },
+      {
+        "token": "[sticker:wechat:爱心]",
+        "name": "爱心",
+        "url": "/stickers/wechat/wechat_%E7%88%B1%E5%BF%83.webp"
+      },
+      {
+        "token": "[sticker:wechat:心碎]",
+        "name": "心碎",
+        "url": "/stickers/wechat/wechat_%E5%BF%83%E7%A2%8E.webp"
+      },
+      {
+        "token": "[sticker:wechat:拥抱]",
+        "name": "拥抱",
+        "url": "/stickers/wechat/wechat_%E6%8B%A5%E6%8A%B1.webp"
+      },
+      {
+        "token": "[sticker:wechat:强]",
+        "name": "强",
+        "url": "/stickers/wechat/wechat_%E5%BC%BA.webp"
+      },
+      {
+        "token": "[sticker:wechat:弱]",
+        "name": "弱",
+        "url": "/stickers/wechat/wechat_%E5%BC%B1.webp"
+      },
+      {
+        "token": "[sticker:wechat:握手]",
+        "name": "握手",
+        "url": "/stickers/wechat/wechat_%E6%8F%A1%E6%89%8B.webp"
+      },
+      {
+        "token": "[sticker:wechat:胜利]",
+        "name": "胜利",
+        "url": "/stickers/wechat/wechat_%E8%83%9C%E5%88%A9.webp"
+      },
+      {
+        "token": "[sticker:wechat:抱拳]",
+        "name": "抱拳",
+        "url": "/stickers/wechat/wechat_%E6%8A%B1%E6%8B%B3.webp"
+      },
+      {
+        "token": "[sticker:wechat:勾引]",
+        "name": "勾引",
+        "url": "/stickers/wechat/wechat_%E5%8B%BE%E5%BC%95.webp"
+      },
+      {
+        "token": "[sticker:wechat:拳头]",
+        "name": "拳头",
+        "url": "/stickers/wechat/wechat_%E6%8B%B3%E5%A4%B4.webp"
+      },
+      {
+        "token": "[sticker:wechat:OK]",
+        "name": "OK",
+        "url": "/stickers/wechat/wechat_OK.webp"
+      },
+      {
+        "token": "[sticker:wechat:合十]",
+        "name": "合十",
+        "url": "/stickers/wechat/wechat_%E5%90%88%E5%8D%81.webp"
+      },
+      {
+        "token": "[sticker:wechat:啤酒]",
+        "name": "啤酒",
+        "url": "/stickers/wechat/wechat_%E5%95%A4%E9%85%92.webp"
+      },
+      {
+        "token": "[sticker:wechat:咖啡]",
+        "name": "咖啡",
+        "url": "/stickers/wechat/wechat_%E5%92%96%E5%95%A1.webp"
+      },
+      {
+        "token": "[sticker:wechat:蛋糕]",
+        "name": "蛋糕",
+        "url": "/stickers/wechat/wechat_%E8%9B%8B%E7%B3%95.webp"
+      },
+      {
+        "token": "[sticker:wechat:玫瑰]",
+        "name": "玫瑰",
+        "url": "/stickers/wechat/wechat_%E7%8E%AB%E7%91%B0.webp"
+      },
+      {
+        "token": "[sticker:wechat:凋谢]",
+        "name": "凋谢",
+        "url": "/stickers/wechat/wechat_%E5%87%8B%E8%B0%A2.webp"
+      },
+      {
+        "token": "[sticker:wechat:菜刀]",
+        "name": "菜刀",
+        "url": "/stickers/wechat/wechat_%E8%8F%9C%E5%88%80.webp"
+      },
+      {
+        "token": "[sticker:wechat:炸弹]",
+        "name": "炸弹",
+        "url": "/stickers/wechat/wechat_%E7%82%B8%E5%BC%B9.webp"
+      },
+      {
+        "token": "[sticker:wechat:便便]",
+        "name": "便便",
+        "url": "/stickers/wechat/wechat_%E4%BE%BF%E4%BE%BF.webp"
+      },
+      {
+        "token": "[sticker:wechat:月亮]",
+        "name": "月亮",
+        "url": "/stickers/wechat/wechat_%E6%9C%88%E4%BA%AE.webp"
+      },
+      {
+        "token": "[sticker:wechat:太阳]",
+        "name": "太阳",
+        "url": "/stickers/wechat/wechat_%E5%A4%AA%E9%98%B3.webp"
+      },
+      {
+        "token": "[sticker:wechat:庆祝]",
+        "name": "庆祝",
+        "url": "/stickers/wechat/wechat_%E5%BA%86%E7%A5%9D.webp"
+      },
+      {
+        "token": "[sticker:wechat:礼物]",
+        "name": "礼物",
+        "url": "/stickers/wechat/wechat_%E7%A4%BC%E7%89%A9.webp"
+      },
+      {
+        "token": "[sticker:wechat:红包]",
+        "name": "红包",
+        "url": "/stickers/wechat/wechat_%E7%BA%A2%E5%8C%85.webp"
+      },
+      {
+        "token": "[sticker:wechat:發]",
+        "name": "發",
+        "url": "/stickers/wechat/wechat_%E7%99%BC.webp"
+      },
+      {
+        "token": "[sticker:wechat:福]",
+        "name": "福",
+        "url": "/stickers/wechat/wechat_%E7%A6%8F.webp"
+      },
+      {
+        "token": "[sticker:wechat:烟花]",
+        "name": "烟花",
+        "url": "/stickers/wechat/wechat_%E7%83%9F%E8%8A%B1.webp"
+      },
+      {
+        "token": "[sticker:wechat:爆竹]",
+        "name": "爆竹",
+        "url": "/stickers/wechat/wechat_%E7%88%86%E7%AB%B9.webp"
+      },
+      {
+        "token": "[sticker:wechat:猪头]",
+        "name": "猪头",
+        "url": "/stickers/wechat/wechat_%E7%8C%AA%E5%A4%B4.webp"
+      },
+      {
+        "token": "[sticker:wechat:跳跳]",
+        "name": "跳跳",
+        "url": "/stickers/wechat/wechat_%E8%B7%B3%E8%B7%B3.webp"
+      },
+      {
+        "token": "[sticker:wechat:发抖]",
+        "name": "发抖",
+        "url": "/stickers/wechat/wechat_%E5%8F%91%E6%8A%96.webp"
+      },
+      {
+        "token": "[sticker:wechat:转圈]",
+        "name": "转圈",
+        "url": "/stickers/wechat/wechat_%E8%BD%AC%E5%9C%88.webp"
+      }
+    ]
+  }
+]

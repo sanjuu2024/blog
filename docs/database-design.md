@@ -1,4 +1,4 @@
-﻿# 个人技术博客系统数据库设计
+# 个人技术博客系统数据库设计
 
 ## 1. 文档信息
 
@@ -596,6 +596,10 @@ CREATE INDEX IF NOT EXISTS idx_blog_comment_user_article_created_at
 | `updated_at` | `TIMESTAMPTZ` | 更新时间 | `2026-05-01 10:25:00+08` |
 
 ### 状态、层级与计数规则
+
+- 评论预置表情继续保存在现有 `content TEXT`，格式为 `[sticker:库ID:表情ID]`，不新增 JSONB、资源表或 migration。静态图片位于前端 public/stickers，各库 info.json 生成后端 classpath 的 comment-stickers/catalog.json；目录不落数据库。有效标记计 1，其余按 UTF-16 长度计算，去除首尾空白后展示长度为 1-1000；每条评论或回复最多 20 个有效表情，重复出现逐个计数，未知标记只算文本。每个标记最多 64 单元，原始字符串上限 2260。后台审核响应将标记转为 `[表情名]`，数据库保留原始标记。
+- 评论回复通知快照在现有 `blog_notification.content` 保存文字替代，遵守原有 2000 字符限制，超出时保留前 1999 个字符及省略号；通知原文和邮件同样使用文字替代，不修改评论源内容。以后新增结构迁移从 `V1.3.0` 继续，本次无需迁移。
+- 表情库可选的 `gridMinWidthRem` 仅保存在 info.json 和生成目录中，通过目录接口返回选择器布局配置，不落数据库、不新增 migration；未配置时前端使用 3rem，Alus 为 4.5rem。
 
 - 顶层评论的 `parent_id` 和 `root_id` 均为空
 - 回复的 `parent_id` 指向直接父评论，`root_id` 指向所属顶层评论；无限层级回复在前端统一平铺到第二层
