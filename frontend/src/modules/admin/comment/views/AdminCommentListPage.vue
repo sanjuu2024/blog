@@ -125,6 +125,7 @@
 				<!-- 评论列表 -->
 				<div class="admin-comment-table-wrap">
 					<el-table
+						v-loading="loading"
 						ref="commentTableRef"
 						:data="commentList"
 						row-key="id"
@@ -406,6 +407,7 @@ defineOptions({
 });
 
 const {
+	loading,
 	commentList,
 	pageMeta,
 	pageParams,

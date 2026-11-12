@@ -19,6 +19,8 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -44,6 +46,55 @@ class ImageUploadServiceImplTest {
 
     @InjectMocks
     private ImageUploadServiceImpl imageUploadService;
+
+    @Test
+    void uploadShouldAcceptRealAvifEvenWithMisleadingNameAndMime() throws Exception {
+        byte[] content = getClass().getResourceAsStream("/images/avif-fixture.avif").readAllBytes();
+        when(objectStorageService.upload(any(), any(), anyLong(), any())).thenReturn("https://img.example.com/test.avif");
+        var result = imageUploadService.uploadAdminImage(AdminImageUploadScene.ARTICLE_CONTENT,
+                new MockMultipartFile("file", "not-an-avif.jpg", "image/jpeg", content));
+        assertEquals("image/avif", result.getContentType());
+        ArgumentCaptor<String> key = ArgumentCaptor.forClass(String.class);
+        verify(objectStorageService).upload(key.capture(), any(), eq((long) content.length), eq("image/avif"));
+        assertTrue(key.getValue().endsWith(".avif"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"avif, mif1", "avis, msf1", "mif1, avif"})
+    void shouldRecognizeMajorOrCompatibleAvifBrands(String major, String compatible) {
+        byte[] header = ByteBuffer.allocate(20).putInt(20).put("ftyp".getBytes(StandardCharsets.US_ASCII))
+                .put(major.getBytes(StandardCharsets.US_ASCII)).putInt(0)
+                .put(compatible.getBytes(StandardCharsets.US_ASCII)).array();
+        when(objectStorageService.upload(any(), any(), anyLong(), any())).thenReturn("https://img.example.com/test.avif");
+        var result = imageUploadService.uploadAvatar(USER_ID, new MockMultipartFile("file", "test.avif", "image/avif", header));
+        assertEquals("image/avif", result.getContentType());
+    }
+
+    @Test
+    void shouldRejectGenericFtypHeicAndTruncatedAvif() {
+        for (byte[] header : java.util.List.of(
+                ByteBuffer.allocate(20).putInt(20).put("ftypisom".getBytes(StandardCharsets.US_ASCII)).putInt(0).put("mp42".getBytes(StandardCharsets.US_ASCII)).array(),
+                ByteBuffer.allocate(20).putInt(20).put("ftypheic".getBytes(StandardCharsets.US_ASCII)).putInt(0).put("mif1".getBytes(StandardCharsets.US_ASCII)).array(),
+                ByteBuffer.allocate(16).putInt(24).put("ftypavif".getBytes(StandardCharsets.US_ASCII)).putInt(0).array(),
+                "<svg xmlns='http://www.w3.org/2000/svg'/>".getBytes(StandardCharsets.UTF_8))) {
+            BizException error = assertThrows(BizException.class, () -> imageUploadService.uploadAdminImage(
+                    AdminImageUploadScene.ARTICLE_CONTENT, new MockMultipartFile("file", "fake.avif", "image/avif", header)));
+            assertEquals(ResultCode.IMAGE_TYPE_NOT_SUPPORTED, error.getResultCode());
+        }
+        verifyNoInteractions(objectStorageService, avatarUploadRateLimiter);
+    }
+
+    @Test
+    void avifHeaderShouldHandleExtendedSizesAndIgnoreMinorVersionAsBrand() {
+        byte[] extended = ByteBuffer.allocate(28).putInt(1)
+                .put("ftyp".getBytes(StandardCharsets.US_ASCII)).putLong(28)
+                .put("avif".getBytes(StandardCharsets.US_ASCII)).putInt(0)
+                .put("mif1".getBytes(StandardCharsets.US_ASCII)).array();
+        assertTrue(com.ccsanjuu.blog.modules.file.model.enums.ImageFileType.isAvifHeader(extended));
+        byte[] fakeVersion = ByteBuffer.allocate(20).putInt(20)
+                .put("ftypmif1avifmif1".getBytes(StandardCharsets.US_ASCII)).array();
+        assertTrue(!com.ccsanjuu.blog.modules.file.model.enums.ImageFileType.isAvifHeader(fakeVersion));
+    }
 
     @Test
     void uploadAvatarShouldValidateAndUploadJpegImage() {

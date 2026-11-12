@@ -159,6 +159,10 @@
 				<h1>{{ title }}</h1>
 				<span v-if="loaded">{{ total }} 篇</span>
 			</header>
+			<AppLoading
+				v-if="loading && articles.length === 0"
+				:loading="true"
+			/>
 			<ArchiveArticleItem
 				v-for="article in articles"
 				:key="article.id"
@@ -172,13 +176,13 @@
 				<el-button @click="retry">重试</el-button>
 			</div>
 			<p
-				v-else-if="loaded && !articles.length"
+				v-else-if="loaded && !loading && !articles.length"
 				class="archive-state"
 			>
 				暂无文章
 			</p>
 			<AppLoadMoreTrigger
-				v-else-if="query"
+				v-else-if="query && !(loading && articles.length === 0)"
 				:loading="loading"
 				:has-next="hasNext"
 				:disabled="loadFailed"
@@ -193,6 +197,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue';
 import { useMediaQuery } from '@vueuse/core';
+import AppLoading from '@/components/AppLoading.vue';
 import AppLoadMoreTrigger from '@/components/AppLoadMoreTrigger.vue';
 import PrimaryCategoryList from '@/modules/category/components/PrimaryCategoryList.vue';
 import ArchiveArticleItem from '../components/ArchiveArticleItem.vue';

@@ -9,6 +9,8 @@ import type {
 } from '../types/adminArticle';
 
 export function useAdminArticleList() {
+	const loading = ref(false);
+	let requestId = 0;
 	// 数据列表
 	const articleList = ref<AdminArticleListItem[]>([]);
 
@@ -59,8 +61,11 @@ export function useAdminArticleList() {
 
 	// 获取文章列表
 	async function getArticleList() {
+		const currentRequestId = ++requestId;
+		loading.value = true;
 		try {
 			const data: AdminArticlePageData = await listArticles(buildArticleListQuery());
+			if (currentRequestId !== requestId) return;
 			articleList.value = data.records;
 			pageParams.pageNum = data.pageNum;
 			pageParams.pageSize = data.pageSize;
@@ -69,10 +74,13 @@ export function useAdminArticleList() {
 			pageMeta.hasNext = data.hasNext;
 		} catch {
 			// 错误提示已经由 request 响应拦截器统一处理
+		} finally {
+			if (currentRequestId === requestId) loading.value = false;
 		}
 	}
 
 	return {
+		loading,
 		articleList,
 		pageMeta,
 		pageParams,

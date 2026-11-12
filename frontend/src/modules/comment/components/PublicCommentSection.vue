@@ -1,4 +1,4 @@
-﻿<template>
+<template>
 	<section
 		id="article-comments"
 		class="article-comment-section"
@@ -60,6 +60,10 @@
 		</div>
 
 		<!-- 评论列表 -->
+		<AppLoading
+			v-if="loading && commentList.length === 0"
+			:loading="true"
+		/>
 		<div
 			v-if="commentList.length"
 			class="comment-list"
@@ -366,6 +370,7 @@
 </template>
 
 <script setup lang="ts">
+import AppLoading from '@/components/AppLoading.vue';
 import { nextTick, reactive, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useRoute, useRouter } from 'vue-router';

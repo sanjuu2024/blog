@@ -621,7 +621,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     /**
      * 将 PostgreSQL ts_headline 生成的内部标记转换成可安全渲染的高亮 HTML。
      * 原始标题、摘要和正文会先整体转义，只有服务端约定的标记会转换成 mark 标签。
-     * 字面量命中不带内部标记，按原文查找关键词并逐段转义，避免将关键词当作正则或 HTML。
+     * 按去掉内部标记的原文补全完整关键词，保留分词高亮并逐段转义，避免嵌套 mark。
      *
      * @param headline 全文高亮文本或字面量命中的原文
      * @param keyword 去除首尾空白后的搜索关键词
@@ -632,27 +632,39 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
             return null;
         }
 
-        if (headline.contains(SEARCH_HIGHLIGHT_START) && headline.contains(SEARCH_HIGHLIGHT_END)) {
-            return HtmlUtils.htmlEscape(headline)
-                    .replace(SEARCH_HIGHLIGHT_START, SEARCH_HIGHLIGHT_MARK)
-                    .replace(SEARCH_HIGHLIGHT_END, "</mark>");
+        StringBuilder plainText = new StringBuilder();
+        BitSet highlights = new BitSet();
+        Matcher markers = Pattern.compile(SEARCH_HIGHLIGHT_START + "|" + SEARCH_HIGHLIGHT_END).matcher(headline);
+        int sourceEnd = 0;
+        boolean selected = false;
+        while (markers.find()) {
+            int start = plainText.length();
+            plainText.append(headline, sourceEnd, markers.start());
+            if (selected) highlights.set(start, plainText.length());
+            selected = markers.group().equals(SEARCH_HIGHLIGHT_START);
+            sourceEnd = markers.end();
         }
+        int tailStart = plainText.length();
+        plainText.append(headline.substring(sourceEnd));
+        if (selected) highlights.set(tailStart, plainText.length());
 
+        // zhparser 可能过滤数词等词性，例如“二叉”仅标记“叉”；展示补全不改变查询语义。
         Matcher matcher = Pattern.compile(Pattern.quote(keyword), Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE)
-                .matcher(headline);
+                .matcher(plainText);
+        while (matcher.find()) highlights.set(matcher.start(), matcher.end());
+        if (highlights.isEmpty()) return null;
+
         StringBuilder result = new StringBuilder();
         int end = 0;
-        while (matcher.find()) {
-            result.append(HtmlUtils.htmlEscape(headline.substring(end, matcher.start())))
+        for (int start = highlights.nextSetBit(0); start >= 0; start = highlights.nextSetBit(end)) {
+            int selectedEnd = highlights.nextClearBit(start);
+            result.append(HtmlUtils.htmlEscape(plainText.substring(end, start)))
                     .append(SEARCH_HIGHLIGHT_MARK)
-                    .append(HtmlUtils.htmlEscape(matcher.group()))
+                    .append(HtmlUtils.htmlEscape(plainText.substring(start, selectedEnd)))
                     .append("</mark>");
-            end = matcher.end();
+            end = selectedEnd;
         }
-        if (end == 0) {
-            return null;
-        }
-        return result.append(HtmlUtils.htmlEscape(headline.substring(end))).toString();
+        return result.append(HtmlUtils.htmlEscape(plainText.substring(end))).toString();
     }
 
     private PageResult<PublicArticleListItemVO> toPublicArticleListPage(Page<Article> page) {

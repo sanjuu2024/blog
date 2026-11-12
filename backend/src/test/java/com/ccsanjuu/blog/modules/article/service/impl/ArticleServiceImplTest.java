@@ -693,6 +693,9 @@ class ArticleServiceImplTest {
             _ | a_b | a<mark class="article-search-highlight">_</mark>b
             [a].* | x[a].*y | x<mark class="article-search-highlight">[a].*</mark>y
             <img> | <IMG> | <mark class="article-search-highlight">&lt;IMG&gt;</mark>
+            二叉 | 二__BLOG_SEARCH_HIGHLIGHT_START__叉__BLOG_SEARCH_HIGHLIGHT_END__树与二叉树 | <mark class="article-search-highlight">二叉</mark>树与<mark class="article-search-highlight">二叉</mark>树
+            Boot | __BLOG_SEARCH_HIGHLIGHT_START__Spring__BLOG_SEARCH_HIGHLIGHT_END__ Boot | <mark class="article-search-highlight">Spring</mark> <mark class="article-search-highlight">Boot</mark>
+            ab | __BLOG_SEARCH_HIGHLIGHT_START__a__BLOG_SEARCH_HIGHLIGHT_END__b | <mark class="article-search-highlight">ab</mark>
             missing | AtCoder |
             """)
     void getPublicArticleListShouldSafelyHighlightLiteralMatches(String keyword, String title, String expected) {

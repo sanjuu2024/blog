@@ -15,6 +15,7 @@ import {
 } from '../types/adminComment';
 
 export function useAdminCommentList() {
+	const loading = ref(false);
 	// 评论列表请求序号，用于避免旧请求响应覆盖新请求结果
 	let commentRequestId = 0;
 
@@ -69,6 +70,7 @@ export function useAdminCommentList() {
 	async function getCommentList(page: number = pageParams.pageNum) {
 		const currentRequestId = ++commentRequestId;
 		pageParams.pageNum = page;
+		loading.value = true;
 		try {
 			const data: AdminCommentPageData = await listComments(buildCommentListQuery());
 			if (currentRequestId !== commentRequestId) return;
@@ -81,6 +83,8 @@ export function useAdminCommentList() {
 			pageMeta.hasNext = data.hasNext;
 		} catch {
 			// 错误提示已经由 request 响应拦截器统一处理
+		} finally {
+			if (currentRequestId === commentRequestId) loading.value = false;
 		}
 	}
 
@@ -191,6 +195,7 @@ export function useAdminCommentList() {
 	}
 
 	return {
+		loading,
 		commentList,
 		pageMeta,
 		pageParams,

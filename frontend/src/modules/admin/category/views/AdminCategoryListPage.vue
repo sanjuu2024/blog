@@ -123,6 +123,7 @@
 				<!-- 分类列表 -->
 				<div class="admin-category-table-wrap">
 					<el-table
+						v-loading="loading"
 						ref="categoryTableRef"
 						:data="categoryList"
 						row-key="id"
@@ -419,6 +420,7 @@ const {
 } = useAdminCategoryForm();
 
 const {
+	loading,
 	categoryList,
 	queryParams,
 	getCategoryList,
