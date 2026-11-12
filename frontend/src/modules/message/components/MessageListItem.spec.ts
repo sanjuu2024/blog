@@ -1,10 +1,27 @@
 import { mount } from '@vue/test-utils';
-import { defineComponent, nextTick } from 'vue';
+import { defineComponent, nextTick, ref } from 'vue';
 import { describe, expect, it, vi } from 'vitest';
 import { MESSAGE_STATUS, type PublicMessageItem } from '../types/message';
 import MessageListItem from './MessageListItem.vue';
 
 const resizeObserver = vi.hoisted(() => ({ callback: undefined as (() => void) | undefined }));
+
+vi.mock('@/composables/useStickers', () => ({
+	useStickers: () => ({
+		stickers: ref(
+			new Map([
+				[
+					'[sticker:bilibili:doge]',
+					{
+						token: '[sticker:bilibili:doge]',
+						name: 'doge',
+						url: '/stickers/bilibili/bb_doge.png',
+					},
+				],
+			]),
+		),
+	}),
+}));
 
 vi.mock('@vueuse/core', () => ({
 	useResizeObserver: vi.fn((_target, callback: () => void) => {
@@ -50,6 +67,36 @@ function message(overrides: Partial<PublicMessageItem> = {}): PublicMessageItem 
 }
 
 describe('MessageListItem', () => {
+	it('renders preset stickers in messages and replies while keeping HTML as text', () => {
+		const wrapper = mount(MessageListItem, {
+			props: {
+				item: message({
+					content: '<img src=x onerror=alert(1)>[sticker:bilibili:doge]',
+					replies: [
+						{
+							id: 90002,
+							parentId: 90001,
+							content: '<script>alert(1)</script>[sticker:bilibili:doge]',
+							status: MESSAGE_STATUS.APPROVED,
+							author: null,
+							createdAt: '2026-08-12T01:00:00Z',
+						},
+					],
+				}),
+			},
+			global: {
+				stubs: { AppUserAvatar: AppUserAvatarStub, GuestUserPopover: GuestUserPopoverStub },
+			},
+		});
+		expect(wrapper.findAll('img')).toHaveLength(2);
+		expect(wrapper.find('script').exists()).toBe(false);
+		expect(wrapper.text()).toContain('<img src=x onerror=alert(1)>');
+		expect(wrapper.text()).toContain('<script>alert(1)</script>');
+		for (const image of wrapper.findAll('img'))
+			expect(image.attributes('src')).toBe('/stickers/bilibili/bb_doge.png');
+		wrapper.unmount();
+	});
+
 	it('uses the guest popover only for a guest top-level message', () => {
 		const wrapper = mount(MessageListItem, {
 			props: { item: message() },

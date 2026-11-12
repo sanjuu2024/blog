@@ -27,7 +27,7 @@
 					<span>有新的回复时通过账号邮箱提醒我</span>
 					<span v-show="userStore.userInfo?.emailVerified === false">（邮箱未验证）</span>
 				</el-checkbox>
-				<CommentTextInput
+				<StickerTextInput
 					v-model="commentContent"
 					:rows="4"
 					placeholder="检测到访客信号......等待评论电波接入！ヾ(≧▽≦*)o"
@@ -41,7 +41,7 @@
 							发表评论
 						</el-button>
 					</template>
-				</CommentTextInput>
+				</StickerTextInput>
 			</template>
 
 			<div
@@ -382,9 +382,9 @@ import { useUserStore } from '@/stores/userStore';
 import type { PublicArticleDetailData } from '@/modules/article/types/article';
 import PublicCommentContent from './PublicCommentContent.vue';
 import PublicCommentReplyEditor from './PublicCommentReplyEditor.vue';
-import CommentTextInput from './CommentTextInput.vue';
-import { useCommentStickers } from '../composables/useCommentStickers';
-import { COMMENT_MAX_STICKERS, countCommentLength, countCommentStickers } from '../utils/sticker';
+import StickerTextInput from '@/components/sticker/StickerTextInput.vue';
+import { useStickers } from '@/composables/useStickers';
+import { STICKER_MAX_COUNT, countStickerContentLength, countStickers } from '@/utils/sticker';
 import { usePublicCommentList } from '../composables/usePublicCommentList';
 import {
 	COMMENT_STATUS,
@@ -411,7 +411,7 @@ const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const userStore = useUserStore();
-const { stickers } = useCommentStickers();
+const { stickers } = useStickers();
 
 const {
 	commentList,
@@ -679,12 +679,12 @@ function validateCommentContent(content: string) {
 		return false;
 	}
 
-	if (countCommentStickers(content, stickers.value) > COMMENT_MAX_STICKERS) {
+	if (countStickers(content, stickers.value) > STICKER_MAX_COUNT) {
 		ElMessage.warning('每条评论最多添加 20 个表情');
 		return false;
 	}
 
-	if (countCommentLength(content, stickers.value) > 1000) {
+	if (countStickerContentLength(content, stickers.value) > 1000) {
 		ElMessage.warning('评论内容不能超过 1000 个字符');
 		return false;
 	}

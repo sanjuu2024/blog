@@ -9,7 +9,7 @@
 			<span>有新的回复时通过账号邮箱提醒我</span>
 			<span v-show="emailVerified === false">（邮箱未验证）</span>
 		</el-checkbox>
-		<CommentTextInput
+		<StickerTextInput
 			ref="inputRef"
 			v-model="content"
 			:rows="3"
@@ -25,13 +25,13 @@
 					发表回复
 				</el-button>
 			</template>
-		</CommentTextInput>
+		</StickerTextInput>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { nextTick, onMounted, ref } from 'vue';
-import CommentTextInput from './CommentTextInput.vue';
+import StickerTextInput from '@/components/sticker/StickerTextInput.vue';
 
 defineOptions({
 	name: 'PublicCommentReplyEditor',
@@ -47,7 +47,7 @@ const { emailVerified, autofocus = false } = defineProps<{
 	autofocus?: boolean;
 }>();
 
-const inputRef = ref<InstanceType<typeof CommentTextInput>>();
+const inputRef = ref<InstanceType<typeof StickerTextInput>>();
 onMounted(async () => {
 	if (!autofocus) return;
 	await nextTick();

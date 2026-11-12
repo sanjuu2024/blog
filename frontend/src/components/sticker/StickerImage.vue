@@ -2,7 +2,7 @@
 	<span v-if="failed">[{{ name }}]</span>
 	<img
 		v-else
-		class="comment-sticker"
+		class="sticker-image"
 		:src="url"
 		:alt="`[${name}]`"
 		:title="name"
@@ -24,11 +24,12 @@ watch(
 </script>
 
 <style scoped lang="scss">
-.comment-sticker {
+.sticker-image {
 	display: inline-block;
 	width: auto;
 	max-width: none;
 	height: 1.5rem;
 	vertical-align: text-bottom;
+	margin-inline: 0.15rem;
 }
 </style>

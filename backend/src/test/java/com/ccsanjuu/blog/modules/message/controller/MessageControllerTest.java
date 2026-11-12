@@ -53,6 +53,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(controllers = MessageController.class)
 @AutoConfigureMockMvc
 @Import({
+        com.ccsanjuu.blog.modules.comment.service.impl.CommentStickerServiceImpl.class,
         SecurityConfig.class,
         GlobalExceptionHandler.class,
         WebMvcConfig.class,
@@ -160,6 +161,23 @@ class MessageControllerTest {
 
         verify(messageService).getPublicMessageList(eq(USER_ID), any());
         verify(messageService).createMessage(eq(USER_ID), any(String.class), any());
+    }
+
+    @Test
+    void messageBodyShouldValidateDisplayLengthAndStickerCount() throws Exception {
+        when(messageService.createMessage(eq(null), any(String.class), any()))
+                .thenReturn(MessageMutationVO.builder().id(MESSAGE_ID).build());
+        String token = "[sticker:bilibili:doge]";
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        mockMvc.perform(post("/api/v1/messages").contentType("application/json")
+                        .content(json.writeValueAsString(java.util.Map.of("nickname", "访客", "content", "字".repeat(980) + token.repeat(20)))))
+                .andExpect(status().isOk());
+        for (String content : List.of(token.repeat(21), "字".repeat(1000) + token)) {
+            mockMvc.perform(post("/api/v1/messages").contentType("application/json")
+                            .content(json.writeValueAsString(java.util.Map.of("nickname", "访客", "content", content))))
+                    .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value(199001));
+        }
+        verify(messageService).createMessage(eq(null), any(String.class), any());
     }
 
     @Test

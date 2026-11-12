@@ -1,7 +1,7 @@
 <template>
 	<section
 		class="sticker-picker"
-		aria-label="评论表情选择器"
+		aria-label="预置表情选择器"
 	>
 		<header class="sticker-picker__header">
 			<strong>{{ selectedPack?.name || '表情' }}</strong>
@@ -52,7 +52,7 @@
 					@mousedown.prevent
 					@click="emit('select', sticker)"
 				>
-					<CommentSticker
+					<StickerImage
 						:name="sticker.name"
 						:url="sticker.url"
 					/>
@@ -74,7 +74,7 @@
 					@mousedown.prevent
 					@click="selectedId = pack.id"
 				>
-					<CommentSticker
+					<StickerImage
 						:name="pack.name"
 						:url="pack.iconUrl"
 					/>
@@ -86,11 +86,11 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useCommentStickers } from '../composables/useCommentStickers';
-import type { CommentSticker as Sticker } from '../types/sticker';
-import CommentSticker from './CommentSticker.vue';
+import { useStickers } from '@/composables/useStickers';
+import type { Sticker } from '@/types/sticker';
+import StickerImage from '@/components/sticker/StickerImage.vue';
 
-const { packs, loading, failed, loadStickers } = useCommentStickers();
+const { packs, loading, failed, loadStickers } = useStickers();
 const selectedId = ref('');
 const selectedPack = computed(
 	() => packs.value.find((pack) => pack.id === selectedId.value) || packs.value[0],
@@ -163,7 +163,7 @@ const emit = defineEmits<{ select: [sticker: Sticker]; close: [] }>();
 	border-bottom: 3px solid transparent;
 	cursor: pointer;
 
-	:deep(.comment-sticker) {
+	:deep(.sticker-image) {
 		height: 1.5rem;
 	}
 }

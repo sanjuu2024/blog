@@ -71,7 +71,7 @@
 			class="message-item__content"
 			:class="{ 'message-item__content--expanded': contentExpanded }"
 		>
-			{{ item.content }}
+			<StickerContent :content="item.content" />
 		</p>
 
 		<!-- 回复 -->
@@ -118,7 +118,9 @@
 						</strong>
 						<time>{{ formatDateTime(reply.createdAt) }}</time>
 					</div>
-					<p class="message-reply__content">{{ reply.content }}</p>
+					<p class="message-reply__content">
+						<StickerContent :content="reply.content" />
+					</p>
 				</div>
 			</div>
 		</div>
@@ -175,6 +177,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue';
 import { useResizeObserver } from '@vueuse/core';
+import StickerContent from '@/components/sticker/StickerContent.vue';
 import { formatDateTime } from '@/utils/datetime';
 import type { PublicMessageItem, MessageStatus } from '../types/message';
 import { MESSAGE_STATUS } from '../types/message';

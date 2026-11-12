@@ -3,8 +3,8 @@ import { nextTick, ref } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import PublicCommentContent from './PublicCommentContent.vue';
 
-vi.mock('../composables/useCommentStickers', () => ({
-	useCommentStickers: () => ({
+vi.mock('@/composables/useStickers', () => ({
+	useStickers: () => ({
 		stickers: ref(
 			new Map([
 				[

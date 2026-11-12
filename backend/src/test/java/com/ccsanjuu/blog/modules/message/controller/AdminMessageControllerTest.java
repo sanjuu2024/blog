@@ -51,6 +51,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = AdminMessageController.class)
 @Import({
+        com.ccsanjuu.blog.modules.comment.service.impl.CommentStickerServiceImpl.class,
         SecurityConfig.class,
         GlobalExceptionHandler.class,
         WebMvcConfig.class,

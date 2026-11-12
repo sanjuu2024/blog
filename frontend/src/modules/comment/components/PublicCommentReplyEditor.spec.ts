@@ -3,8 +3,8 @@ import { defineComponent, ref } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import PublicCommentReplyEditor from './PublicCommentReplyEditor.vue';
 
-vi.mock('../composables/useCommentStickers', () => ({
-	useCommentStickers: () => ({ stickers: ref(new Map()) }),
+vi.mock('@/composables/useStickers', () => ({
+	useStickers: () => ({ stickers: ref(new Map()) }),
 }));
 
 const ElInputStub = defineComponent({

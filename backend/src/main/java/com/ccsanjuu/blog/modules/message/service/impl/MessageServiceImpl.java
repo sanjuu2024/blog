@@ -8,6 +8,7 @@ import com.ccsanjuu.blog.common.api.PageResult;
 import com.ccsanjuu.blog.common.api.ResultCode;
 import com.ccsanjuu.blog.common.constants.ValidationConstants;
 import com.ccsanjuu.blog.common.exception.BizException;
+import com.ccsanjuu.blog.modules.comment.service.CommentStickerService;
 import com.ccsanjuu.blog.modules.message.mapper.MessageMapper;
 import com.ccsanjuu.blog.modules.message.model.dto.CreateMessageReplyRequestDTO;
 import com.ccsanjuu.blog.modules.message.model.dto.CreateMessageRequestDTO;
@@ -58,6 +59,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
     private final TurnstileVerifier turnstileVerifier;
     private final MessageReplyNotificationService notificationService;
     private final NotificationService notificationCenterService;
+    private final CommentStickerService commentStickerService;
 
     /**
      * 获取公开留言分页列表，并在每条顶层留言下附带管理员回复。
@@ -456,7 +458,7 @@ public class MessageServiceImpl extends ServiceImpl<MessageMapper, Message> impl
                 .parentId(message.getParentId())
                 .nickname(message.getNickname())
                 .email(message.getEmail())
-                .content(message.getContent())
+                .content(commentStickerService.toPlainText(message.getContent()))
                 .isAnnouncement(Boolean.TRUE.equals(message.getIsAnnouncement()))
                 .isPinned(Boolean.TRUE.equals(message.getIsPinned()))
                 .status(message.getStatus())

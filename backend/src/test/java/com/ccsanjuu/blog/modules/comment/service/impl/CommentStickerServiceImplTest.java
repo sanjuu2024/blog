@@ -1,6 +1,6 @@
 package com.ccsanjuu.blog.modules.comment.service.impl;
 
-import com.ccsanjuu.blog.modules.comment.model.validation.CommentContentLengthValidator;
+import com.ccsanjuu.blog.common.validation.StickerContentLengthValidator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -43,7 +43,7 @@ class CommentStickerServiceImplTest {
 
     @Test
     void validatorShouldUseDisplayLengthAfterTrimming() {
-        var validator = new CommentContentLengthValidator(service);
+        var validator = new StickerContentLengthValidator(service);
         String token = "[sticker:bilibili:doge]";
         assertTrue(validator.isValid("  " + "字".repeat(980) + token.repeat(20) + "  ", null));
         assertFalse(validator.isValid(token.repeat(21), null));

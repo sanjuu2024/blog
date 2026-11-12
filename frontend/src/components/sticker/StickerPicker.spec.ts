@@ -1,10 +1,10 @@
 import { mount } from '@vue/test-utils';
 import { ref } from 'vue';
 import { describe, expect, it, vi } from 'vitest';
-import CommentStickerPicker from './CommentStickerPicker.vue';
+import StickerPicker from '@/components/sticker/StickerPicker.vue';
 
-vi.mock('../composables/useCommentStickers', () => ({
-	useCommentStickers: () => ({
+vi.mock('@/composables/useStickers', () => ({
+	useStickers: () => ({
 		packs: ref([
 			{
 				id: 'first',
@@ -26,10 +26,10 @@ vi.mock('../composables/useCommentStickers', () => ({
 	}),
 }));
 
-describe('CommentStickerPicker', () => {
+describe('StickerPicker', () => {
 	it('switches packs, selects their tokens and exposes a close action', async () => {
-		const wrapper = mount(CommentStickerPicker, {
-			global: { stubs: { CommentSticker: true, ILucideX: true } },
+		const wrapper = mount(StickerPicker, {
+			global: { stubs: { StickerImage: true, ILucideX: true } },
 		});
 		expect(wrapper.text()).toContain('第一个库');
 		expect(wrapper.text()).toContain('1 个');

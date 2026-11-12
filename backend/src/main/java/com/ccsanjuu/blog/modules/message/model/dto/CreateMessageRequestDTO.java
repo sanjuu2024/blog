@@ -1,5 +1,6 @@
 package com.ccsanjuu.blog.modules.message.model.dto;
 
+import com.ccsanjuu.blog.common.validation.StickerContentLength;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -17,7 +18,8 @@ public class CreateMessageRequestDTO {
     private String email;
 
     @jakarta.validation.constraints.NotBlank(message = "留言内容不能为空")
-    @Size(max = 1000, message = "留言内容长度不能超过 1000 个字符")
+    @Size(max = 2260, message = "留言原始内容长度不能超过 2260 个字符")
+    @StickerContentLength(message = "留言内容长度不能超过 1000 个字符，且表情不能超过 20 个")
     private String content;
 
     @Builder.Default

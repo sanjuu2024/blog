@@ -1048,8 +1048,8 @@ paths:
   /api/v1/comments/stickers:
     get:
       tags: [Public Comments]
-      summary: 获取预置评论表情目录
-      description: PUBLIC，只读静态目录。按各库 info.json 顺序返回；图片使用同源静态路径，用户不能上传表情。前台仅将目录中的有效 token 渲染为图片。
+      summary: 获取评论和留言共用的预置表情目录
+      description: PUBLIC，文章评论和留言板共用的只读静态目录，保留历史路径。按各库 info.json 顺序返回；图片使用同源静态路径，用户不能上传表情。前台仅将目录中的有效 token 渲染为图片。
       operationId: listCommentStickers
       security: []
       responses:
@@ -3306,10 +3306,15 @@ components:
           type: string
           enum: [COMMENT_REPLY, MESSAGE_REPLY, ADMIN_MESSAGE]
         title: { type: string }
-        content: { type: string }
+        content:
+          type: string
+          description: 评论和留言回复使用表情文字替代，通知快照最多 2000 字符；管理员消息保持普通文本。
         sourceId: { type: integer, format: int64, nullable: true }
         authorName: { type: string, nullable: true }
-        originalContent: { type: string, nullable: true }
+        originalContent:
+          type: string
+          nullable: true
+          description: 评论或留言原文的文字替代，有效表情显示为 [表情名]，不返回图片 HTML。
         articleId: { type: integer, format: int64, nullable: true }
         articleTitle:
           type: string
@@ -5747,6 +5752,7 @@ components:
           format: int64
         content:
           type: string
+          description: 保留预置表情原始标记，由前台按共用目录安全渲染；不解析 HTML 或 Markdown。
         status:
           $ref: '#/components/schemas/MessageStatus'
         author:
@@ -5767,6 +5773,7 @@ components:
           type: string
         content:
           type: string
+          description: 保留预置表情原始标记，由前台按共用目录安全渲染；不解析 HTML 或 Markdown。
         isAnnouncement:
           type: boolean
           description: 是否为管理员公告
@@ -5827,7 +5834,8 @@ components:
         content:
           type: string
           minLength: 1
-          maxLength: 1000
+          maxLength: 2260
+          description: 纯文本与预置表情标记；去除首尾空白后展示长度 1-1000，有效目录标记计 1，其余按 UTF-16 单元计数；最多 20 个有效表情，原始字符串最多 2260 单元，未知标记按普通文本处理。
         notifyOnReply:
           type: boolean
           default: false
@@ -5879,7 +5887,8 @@ components:
         content:
           type: string
           minLength: 1
-          maxLength: 1000
+          maxLength: 2260
+          description: 纯文本与预置表情标记；去除首尾空白后展示长度 1-1000，有效目录标记计 1，其余按 UTF-16 单元计数；最多 20 个有效表情，原始字符串最多 2260 单元，未知标记按普通文本处理。
     MessageBatchApprovalRequest:
       type: object
       required: [messageIds]
@@ -5933,6 +5942,7 @@ components:
           description: 仅后台返回的私有联系邮箱
         content:
           type: string
+          description: 审核用纯文本，有效表情标记替换为 [表情名]，不返回图片 HTML。
         isAnnouncement:
           type: boolean
           description: 是否为管理员公告

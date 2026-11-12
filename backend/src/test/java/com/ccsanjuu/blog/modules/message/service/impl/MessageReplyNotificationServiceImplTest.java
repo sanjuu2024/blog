@@ -49,14 +49,15 @@ class MessageReplyNotificationServiceImplTest {
     private MessageReplyNotificationServiceImpl notificationService;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         BlogMailProperties properties = new BlogMailProperties();
         properties.setEnabled(true);
         properties.setFrontendBaseUrl("https://blog.example.com");
         org.mockito.Mockito.lenient().when(mailDeliveryService.createPending(any(), any(), any(), any(), any()))
                 .thenReturn(MailDelivery.builder().id(1L).build());
         notificationService = new MessageReplyNotificationServiceImpl(
-                properties, new BlogProperties(), mailDeliveryService, mailNotificationSender, messageMapper, userMapper);
+                properties, new BlogProperties(), mailDeliveryService, mailNotificationSender, messageMapper, userMapper,
+                new com.ccsanjuu.blog.modules.comment.service.impl.CommentStickerServiceImpl(new com.fasterxml.jackson.databind.ObjectMapper()));
         org.mockito.Mockito.lenient().when(messageMapper.selectById(90001L)).thenReturn(rootMessage());
         org.mockito.Mockito.lenient().when(messageMapper.selectById(90002L)).thenReturn(replyMessage());
     }
@@ -141,6 +142,26 @@ class MessageReplyNotificationServiceImplTest {
         ArgumentCaptor<Supplier<MailMessageContent>> captor = ArgumentCaptor.forClass(Supplier.class);
         verify(mailNotificationSender).submit(any(), captor.capture());
         assertTrue(captor.getValue().get().plainText().contains("管理员回复内容"));
+    }
+
+    @Test
+    void replyMailShouldUseStickerTextAndEscapeHtml() {
+        Message root = rootMessage();
+        root.setContent("留言[sticker:bilibili:doge]");
+        Message reply = replyMessage();
+        reply.setContent("[sticker:wechat:微笑]<script>alert(1)</script>");
+        when(messageMapper.selectById(90001L)).thenReturn(root);
+        when(messageMapper.selectById(90002L)).thenReturn(reply);
+        notificationService.retry(MailDelivery.builder().id(1L).sourceId(90001L).replyId(90002L).build());
+
+        ArgumentCaptor<Supplier<MailMessageContent>> captor = ArgumentCaptor.forClass(Supplier.class);
+        verify(mailNotificationSender).submit(any(), captor.capture());
+        MailMessageContent content = captor.getValue().get();
+        assertTrue(content.plainText().contains("留言[doge]"));
+        assertTrue(content.plainText().contains("[微笑]<script>alert(1)</script>"));
+        assertTrue(content.html().contains("[微笑]&lt;script&gt;alert(1)&lt;/script&gt;"));
+        org.junit.jupiter.api.Assertions.assertFalse(content.html().contains("[sticker:"));
+        org.junit.jupiter.api.Assertions.assertFalse(content.html().contains("<script>"));
     }
 
     private Message rootMessage() {

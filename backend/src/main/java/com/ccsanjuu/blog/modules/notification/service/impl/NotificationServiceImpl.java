@@ -89,11 +89,11 @@ public class NotificationServiceImpl implements NotificationService {
                         .id(item.getId())
                         .type(item.getType())
                         .title(item.getTitle())
-                        .content(item.getType() == NotificationType.COMMENT_REPLY
+                        .content(item.getType() != NotificationType.ADMIN_MESSAGE
                                 ? commentStickerService.toPlainText(item.getContent()) : item.getContent())
                         .sourceId(item.getSourceId())
                         .authorName(item.getAuthorName())
-                        .originalContent(item.getType() == NotificationType.COMMENT_REPLY
+                        .originalContent(item.getType() != NotificationType.ADMIN_MESSAGE
                                 ? commentStickerService.toPlainText(item.getOriginalContent()) : item.getOriginalContent())
                         .articleId(item.getArticleId())
                         .articleTitle(item.getArticleTitle())
@@ -291,12 +291,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public void createCommentReplyNotification(Long recipientUserId, Long sourceId, String title, String content) {
-        String plainText = commentStickerService.toPlainText(content);
-        // 表情文字替代可能长于原来的展示字数，通知快照继续遵守既有 2000 字符约束。
-        if (plainText.codePointCount(0, plainText.length()) > 2000) {
-            plainText = plainText.substring(0, plainText.offsetByCodePoints(0, 1999)) + "…";
-        }
-        createReplyNotification(NotificationType.COMMENT_REPLY, recipientUserId, sourceId, title, plainText);
+        createReplyNotification(NotificationType.COMMENT_REPLY, recipientUserId, sourceId, title, toReplyText(content));
     }
 
     /**
@@ -310,7 +305,22 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public void createMessageReplyNotification(Long recipientUserId, Long sourceId, String title, String content) {
-        createReplyNotification(NotificationType.MESSAGE_REPLY, recipientUserId, sourceId, title, content);
+        createReplyNotification(NotificationType.MESSAGE_REPLY, recipientUserId, sourceId, title, toReplyText(content));
+    }
+
+    /**
+     * 将评论或留言表情转为文字，并限制回复通知快照长度。
+     *
+     * @param content 原始回复内容
+     * @return 通知使用的文字快照
+     */
+    private String toReplyText(String content) {
+        String plainText = commentStickerService.toPlainText(content);
+        // 表情文字替代可能长于原来的展示字数，通知快照继续遵守既有 2000 字符约束。
+        if (plainText.codePointCount(0, plainText.length()) > 2000) {
+            plainText = plainText.substring(0, plainText.offsetByCodePoints(0, 1999)) + "…";
+        }
+        return plainText;
     }
 
     /**
