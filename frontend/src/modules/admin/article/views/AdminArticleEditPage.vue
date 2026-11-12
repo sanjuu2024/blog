@@ -11,8 +11,24 @@
 					<span class="ml-2">返回文章列表页</span>
 				</button>
 			</template>
+			<AppLoading
+				v-if="initializing"
+				:loading="true"
+			/>
+			<div
+				v-else-if="initializationFailed"
+				class="article-initialization-error"
+			>
+				<p>文章编辑数据加载失败</p>
+				<el-button
+					type="primary"
+					@click="initializeEditor"
+					>重新加载</el-button
+				>
+			</div>
 			<!-- 文章元信息 -->
 			<el-form
+				:disabled="!editorReady"
 				:model="upsertRequest"
 				:rules="rules"
 				label-position="right"
@@ -44,7 +60,7 @@
 						<el-upload
 							:accept="IMAGE_ACCEPT"
 							:auto-upload="false"
-							:disabled="imageUploading"
+							:disabled="!editorReady || imageUploading"
 							:show-file-list="false"
 							:on-change="handleCoverImageChange"
 						>
@@ -179,6 +195,7 @@
 
 			<!-- md 编辑器 -->
 			<MdEditor
+				v-if="editorReady"
 				ref="editorRef"
 				v-model="upsertRequest.contentMd"
 				class="rounded-2xl"
@@ -192,7 +209,7 @@
 			<el-button
 				class="admin-article-preview-button"
 				size="large"
-				:disabled="submitting || imageUploading || previewLoading"
+				:disabled="!editorReady || submitting || imageUploading || previewLoading"
 				@click="openPreview"
 			>
 				实际效果预览
@@ -203,7 +220,7 @@
 				type="primary"
 				size="large"
 				class="admin-article-submit-button flex-1"
-				:disabled="submitting"
+				:disabled="!editorReady || submitting"
 				:loading="submitting"
 				@click="clickUpsertArticle"
 			>
@@ -258,7 +275,8 @@
 <script setup lang="ts">
 import 'element-plus/es/components/message-box/style/css';
 import '@/modules/admin/file/utils/markdownEditor';
-import { computed, ref, onMounted, toRaw } from 'vue';
+import { computed, ref, onMounted, onScopeDispose, toRaw } from 'vue';
+import AppLoading from '@/components/AppLoading.vue';
 import { MdEditor, type ExposeParam, type UploadImgEvent } from 'md-editor-v3';
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { useAdminCategoryList } from '../../category/composables/useAdminCategoryList';
@@ -371,30 +389,41 @@ defineOptions({
 });
 
 // 当前文章id（创建文章时为 null）
-let articleId: number | null = null;
+let articleId: number | null =
+	route.params.articleId === undefined ? null : Number(route.params.articleId);
 
 // 当前模式
-let mode = ref<'create' | 'edit'>('create');
+let mode = ref<'create' | 'edit'>(articleId === null ? 'create' : 'edit');
+const initializing = ref(true);
+const initializationFailed = ref(false);
+const editorReady = ref(false);
+let initializationVersion = 0;
+onScopeDispose(() => initializationVersion++);
 
 // 原先内容
 let originalUpsertRequest: ArticleUpsertRequestFilter = { ...initUpsertRequest };
 
-onMounted(async () => {
-	await getCategoryList();
-	await getTagList();
-
-	articleId = Number(route.params.articleId);
-	if (!isNaN(articleId)) {
+async function initializeEditor() {
+	const version = ++initializationVersion;
+	initializing.value = true;
+	initializationFailed.value = false;
+	const [categoriesLoaded, tagsLoaded, detailLoaded] = await Promise.all([
+		getCategoryList(),
+		getTagList(),
+		articleId === null ? Promise.resolve(true) : handleGetArticleDetails(articleId),
+	]);
+	if (version !== initializationVersion) return;
+	initializing.value = false;
+	if (!categoriesLoaded || !tagsLoaded || !detailLoaded) {
+		initializationFailed.value = true;
+		return;
+	}
+	if (articleId !== null) {
 		// 更新文章
 		mode.value = 'edit';
 
 		// 获取文章详情并填充 articleDetail
-		const success = await handleGetArticleDetails(articleId);
-		if (!success) {
-			// 获取失败
-			router.replace('/admin/articles');
-			return;
-		}
+		// 详情已与分类、标签并行获取，全部成功后才回填表单。
 
 		upsertRequest.title = articleDetail?.title || '';
 		upsertRequest.summary = articleDetail?.summary || '';
@@ -411,16 +440,22 @@ onMounted(async () => {
 		mode.value = 'create';
 	}
 
+	checkTagList.value = [];
 	tagList.value.forEach((tag) => {
 		checkTagList.value.push({
 			...tag,
 			checked: upsertRequest.tagIds?.includes(tag.id) || false,
 		});
 	});
-});
+	originalUpsertRequest = structuredClone(toRaw(upsertRequest));
+	editorReady.value = true;
+}
+
+onMounted(initializeEditor);
 
 // 离开当前页面时触发路由守卫
 onBeforeRouteLeave(async () => {
+	if (!editorReady.value) return true;
 	console.log(
 		'离开编辑页，upsertRequest:',
 		upsertRequest,
@@ -497,6 +532,7 @@ const handleContentImageUpload: UploadImgEvent = async (files, callback) => {
 };
 
 async function clickUpsertArticle() {
+	if (!editorReady.value) return;
 	try {
 		if (!upsertRequest.contentMd?.trim()) {
 			throw new Error('文章正文不能为空');
@@ -530,6 +566,14 @@ async function clickUpsertArticle() {
 
 .admin-article-edit-card {
 	background-color: var(--app-bg);
+}
+
+.article-initialization-error {
+	display: flex;
+	min-height: 10rem;
+	align-items: center;
+	justify-content: center;
+	gap: 1rem;
 }
 
 .admin-article-edit-header {

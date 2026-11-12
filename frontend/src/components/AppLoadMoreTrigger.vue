@@ -2,24 +2,26 @@
 	<!-- 滚动加载更多的触发器 -->
 	<div
 		ref="triggerRef"
-		class="flex h-12 items-center justify-center"
+		class="flex min-h-12 items-center justify-center"
 	>
-		<i-lucide-loader
-			v-if="props.loading"
-			class="animate-spin text-xl text-gray-400"
-		/>
-		<span
-			v-else-if="props.showNoMore && !props.hasNext && !props.disabled"
-			class="text-sm text-gray-400"
+		<AppLoading
+			:loading="props.loading"
+			class="text-center"
 		>
-			没有更多{{ props.thingStr }}了
-		</span>
+			<span
+				v-if="props.showNoMore && !props.hasNext && !props.disabled"
+				class="text-sm text-gray-400"
+			>
+				没有更多{{ props.thingStr }}了
+			</span>
+		</AppLoading>
 	</div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useIntersectionObserver } from '@vueuse/core';
+import AppLoading from './AppLoading.vue';
 
 const triggerRef = ref<HTMLElement | null>(null);
 

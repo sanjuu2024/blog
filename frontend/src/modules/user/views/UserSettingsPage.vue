@@ -16,13 +16,10 @@
 			</el-button>
 		</header>
 
-		<div
+		<AppLoading
 			v-if="profileLoading || (!profileLoaded && !profileLoadFailed)"
-			class="settings-state"
-		>
-			<i-lucide-loader class="animate-spin text-2xl text-(--app-text-muted)" />
-			<span>正在加载设置...</span>
-		</div>
+			:loading="true"
+		/>
 
 		<div
 			v-else-if="profileLoadFailed"
@@ -338,6 +335,7 @@ import 'element-plus/es/components/message-box/style/css';
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import AppUserAvatar from '@/components/AppUserAvatar.vue';
+import AppLoading from '@/components/AppLoading.vue';
 import { AVATAR_MAX_SIZE, IMAGE_ACCEPT, validateImageFile } from '@/modules/file/utils/image';
 import AvatarCropDialog from '../components/AvatarCropDialog.vue';
 import { useUserSettings } from '../composables/useUserSettings';

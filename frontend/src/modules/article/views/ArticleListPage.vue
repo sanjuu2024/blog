@@ -54,6 +54,10 @@
 				class="article-list divide-y divide-(--app-border) rounded bg-(--app-surface) px-8"
 			>
 				<!-- 文章列表 -->
+				<AppLoading
+					v-if="loading && articles.length === 0"
+					:loading="true"
+				/>
 				<ArticleListItem
 					v-for="article in articles"
 					:key="article.id"
@@ -62,7 +66,7 @@
 				/>
 
 				<p
-					v-if="hasLoaded && articles.length === 0"
+					v-if="hasLoaded && !loading && articles.length === 0"
 					class="article-empty-result"
 				>
 					{{ activeKeyword ? '没有找到相关文章' : '暂无符合筛选条件的文章' }}
@@ -70,7 +74,11 @@
 
 				<!-- 滚动加载更多的触发器 -->
 				<AppLoadMoreTrigger
-					v-if="!loadMoreDisabled && (!hasLoaded || articles.length > 0)"
+					v-if="
+						!loadMoreDisabled &&
+						(!hasLoaded || articles.length > 0) &&
+						!(loading && articles.length === 0)
+					"
 					:loading="loading"
 					:has-next="pageParams.hasNext"
 					:thing-str="'文章'"
@@ -85,6 +93,7 @@
 </template>
 
 <script setup lang="ts">
+import AppLoading from '@/components/AppLoading.vue';
 import { computed, nextTick, onActivated, onDeactivated, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ArticleListItem from '../components/ArticleListItem.vue';

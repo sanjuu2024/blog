@@ -20,6 +20,8 @@ type AdminCategoryQueryForm = Omit<AdminCategoryListQuery, 'status' | 'level'> &
 };
 
 export function useAdminCategoryList() {
+	const loading = ref(false);
+	let requestId = 0;
 	// 分类列表数据
 	const categoryList = ref<AdminCategoryItem[]>([]);
 
@@ -46,10 +48,18 @@ export function useAdminCategoryList() {
 
 	// 获取分类列表
 	async function getCategoryList() {
+		const currentRequestId = ++requestId;
+		loading.value = true;
 		try {
-			categoryList.value = await listCategories(buildCategoryListQuery());
+			const data = await listCategories(buildCategoryListQuery());
+			if (currentRequestId !== requestId) return false;
+			categoryList.value = data;
+			return true;
 		} catch {
 			// 错误提示已经由 request 响应拦截器统一处理
+			return false;
+		} finally {
+			if (currentRequestId === requestId) loading.value = false;
 		}
 	}
 
@@ -104,6 +114,7 @@ export function useAdminCategoryList() {
 	}
 
 	return {
+		loading,
 		categoryList,
 		queryParams,
 		getCategoryList,

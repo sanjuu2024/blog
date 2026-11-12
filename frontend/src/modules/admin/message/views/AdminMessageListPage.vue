@@ -155,6 +155,7 @@
 
 			<div class="admin-message__table-wrap">
 				<el-table
+					v-loading="loading"
 					ref="tableRef"
 					:data="messageList"
 					row-key="id"
@@ -460,6 +461,7 @@ const isMobile = useMediaQuery('(width < 768px)');
 defineOptions({ name: 'AdminMessageListPage' });
 
 const {
+	loading,
 	messageList,
 	selectedMessageIds,
 	submitting,

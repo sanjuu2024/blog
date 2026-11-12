@@ -495,6 +495,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_search_vector
 - `search_vector` 为标题、摘要、正文分别设置 A、B、C 权重；有关键词且使用默认排序时，先按标题是否全文命中或字面量包含命中分组，标题命中优先；同组内通过 `ts_rank` 计算相关度，再按置顶、首次发布时间和文章 ID 倒序排列。`LATEST` 忽略标题命中、相关度和置顶，仅按首次发布时间和文章 ID 倒序排列；不改变生成列或索引
 - 搜索查询使用 `plainto_tsquery('public.zhparser_cfg', keyword)`，全文分支中多个解析后的检索词之间为 AND 关系；同时对标题、摘要和纯文本正文执行不区分大小写的字面量包含匹配，两种分支按 OR 合并。字面量分支使用绑定参数和 `strpos(lower(field), lower(keyword))`，按整段关键词匹配，不将 `%`、`_` 或正则字符解释为通配符；不以全文分支无结果为前提。支持 `At` 命中 `AtCoder`、`code` 或 `forces` 命中 `codeforces`、`1` 或 `11` 命中 `111`。本次只调整查询和展示，不改变生成列、索引或词典，不需要 schema migration
 - `zhparser` 扩展和 `public.zhparser_cfg` 均属于数据库级对象；每个由 Flyway 管理的数据库都必须执行对应 migration，不能只依赖容器首次初始化脚本
+- 搜索高亮在应用层根据 ts_headline 原始词项标记与当前片段中的完整关键词命中生成安全 mark；保留现有检索和片段选择语义，不扩充数词等词性映射、不重建 search_vector 或索引。AVIF 上传只保存既有图片 URL，加载状态只作用于前端；三项均不涉及表结构，不新增 Flyway migration。
 - 文章详情规范 URL 为 `/articles/{articleId}`，以 `id` 作为稳定定位标识
 - `slug` 字段及唯一索引由历史 migration 创建，当前不启用；不生成、不回填，也不提供编辑入口
 - SEO 不新增数据库结构。sitemap 从已发布文章读取 ID 和更新时间，过滤不存在或禁用的二级分类及父分类、缺失作者；已注销作者的文章沿用现有公开可见规则。详情响应的 SEO 信息直接使用本次已查询的文章生成，不再次查询文章

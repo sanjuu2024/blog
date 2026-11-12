@@ -78,7 +78,7 @@ public enum ResultCode {
 
     // file 模块 07xxxx
     IMAGE_REQUIRED(107001, "请选择需要上传的图片", 400),
-    IMAGE_TYPE_NOT_SUPPORTED(107002, "仅支持 JPG、JPEG、PNG、WebP 和 GIF 图片", 415),
+    IMAGE_TYPE_NOT_SUPPORTED(107002, "仅支持 JPG、JPEG、PNG、WebP、GIF 和 AVIF 图片", 415),
     IMAGE_TOO_LARGE(107003, "图片大小超过限制", 413),
     IMAGE_UPLOAD_FAILED(107004, "图片上传失败，请稍后重试", 502),
     AVATAR_UPLOAD_RATE_LIMITED(107005, "头像上传过于频繁，请稍后再试", 429),

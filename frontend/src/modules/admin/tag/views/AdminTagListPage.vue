@@ -74,6 +74,7 @@
 				<!-- 标签列表 -->
 				<div class="admin-tag-table-wrap">
 					<el-table
+						v-loading="loading"
 						ref="tagTableRef"
 						:data="tagList"
 						row-key="id"
@@ -298,8 +299,15 @@ defineOptions({
 	name: 'AdminTagListPage',
 });
 
-const { tagList, queryParams, getTagList, resetQueryParams, handleDeleteTag, toggleTagStatus } =
-	useAdminTagList();
+const {
+	loading,
+	tagList,
+	queryParams,
+	getTagList,
+	resetQueryParams,
+	handleDeleteTag,
+	toggleTagStatus,
+} = useAdminTagList();
 
 const {
 	showDrawer,

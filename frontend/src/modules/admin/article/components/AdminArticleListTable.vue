@@ -3,6 +3,7 @@
 		<!-- 文章列表 -->
 		<div class="admin-article-table-wrap">
 			<el-table
+				v-loading="loading"
 				ref="articleTableRef"
 				:data="articleList"
 				row-key="id"
@@ -249,6 +250,7 @@ const pageNum = defineModel<number>('pageNum', { required: true });
 const pageSize = defineModel<number>('pageSize', { required: true });
 
 const props = defineProps<{
+	loading?: boolean;
 	articleList: AdminArticleListItem[];
 	pageMeta: AdminArticlePageMeta;
 }>();

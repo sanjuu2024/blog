@@ -59,6 +59,7 @@ describe('AdminMessageListPage', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		vi.mocked(useAdminMessageList).mockReturnValue({
+			loading: ref(false),
 			messageList: ref([
 				message({
 					id: 90001,

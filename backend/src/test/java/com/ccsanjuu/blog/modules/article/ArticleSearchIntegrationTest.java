@@ -50,6 +50,34 @@ class ArticleSearchIntegrationTest {
     private TagMapper tagMapper;
 
     @Test
+    void chineseLiteralKeywordShouldCompleteFilteredNumeralHighlightsInEveryField() {
+        Long articleId = jdbcTemplate.queryForObject("select id from blog_article where status = 'PUBLISHED' order by id limit 1", Long.class);
+        Article article = articleMapper.selectById(articleId);
+        assertEquals("'叉'", jdbcTemplate.queryForObject("select plainto_tsquery('public.zhparser_cfg', '二叉')::text", String.class));
+        String full = "<mark class=\"article-search-highlight\">二叉</mark>";
+        for (String field : java.util.List.of("title", "summary", "content_text")) {
+            Article updated = Article.builder().id(articleId).title("检索高亮回归").summary("").contentText("").build();
+            switch (field) {
+                case "title" -> updated.setTitle("二叉树与二叉搜索树");
+                case "summary" -> updated.setSummary("二叉树与二叉搜索树");
+                default -> updated.setContentText("二叉树与二叉搜索树");
+            }
+            // 使用 Mapper 更新，避免同一事务中 JDBC 绕过 MyBatis 一级缓存使后续字段复用旧结果。
+            articleMapper.updateById(updated);
+            PublicArticleQueryDTO query = new PublicArticleQueryDTO();
+            query.setKeyword("二叉");
+            query.setCategoryId(article.getCategoryId());
+            var result = articleService.getPublicArticleList(query).getRecords().stream()
+                    .filter(item -> item.getId().equals(articleId)).findFirst().orElseThrow();
+            String html = field.equals("title") ? result.getHighlightedTitle() : result.getSearchSnippet();
+            assertTrue(html != null, field);
+            assertTrue(html.contains(full), html);
+            assertTrue(html.contains(full + "树与" + full + "搜索树"), html);
+            assertTrue(!html.contains("<mark class=\"article-search-highlight\"><mark"));
+        }
+    }
+
+    @Test
     void savingArticleShouldPreserveStrikethroughAndRegeneratePreviouslyCleanedHtml() {
         Long articleId = jdbcTemplate.queryForObject("select id from blog_article where status = 'PUBLISHED' order by id limit 1", Long.class);
         Article existing = articleMapper.selectById(articleId);
