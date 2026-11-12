@@ -140,6 +140,10 @@ declare module 'vue' {
     PublicUserProfilePopover: typeof import('./components/PublicUserProfilePopover.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    StickerContent: typeof import('./components/sticker/StickerContent.vue')['default']
+    StickerImage: typeof import('./components/sticker/StickerImage.vue')['default']
+    StickerPicker: typeof import('./components/sticker/StickerPicker.vue')['default']
+    StickerTextInput: typeof import('./components/sticker/StickerTextInput.vue')['default']
   }
   export interface GlobalDirectives {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']

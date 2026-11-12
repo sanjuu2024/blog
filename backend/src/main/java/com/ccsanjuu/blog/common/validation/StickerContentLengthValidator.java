@@ -1,4 +1,4 @@
-package com.ccsanjuu.blog.modules.comment.model.validation;
+package com.ccsanjuu.blog.common.validation;
 
 import com.ccsanjuu.blog.modules.comment.service.CommentStickerService;
 import jakarta.validation.ConstraintValidator;
@@ -6,7 +6,7 @@ import jakarta.validation.ConstraintValidatorContext;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public class CommentContentLengthValidator implements ConstraintValidator<CommentContentLength, String> {
+public class StickerContentLengthValidator implements ConstraintValidator<StickerContentLength, String> {
 
     private final CommentStickerService commentStickerService;
 

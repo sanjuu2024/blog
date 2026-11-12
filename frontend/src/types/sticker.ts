@@ -1,13 +1,13 @@
-export interface CommentSticker {
+export interface Sticker {
 	token: string;
 	name: string;
 	url: string;
 }
 
-export interface CommentStickerPack {
+export interface StickerPack {
 	id: string;
 	name: string;
 	iconUrl: string;
 	gridMinWidthRem?: number;
-	items: CommentSticker[];
+	items: Sticker[];
 }

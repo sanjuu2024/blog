@@ -78,14 +78,15 @@ class MessageServiceImplTest {
     }
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         messageService = new MessageServiceImpl(
                 messageMapper,
                 userMapper,
                 messageRateLimiter,
                 turnstileVerifier,
                 notificationService,
-                notificationCenterService
+                notificationCenterService,
+                new com.ccsanjuu.blog.modules.comment.service.impl.CommentStickerServiceImpl(new com.fasterxml.jackson.databind.ObjectMapper())
         );
         ReflectionTestUtils.setField(messageService, "baseMapper", messageMapper);
         ReflectionTestUtils.setField(messageService, "entityClass", Message.class);

@@ -298,12 +298,17 @@ class NotificationServiceImplTest {
         assertEquals(30001L, captor.getValue().getSourceId());
     }
 
-    @Test
-    void commentStickerTextShouldRespectExistingNotificationLengthLimit() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void replyStickerTextShouldRespectExistingNotificationLengthLimit(boolean message) {
         NotificationServiceImpl service = new NotificationServiceImpl(notificationMapper, notificationRecipientMapper,
                 userMapper, transactionManager, stickerService());
         when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
-        service.createCommentReplyNotification(10002L, 30001L, "回复", "[sticker:bilibili:doge]".repeat(1000));
+        if (message) {
+            service.createMessageReplyNotification(10002L, 90001L, "回复", "[sticker:bilibili:doge]".repeat(1000));
+        } else {
+            service.createCommentReplyNotification(10002L, 30001L, "回复", "[sticker:bilibili:doge]".repeat(1000));
+        }
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
         verify(notificationMapper).insert(captor.capture());
         assertEquals(2000, captor.getValue().getContent().length());

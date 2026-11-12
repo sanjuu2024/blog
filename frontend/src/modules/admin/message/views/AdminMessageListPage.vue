@@ -383,12 +383,12 @@
 				@submit.prevent
 			>
 				<el-form-item label="公告内容">
-					<el-input
+					<StickerTextInput
 						v-model="announcementContent"
-						type="textarea"
 						:rows="5"
-						maxlength="1000"
-						show-word-limit
+						content-label="公告"
+						placeholder="请输入公告内容"
+						:disabled="announcementSubmitting"
 					/>
 				</el-form-item>
 			</el-form>
@@ -397,7 +397,10 @@
 				<el-button
 					type="primary"
 					:loading="announcementSubmitting"
-					:disabled="!announcementContent.trim()"
+					:disabled="
+						!!getStickerContentError(announcementContent, stickers, '公告') ||
+						announcementSubmitting
+					"
 					@click="submitAnnouncement"
 				>
 					发布并置顶
@@ -415,12 +418,11 @@
 				@submit.prevent
 			>
 				<el-form-item label="回复内容">
-					<el-input
+					<StickerTextInput
 						v-model="replyContent"
-						type="textarea"
 						:rows="5"
-						maxlength="1000"
-						show-word-limit
+						content-label="回复"
+						:disabled="submitting"
 						placeholder="请输入回复内容"
 					/>
 				</el-form-item>
@@ -430,7 +432,9 @@
 				<el-button
 					type="primary"
 					:loading="submitting"
-					:disabled="!replyContent.trim() || submitting"
+					:disabled="
+						!!getStickerContentError(replyContent, stickers, '回复') || submitting
+					"
 					@click="submitReply"
 				>
 					确认回复
@@ -441,6 +445,9 @@
 </template>
 
 <script setup lang="ts">
+import StickerTextInput from '@/components/sticker/StickerTextInput.vue';
+import { useStickers } from '@/composables/useStickers';
+import { getStickerContentError } from '@/utils/sticker';
 import { nextTick, onMounted, ref, watch } from 'vue';
 import type { TableInstance } from 'element-plus';
 import { ElMessage } from 'element-plus';
@@ -457,6 +464,7 @@ import {
 import { useMediaQuery } from '@vueuse/core';
 
 const isMobile = useMediaQuery('(width < 768px)');
+const { stickers } = useStickers();
 
 defineOptions({ name: 'AdminMessageListPage' });
 
@@ -512,12 +520,16 @@ function openReplyDialog(item: AdminMessageItem) {
 
 async function submitReply() {
 	if (!replyTarget.value || !replyContent.value.trim()) return;
+	const error = getStickerContentError(replyContent.value, stickers.value, '回复');
+	if (error) return ElMessage.warning(error);
 	const success = await reply(replyTarget.value, replyContent.value.trim());
 	if (success) replyDialogVisible.value = false;
 }
 
 async function submitAnnouncement() {
 	if (!announcementContent.value.trim()) return;
+	const error = getStickerContentError(announcementContent.value, stickers.value, '公告');
+	if (error) return ElMessage.warning(error);
 	announcementSubmitting.value = true;
 	try {
 		await createAnnouncement({ content: announcementContent.value.trim() });

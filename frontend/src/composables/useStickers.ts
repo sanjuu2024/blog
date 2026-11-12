@@ -1,8 +1,8 @@
 import { computed, onMounted, ref, shallowRef } from 'vue';
-import { getCommentStickers } from '../api/commentStickerApi';
-import type { CommentStickerPack } from '../types/sticker';
+import { getStickers } from '@/api/stickerApi';
+import type { StickerPack } from '@/types/sticker';
 
-const packs = shallowRef<CommentStickerPack[]>([]);
+const packs = shallowRef<StickerPack[]>([]);
 const loading = ref(false);
 const failed = ref(false);
 let loaded = false;
@@ -19,7 +19,7 @@ async function loadStickers() {
 	// 所有评论与回复共享一次目录请求，失败后由选择器显式重试。
 	pending = (async () => {
 		try {
-			packs.value = await getCommentStickers();
+			packs.value = await getStickers();
 			loaded = true;
 		} catch {
 			failed.value = true;
@@ -31,7 +31,7 @@ async function loadStickers() {
 	return pending;
 }
 
-export function useCommentStickers() {
+export function useStickers() {
 	onMounted(() => {
 		if (!failed.value) void loadStickers();
 	});

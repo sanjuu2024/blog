@@ -941,6 +941,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_blog_message_board_unsubscribe_token
 
 留言和评论回复邮件使用 `multipart/alternative`；这只改变邮件内容格式，不需要修改现有留言订阅字段。
 
+留言、管理员回复及公告在既有 `content TEXT` 中保存 `[sticker:库ID:表情ID]`，复用评论静态目录。有效标记计 1，其余按 UTF-16 长度计数，去除首尾空白后展示长度 1-1000、最多 20 个有效表情、原始字符串最多 2260 单元。公开及写入响应保留标记；后台列表、通知原文与回复及邮件转换为 `[表情名]`，通知快照超出 2000 字符时截断并加省略号。不变更 schema、不新增 migration，不转换历史数据。
+
 ## 4.11 P1 使用表：`blog_admin_audit_log`
 
 ### SQL（PostgreSQL）

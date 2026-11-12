@@ -57,6 +57,65 @@ class MessageIntegrationTest {
     @Autowired
     private UserMapper userMapper;
 
+    @Autowired
+    private com.ccsanjuu.blog.modules.notification.service.NotificationService notificationCenter;
+
+    @Autowired
+    private com.ccsanjuu.blog.modules.notification.mapper.NotificationMapper notificationMapper;
+
+    @Autowired
+    private com.ccsanjuu.blog.modules.notification.mapper.NotificationRecipientMapper recipientMapper;
+
+    @Test
+    void memberMessageNotificationShouldReturnTextForOriginalAndReply() {
+        User member = createUser("sticker_msg_member", UserRole.USER);
+        User admin = createUser("sticker_reply_admin", UserRole.ADMIN);
+        Message root = createMessage(member.getId(), null, MessageStatus.APPROVED, "原文[sticker:bilibili:doge]");
+        Message reply = createMessage(admin.getId(), root.getId(), MessageStatus.APPROVED, "回复[sticker:wechat:微笑]");
+        var notification = com.ccsanjuu.blog.modules.notification.model.entity.Notification.builder()
+                .type(com.ccsanjuu.blog.modules.notification.model.enums.NotificationType.MESSAGE_REPLY)
+                .targetScope(com.ccsanjuu.blog.modules.notification.model.enums.NotificationTargetScope.SELECTED_USERS)
+                .title("回复").content(reply.getContent())
+                .status(com.ccsanjuu.blog.modules.notification.model.enums.NotificationStatus.PUBLISHED)
+                .sourceType("MESSAGE").sourceId(reply.getId()).build();
+        notificationMapper.insert(notification);
+        recipientMapper.insert(com.ccsanjuu.blog.modules.notification.model.entity.NotificationRecipient.builder()
+                .notificationId(notification.getId()).userId(member.getId()).build());
+        var result = notificationCenter.getUserNotifications(member.getId(),
+                new com.ccsanjuu.blog.modules.notification.model.dto.NotificationQueryDTO()).getRecords().getFirst();
+        assertEquals("原文[doge]", result.getOriginalContent());
+        assertEquals("回复[微笑]", result.getContent());
+    }
+
+    @Test
+    void guestStickersShouldSurviveModerationReplyAndPublicRenderingData() {
+        User admin = createUser("sticker_msg_admin", UserRole.ADMIN);
+        String source = "留言[sticker:bilibili:doge]";
+        var created = messageService.createMessage(null, "sticker-guest-" + System.nanoTime(),
+                CreateMessageRequestDTO.builder().nickname("访客").content(source).turnstileToken("test-token").build());
+        assertEquals(MessageStatus.PENDING, created.getStatus());
+        assertEquals(source, messageMapper.selectById(created.getId()).getContent());
+        messageService.moderateMessage(created.getId(), admin.getId(), MessageModerationRequestDTO.builder()
+                .action(MessageModerationAction.APPROVE).build());
+        CreateMessageReplyRequestDTO reply = new CreateMessageReplyRequestDTO();
+        reply.setContent("回复[sticker:wechat:微笑]");
+        var replied = messageService.replyMessage(created.getId(), admin.getId(), reply);
+        assertEquals(reply.getContent(), replied.getContent());
+
+        MessagePageQueryDTO query = pageQuery();
+        query.setMessageId(created.getId());
+        var publicItem = messageService.getPublicMessageList(null, query).getRecords().stream()
+                .filter(item -> item.getId().equals(created.getId())).findFirst().orElseThrow();
+        assertEquals(source, publicItem.getContent());
+        assertEquals(reply.getContent(), publicItem.getReplies().getFirst().getContent());
+        assertEquals("留言[doge]", messageService.getAdminMessageList(query).getRecords().getFirst().getContent());
+
+        var announcement = messageService.createAnnouncement(admin.getId(),
+                CreateMessageRequestDTO.builder().content("公告[sticker:bilibili:doge]").build());
+        assertEquals("公告[sticker:bilibili:doge]", announcement.getContent());
+        assertTrue(announcement.getIsAnnouncement());
+    }
+
     @Test
     void guestMessageShouldUseRealDatabaseAndRedisRateLimit() {
         String clientIp = "integration-guest-" + System.nanoTime();
