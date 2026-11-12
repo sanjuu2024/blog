@@ -2,6 +2,10 @@ package com.ccsanjuu.blog.modules.message.model.dto;
 
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
+import com.ccsanjuu.blog.modules.comment.service.impl.CommentStickerServiceImpl;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.validation.beanvalidation.SpringConstraintValidatorFactory;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -11,7 +15,36 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MessageValidationTest {
 
-    private static final Validator VALIDATOR = Validation.buildDefaultValidatorFactory().getValidator();
+    private static final Validator VALIDATOR = createValidator();
+
+    private static Validator createValidator() {
+        try {
+            var beans = new DefaultListableBeanFactory();
+            beans.registerSingleton("commentStickerService", new CommentStickerServiceImpl(new ObjectMapper()));
+            return Validation.byDefaultProvider().configure()
+                    .constraintValidatorFactory(new SpringConstraintValidatorFactory(beans))
+                    .buildValidatorFactory().getValidator();
+        } catch (java.io.IOException exception) {
+            throw new java.io.UncheckedIOException(exception);
+        }
+    }
+
+    @Test
+    void messageAndReplyShouldCountKnownStickersAndEnforceAllLimits() {
+        String token = "[sticker:bilibili:doge]";
+        for (String content : List.of("字".repeat(980) + token.repeat(20), "[sticker:unknown:doge]", "字".repeat(1000))) {
+            assertTrue(VALIDATOR.validate(CreateMessageRequestDTO.builder().content(content).build()).isEmpty());
+            CreateMessageReplyRequestDTO reply = new CreateMessageReplyRequestDTO();
+            reply.setContent(content);
+            assertTrue(VALIDATOR.validate(reply).isEmpty());
+        }
+        for (String content : List.of(token.repeat(21), "字".repeat(1000) + token, " ".repeat(2260) + token)) {
+            assertFalse(VALIDATOR.validate(CreateMessageRequestDTO.builder().content(content).build()).isEmpty());
+            CreateMessageReplyRequestDTO reply = new CreateMessageReplyRequestDTO();
+            reply.setContent(content);
+            assertFalse(VALIDATOR.validate(reply).isEmpty());
+        }
+    }
 
     @Test
     void createMessageRequestShouldAcceptValidFields() {

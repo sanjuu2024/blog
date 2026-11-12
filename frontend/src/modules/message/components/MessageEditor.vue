@@ -2,33 +2,18 @@
 	<div class="message-editor-wrapper">
 		<!-- 移动端展开编辑框按钮 -->
 		<el-button
-			v-show="isMobile && !showEditor"
+			v-show="!showEditor"
 			type="primary"
 			@click="showEditor = !showEditor"
 			class="w-full"
+			:style="!isMobile ? { paddingBlock: '1.25rem' } : {}"
 		>
 			<i-lucide-feather class="mr-1" />
 			<span>写留言</span>
 		</el-button>
 
-		<div
-			v-show="isMobile && showEditor"
-			class="message-editor__toolbar"
-		>
-			<!-- 移动端下显示编辑框折叠的按钮 -->
-			<el-button
-				type="primary"
-				@click="showEditor = !showEditor"
-				class="message-editor__collapse-button"
-				size="small"
-			>
-				<i-lucide-minimize2 class="mr-1" />
-				<span>收起</span>
-			</el-button>
-		</div>
-
 		<el-form
-			v-show="!isMobile || showEditor"
+			v-show="showEditor"
 			class="message-editor"
 			:model="form"
 			:rules="rules"
@@ -39,64 +24,80 @@
 			@submit.prevent="handleSubmit"
 		>
 			<div class="message-editor__user-info-header">
-				<div
-					v-if="!props.isLogin"
-					class="message-editor__guest-fields"
-				>
-					<el-form-item
-						prop="nickname"
-						label="昵称"
-						required
-						label-position="left"
-						label-width="60px"
+				<div class="message-editor__user-info-header__start">
+					<div
+						v-if="!props.isLogin"
+						class="message-editor__guest-fields"
 					>
-						<el-input
-							v-model="form.nickname"
-							maxlength="20"
-							show-word-limit
-							placeholder="请输入昵称"
-							aria-label="留言昵称"
-						/>
-					</el-form-item>
-					<el-form-item
-						prop="email"
-						label="邮箱"
-						label-position="left"
-						label-width="60px"
-						:required="form.notifyOnReply"
+						<el-form-item
+							prop="nickname"
+							label="昵称"
+							required
+							label-position="left"
+							label-width="60px"
+						>
+							<el-input
+								v-model="form.nickname"
+								maxlength="20"
+								show-word-limit
+								placeholder="请输入昵称"
+								aria-label="留言昵称"
+							/>
+						</el-form-item>
+						<el-form-item
+							prop="email"
+							label="邮箱"
+							label-position="left"
+							label-width="60px"
+							:required="form.notifyOnReply"
+						>
+							<el-input
+								v-model="form.email"
+								type="email"
+								maxlength="255"
+								:placeholder="form.notifyOnReply ? '请输入邮箱' : '邮箱（可选）'"
+								aria-label="留言邮箱"
+							/>
+						</el-form-item>
+					</div>
+					<div
+						v-else
+						class="message-editor__login-hint"
 					>
-						<el-input
-							v-model="form.email"
-							type="email"
-							maxlength="255"
-							:placeholder="form.notifyOnReply ? '请输入邮箱' : '邮箱（可选）'"
-							aria-label="留言邮箱"
-						/>
-					</el-form-item>
-				</div>
-				<div
-					v-else
-					class="message-editor__login-hint"
-				>
-					<i-solar-user-bold />
-					<span>已登录，将使用你的账号资料</span>
+						<i-solar-user-bold />
+						<span>已登录，将使用你的账号资料</span>
+					</div>
+
+					<label class="message-editor__notify">
+						<el-checkbox
+							class="message-editor-tip"
+							v-model="form.notifyOnReply"
+							:disabled="props.isLogin && props.emailVerified === false"
+							@change="handleNotifyChange"
+						>
+							<span>{{
+								props.isLogin
+									? '有回复时通过账号邮箱提醒我'
+									: '有回复时通过邮箱提醒我'
+							}}</span>
+							<span v-if="props.isLogin && props.emailVerified === false">
+								（邮箱未验证）
+							</span>
+						</el-checkbox>
+					</label>
 				</div>
 
-				<label class="message-editor__notify">
-					<el-checkbox
-						class="message-editor-tip"
-						v-model="form.notifyOnReply"
-						:disabled="props.isLogin && props.emailVerified === false"
-						@change="handleNotifyChange"
+				<div class="message-editor__user-info-header__end">
+					<el-button
+						type="primary"
+						@click="showEditor = !showEditor"
+						class="message-editor__collapse-button"
+						size="small"
 					>
-						<span>{{
-							props.isLogin ? '有回复时通过账号邮箱提醒我' : '有回复时通过邮箱提醒我'
-						}}</span>
-						<span v-if="props.isLogin && props.emailVerified === false">
-							（邮箱未验证）
-						</span>
-					</el-checkbox>
-				</label>
+						<i-lucide-minimize2 class="mr-1" />
+						<span>收起</span>
+					</el-button>
+				</div>
 			</div>
 			<div class="message-editor__body">
 				<el-form-item
@@ -104,33 +105,36 @@
 					prop="content"
 					label="留言内容"
 				>
-					<el-input
+					<StickerTextInput
 						v-model="form.content"
-						type="textarea"
 						:rows="3"
-						maxlength="1000"
-						show-word-limit
+						content-label="留言"
+						:disabled="interactionLocked"
 						placeholder="检测到访客信号......等待留言电波接入！ヾ(≧▽≦*)o"
 						aria-label="留言内容"
-					/>
+					>
+						<template #actions>
+							<el-button
+								class="message-sender-button"
+								type="primary"
+								:loading="props.loading"
+								:disabled="interactionLocked || !canSubmit"
+								native-type="submit"
+							>
+								<i-lucide-loader
+									v-if="awaitingTurnstile"
+									class="mr-1 animate-spin"
+									data-test="submit-verifying-icon"
+								/>
+								<i-lucide-send
+									v-else
+									class="mr-1"
+								/>
+								<span>{{ awaitingTurnstile ? '验证中' : '发表留言' }}</span>
+							</el-button>
+						</template>
+					</StickerTextInput>
 				</el-form-item>
-				<el-button
-					type="primary"
-					:loading="props.loading"
-					:disabled="interactionLocked || !canSubmit"
-					native-type="submit"
-				>
-					<i-lucide-loader
-						v-if="awaitingTurnstile"
-						class="mr-1 animate-spin"
-						data-test="submit-verifying-icon"
-					/>
-					<i-lucide-send
-						v-else
-						class="mr-1"
-					/>
-					<span>{{ awaitingTurnstile ? '验证中' : '发表留言' }}</span>
-				</el-button>
 			</div>
 		</el-form>
 
@@ -156,6 +160,9 @@
 </template>
 
 <script setup lang="ts">
+import StickerTextInput from '@/components/sticker/StickerTextInput.vue';
+import { useStickers } from '@/composables/useStickers';
+import { getStickerContentError } from '@/utils/sticker';
 import { computed, reactive, ref, watch } from 'vue';
 import type { FormInstance, FormItemRule, FormRules } from 'element-plus';
 import { EMAIL_FORMAT_MESSAGE, EMAIL_FORMAT_PATTERN } from '@/constants/validation';
@@ -200,11 +207,12 @@ const pendingRequest = ref<CreateMessageRequest | null>(null);
 const turnstileSubmitting = ref(false);
 const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY || '';
 const awaitingTurnstile = computed(() => pendingRequest.value !== null);
+const { stickers } = useStickers();
 const interactionLocked = computed(
 	() => props.loading || awaitingTurnstile.value || turnstileSubmitting.value,
 );
 const canSubmit = computed(() => {
-	if (!form.content.trim()) return false;
+	if (getStickerContentError(form.content, stickers.value, '留言')) return false;
 	if (props.isLogin) return true;
 	if (!form.nickname.trim()) return false;
 	if (!form.notifyOnReply) return true;
@@ -256,7 +264,8 @@ const rules: FormRules = {
 					callback(new Error('请输入留言内容'));
 					return;
 				}
-				callback();
+				const error = getStickerContentError(value, stickers.value, '留言');
+				callback(error ? new Error(error) : undefined);
 			},
 		},
 	],
@@ -264,6 +273,7 @@ const rules: FormRules = {
 
 async function handleSubmit() {
 	if (interactionLocked.value) return;
+	if (getStickerContentError(form.content, stickers.value, '留言')) return;
 
 	try {
 		await formRef.value?.validate();
@@ -335,15 +345,29 @@ defineExpose({ clear, resetTurnstile });
 	width: 100%;
 }
 
-.message-editor__toolbar {
-	display: flex;
-	justify-content: flex-end;
-	margin-bottom: 0.75rem;
-}
-
 .message-editor__user-info-header {
 	display: flex;
+	justify-content: space-between;
 	gap: 1rem;
+
+	.message-editor__user-info-header__start {
+		display: flex;
+		gap: 1rem;
+
+		@media (width < 900px) {
+			flex: 1;
+			flex-direction: column;
+			align-items: stretch;
+			gap: 0;
+
+			.message-editor__guest-fields {
+				display: flex;
+				flex-direction: column;
+				align-items: stretch;
+				gap: 0;
+			}
+		}
+	}
 }
 
 .message-editor {
@@ -384,42 +408,29 @@ defineExpose({ clear, resetTurnstile });
 	font-size: 0.9rem;
 }
 
-.message-editor__body {
-	display: flex;
-	align-items: flex-end;
-	gap: 0.75rem;
-}
-
 .message-editor__turnstile {
 	display: flex;
 	justify-content: center;
 }
 
-.message-editor__body :deep(.el-textarea) {
-	flex: 1;
-}
-
 .message-editor__content-form-item {
-	flex: 1;
+	width: 100%;
 	margin-bottom: 0;
 }
 
-.message-editor__body .el-button {
-	flex: none;
-}
-
-@media (width < 768px) {
-	.message-editor__guest-fields,
-	.message-editor__body {
+@media (width < 520px) {
+	:deep(.sticker-text-input__toolbar) {
 		display: flex;
 		flex-direction: column;
 		align-items: stretch;
-	}
+		justify-content: space-between;
 
-	.message-editor__user-info-header {
-		flex-direction: column;
-		align-items: stretch;
-		gap: 0;
+		.sticker-text-input__actions {
+			display: flex;
+			flex-direction: column;
+			align-items: stretch;
+			margin-left: 0;
+		}
 	}
 }
 </style>

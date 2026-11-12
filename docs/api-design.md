@@ -2323,6 +2323,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ### 11.0 预置表情目录
 
+该目录由文章评论和留言板共用，保留历史路径 `/api/v1/comments/stickers`，不新增留言专用接口。当前库名称为 Alus（alus）、Bili 小电视（bilibili）、Bili 表情（bmoji）、QQ（qq）、微信（wechat）；展示名称可调整，库 ID、标记和资源路径保持稳定。
+
 `GET /api/v1/comments/stickers`，权限 PUBLIC。返回通用响应，data 为表情库数组；每库包含 `id`、`name`、`iconUrl`、`items`，每项包含 `token`（例如 `[sticker:bilibili:doge]`）、`name`（沿用清单 item 名）、`url`（同源 `/stickers/...` 路径）。目录由前端 public/stickers 下的各库 info.json 按原顺序生成至后端资源，不提供写接口。前端缓存当前应用会话的成功目录，加载失败可重试；失败时普通文本评论仍可提交，无法确认的标记按普通文本计数和展示。
 
 前台评论读取与创建响应的 content 保留标记；后台审核列表 content 转为 `[表情名]`，评论回复通知的 content / originalContent 与邮件只提供文字替代，不解析 HTML。通知快照超过 2000 字符时截断并加省略号，完整评论不受影响。
@@ -2484,7 +2486,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 路由：`POST /api/v1/messages`
 - 权限：`PUBLIC`，可选携带 Access Token
 - 游客必须填写 1-20 个字符昵称；邮箱可选，勾选 `notifyOnReply` 时必填且格式合法。登录用户忽略昵称和邮箱输入，使用当前账号资料快照；勾选 `notifyOnReply` 时必须完成邮箱验证，否则返回 `108016`。
-- 内容为 1-1000 个字符的纯文本；普通用户和游客为 `PENDING`，管理员为 `APPROVED`。
+- 内容支持纯文本及预置表情，去除首尾空白后展示长度 1-1000；有效目录标记计 1，其余按 UTF-16 单元计数，每条最多 20 个有效表情，原始字符串最多 2260 单元。未知标记按文本计数与展示，不解析 HTML 或 Markdown；普通用户和游客为 `PENDING`，管理员为 `APPROVED`。
+- 公开列表、发表及其他写入响应的 content 保留原标记，前台复用评论表情目录渲染；历史有效标记同样显示为图片，无需数据迁移。
 - 游客按 IP 每 30 秒 1 条、每小时最多 10 条，登录用户按用户 ID执行相同 Redis 原子限流。
 - 游客还必须提交 `turnstileToken`，服务端向 Cloudflare Siteverify 校验 token、请求 IP、配置的 hostname 和 action；登录用户和管理员不要求该字段。验证失败返回统一业务错误，不保存 token，也不返回 Cloudflare 原始错误。
 - 不携带 Access Token 时按游客请求校验；请求一旦携带 Token，Token 无效或过期必须返回 HTTP `401`，由前端刷新登录态后重试，不能降级为游客后再校验游客昵称。
@@ -2507,6 +2510,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 路由：`GET /api/v1/admin/messages`
 - 权限：`ADMIN`
 - 支持 `pageNum`、`pageSize`、`messageId`、`userId`、`guestNickname`、`guestEmail`、`content`、`status`、`type`、`createdAtFrom`、`createdAtTo`。后台响应可返回私有邮箱、通知开关、审核与删除信息。
+- 列表 content 将有效表情标记转为 `[表情名]`，只提供审核用纯文本；内容筛选仍匹配数据库原文，不增加图片 HTML。
 
 ### 12.6 审核、隐藏或删除留言
 
@@ -2520,6 +2524,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 路由：`POST /api/v1/admin/messages/{messageId}/replies`
 - 权限：`ADMIN`
 - `messageId` 必须是已通过的顶层留言。管理员回复直接为 `APPROVED`，管理员可对同一留言发表多条回复。事务提交后按该留言的通知开关异步发送 `multipart/alternative` 邮件，同时携带 `text/plain` 与 `text/html`。
+- 回复及公告沿用顶层留言相同的展示字数、表情数量及原始长度限制。站内通知的 content / originalContent 和回复邮件均将有效标记转为 `[表情名]`，HTML 邮件继续转义；通知快照最多 2000 字符，超出截断并加省略号，管理员消息不解析表情。
 
 ### 12.8 批量通过留言
 

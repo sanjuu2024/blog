@@ -1,8 +1,8 @@
 第三方资源声明
 
-评论预置表情
+评论与留言预置表情
 
-Alus、BiliBili、B站小黄脸、QQ、微信表情及 info.json 来自 Waline Emojis：
+Alus、Bili 小电视、Bili 表情、QQ、微信表情及 info.json 来自 Waline Emojis：
 https://github.com/walinejs/emojis
 https://github.com/walinejs/emojis/blob/main/README.md
 

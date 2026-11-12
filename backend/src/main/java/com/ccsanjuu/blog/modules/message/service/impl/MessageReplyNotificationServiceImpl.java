@@ -1,5 +1,6 @@
 package com.ccsanjuu.blog.modules.message.service.impl;
 
+import com.ccsanjuu.blog.modules.comment.service.CommentStickerService;
 import com.ccsanjuu.blog.modules.mail.model.bo.ReplyMailContent;
 import com.ccsanjuu.blog.modules.mail.model.bo.MailMessageContent;
 import com.ccsanjuu.blog.modules.mail.model.entity.MailDelivery;
@@ -36,6 +37,7 @@ public class MessageReplyNotificationServiceImpl implements MessageReplyNotifica
     private final MailNotificationSender mailNotificationSender;
     private final MessageMapper messageMapper;
     private final UserMapper userMapper;
+    private final CommentStickerService commentStickerService;
 
     /**
      * 在业务事务提交后异步发送留言回复邮件。
@@ -119,9 +121,9 @@ public class MessageReplyNotificationServiceImpl implements MessageReplyNotifica
                 null,
                 null,
                 "",
-                root.getContent(),
+                commentStickerService.toPlainText(root.getContent()),
                 "管理员给您的回复如下：",
-                reply.getContent(),
+                commentStickerService.toPlainText(reply.getContent()),
                 "查看回复完整内容",
                 mailProperties.getFrontendBaseUrl() + "/messages",
                 unsubscribeUrl

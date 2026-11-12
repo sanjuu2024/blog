@@ -1,9 +1,26 @@
 import { flushPromises, mount } from '@vue/test-utils';
-import { defineComponent, nextTick, watch } from 'vue';
+import { defineComponent, nextTick, watch, ref } from 'vue';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import MessageEditor from './MessageEditor.vue';
 
 const mediaQueryState = vi.hoisted(() => ({ isMobile: false }));
+
+vi.mock('@/composables/useStickers', () => ({
+	useStickers: () => ({
+		stickers: ref(
+			new Map([
+				[
+					'[sticker:bilibili:doge]',
+					{
+						token: '[sticker:bilibili:doge]',
+						name: 'doge',
+						url: '/stickers/bilibili/bb_doge.png',
+					},
+				],
+			]),
+		),
+	}),
+}));
 
 vi.mock('@vueuse/core', async (importOriginal) => {
 	const { computed } = await import('vue');
@@ -50,7 +67,7 @@ function mountEditor(isLogin = false) {
 						'<input type="checkbox" :checked="modelValue" @change="$emit(\'update:modelValue\', $event.target.checked)" />',
 				},
 				ElButton: {
-					props: ['disabled', 'nativeType'],
+					props: ['disabled', 'nativeType', 'type'],
 					template:
 						'<button :disabled="disabled" :type="nativeType || \'button\'"><slot /></button>',
 				},
@@ -63,6 +80,34 @@ function mountEditor(isLogin = false) {
 }
 
 describe('MessageEditor', () => {
+	it('accepts weighted sticker content and blocks oversized or excessive stickers', async () => {
+		const wrapper = mountEditor(true);
+		const content = wrapper.findAll('input')[1];
+		const token = '[sticker:bilibili:doge]';
+		const submit = wrapper.get('button[type="submit"]');
+		expect(wrapper.get('.sticker-text-input__actions').element.contains(submit.element)).toBe(
+			true,
+		);
+		expect(
+			wrapper.get('.sticker-text-input__toolbar').find('[aria-label="选择表情"]').exists(),
+		).toBe(true);
+		await content.setValue(token.repeat(21));
+		expect((submit.element as HTMLButtonElement).disabled).toBe(true);
+		await wrapper.get('form').trigger('submit');
+		await flushPromises();
+		expect(wrapper.emitted('submit')).toBeUndefined();
+		await content.setValue('字'.repeat(981) + token.repeat(20));
+		expect((submit.element as HTMLButtonElement).disabled).toBe(true);
+		await content.setValue('字'.repeat(980) + token.repeat(20));
+		expect((submit.element as HTMLButtonElement).disabled).toBe(false);
+		await wrapper.get('form').trigger('submit');
+		await flushPromises();
+		expect(wrapper.emitted('submit')?.[0]?.[0]).toMatchObject({
+			content: '字'.repeat(980) + token.repeat(20),
+		});
+		wrapper.unmount();
+	});
+
 	beforeEach(() => {
 		mediaQueryState.isMobile = false;
 	});
@@ -70,7 +115,7 @@ describe('MessageEditor', () => {
 	it('requires guest nickname before submitting', async () => {
 		const wrapper = mountEditor();
 		const inputs = wrapper.findAll('input');
-		const button = wrapper.get('.message-editor__body button').element as HTMLButtonElement;
+		const button = wrapper.get('button[type="submit"]').element as HTMLButtonElement;
 		await inputs[3].setValue('留言内容');
 
 		expect(button.disabled).toBe(true);
@@ -83,7 +128,7 @@ describe('MessageEditor', () => {
 	it('requires guest email only when notification is enabled', async () => {
 		const wrapper = mountEditor();
 		const inputs = wrapper.findAll('input');
-		const button = wrapper.get('.message-editor__body button').element as HTMLButtonElement;
+		const button = wrapper.get('button[type="submit"]').element as HTMLButtonElement;
 		await inputs[0].setValue('访客');
 		await inputs[3].setValue('留言内容');
 		await inputs[2].setValue(true);
@@ -97,7 +142,7 @@ describe('MessageEditor', () => {
 	it('only requires content for logged-in users', async () => {
 		const wrapper = mountEditor(true);
 		const inputs = wrapper.findAll('input');
-		const button = wrapper.get('.message-editor__body button').element as HTMLButtonElement;
+		const button = wrapper.get('button[type="submit"]').element as HTMLButtonElement;
 
 		expect(button.disabled).toBe(true);
 		await inputs[1].setValue('登录用户留言');
@@ -115,11 +160,10 @@ describe('MessageEditor', () => {
 		await flushPromises();
 		expect(guestWrapper.emitted('submit')).toBeUndefined();
 		expect(guestWrapper.find('[data-test="turnstile-dialog"]').exists()).toBe(true);
-		expect(guestWrapper.get('.message-editor__body button').text()).toContain('验证中');
+		expect(guestWrapper.get('button[type="submit"]').text()).toContain('验证中');
 		expect(guestWrapper.find('[data-test="submit-verifying-icon"]').exists()).toBe(true);
 		expect(
-			(guestWrapper.get('.message-editor__body button').element as HTMLButtonElement)
-				.disabled,
+			(guestWrapper.get('button[type="submit"]').element as HTMLButtonElement).disabled,
 		).toBe(true);
 
 		const turnstileButton = guestWrapper.get('[data-test="turnstile"]');
@@ -176,30 +220,41 @@ describe('MessageEditor', () => {
 		expect(wrapper.find('[data-test="turnstile-dialog"]').exists()).toBe(false);
 		expect((inputs[0].element as HTMLInputElement).value).toBe('访客');
 		expect((inputs[3].element as HTMLInputElement).value).toBe('留言内容');
-		expect(
-			(wrapper.get('.message-editor__body button').element as HTMLButtonElement).disabled,
-		).toBe(false);
-	});
-
-	it('collapses the editor by default on mobile and allows toggling it', async () => {
-		mediaQueryState.isMobile = true;
-		const wrapper = mountEditor();
-		const editor = wrapper.get('.message-editor');
-		const openButton = wrapper
-			.findAll('button')
-			.find((button) => button.text().includes('写留言'));
-
-		expect(openButton?.attributes('style') ?? '').not.toContain('display: none');
-		expect(editor.attributes('style')).toContain('display: none');
-
-		await openButton?.trigger('click');
-		expect(wrapper.get('.message-editor').attributes('style') ?? '').not.toContain(
-			'display: none',
+		expect((wrapper.get('button[type="submit"]').element as HTMLButtonElement).disabled).toBe(
+			false,
 		);
-
-		const collapseButton = wrapper.get('.message-editor__collapse-button');
-		expect(collapseButton.attributes('style') ?? '').not.toContain('display: none');
-		await collapseButton.trigger('click');
-		expect(wrapper.get('.message-editor').attributes('style')).toContain('display: none');
 	});
+
+	it.each([false, true])(
+		'preserves input while collapsing and reopening with mobile=%s',
+		async (isMobile) => {
+			mediaQueryState.isMobile = isMobile;
+			const wrapper = mountEditor();
+			const editor = wrapper.get('.message-editor');
+			const openButton = wrapper
+				.findAll('button')
+				.find((button) => button.text().includes('写留言'))!;
+
+			expect((openButton.attributes('style') ?? '').includes('display: none')).toBe(
+				!isMobile,
+			);
+			expect((editor.attributes('style') ?? '').includes('display: none')).toBe(isMobile);
+			if (isMobile) await openButton.trigger('click');
+			expect(editor.attributes('style') ?? '').not.toContain('display: none');
+			const content = wrapper.findAll('input')[3];
+			await content.setValue('展开与收起后保留留言');
+
+			const collapseButton = wrapper.get(
+				'.message-editor__user-info-header__end .message-editor__collapse-button',
+			);
+			await collapseButton.trigger('click');
+			expect(editor.attributes('style')).toContain('display: none');
+			expect(openButton.attributes('style') ?? '').not.toContain('display: none');
+			await openButton.trigger('click');
+			expect(editor.attributes('style') ?? '').not.toContain('display: none');
+			expect(openButton.attributes('style')).toContain('display: none');
+			expect((content.element as HTMLInputElement).value).toBe('展开与收起后保留留言');
+			wrapper.unmount();
+		},
+	);
 });

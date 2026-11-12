@@ -1,10 +1,10 @@
 import { mount } from '@vue/test-utils';
 import { describe, expect, it } from 'vitest';
-import CommentSticker from './CommentSticker.vue';
+import StickerImage from '@/components/sticker/StickerImage.vue';
 
-describe('CommentSticker', () => {
+describe('StickerImage', () => {
 	it('renders original resources and falls back to text on failure', async () => {
-		const wrapper = mount(CommentSticker, {
+		const wrapper = mount(StickerImage, {
 			props: { name: 'doge', url: '/stickers/doge.png' },
 		});
 		expect(wrapper.get('img').attributes('alt')).toBe('[doge]');

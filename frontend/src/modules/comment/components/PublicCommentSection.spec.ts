@@ -8,8 +8,8 @@ import PublicCommentSection from './PublicCommentSection.vue';
 import { usePublicCommentList } from '../composables/usePublicCommentList';
 import { COMMENT_STATUS, type CommentReplyState, type PublicCommentItem } from '../types/comment';
 
-vi.mock('../composables/useCommentStickers', () => ({
-	useCommentStickers: () => ({
+vi.mock('@/composables/useStickers', () => ({
+	useStickers: () => ({
 		stickers: ref(
 			new Map([
 				[
@@ -75,8 +75,8 @@ const stubs = {
 	ILucideThumbsUp: true,
 	PublicCommentContent: { template: '<div><slot name="reason" /><slot name="actions" /></div>' },
 	PublicCommentReplyEditor: true,
-	CommentTextInput: {
-		name: 'CommentTextInput',
+	StickerTextInput: {
+		name: 'StickerTextInput',
 		props: ['modelValue'],
 		emits: ['update:modelValue'],
 		template:
