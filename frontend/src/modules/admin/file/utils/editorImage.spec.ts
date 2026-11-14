@@ -34,7 +34,7 @@ describe('createEditorImageHtml', () => {
 		expect(container.children).toHaveLength(1);
 	});
 
-	it('inserts HTML at the real editor selection and preserves undo and redo', async () => {
+	it('inserts HTML at the disabled editor selection and preserves undo and redo after unlocking', async () => {
 		const dependencyRequire = createRequire(
 			createRequire(import.meta.url).resolve('md-editor-v3'),
 		);
@@ -57,6 +57,8 @@ describe('createEditorImageHtml', () => {
 			const view = editor.getEditorView()!;
 			expect(view).toBeDefined();
 			view.dispatch({ selection: { anchor: 2, head: 4 } });
+			await wrapper.setProps({ disabled: true });
+			expect(wrapper.get('.cm-content').attributes('contenteditable')).toBe('false');
 			const html = createEditorImageHtml({
 				url: 'https://img.example.com/a.png',
 				originalName: '图.png',
@@ -64,6 +66,7 @@ describe('createEditorImageHtml', () => {
 			editor.insert(() => ({ targetValue: `${html}\n\n`, select: false }));
 			await vi.waitFor(() => expect(view.state.doc.toString()).toBe(`前文${html}\n\n后文`));
 
+			await wrapper.setProps({ disabled: false });
 			const { undo, redo } = dependencyRequire('@codemirror/commands');
 			expect(undo(view)).toBe(true);
 			expect(view.state.doc.toString()).toBe('前文选中后文');
