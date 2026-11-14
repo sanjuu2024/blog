@@ -5,6 +5,7 @@ import type { ArticleUpsertRequestFilter } from '../composables/useAdminArticleF
 import AdminArticleEditPage from './AdminArticleEditPage.vue';
 import type { AdminCategoryItem } from '../../category/types/adminCategory';
 import type { AdminTagItem } from '../../tag/types/adminTag';
+import { ElMessage } from 'element-plus';
 
 const router = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 const route = vi.hoisted(() => ({ params: {} as { articleId?: string } }));
@@ -96,6 +97,7 @@ vi.mock('md-editor-v3', () => ({
 	config: vi.fn(),
 	MdEditor: {
 		name: 'MdEditor',
+		props: ['disabled', 'inert'],
 		emits: ['onUploadImg'],
 		methods: { insert: editorInsert },
 		setup() {
@@ -107,7 +109,7 @@ vi.mock('md-editor-v3', () => ({
 
 vi.mock('element-plus', async (importOriginal) => ({
 	...(await importOriginal<typeof import('element-plus')>()),
-	ElMessage: { error: vi.fn() },
+	ElMessage: { error: vi.fn(), warning: vi.fn(), success: vi.fn() },
 	ElMessageBox: { confirm: confirmLeave },
 }));
 
@@ -235,6 +237,8 @@ describe('AdminArticleEditPage', () => {
 				'<img src="https://img.example.com/architecture.png" alt="架构图.png" />\n\n',
 			select: false,
 		});
+		expect(ElMessage.warning).toHaveBeenCalledWith('已插入 1 张图片，1 张上传失败');
+		expect(wrapper.get('.article-editor-upload').attributes('aria-busy')).toBe('false');
 		wrapper.unmount();
 	});
 
@@ -252,6 +256,77 @@ describe('AdminArticleEditPage', () => {
 		expect(upsertRequest.contentMd).toBe('已有正文');
 		expect(editorInsert).not.toHaveBeenCalled();
 		expect(callback).not.toHaveBeenCalled();
+		expect(ElMessage.success).not.toHaveBeenCalled();
+		expect(ElMessage.warning).not.toHaveBeenCalled();
+		expect(ElMessage.error).not.toHaveBeenCalled();
+		expect(wrapper.getComponent({ name: 'MdEditor' }).props('disabled')).toBe(false);
+		expect(wrapper.get('.article-editor-upload').attributes('aria-busy')).toBe('false');
+		wrapper.unmount();
+	});
+
+	it('shows upload feedback and locks editing and actions until the whole batch is inserted in selection order', async () => {
+		let resolveFirst!: (image: { url: string; originalName: string }) => void;
+		let resolveSecond!: (image: { url: string; originalName: string }) => void;
+		uploadAdminImage
+			.mockReturnValueOnce(
+				new Promise((resolve) => {
+					resolveFirst = resolve;
+				}),
+			)
+			.mockReturnValueOnce(
+				new Promise((resolve) => {
+					resolveSecond = resolve;
+				}),
+			);
+		const wrapper = await mountPage();
+		const editor = wrapper.getComponent({ name: 'MdEditor' });
+		const files = [new File(['first'], '第一张.png'), new File(['second'], '第二张.png')];
+		const callback = vi.fn(() => {
+			// 单个请求已经完成，但编辑器尚在处理回调时仍不能保存或继续输入。
+			expect(wrapper.get('.article-editor-upload').attributes('aria-busy')).toBe('true');
+		});
+		editor.vm.$emit('onUploadImg', files, callback);
+		await flushPromises();
+		expect(editor.props('disabled')).toBe(true);
+		expect(editor.props('inert')).toBe(true);
+		expect(wrapper.get('.article-editor-upload').attributes('element-loading-text')).toBe(
+			'图片上传中，请稍候…',
+		);
+		expect(wrapper.get('.article-editor-upload .el-loading-text').text()).toBe(
+			'图片上传中，请稍候…',
+		);
+		expect(wrapper.get('.admin-article-submit-button').attributes('disabled')).toBeDefined();
+		expect(wrapper.get('.admin-article-preview-button').attributes('disabled')).toBeDefined();
+		const coverButton = wrapper
+			.getComponent({ name: 'ElUpload' })
+			.getComponent({ name: 'ElButton' });
+		expect(coverButton.attributes('loading')).toBe('false');
+		expect(coverButton.attributes('disabled')).toBeDefined();
+		editor.vm.$emit('onUploadImg', files, vi.fn());
+		await wrapper.get('.admin-article-submit-button').trigger('click');
+		await wrapper.get('.admin-article-preview-button').trigger('click');
+		expect(uploadAdminImage).toHaveBeenCalledTimes(2);
+		expect(createArticle).not.toHaveBeenCalled();
+		expect(previewArticle).not.toHaveBeenCalled();
+		expect(await routeLeave.guard?.()).toBe(false);
+		expect(ElMessage.warning).toHaveBeenCalledWith('图片上传中，请稍后再离开');
+		resolveSecond({ url: 'https://img.example.com/second.png', originalName: '第二张.png' });
+		await flushPromises();
+		expect(editor.props('disabled')).toBe(true);
+		expect(editorInsert).not.toHaveBeenCalled();
+		resolveFirst({ url: 'https://img.example.com/first.png', originalName: '第一张.png' });
+		await flushPromises();
+		expect(editorInsert.mock.calls[0]![0]('')).toEqual({
+			targetValue:
+				'<img src="https://img.example.com/first.png" alt="第一张.png" />\n<img src="https://img.example.com/second.png" alt="第二张.png" />\n\n',
+			select: false,
+		});
+		expect(callback).toHaveBeenCalledExactlyOnceWith([]);
+		expect(ElMessage.success).toHaveBeenCalledWith('已插入 2 张图片');
+		expect(editor.props('disabled')).toBe(false);
+		expect(editor.props('inert')).toBe(false);
+		expect(wrapper.get('.admin-article-submit-button').attributes('disabled')).toBe('false');
+		expect(wrapper.get('.admin-article-preview-button').attributes('disabled')).toBe('false');
 		wrapper.unmount();
 	});
 
