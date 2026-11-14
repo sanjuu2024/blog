@@ -639,6 +639,11 @@ async function clickUpsertArticle() {
 	color: var(--app-button-text);
 }
 
+// 编辑器代码头部保持局部吸顶，避免盖住实际效果预览弹窗。
+.admin-article-edit :deep(.md-editor-preview .md-editor-code-head) {
+	z-index: 1;
+}
+
 @media (width < 640px) {
 	.article-cover-control {
 		grid-template-columns: minmax(0, 1fr);

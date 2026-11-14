@@ -8,6 +8,7 @@
 
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue';
+import { useContentImagePreview } from '@/composables/useContentImagePreview';
 // 语法高亮渲染器
 import { highlightCodeUnder } from '@/utils/prism';
 import { renderImageCaptions } from '../utils/renderImageCaptions';
@@ -15,6 +16,7 @@ import { renderImageCaptions } from '../utils/renderImageCaptions';
 const props = defineProps<{ html: string }>();
 const emit = defineEmits<{ rendered: [] }>();
 const element = ref<HTMLElement | null>(null);
+useContentImagePreview(element, () => props.html);
 defineExpose({ element });
 
 watch(
