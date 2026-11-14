@@ -2,6 +2,15 @@
 
 本项目使用到的第三方图标、图片、字体等资源会记录在本文件中，便于后续维护版权与许可证信息。
 
+## 正文图片预览
+
+文章详情、后台文章实际效果预览和前台关于页使用 PhotoSwipe 5 提供图片预览、滚轮缩放及触摸手势，通过前端依赖打包发布。
+
+- 项目网站：https://photoswipe.com/
+- 源码与许可证：https://github.com/dimsemenov/PhotoSwipe/blob/v5.4.4/LICENSE
+- 版权信息：Copyright (c) 2014-2022 Dmitry Semenov, https://dimsemenov.com
+- 许可证：MIT，完整声明随站点发布在 `/THIRD_PARTY_NOTICES.txt`。
+
 ## 网站 favicon 与页面 Logo
 
 网站 favicon 与页面 Logo 基于 Google Noto Emoji 项目中的 Seedling emoji SVG 调整而来。

@@ -65,7 +65,7 @@
 							:on-change="handleCoverImageChange"
 						>
 							<el-button
-								:loading="imageUploading"
+								:loading="coverImageUploading"
 								:disabled="imageUploading"
 							>
 								上传图片
@@ -194,14 +194,23 @@
 			</el-form>
 
 			<!-- md 编辑器 -->
-			<MdEditor
+			<div
 				v-if="editorReady"
-				ref="editorRef"
-				v-model="upsertRequest.contentMd"
-				class="rounded-2xl"
-				:theme="resolvedTheme"
-				@onUploadImg="handleContentImageUpload"
-			/>
+				v-loading="contentImageUploading"
+				element-loading-text="图片上传中，请稍候…"
+				:aria-busy="contentImageUploading"
+				class="article-editor-upload"
+			>
+				<MdEditor
+					ref="editorRef"
+					v-model="upsertRequest.contentMd"
+					class="rounded-2xl"
+					:theme="resolvedTheme"
+					:disabled="contentImageUploading"
+					:inert="contentImageUploading"
+					@onUploadImg="handleContentImageUpload"
+				/>
+			</div>
 		</el-card>
 
 		<!-- 点击按钮发送请求 -->
@@ -220,7 +229,7 @@
 				type="primary"
 				size="large"
 				class="admin-article-submit-button flex-1"
-				:disabled="!editorReady || submitting"
+				:disabled="!editorReady || submitting || imageUploading"
 				:loading="submitting"
 				@click="clickUpsertArticle"
 			>
@@ -327,7 +336,7 @@ const {
 	loading: previewLoading,
 	failed: previewFailed,
 	article: previewArticle,
-	openPreview,
+	openPreview: generatePreview,
 } = useAdminArticlePreview(upsertRequest, categoryList, tagList);
 
 // 禁用状态只影响前台展示，后台仍可选二级分类；一级分类仅作为树分组。
@@ -372,7 +381,12 @@ function getTagLabel(tagId: number) {
 
 const { resolvedTheme } = useTheme();
 
-const { imageUploading, handleUploadAdminImage } = useAdminImageUpload();
+const { imageUploading: coverImageUploading, handleUploadAdminImage: uploadCoverImage } =
+	useAdminImageUpload();
+const { handleUploadAdminImage } = useAdminImageUpload();
+// 批次锁持续到 HTML 插入和编辑器上传回调完成，不能只依赖单个请求的 loading。
+const contentImageUploading = ref(false);
+const imageUploading = computed(() => coverImageUploading.value || contentImageUploading.value);
 
 // 表单引用
 let theFormRef = ref<FormInstance>();
@@ -455,6 +469,10 @@ onMounted(initializeEditor);
 
 // 离开当前页面时触发路由守卫
 onBeforeRouteLeave(async () => {
+	if (imageUploading.value) {
+		ElMessage.warning('图片上传中，请稍后再离开');
+		return false;
+	}
 	if (!editorReady.value) return true;
 	console.log(
 		'离开编辑页，upsertRequest:',
@@ -502,12 +520,9 @@ function tagDialogCancel() {
 // el-upload 唤起文件选择器后，会把用户选中的文件包装成 UploadFile 并传入该函数
 // 上传时需要取出其中的原始 File，上传成功后再把 OSS 公开地址回填到封面输入框
 const handleCoverImageChange: UploadProps['onChange'] = async (uploadFile) => {
-	if (!uploadFile.raw) return;
+	if (!uploadFile.raw || imageUploading.value || submitting.value) return;
 
-	const image = await handleUploadAdminImage(
-		ADMIN_IMAGE_UPLOAD_SCENE.ARTICLE_COVER,
-		uploadFile.raw,
-	);
+	const image = await uploadCoverImage(ADMIN_IMAGE_UPLOAD_SCENE.ARTICLE_COVER, uploadFile.raw);
 	if (image) {
 		upsertRequest.coverUrl = image.url;
 	}
@@ -516,23 +531,43 @@ const handleCoverImageChange: UploadProps['onChange'] = async (uploadFile) => {
 // MdEditor 选择图片后会传入文件列表和回调函数，这里同时上传用户选中的所有图片
 // 使用 insert 插入 HTML，避免默认回调生成 Markdown 图片语法；全部失败时不改正文。
 const handleContentImageUpload: UploadImgEvent = async (files, callback) => {
-	const images = await Promise.all(
-		files.map((file) => handleUploadAdminImage(ADMIN_IMAGE_UPLOAD_SCENE.ARTICLE_CONTENT, file)),
-	);
+	if (!files.length || !editorReady.value || imageUploading.value || submitting.value) return;
+	contentImageUploading.value = true;
+	try {
+		const images = await Promise.all(
+			files.map((file) =>
+				handleUploadAdminImage(ADMIN_IMAGE_UPLOAD_SCENE.ARTICLE_CONTENT, file),
+			),
+		);
 
-	const html = images
-		.flatMap((image) => (image ? [createEditorImageHtml(image)] : []))
-		.join('\n');
-	// 空行结束原始 HTML 块，确保图片后的 Markdown 仍会解析。
-	const editor = editorRef.value;
-	if (html && editor) {
+		const successfulImages = images.filter((image) => image !== undefined);
+		const html = successfulImages.map(createEditorImageHtml).join('\n');
+		// 空行结束原始 HTML 块，确保图片后的 Markdown 仍会解析。
+		const editor = editorRef.value;
+		if (!html || !editor) return;
 		editor.insert(() => ({ targetValue: `${html}\n\n`, select: false }));
 		await finishEditorImageUpload(editor, callback);
+		const failedCount = files.length - successfulImages.length;
+		if (failedCount) {
+			ElMessage.warning(
+				`已插入 ${successfulImages.length} 张图片，${failedCount} 张上传失败`,
+			);
+		} else {
+			ElMessage.success(`已插入 ${successfulImages.length} 张图片`);
+		}
+	} finally {
+		contentImageUploading.value = false;
 	}
 };
 
+function openPreview() {
+	if (!editorReady.value || imageUploading.value || submitting.value || previewLoading.value)
+		return;
+	return generatePreview();
+}
+
 async function clickUpsertArticle() {
-	if (!editorReady.value) return;
+	if (!editorReady.value || imageUploading.value || submitting.value) return;
 	try {
 		if (!upsertRequest.contentMd?.trim()) {
 			throw new Error('文章正文不能为空');
@@ -543,6 +578,7 @@ async function clickUpsertArticle() {
 		return;
 	}
 
+	if (imageUploading.value) return;
 	let success: boolean;
 	if (mode.value === 'create') {
 		success = await handleCreateArticle();
@@ -637,6 +673,11 @@ async function clickUpsertArticle() {
 	border-color: #8caf87;
 	background-color: var(--app-button-hover);
 	color: var(--app-button-text);
+}
+
+// 编辑器代码头部保持局部吸顶，避免盖住实际效果预览弹窗。
+.admin-article-edit :deep(.md-editor-preview .md-editor-code-head) {
+	z-index: 1;
 }
 
 @media (width < 640px) {

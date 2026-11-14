@@ -27,6 +27,7 @@
 import { nextTick, onMounted, ref, watch } from 'vue';
 import { useAboutPage } from '../composables/useAboutPage';
 import { renderImageCaptions } from '@/modules/article/utils/renderImageCaptions';
+import { useContentImagePreview } from '@/composables/useContentImagePreview';
 
 defineOptions({
 	name: 'AboutPage',
@@ -34,6 +35,7 @@ defineOptions({
 
 const { aboutPage, loading, loadFailed, getAboutPageContent } = useAboutPage();
 const contentRef = ref<HTMLElement | null>(null);
+useContentImagePreview(contentRef, () => aboutPage.value?.contentHtml);
 
 watch(
 	() => aboutPage.value?.contentHtml,

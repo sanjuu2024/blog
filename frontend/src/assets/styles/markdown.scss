@@ -89,6 +89,15 @@
 		margin-block: 1.5rem;
 	}
 
+	img[role='button'] {
+		cursor: zoom-in;
+
+		&:focus-visible {
+			outline: 2px solid var(--app-main);
+			outline-offset: 4px;
+		}
+	}
+
 	.article-image {
 		margin-block: 1.5rem;
 
