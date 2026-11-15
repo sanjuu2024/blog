@@ -1,11 +1,11 @@
 import { flushPromises, mount } from '@vue/test-utils';
 import { defineComponent } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { highlightCodeUnder } from '@/utils/prism';
+import { highlightCodeUnder } from '@/utils/shiki';
 import ArticleCatalogSidebar from '@/modules/article/components/ArticleCatalogSidebar.vue';
 import AdminArticlePreviewDialog from './AdminArticlePreviewDialog.vue';
 
-vi.mock('@/utils/prism', () => ({ highlightCodeUnder: vi.fn() }));
+vi.mock('@/utils/shiki', () => ({ highlightCodeUnder: vi.fn() }));
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -40,7 +40,13 @@ describe('AdminArticlePreviewDialog', () => {
 		expect(wrapper.text()).toContain('技术 / Java');
 		expect(wrapper.get('.article-image__caption').text()).toBe('手动图注');
 		expect(wrapper.find('.katex').exists()).toBe(true);
-		expect(highlightCodeUnder).toHaveBeenCalledWith(wrapper.get('.article-markdown').element);
+		expect(highlightCodeUnder).toHaveBeenCalledWith(
+			wrapper.get('.article-markdown').element,
+			expect.objectContaining({
+				signal: expect.any(AbortSignal),
+				copy: expect.any(Function),
+			}),
+		);
 		expect(wrapper.find('.article-like-button').exists()).toBe(false);
 		wrapper.unmount();
 	});

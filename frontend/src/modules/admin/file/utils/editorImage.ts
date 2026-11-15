@@ -5,7 +5,7 @@ import type { UploadedImageData } from '../types/adminFile';
 
 // 文件名和 URL 都进入 HTML 属性，必须转义，避免引号等字符改变标签结构。
 export function createEditorImageHtml(image: Pick<UploadedImageData, 'url' | 'originalName'>) {
-	return `<img src="${escape(image.url)}" alt="${escape(image.originalName)}" />`;
+	return `<p><img src="${escape(image.url)}" alt="${escape(image.originalName)}" /></p>`;
 }
 
 export async function finishEditorImageUpload(editor: ExposeParam, callback: UploadImgCallBack) {

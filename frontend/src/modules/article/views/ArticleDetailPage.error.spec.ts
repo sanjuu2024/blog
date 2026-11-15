@@ -11,7 +11,7 @@ import { getArticleDetails } from '../api/articleApi';
 import ArticleDetailPage from './ArticleDetailPage.vue';
 
 vi.mock('../api/articleApi', () => ({ getArticleDetails: vi.fn() }));
-vi.mock('@/utils/prism', () => ({ highlightCodeUnder: vi.fn() }));
+vi.mock('@/utils/shiki', () => ({ highlightCodeUnder: vi.fn() }));
 vi.mock('canvas-confetti', () => ({ default: vi.fn() }));
 vi.mock('element-plus', async (importOriginal) => ({
 	...(await importOriginal<typeof import('element-plus')>()),

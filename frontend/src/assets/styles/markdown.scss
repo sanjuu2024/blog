@@ -152,13 +152,28 @@
 		--code-header-height: 2.5rem;
 		--code-body-padding-top: 1rem;
 
+		position: relative;
 		margin: 1.5rem 0;
 		border-radius: 10px;
 		overflow: hidden;
 		border: 1px solid rgba(255, 255, 255, 0.12);
+		background: #1e1e1e;
+		color: #d4d4d4;
 
 		> pre[class*='language-'] > code {
+			display: block;
+			width: max-content;
+			min-width: 100%;
+			padding: 0;
+			border: 0;
+			border-radius: 0;
+			background: transparent;
+			color: inherit;
+			font-family: inherit;
 			font-size: 0.9rem;
+			line-height: 1.6;
+			text-shadow: none;
+			counter-reset: code-line;
 		}
 
 		// 代码块容器顶栏三个圆点样式（仿 mac）
@@ -167,6 +182,15 @@
 			margin: 0;
 			border-radius: 0;
 			box-sizing: border-box;
+			padding-inline: 4.2rem 1rem;
+			padding-bottom: 1rem;
+			background: #1e1e1e;
+			color: #d4d4d4;
+			font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+			font-size: 0.9rem;
+			line-height: 1.6;
+			white-space: pre;
+			tab-size: 4;
 			padding-top: calc(
 				var(--code-header-height) + var(--code-body-padding-top)
 			); // 顶开代码内容（>= 顶栏高度即可）
@@ -211,15 +235,22 @@
 
 		// 工具条
 		> .toolbar {
+			position: absolute;
 			top: 0.5rem;
 			right: 0.75rem;
 			display: flex;
 			align-items: center;
 			gap: 0.5rem;
+			max-width: calc(100% - 6rem);
 		}
 
 		> .toolbar .toolbar-item {
 			display: inline-flex;
+			min-width: 0;
+		}
+
+		> .toolbar .toolbar-item:not(:first-child) {
+			flex-shrink: 0;
 		}
 
 		> .toolbar > .toolbar-item > button,
@@ -236,6 +267,12 @@
 			color: rgba(255, 255, 255, 0.72);
 			font-size: 12px;
 			line-height: 1;
+			white-space: nowrap;
+		}
+
+		.app-code-language {
+			overflow: hidden;
+			text-overflow: ellipsis;
 		}
 
 		> .toolbar button {
@@ -258,19 +295,34 @@
 			visibility: hidden;
 		}
 
-		&.is-code-collapsed .line-numbers-rows {
-			display: none;
+		.line {
+			position: relative;
+			display: inline-block;
+			min-width: 100%;
+			min-height: 1.6em;
+			vertical-align: top;
+			counter-increment: code-line;
+		}
+
+		.line::before {
+			content: counter(code-line);
+			position: absolute;
+			top: 0;
+			bottom: 0;
+			left: -3.2rem;
+			width: 2.2rem;
+			padding-right: 0.8rem;
+			text-align: right;
+			user-select: none;
 		}
 	}
 
 	/* 代码块行号样式 */
-	// 行号分割线的颜色
-	.line-numbers .line-numbers-rows {
+	.code-toolbar .line::before {
+		// 行号分割线的颜色
 		border-right: 2px solid rgba(255, 255, 255, 0.2);
-	}
 
-	// 行号数字的颜色
-	.line-numbers-rows > span::before {
+		// 行号数字的颜色
 		color: rgba(255, 255, 255, 0.5);
 	}
 
