@@ -8,14 +8,16 @@
 
 <script setup lang="ts">
 import { nextTick, ref, watch } from 'vue';
+import { useClipboard } from '@vueuse/core';
 import { useContentImagePreview } from '@/composables/useContentImagePreview';
 // 语法高亮渲染器
-import { highlightCodeUnder } from '@/utils/prism';
+import { highlightCodeUnder } from '@/utils/shiki';
 import { renderImageCaptions } from '../utils/renderImageCaptions';
 
 const props = defineProps<{ html: string }>();
 const emit = defineEmits<{ rendered: [] }>();
 const element = ref<HTMLElement | null>(null);
+const { copy } = useClipboard({ legacy: true });
 useContentImagePreview(element, () => props.html);
 defineExpose({ element });
 
@@ -23,8 +25,10 @@ watch(
 	() => props.html,
 	async (_, __, onCleanup) => {
 		let cancelled = false;
+		const controller = new AbortController();
 		onCleanup(() => {
 			cancelled = true;
+			controller.abort();
 		});
 		await nextTick();
 		if (!element.value || cancelled) return;
@@ -53,7 +57,7 @@ watch(
 				ignoredClasses: ['article-image__caption'],
 			});
 		}
-		highlightCodeUnder(contentElement);
+		await highlightCodeUnder(contentElement, { signal: controller.signal, copy });
 	},
 	{ immediate: true },
 );

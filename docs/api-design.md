@@ -2619,7 +2619,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 }
 ```
 
-文章封面上传后由前端把 URL 回填至原有封面输入框；文章和关于页正文图片上传后在编辑器中插入 `<img src="图片地址" alt="原文件名" />`，属性值进行 HTML 转义，不自动添加 title，作者可手动补充图注。只插入成功结果，保留文件选择顺序，历史 Markdown 图片语法继续支持。`ABOUT_CONTENT` 使用 `about/content/YYYY/MM/UUID.扩展名` 对象 key，其余校验及返回结构不变。该接口仅创建 OSS 对象，不直接修改文章、关于页或项目数据。
+文章封面上传后由前端把 URL 回填至原有封面输入框；文章和关于页正文图片上传后在编辑器中插入 `<p><img src="图片地址" alt="原文件名" /></p>`，每张图片独占一个段落，图片组后保留空行；属性值进行 HTML 转义，不自动添加 title，作者可手动补充图注。只插入成功结果，保留文件选择顺序，历史 Markdown 图片语法继续支持。`ABOUT_CONTENT` 使用 `about/content/YYYY/MM/UUID.扩展名` 对象 key，其余校验及返回结构不变。该接口仅创建 OSS 对象，不直接修改文章、关于页或项目数据。
 
 ## 14. 业务规则补充
 

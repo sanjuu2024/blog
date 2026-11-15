@@ -2,16 +2,7 @@
 
 本项目使用到的第三方图标、图片、字体等资源会记录在本文件中，便于后续维护版权与许可证信息。
 
-## 正文图片预览
-
-文章详情、后台文章实际效果预览和前台关于页使用 PhotoSwipe 5 提供图片预览、滚轮缩放及触摸手势，通过前端依赖打包发布。
-
-- 项目网站：https://photoswipe.com/
-- 源码与许可证：https://github.com/dimsemenov/PhotoSwipe/blob/v5.4.4/LICENSE
-- 版权信息：Copyright (c) 2014-2022 Dmitry Semenov, https://dimsemenov.com
-- 许可证：MIT，完整声明随站点发布在 `/THIRD_PARTY_NOTICES.txt`。
-
-## 网站 favicon 与页面 Logo
+## 1. 网站 favicon 与页面 Logo
 
 网站 favicon 与页面 Logo 基于 Google Noto Emoji 项目中的 Seedling emoji SVG 调整而来。
 
@@ -28,7 +19,7 @@
 
 本项目 favicon 与页面 Logo 基于上述开源资源进行配色调整，不表示 Google 或 Iconify 对本项目提供认可、赞助或背书。
 
-## 文字 Logo 字体
+## 2. 文字 Logo 字体
 
 网站文字 Logo 使用 Google Fonts 提供的 Long Cang 字体。
 
@@ -44,7 +35,7 @@
 
 说明：Long Cang 使用 SIL Open Font License 1.1，可免费用于个人与商业项目，也可用于网站 Logo、图片、页面文本和应用内嵌字体。若项目分发字体文件本身，需要保留对应版权信息与 OFL 许可证文本；使用该字体生成的 Logo 图片、页面截图或其他设计输出不需要按 OFL 继续分发。
 
-## 评论与留言预置表情
+## 3. 评论与留言预置表情
 
 评论和留言选择器使用的 Alus（`alus`）、Bili 小电视（`bilibili`）、Bili 表情（`bmoji`）、QQ（`qq`）、微信（`wechat`）五个表情库及其 `info.json` 来源于 [Waline Emojis](https://github.com/walinejs/emojis)，保存在 `frontend/public/stickers/`，通过本站静态资源提供，不从第三方 CDN 热链加载。本项目保留原图片、文件名与清单顺序，另从清单生成供评论和留言共用的目录。
 

@@ -680,6 +680,11 @@ async function clickUpsertArticle() {
 	z-index: 1;
 }
 
+// 编辑器目录高于代码头部，低于实际效果预览弹窗。
+.admin-article-edit :deep(.md-editor-catalog-fixed) {
+	z-index: 2;
+}
+
 @media (width < 640px) {
 	.article-cover-control {
 		grid-template-columns: minmax(0, 1fr);

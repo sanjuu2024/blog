@@ -1,0 +1,2 @@
+patchedDependencies:
+    '@shikijs/colorized-brackets@4.6.0': patches/@shikijs__colorized-brackets@4.6.0.patch

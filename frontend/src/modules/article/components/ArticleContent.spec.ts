@@ -25,7 +25,7 @@ vi.mock('../composables/useArticleCatalog', async () => {
 	};
 });
 
-vi.mock('@/utils/prism', () => ({
+vi.mock('@/utils/shiki', () => ({
 	highlightCodeUnder: vi.fn(),
 }));
 

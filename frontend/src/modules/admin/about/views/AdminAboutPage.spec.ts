@@ -130,7 +130,7 @@ describe('AdminAboutPage', () => {
 		expect(editorInsert).toHaveBeenCalledTimes(1);
 		expect(editorInsert.mock.calls[0]![0]('')).toEqual({
 			targetValue:
-				'<img src="https://img.example.com/about/content/image.png" alt="about.png" />\n\n',
+				'<p><img src="https://img.example.com/about/content/image.png" alt="about.png" /></p>\n\n',
 			select: false,
 		});
 	});
@@ -159,7 +159,7 @@ describe('AdminAboutPage', () => {
 		expect(callback).toHaveBeenCalledExactlyOnceWith([]);
 		expect(editorInsert).toHaveBeenCalledTimes(1);
 		expect(editorInsert.mock.calls[0]![0]('')).toEqual({
-			targetValue: '<img src="/about/ok.png" alt="ok.png" />\n\n',
+			targetValue: '<p><img src="/about/ok.png" alt="ok.png" /></p>\n\n',
 			select: false,
 		});
 	});
@@ -196,7 +196,7 @@ describe('AdminAboutPage', () => {
 		});
 		await flushPromises();
 		expect(editorInsert.mock.calls[0]![0]('').targetValue).toBe(
-			'<img src="/about/first.png" alt="first.png" />\n<img src="/about/second.png" alt="second.png" />\n\n',
+			'<p><img src="/about/first.png" alt="first.png" /></p>\n<p><img src="/about/second.png" alt="second.png" /></p>\n\n',
 		);
 	});
 

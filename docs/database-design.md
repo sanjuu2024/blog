@@ -488,7 +488,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_search_vector
 - Markdown 生成的 `content_html` 经统一白名单清洗，保留 `<small>`、`<big>`、`<mark>` 等安全语义标签，不放开这些标签的额外属性；文章、关于页与隐私政策共用该规则
 - HTML 颜色标注保留 `<font>` 标签及其 `color` 属性，font 的其他属性仍被清洗；与粗体、下划线的嵌套结果保存在现有 `content_html` 中，不新增字段或 migration
 - 正文图片图注复用 Markdown 图片的可选 title 或手写 HTML img 的 title，由现有转译和白名单清洗保留在 `content_html` 中；前台将 title 作为纯文本图注渲染，不回写 `content_md`、`content_html` 或 `content_text`，不增加表、字段或历史数据迁移。
-- 正文编辑器上传图片后在 `content_md` 插入 `<img src="图片地址" alt="原文件名" />`，属性值进行 HTML 转义，不自动添加 title；历史 Markdown 图片语法继续支持，不新增字段或迁移。
+- 正文编辑器上传图片后在 `content_md` 插入 `<p><img src="图片地址" alt="原文件名" /></p>`，每张图片独占一个段落，属性值进行 HTML 转义，不自动添加 title；历史 Markdown 图片语法继续支持，不转换已有正文，不新增字段或迁移。
 - 归档复用现有表和索引，不新增结构或改变时间存储。年份按浏览器传入并校验的 IANA 时区一次分组计数，SQL 使用绑定参数执行 `published_at AT TIME ZONE timeZone`；年份筛选按同一时区分别计算当年与下一年年初，再用绝对时间半开范围查询，正确应用各年份的夏令时规则。汇总和列表仅含 PUBLISHED、启用二级分类及启用父分类、作者存在的文章；列表联表返回分类路径，标签使用 EXISTS 过滤，不重复计数或执行 N+1 查询。
 - 公开文章列表和搜索结果的 `commentCount` 直接读取 `blog_article.comment_count`，沿用现有公开评论与回复统计口径，不新增表或逐篇聚合查询
 - P1 文章搜索使用 PostgreSQL `zhparser` 解析 `title`、`summary` 和 `content_text`，并通过生成列 `search_vector` 与 GIN 索引完成全文检索

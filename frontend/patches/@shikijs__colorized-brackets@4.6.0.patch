@@ -1,0 +1,13 @@
+diff --git a/dist/index.mjs b/dist/index.mjs
+index b148996726642b25399ba814af4ba66ee82dea35..2f4aad182c8ae1185a64dfbec957e85c9e9a2430 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -635,7 +635,7 @@ function splitBracketTokens(rawToken, config, lang) {
+ 	for (const token of tokens) {
+ 		const tokenStart = token.offset - rawToken.offset;
+ 		const tokenEnd = tokenStart + token.content.length - 1;
+-		token.explanation = explanationsWithStartEnd.filter((explanation) => tokenStart >= explanation.start && tokenStart <= explanation.end || tokenEnd >= explanation.start && tokenEnd <= explanation.end || explanation.start >= tokenStart && explanation.start <= tokenEnd || explanation.end >= tokenStart && explanation.end <= tokenEnd).map((exp, i) => explanations[i]);
++		token.explanation = explanationsWithStartEnd.filter((explanation) => tokenStart >= explanation.start && tokenStart <= explanation.end || tokenEnd >= explanation.start && tokenEnd <= explanation.end || explanation.start >= tokenStart && explanation.start <= tokenEnd || explanation.end >= tokenStart && explanation.end <= tokenEnd).map(({ content, scopes }) => ({ content, scopes }));
+ 	}
+ 	return tokens;
+ }

@@ -27,11 +27,13 @@ describe('createEditorImageHtml', () => {
 		container.innerHTML = html;
 		const img = container.querySelector('img')!;
 
-		expect(html).toMatch(/^<img src=".*" alt=".*" \/>$/);
+		expect(html).toMatch(/^<p><img src=".*" alt=".*" \/><\/p>$/);
+		expect(container.querySelectorAll('p > img:only-child')).toHaveLength(1);
 		expect(img.getAttribute('src')).toBe('https://img.example.com/a.png?x=1&y="value"');
 		expect(img.getAttribute('alt')).toBe('图" onerror="alert(1)<script>&\'.png');
 		expect(img.getAttributeNames()).toEqual(['src', 'alt']);
 		expect(container.children).toHaveLength(1);
+		expect(container.querySelector('script, [onerror]')).toBeNull();
 	});
 
 	it('inserts HTML at the disabled editor selection and preserves undo and redo after unlocking', async () => {

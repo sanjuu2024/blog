@@ -18,11 +18,25 @@ function render(markdown: string) {
 }
 
 describe('editor Markdown rendering', () => {
-	it('parses Markdown after the blank line following an uploaded HTML image', () => {
-		const body = render(
-			'<img src="https://img.example.com/a.png" alt="图" />\n\n**图片后正文**',
-		);
+	it.each([
+		'<img src="https://img.example.com/a.png" alt="图" />',
+		'<p><img src="https://img.example.com/a.png" alt="图" /></p>',
+	])('parses Markdown after an image block: %s', (image) => {
+		const body = render(`${image}\n\n**图片后正文**`);
 		expect(body.querySelector('img')?.getAttribute('alt')).toBe('图');
+		expect(body.querySelector('strong')?.textContent).toBe('图片后正文');
+	});
+
+	it('keeps multiple uploaded images in separate paragraphs before the following Markdown', () => {
+		const body = render(
+			'<p><img src="/first.png" alt="第一张" /></p>\n<p><img src="/second.png" alt="第二张" /></p>\n\n**图片后正文**',
+		);
+		const images = Array.from(body.querySelectorAll('p > img:only-child'));
+		expect(images.map((image) => image.getAttribute('src'))).toEqual([
+			'/first.png',
+			'/second.png',
+		]);
+		expect(images[0]!.parentElement).not.toBe(images[1]!.parentElement);
 		expect(body.querySelector('strong')?.textContent).toBe('图片后正文');
 	});
 
