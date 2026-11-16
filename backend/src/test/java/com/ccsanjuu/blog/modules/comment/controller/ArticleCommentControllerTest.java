@@ -186,21 +186,27 @@ class ArticleCommentControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[*].id").value(contains(
                         "alus", "bangumi", "bilibili", "bmoji", "kanae", "natsume", "qq", "qyn",
-                        "rimuru", "saikikusuo", "suzume", "wechat")))
+                        "rimuru", "saikikusuo", "sharkitty", "suzume", "wechat")))
                 .andExpect(jsonPath("$.data[0].id").value("alus"))
-                .andExpect(jsonPath("$.data[0].minHeightRem").doesNotExist())
+                .andExpect(jsonPath("$.data[0].minHeightRem").value(2))
                 .andExpect(jsonPath("$.data[1].id").value("bangumi"))
-                .andExpect(jsonPath("$.data[1].minHeightRem").value(2.5))
+                .andExpect(jsonPath("$.data[1].name").value("Bangumi 娘"))
+                .andExpect(jsonPath("$.data[1].minHeightRem").value(3))
                 .andExpect(jsonPath("$.data[2].id").value("bilibili"))
                 .andExpect(jsonPath("$.data[2].minHeightRem").doesNotExist())
+                .andExpect(jsonPath("$.data[2].name").value("哔哩哔哩小电视"))
+                .andExpect(jsonPath("$.data[2].iconUrl").value("/stickers/bilibili/btv_cute.png"))
                 .andExpect(jsonPath("$.data[2].items[0].token").value("[sticker:bilibili:doge]"))
                 .andExpect(jsonPath("$.data[4].id").value("kanae"))
-                .andExpect(jsonPath("$.data[4].minHeightRem").value(2.5))
-                .andExpect(jsonPath("$.data[5].minHeightRem").doesNotExist())
-                .andExpect(jsonPath("$.data[7].minHeightRem").value(2.5))
-                .andExpect(jsonPath("$.data[8].minHeightRem").doesNotExist())
-                .andExpect(jsonPath("$.data[9].minHeightRem").doesNotExist())
-                .andExpect(jsonPath("$.data[10].minHeightRem").doesNotExist());
+                .andExpect(jsonPath("$.data[4].minHeightRem").value(3))
+                .andExpect(jsonPath("$.data[5].minHeightRem").value(4))
+                .andExpect(jsonPath("$.data[7].minHeightRem").value(3))
+                .andExpect(jsonPath("$.data[8].minHeightRem").value(3))
+                .andExpect(jsonPath("$.data[9].minHeightRem").value(3))
+                .andExpect(jsonPath("$.data[10].name").value("鲨猫"))
+                .andExpect(jsonPath("$.data[10].items.length()").value(25))
+                .andExpect(jsonPath("$.data[10].minHeightRem").value(3))
+                .andExpect(jsonPath("$.data[11].minHeightRem").value(3));
     }
 
     @Test
