@@ -32,10 +32,6 @@
 								v-else-if="section.section === FRIEND_LINK_SECTION.EXPERTS"
 								aria-hidden="true"
 							/>
-							<i-streamline-ultimate-color-browser-com
-								v-else-if="section.section === FRIEND_LINK_SECTION.PEERS"
-								aria-hidden="true"
-							/>
 						</div>
 						<h2>{{ section.name }}</h2>
 					</header>

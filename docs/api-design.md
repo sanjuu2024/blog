@@ -2722,20 +2722,21 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | `POST` | `/api/v1/admin/friend-links` | `ADMIN` | 创建友链 |
 | `PUT` | `/api/v1/admin/friend-links/{friendLinkId}` | `ADMIN` | 更新友链资料、分区、状态和排序 |
 | `DELETE` | `/api/v1/admin/friend-links/{friendLinkId}` | `ADMIN` | 永久删除友链 |
-| `GET` | `/api/v1/friend-links` | `PUBLIC` | 获取固定顺序的三个分区及其启用友链 |
+| `GET` | `/api/v1/friend-links` | `PUBLIC` | 获取固定顺序的两个分区及其启用友链 |
 | `GET` | `/api/v1/friend-links/site-profile` | `PUBLIC` | 获取本站友链申请资料 |
 
 后台列表返回启用和停用记录，并按创建时间和 ID 倒序分页；
 每页沿用通用分页上限。所有后台写操作通过既有 `@AdminAudit` 机制记录成功和失败审计。
 
-公开接口始终按 `FRIENDS`、`EXPERTS`、`PEERS` 顺序返回“友人帐”“大佬们”“同行者”三个分区；
+公开接口始终按 `FRIENDS`、`EXPERTS` 顺序返回“友人帐”“大佬们”两个分区；
 每个分区的 `records` 可为空，记录按 `sortNo ASC, id ASC` 排序，仅包含 `ENABLED` 友链。
 公开记录返回 `id`、`name`、`url`、`logoUrl`、`description`、`section`、`sortNo`，不返回状态和后台时间字段；
 未设置头像图片或网站代表图时 `logoUrl` 返回空字符串。接口无需登录、不分页，响应使用 `Cache-Control: no-store`。
 
 友链请求字段为 `name`（必填，1–100 字符）、`url`（必填，HTTPS 绝对 URL，最长 500 字符）、
 `description`（可空，最长 255 字符）、`logoUrl`（可空，头像图片或网站代表图地址，HTTP(S) 绝对 URL，最长 500 字符；建议使用清晰的正方形图片）、
-`section`（必填，`FRIENDS`/`EXPERTS`/`PEERS`）、`sortNo`（32 位整数）和 `status`（`ENABLED`/`DISABLED`）。
+`section`（必填，`FRIENDS`/`EXPERTS`）、`sortNo`（32 位整数）和 `status`（`ENABLED`/`DISABLED`）。
+v1.3.0 移除旧分区 `PEERS`，历史记录迁入 `FRIENDS`；后台筛选、创建和更新传入 `PEERS` 均返回 HTTP 400、业务码 `199001`。
 创建时状态默认 `ENABLED`、排序默认 100；排序值越小越靠前，可预留间隔便于后续插入。后台列表仍按创建时间和 ID 倒序；未填写的可空文本字段规范化为空字符串。
 名称和描述按纯文本展示，不解析 HTML 或 Markdown；头像图片或网站代表图由浏览器直接请求填写的 URL，后端不代理图片、不自动下载或转存到 OSS。可填写申请者提供的外站图片地址，也可填写管理员人工上传后的 OSS 地址，不要求必须使用本站 OSS。
 重复网站地址返回 HTTP 409、业务码 `109002`；目标不存在返回 HTTP 404、业务码 `109001`。

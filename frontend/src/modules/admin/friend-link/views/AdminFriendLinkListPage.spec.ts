@@ -92,7 +92,7 @@ describe('AdminFriendLinkListPage', () => {
 					ElInput: true,
 					ElInputNumber: true,
 					ElSelect: { template: '<div><slot/></div>' },
-					ElOption: true,
+					ElOption: { props: ['label'], template: '<span>{{ label }}</span>' },
 					ElRadioGroup: { template: '<div><slot/></div>' },
 					ElRadio: { template: '<label><slot/></label>' },
 					ElButton: { template: '<button><slot/></button>' },
@@ -116,6 +116,8 @@ describe('AdminFriendLinkListPage', () => {
 		expect(listAdminFriendLinks).toHaveBeenCalledWith({ pageNum: 1, pageSize: 10 });
 		expect(wrapper.text()).toContain('友链管理');
 		expect(wrapper.text()).toContain('友人帐');
+		expect(wrapper.text()).toContain('大佬们');
+		expect(wrapper.text()).not.toContain('同行者');
 		expect(wrapper.text()).toContain('全部');
 		expect(wrapper.text()).toContain('100');
 		expect(wrapper.text()).toContain('启用');

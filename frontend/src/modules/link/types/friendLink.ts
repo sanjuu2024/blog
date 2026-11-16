@@ -3,7 +3,6 @@ import type { ApiResult } from '@/types/api';
 export const FRIEND_LINK_SECTION = {
 	FRIENDS: 'FRIENDS',
 	EXPERTS: 'EXPERTS',
-	PEERS: 'PEERS',
 } as const;
 
 export type FriendLinkSection = (typeof FRIEND_LINK_SECTION)[keyof typeof FRIEND_LINK_SECTION];
@@ -18,7 +17,6 @@ export type FriendLinkStatus = (typeof FRIEND_LINK_STATUS)[keyof typeof FRIEND_L
 export const FRIEND_LINK_SECTIONS: { value: FriendLinkSection; label: string }[] = [
 	{ value: FRIEND_LINK_SECTION.FRIENDS, label: '友人帐' },
 	{ value: FRIEND_LINK_SECTION.EXPERTS, label: '大佬们' },
-	{ value: FRIEND_LINK_SECTION.PEERS, label: '同行者' },
 ];
 
 export interface FriendLinkFields {

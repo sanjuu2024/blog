@@ -5,6 +5,5 @@ package com.ccsanjuu.blog.modules.friendlink.model.enums;
  */
 public enum FriendLinkSection {
     FRIENDS,
-    EXPERTS,
-    PEERS
+    EXPERTS
 }
