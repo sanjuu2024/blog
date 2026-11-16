@@ -1,5 +1,6 @@
 package com.ccsanjuu.blog.modules.privacy.service.impl;
 
+import com.ccsanjuu.blog.common.util.TokenHashUtil;
 import com.ccsanjuu.blog.modules.article.support.ArticleContentRenderer;
 import com.ccsanjuu.blog.modules.privacy.mapper.PrivacyPolicyVersionMapper;
 import com.ccsanjuu.blog.modules.privacy.model.entity.PrivacyPolicyVersion;
@@ -13,9 +14,6 @@ import org.springframework.util.StringUtils;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 
 @Service
 public class PrivacyPolicyServiceImpl implements PrivacyPolicyService {
@@ -36,7 +34,7 @@ public class PrivacyPolicyServiceImpl implements PrivacyPolicyService {
             @Value("${blog.privacy-policy.resource:classpath:content/privacy-policy.md}") Resource resource
     ) {
         String markdown = readPrivacyPolicy(resource);
-        String version = sha256(markdown);
+        String version = TokenHashUtil.sha256(markdown);
         this.privacyPolicy = PrivacyPolicyVO.builder()
                 .version(version)
                 .contentHtml(articleContentRenderer.convertMarkdownToHtml(markdown))
@@ -59,16 +57,6 @@ public class PrivacyPolicyServiceImpl implements PrivacyPolicyService {
             return markdown;
         } catch (IOException exception) {
             throw new IllegalStateException("读取隐私政策资源失败", exception);
-        }
-    }
-
-    private String sha256(String content) {
-        try {
-            byte[] hash = MessageDigest.getInstance("SHA-256")
-                    .digest(content.getBytes(StandardCharsets.UTF_8));
-            return "sha256:" + HexFormat.of().formatHex(hash);
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 不可用", exception);
         }
     }
 

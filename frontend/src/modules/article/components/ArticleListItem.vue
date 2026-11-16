@@ -18,7 +18,7 @@
 			</div>
 
 			<div class="right">
-				<div class="secondary-start flex flex-col justify-between">
+				<div class="secondary-start flex min-w-0 flex-1 flex-col justify-between">
 					<div class="right__inner-main mb-4 py-2">
 						<!-- 文章标题 & 分类 & 摘要 & 标签 -->
 						<!-- 标题 -->
@@ -203,6 +203,7 @@ const coverHovered = ref(false);
 	flex: 1;
 	width: 100%;
 	margin-left: 2rem;
+	min-width: 0;
 }
 
 .article-list-item-title {
@@ -211,6 +212,9 @@ const coverHovered = ref(false);
 	-webkit-box-orient: vertical;
 	-webkit-line-clamp: 2;
 	line-clamp: 2;
+	min-width: 0;
+	overflow-wrap: break-word;
+	word-break: normal;
 
 	&:hover {
 		color: var(--app-button-bg);

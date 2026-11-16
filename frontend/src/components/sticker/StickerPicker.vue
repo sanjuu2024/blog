@@ -19,12 +19,10 @@
 				<i-lucide-x />
 			</button>
 		</header>
-		<div
+		<AppLoading
 			v-if="loading"
-			class="sticker-picker__state"
-		>
-			正在加载表情…
-		</div>
+			:loading="true"
+		/>
 		<div
 			v-else-if="failed"
 			class="sticker-picker__state"
@@ -93,6 +91,7 @@ import { computed, ref, watch } from 'vue';
 import { useStickers } from '@/composables/useStickers';
 import type { Sticker } from '@/types/sticker';
 import StickerImage from '@/components/sticker/StickerImage.vue';
+import AppLoading from '@/components/AppLoading.vue';
 
 const { packs, loading, failed, loadStickers } = useStickers();
 const selectedId = ref('');

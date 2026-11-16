@@ -4,6 +4,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getStickers = vi.hoisted(() => vi.fn());
 vi.mock('@/api/stickerApi', () => ({ getStickers: getStickers }));
+vi.mock('@/components/sticker/StickerImage.vue', async () => {
+	const { defineComponent } = await import('vue');
+	return {
+		default: defineComponent({
+			name: 'StickerImage',
+			props: ['name', 'url', 'minHeightRem'],
+			template: '<img :src="url" />',
+		}),
+	};
+});
 
 beforeEach(() => {
 	vi.resetModules();
@@ -56,10 +66,10 @@ describe('useStickers', () => {
 			props: { content: '正文[sticker:small:one][sticker:large:two][sticker:unknown:three]' },
 		});
 		await flushPromises();
-		const images = wrapper.findAll('img');
+		const images = wrapper.findAllComponents({ name: 'StickerImage' });
 		expect(images).toHaveLength(2);
-		expect(images[0]?.attributes('style')).toBeUndefined();
-		expect(images[1]?.attributes('style')).toContain('--sticker-min-height: 2.5rem');
+		expect(images[0]?.props()).toMatchObject({ url: '/one.png', minHeightRem: undefined });
+		expect(images[1]?.props()).toMatchObject({ url: '/two.gif', minHeightRem: 2.5 });
 		expect(wrapper.text()).toBe('正文[sticker:unknown:three]');
 		wrapper.unmount();
 	});

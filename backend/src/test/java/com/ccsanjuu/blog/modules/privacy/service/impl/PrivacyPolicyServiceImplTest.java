@@ -29,10 +29,11 @@ class PrivacyPolicyServiceImplTest {
 
         PrivacyPolicyVO result = service.getPrivacyPolicy();
 
-        assertTrue(result.getVersion().matches("sha256:[0-9a-f]{64}"));
+        assertEquals("sha256:81b3b7cbdd7a32982337cf7313797151358b7ab8771139d62acc34c6a94dd5d3", result.getVersion());
         assertTrue(result.getContentHtml().contains("<h1>隐私政策</h1>"));
         assertTrue(result.getContentText().contains("正文"));
         assertEquals(result.getVersion(), service("# 隐私政策\n\n正文").getPrivacyPolicy().getVersion());
+        assertEquals(result.getVersion(), service("  \n# 隐私政策\n\n正文\n  ").getPrivacyPolicy().getVersion());
     }
 
     @Test

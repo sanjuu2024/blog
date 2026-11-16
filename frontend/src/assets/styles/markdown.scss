@@ -15,6 +15,10 @@
 			font-size: calc(#{$font-size} + var(--app-markdown-font-size-increment));
 		}
 	}
+
+	:is(ol, ul):not(.md-editor-codetab-label) > li + li {
+		margin-top: 0.4em;
+	}
 }
 
 :is(.article-markdown, .md-editor-preview) ruby {
@@ -172,6 +176,17 @@
 [data-theme='dark'] .article-markdown.markdown-body {
 	color: var(--app-text);
 	background: transparent;
+}
+
+[data-theme='dark'] :is(.article-markdown.markdown-body, .md-editor-preview) {
+	a {
+		color: #3b78b4;
+
+		&:hover,
+		&:focus-visible {
+			color: #4b89c6;
+		}
+	}
 }
 
 .article-markdown.markdown-body {
