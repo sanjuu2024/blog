@@ -51,7 +51,7 @@ defineOptions({
 	flex: 1 0 auto;
 	min-height: 0;
 	padding-block: var(--app-main-padding-y);
-	padding-bottom: 3rem;
+	margin-bottom: 3rem;
 }
 
 .app-main__inner {

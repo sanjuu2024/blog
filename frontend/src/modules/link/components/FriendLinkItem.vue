@@ -88,7 +88,7 @@ defineProps<{
 		width: 100%;
 		overflow: hidden;
 		margin-bottom: 0.25rem;
-		font-size: 1.25rem;
+		font-size: 1.1rem;
 		font-weight: bold;
 		-webkit-box-orient: vertical;
 		line-clamp: 2;
