@@ -7,6 +7,7 @@
 			v-if="part.sticker"
 			:name="part.sticker.name"
 			:url="part.sticker.url"
+			:min-height-rem="part.sticker.minHeightRem"
 		/>
 		<template v-else>{{ part.text }}</template>
 	</template>

@@ -45,4 +45,10 @@
 - 上游 README 另注明 alus、bilibili、qq 等资源整理自 [MiniValine](https://github.com/MiniValine)。
 - 各表情图像、角色与商标的权利归各自权利人；仓库根许可证和资源来源均保留，不将其解释为本项目取得各品牌或角色的所有权或背书。
 
+## 4. 加载动画素材
+
+页面及内容区使用的加载动画 `frontend/src/assets/img/loading.webp` 使用了游戏《阴阳师》中式神「山兔」的素材。
+
+相关角色、图像及商标的权利归其各自权利人所有。
+
 部署后的来源说明还可通过 `/THIRD_PARTY_NOTICES.txt` 和 `/stickers/README.md` 查看。

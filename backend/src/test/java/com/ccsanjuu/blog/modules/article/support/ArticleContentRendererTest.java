@@ -12,6 +12,75 @@ class ArticleContentRendererTest {
     private final ArticleContentRenderer articleContentRenderer = new ArticleContentRenderer();
 
     @Test
+    void rubyShouldKeepBaseReadingAndFallbackWithoutAllowingAttributes() {
+        String markdown = "私は<ruby class='custom' onclick='alert(1)'><strong>日本語</strong>"
+                + "<rp style='color:red'>（</rp><rt onmouseover='alert(1)'>にほんご</rt><rp>）</rp>"
+                + "</ruby>を学ぶ。";
+        var body = Jsoup.parseBodyFragment(articleContentRenderer.convertMarkdownToHtml(markdown)).body();
+
+        assertTrue(body.selectFirst("ruby strong") != null, body.html());
+        assertEquals("日本語", body.selectFirst("ruby strong").text());
+        assertTrue(body.selectFirst("ruby rt") != null, body.html());
+        assertEquals("にほんご", body.selectFirst("ruby rt").text());
+        assertEquals(2, body.select("ruby rp").size());
+        body.select("ruby, rt, rp").forEach(element -> assertEquals(0, element.attributes().size()));
+        assertEquals("私は日本語を学ぶ。", articleContentRenderer.convertToText(markdown));
+    }
+
+    @Test
+    void rubyPlainTextShouldHandleMultipleReadingsAndRawHtmlBlocks() {
+        String markdown = """
+                <div>私は<ruby>日本<rt>にほん</rt></ruby>の<ruby>学校<rt>がっこう</rt></ruby>に行く。</div>
+
+                次は<RUBY>漢字<RP>（</RP><RT>かんじ</RT><RP>）</RP></RUBY>です。
+                """;
+        String text = articleContentRenderer.convertToText(markdown);
+
+        assertTrue(text.contains("私は日本の学校に行く。"), text);
+        assertTrue(text.contains("次は漢字です。"));
+        assertFalse(text.contains("にほん"));
+        assertFalse(text.contains("がっこう"));
+        assertFalse(text.contains("かんじ"));
+        assertFalse(text.contains("<"));
+    }
+
+    @Test
+    void rubyExamplesInsideCodeAndEscapedTextShouldRemainLiteral() {
+        String sample = "<ruby>漢字<rt>かんじ</rt></ruby>";
+        String markdown = "`" + sample + "`\n\n```html\n" + sample
+                + "\n```\n\n&lt;ruby&gt;文字&lt;rt&gt;もじ&lt;/rt&gt;&lt;/ruby&gt;";
+        var body = Jsoup.parseBodyFragment(articleContentRenderer.convertMarkdownToHtml(markdown)).body();
+
+        assertTrue(body.select("ruby, rt, rp").isEmpty());
+        assertEquals(sample, body.selectFirst("p code").text());
+        assertEquals(sample, body.selectFirst("pre code").text());
+        assertTrue(body.text().contains("<ruby>文字<rt>もじ</rt></ruby>"));
+        assertTrue(articleContentRenderer.convertToText(markdown).contains(sample));
+    }
+
+    @Test
+    void liveRubyShouldNotRemoveReadingsFromCodeExamplesOrAlterFormulaSource() {
+        String markdown = "<ruby>漢字<rt>かんじ</rt></ruby> と \\(x_1^2\\)\n\n"
+                + "```html\n<ruby>例<rt>れい</rt></ruby>\n```";
+        String text = articleContentRenderer.convertToText(markdown);
+
+        assertTrue(text.startsWith("漢字 と \\(x_1^2\\)"), text);
+        assertFalse(text.contains("かんじ"));
+        assertTrue(text.contains("<ruby>例<rt>れい</rt></ruby>"));
+    }
+
+    @Test
+    void rubyToolbarEntitiesShouldKeepMarkdownAndMarkupLiteral() {
+        String markdown = "<ruby>&#42;&#42;漢字&#42;&#42; &#36;x&#95;1&#36; &lt;img src=x&gt;"
+                + "<rp>（</rp><rt>&#42;かんじ&#42; &lt;script&gt;&amp;&lt;/script&gt;</rt><rp>）</rp></ruby>";
+        var body = Jsoup.parseBodyFragment(articleContentRenderer.convertMarkdownToHtml(markdown)).body();
+
+        assertEquals("*かんじ* <script>&</script>", body.selectFirst("ruby rt").text());
+        assertTrue(body.select("ruby em, ruby strong, img, script").isEmpty());
+        assertEquals("**漢字** $x_1$ <img src=x>", articleContentRenderer.convertToText(markdown));
+    }
+
+    @Test
     void convertMarkdownToHtmlShouldRenderBasicMarkdownAndTable() {
         String html = articleContentRenderer.convertMarkdownToHtml("""
                 # Title

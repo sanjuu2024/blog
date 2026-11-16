@@ -88,10 +88,16 @@ class CommentStickerIntegrationTest {
     void publicCatalogShouldUseTheSameTokensAsValidation() throws Exception {
         mockMvc.perform(get("/api/v1/comments/stickers"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].gridMinWidthRem").value(4.5))
-                .andExpect(jsonPath("$.data[1].gridMinWidthRem").doesNotExist())
-                .andExpect(jsonPath("$.data[1].items[0].token").value("[sticker:bilibili:doge]"));
-        String token = stickerService.getPacks().get(1).items().getFirst().token();
+                .andExpect(jsonPath("$.data[0].minHeightRem").doesNotExist())
+                .andExpect(jsonPath("$.data[1].id").value("bangumi"))
+                .andExpect(jsonPath("$.data[1].minHeightRem").value(2.5))
+                .andExpect(jsonPath("$.data[2].minHeightRem").doesNotExist())
+                .andExpect(jsonPath("$.data[2].items[0].token").value("[sticker:bilibili:doge]"))
+                .andExpect(jsonPath("$.data[4].id").value("kanae"))
+                .andExpect(jsonPath("$.data[4].minHeightRem").value(2.5))
+                .andExpect(jsonPath("$.data[6].id").value("qyn"))
+                .andExpect(jsonPath("$.data[6].minHeightRem").value(2.5));
+        String token = stickerService.getPacks().get(2).items().getFirst().token();
         assertTrue(validator.validate(CreateCommentRequestDTO.builder().content("字".repeat(980) + token.repeat(20)).build()).isEmpty());
         assertFalse(validator.validate(CreateCommentRequestDTO.builder().content(token.repeat(21)).build()).isEmpty());
         assertFalse(validator.validate(CreateCommentRequestDTO.builder().content("字".repeat(1000) + token).build()).isEmpty());

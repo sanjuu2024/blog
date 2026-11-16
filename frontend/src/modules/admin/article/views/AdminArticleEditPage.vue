@@ -206,10 +206,18 @@
 					v-model="upsertRequest.contentMd"
 					class="rounded-2xl"
 					:theme="resolvedTheme"
+					:toolbars="RUBY_EDITOR_TOOLBARS"
 					:disabled="contentImageUploading"
 					:inert="contentImageUploading"
 					@onUploadImg="handleContentImageUpload"
-				/>
+				>
+					<template #defToolbars>
+						<EditorRubyToolbar
+							:editor="editorRef"
+							:disabled="contentImageUploading"
+						/>
+					</template>
+				</MdEditor>
 			</div>
 		</el-card>
 
@@ -287,6 +295,8 @@ import '@/modules/admin/file/utils/markdownEditor';
 import { computed, ref, onMounted, onScopeDispose, toRaw } from 'vue';
 import AppLoading from '@/components/AppLoading.vue';
 import { MdEditor, type ExposeParam, type UploadImgEvent } from 'md-editor-v3';
+import EditorRubyToolbar from '@/modules/admin/file/components/EditorRubyToolbar.vue';
+import { RUBY_EDITOR_TOOLBARS } from '@/modules/admin/file/utils/editorRuby';
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { useAdminCategoryList } from '../../category/composables/useAdminCategoryList';
 import { useAdminTagList } from '../../tag/composables/useAdminTagList';

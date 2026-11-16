@@ -41,10 +41,18 @@
 					ref="editorRef"
 					v-model="contentMd"
 					:theme="resolvedTheme"
+					:toolbars="RUBY_EDITOR_TOOLBARS"
 					:maxlength="100000"
 					show-code-row-number
 					@onUploadImg="handleContentImageUpload"
-				/>
+				>
+					<template #defToolbars>
+						<EditorRubyToolbar
+							:editor="editorRef"
+							:disabled="imageUploading || submitting"
+						/>
+					</template>
+				</MdEditor>
 			</AppLoading>
 
 			<div
@@ -66,6 +74,8 @@ import { onBeforeRouteLeave } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import 'element-plus/es/components/message-box/style/css';
 import { MdEditor, type ExposeParam, type UploadImgEvent } from 'md-editor-v3';
+import EditorRubyToolbar from '@/modules/admin/file/components/EditorRubyToolbar.vue';
+import { RUBY_EDITOR_TOOLBARS } from '@/modules/admin/file/utils/editorRuby';
 import { useTheme } from '@/composables/useTheme';
 import { formatDateTime } from '@/utils/datetime';
 import { useAdminAboutPage } from '../composables/useAdminAboutPage';

@@ -6,6 +6,9 @@
 		:src="url"
 		:alt="`[${name}]`"
 		:title="name"
+		:style="{
+			'--sticker-min-height': minHeightRem === undefined ? undefined : `${minHeightRem}rem`,
+		}"
 		loading="lazy"
 		decoding="async"
 		@error="failed = true"
@@ -15,7 +18,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 
-const props = defineProps<{ name: string; url: string }>();
+const props = defineProps<{ name: string; url: string; minHeightRem?: number }>();
 const failed = ref(false);
 watch(
 	() => props.url,
@@ -28,7 +31,7 @@ watch(
 	display: inline-block;
 	width: auto;
 	max-width: none;
-	height: 1.5rem;
+	height: var(--sticker-min-height, 1.5rem);
 	vertical-align: text-bottom;
 	margin-inline: 0.15rem;
 }

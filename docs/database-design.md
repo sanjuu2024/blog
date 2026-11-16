@@ -487,6 +487,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_search_vector
 - 行内 Markdown 高亮写作 `==文字==`，由 Markdown 转换器生成 `<mark>文字</mark>`；代码区域保留原始等号。相应 HTML 标签经白名单清洗后保留
 - Markdown 生成的 `content_html` 经统一白名单清洗，保留 `<small>`、`<big>`、`<mark>` 等安全语义标签，不放开这些标签的额外属性；文章、关于页与隐私政策共用该规则
 - HTML 颜色标注保留 `<font>` 标签及其 `color` 属性，font 的其他属性仍被清洗；与粗体、下划线的嵌套结果保存在现有 `content_html` 中，不新增字段或 migration
+- Ruby 注音继续存入已有正文三种形态：`content_md` 保存原生 `ruby/rt/rp` HTML；`content_html` 经白名单保留标签且不保留额外属性；含 Ruby 的 `content_text` 只保留原文，去除 `rt` 读音与 `rp` 备用括号，代码内的标签示例仍按普通文本保存。不新增字段、索引或 migration，不批量转换历史正文；重新保存后按新规则生成。
 - 正文图片图注复用 Markdown 图片的可选 title 或手写 HTML img 的 title，由现有转译和白名单清洗保留在 `content_html` 中；前台将 title 作为纯文本图注渲染，不回写 `content_md`、`content_html` 或 `content_text`，不增加表、字段或历史数据迁移。
 - 正文编辑器上传图片后在 `content_md` 插入 `<p><img src="图片地址" alt="原文件名" /></p>`，每张图片独占一个段落，属性值进行 HTML 转义，不自动添加 title；历史 Markdown 图片语法继续支持，不转换已有正文，不新增字段或迁移。
 - 归档复用现有表和索引，不新增结构或改变时间存储。年份按浏览器传入并校验的 IANA 时区一次分组计数，SQL 使用绑定参数执行 `published_at AT TIME ZONE timeZone`；年份筛选按同一时区分别计算当年与下一年年初，再用绝对时间半开范围查询，正确应用各年份的夏令时规则。汇总和列表仅含 PUBLISHED、启用二级分类及启用父分类、作者存在的文章；列表联表返回分类路径，标签使用 EXISTS 过滤，不重复计数或执行 N+1 查询。
@@ -600,7 +601,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_comment_user_article_created_at
 
 - 评论预置表情继续保存在现有 `content TEXT`，格式为 `[sticker:库ID:表情ID]`，不新增 JSONB、资源表或 migration。静态图片位于前端 public/stickers，各库 info.json 生成后端 classpath 的 comment-stickers/catalog.json；目录不落数据库。有效标记计 1，其余按 UTF-16 长度计算，去除首尾空白后展示长度为 1-1000；每条评论或回复最多 20 个有效表情，重复出现逐个计数，未知标记只算文本。每个标记最多 64 单元，原始字符串上限 2260。后台审核响应将标记转为 `[表情名]`，数据库保留原始标记。
 - 评论回复通知快照在现有 `blog_notification.content` 保存文字替代，遵守原有 2000 字符限制，超出时保留前 1999 个字符及省略号；通知原文和邮件同样使用文字替代，不修改评论源内容。以后新增结构迁移从 `V1.3.0` 继续，本次无需迁移。
-- 表情库可选的 `gridMinWidthRem` 仅保存在 info.json 和生成目录中，通过目录接口返回选择器布局配置，不落数据库、不新增 migration；未配置时前端使用 3rem，Alus 为 4.5rem。
+- 表情库可选的 `minHeightRem` 仅保存在 info.json 和生成目录中，通过目录接口返回正文与选择器共用的表情图片最小高度配置，不落数据库、不新增 migration；未配置时前端使用 1.5rem，bangumi、kanae 和 qyn 为 2.5rem。
 
 - 顶层评论的 `parent_id` 和 `root_id` 均为空
 - 回复的 `parent_id` 指向直接父评论，`root_id` 指向所属顶层评论；无限层级回复在前端统一平铺到第二层
