@@ -26,7 +26,7 @@ public interface FriendLinkService {
     /**
      * 获取固定分区顺序的启用友链。
      *
-     * @return 三个固定分区及其启用友链
+     * @return 两个固定分区及其启用友链
      */
     List<PublicFriendLinkSectionVO> getPublicFriendLinkSections();
 

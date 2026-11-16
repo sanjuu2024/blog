@@ -95,6 +95,34 @@ class FriendLinkIntegrationTest {
     }
 
     @Test
+    void removedSectionShouldBeRejectedByAdminEndpoints() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/friend-links")
+                        .header("Authorization", "Bearer " + accessToken())
+                        .queryParam("section", "PEERS"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(199001));
+
+        mockMvc.perform(post("/api/v1/admin/friend-links")
+                        .header("Authorization", "Bearer " + accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"旧分区", "url":"https://removed.example.com", "section":"PEERS"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(199001));
+
+        mockMvc.perform(put("/api/v1/admin/friend-links/1")
+                        .header("Authorization", "Bearer " + accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"旧分区", "url":"https://removed.example.com", "section":"PEERS",
+                                 "sortNo":100, "status":"ENABLED"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(199001));
+    }
+
+    @Test
     void adminCannotSaveFriendLinkWithHttpUrl() throws Exception {
         mockMvc.perform(post("/api/v1/admin/friend-links")
                         .header("Authorization", "Bearer " + accessToken())
@@ -139,12 +167,11 @@ class FriendLinkIntegrationTest {
         mockMvc.perform(get("/api/v1/friend-links"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "no-store"))
-                .andExpect(jsonPath("$.data.length()").value(3))
+                .andExpect(jsonPath("$.data.length()").value(2))
                 .andExpect(jsonPath("$.data[0].section").value("FRIENDS"))
                 .andExpect(jsonPath("$.data[0].name").value("友人帐"))
                 .andExpect(jsonPath("$.data[0].records[*].id", hasItem(friendLinkId.intValue())))
-                .andExpect(jsonPath("$.data[1].section").value("EXPERTS"))
-                .andExpect(jsonPath("$.data[2].section").value("PEERS"));
+                .andExpect(jsonPath("$.data[1].section").value("EXPERTS"));
 
         mockMvc.perform(put("/api/v1/admin/friend-links/{friendLinkId}", friendLinkId)
                         .header("Authorization", "Bearer " + accessToken())

@@ -275,7 +275,7 @@ paths:
     get:
       tags: [Friend Links]
       summary: 获取已启用友链分区
-      description: 无需登录。始终返回 FRIENDS、EXPERTS、PEERS 三个固定分区；每个分区按 sortNo、id 升序，仅包含 ENABLED 友链。空分区返回空 records；不分页、不缓存。
+      description: 无需登录。始终返回 FRIENDS、EXPERTS 两个固定分区；每个分区按 sortNo、id 升序，仅包含 ENABLED 友链。空分区返回空 records；不分页、不缓存。
       operationId: listPublicFriendLinks
       responses:
         '200':
@@ -3122,8 +3122,8 @@ components:
   schemas:
     FriendLinkSection:
       type: string
-      enum: [FRIENDS, EXPERTS, PEERS]
-      description: 固定分区，依次展示为友人帐、大佬们、同行者
+      enum: [FRIENDS, EXPERTS]
+      description: 固定分区，依次展示为友人帐、大佬们。v1.3.0 移除 PEERS，历史记录迁入 FRIENDS；后台传入旧分区值返回 400/199001。
     FriendLinkStatus:
       type: string
       enum: [ENABLED, DISABLED]

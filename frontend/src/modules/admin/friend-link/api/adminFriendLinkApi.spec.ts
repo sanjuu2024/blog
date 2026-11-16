@@ -32,7 +32,7 @@ describe('admin friend-link API contracts', () => {
 			url: 'https://example.com',
 			logoUrl: '',
 			description: '',
-			section: FRIEND_LINK_SECTION.PEERS,
+			section: FRIEND_LINK_SECTION.EXPERTS,
 			sortNo: 100,
 			status: FRIEND_LINK_STATUS.ENABLED,
 		};

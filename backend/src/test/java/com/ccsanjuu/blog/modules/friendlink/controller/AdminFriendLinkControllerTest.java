@@ -42,6 +42,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -114,20 +115,18 @@ class AdminFriendLinkControllerTest {
                                 .build()))
                         .build(),
                 PublicFriendLinkSectionVO.builder().section(FriendLinkSection.EXPERTS).name("大佬们")
-                        .records(List.of()).build(),
-                PublicFriendLinkSectionVO.builder().section(FriendLinkSection.PEERS).name("同行者")
                         .records(List.of()).build()
         ));
 
         mockMvc.perform(get("/api/v1/friend-links"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "no-store"))
-                .andExpect(jsonPath("$.data.length()").value(3))
+                .andExpect(jsonPath("$.data.length()").value(2))
                 .andExpect(jsonPath("$.data[0].name").value("友人帐"))
                 .andExpect(jsonPath("$.data[0].records[0].id").value(FRIEND_LINK_ID))
                 .andExpect(jsonPath("$.data[0].records[0].status").doesNotExist())
-                .andExpect(jsonPath("$.data[1].records.length()").value(0))
-                .andExpect(jsonPath("$.data[2].name").value("同行者"));
+                .andExpect(jsonPath("$.data[1].name").value("大佬们"))
+                .andExpect(jsonPath("$.data[1].records.length()").value(0));
 
         verify(friendLinkService).getPublicFriendLinkSections();
     }
@@ -153,6 +152,30 @@ class AdminFriendLinkControllerTest {
         assertEquals(20, captor.getValue().getPageSize());
         assertEquals(FriendLinkSection.FRIENDS, captor.getValue().getSection());
         assertEquals(FriendLinkStatus.ENABLED, captor.getValue().getStatus());
+    }
+
+    @Test
+    void removedSectionShouldBeRejectedForFilteringCreatingAndUpdating() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/friend-links")
+                        .header("Authorization", "Bearer " + accessToken(UserRole.ADMIN))
+                        .queryParam("section", "PEERS"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(199001));
+
+        String request = requestJson("https://example.com").replace("FRIENDS", "PEERS");
+        mockMvc.perform(post("/api/v1/admin/friend-links")
+                        .header("Authorization", "Bearer " + accessToken(UserRole.ADMIN))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(199001));
+        mockMvc.perform(put("/api/v1/admin/friend-links/{friendLinkId}", FRIEND_LINK_ID)
+                        .header("Authorization", "Bearer " + accessToken(UserRole.ADMIN))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(199001));
+        verifyNoInteractions(friendLinkService);
     }
 
     @Test

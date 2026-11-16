@@ -53,6 +53,20 @@ class FriendLinkServiceImplTest {
     }
 
     @Test
+    void publicSectionsShouldKeepTwoGroupsInOrderIncludingEmptyGroups() {
+        FriendLink friend = validEntity();
+        when(friendLinkMapper.selectList(any())).thenReturn(List.of(friend));
+
+        var sections = service.getPublicFriendLinkSections();
+
+        assertEquals(List.of(FriendLinkSection.FRIENDS, FriendLinkSection.EXPERTS),
+                sections.stream().map(section -> section.getSection()).toList());
+        assertEquals(List.of("友人帐", "大佬们"), sections.stream().map(section -> section.getName()).toList());
+        assertEquals(FRIEND_LINK_ID, sections.getFirst().getRecords().getFirst().getId());
+        assertEquals(List.of(), sections.getLast().getRecords());
+    }
+
+    @Test
     void createShouldNormalizeOptionalFieldsAndDefaultSortAndStatus() {
         FriendLink requestEntity = validEntity();
         when(friendLinkMapper.exists(any())).thenReturn(false);

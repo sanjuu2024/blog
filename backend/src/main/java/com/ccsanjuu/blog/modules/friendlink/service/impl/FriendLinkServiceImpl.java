@@ -45,7 +45,7 @@ public class FriendLinkServiceImpl implements FriendLinkService {
     /**
      * 前台获取固定分区顺序的启用友链。
      *
-     * @return 三个固定分区及其启用友链
+     * @return 两个固定分区及其启用友链
      */
     @Override
     @Transactional(readOnly = true)
@@ -66,8 +66,7 @@ public class FriendLinkServiceImpl implements FriendLinkService {
 
         return List.of(
                 publicSection(FriendLinkSection.FRIENDS, recordsBySection),
-                publicSection(FriendLinkSection.EXPERTS, recordsBySection),
-                publicSection(FriendLinkSection.PEERS, recordsBySection)
+                publicSection(FriendLinkSection.EXPERTS, recordsBySection)
         );
     }
 
@@ -275,7 +274,6 @@ public class FriendLinkServiceImpl implements FriendLinkService {
         String name = switch (section) {
             case FRIENDS -> "友人帐";
             case EXPERTS -> "大佬们";
-            case PEERS -> "同行者";
         };
         return PublicFriendLinkSectionVO.builder()
                 .section(section)

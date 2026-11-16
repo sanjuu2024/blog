@@ -134,7 +134,6 @@ declare module 'vue' {
     ISolarPinOutline: typeof import('~icons/solar/pin-outline')['default']
     ISolarTagHorizontalOutline: typeof import('~icons/solar/tag-horizontal-outline')['default']
     ISolarUserBold: typeof import('~icons/solar/user-bold')['default']
-    IStreamlineUltimateColorBrowserCom: typeof import('~icons/streamline-ultimate-color/browser-com')['default']
     IStreamlineUltimateColorNetworkBrowser: typeof import('~icons/streamline-ultimate-color/network-browser')['default']
     IStreamlineUltimateColorNotesBook: typeof import('~icons/streamline-ultimate-color/notes-book')['default']
     IStreamlineUltimateColorVipCrownQueen1: typeof import('~icons/streamline-ultimate-color/vip-crown-queen1')['default']
