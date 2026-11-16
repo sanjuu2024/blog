@@ -1577,6 +1577,113 @@
     ]
   },
   {
+    "id": "natsume",
+    "name": "夏目友人帐",
+    "iconUrl": "/stickers/natsume/natsume_%E5%93%87.png",
+    "items": [
+      {
+        "token": "[sticker:natsume:归还名字]",
+        "name": "归还名字",
+        "url": "/stickers/natsume/natsume_%E5%BD%92%E8%BF%98%E5%90%8D%E5%AD%97.png"
+      },
+      {
+        "token": "[sticker:natsume:早上好]",
+        "name": "早上好",
+        "url": "/stickers/natsume/natsume_%E6%97%A9%E4%B8%8A%E5%A5%BD.png"
+      },
+      {
+        "token": "[sticker:natsume:您辛苦了]",
+        "name": "您辛苦了",
+        "url": "/stickers/natsume/natsume_%E6%82%A8%E8%BE%9B%E8%8B%A6%E4%BA%86.png"
+      },
+      {
+        "token": "[sticker:natsume:我先走啦]",
+        "name": "我先走啦",
+        "url": "/stickers/natsume/natsume_%E6%88%91%E5%85%88%E8%B5%B0%E5%95%A6.png"
+      },
+      {
+        "token": "[sticker:natsume:摸摸]",
+        "name": "摸摸",
+        "url": "/stickers/natsume/natsume_%E6%91%B8%E6%91%B8.png"
+      },
+      {
+        "token": "[sticker:natsume:哇]",
+        "name": "哇",
+        "url": "/stickers/natsume/natsume_%E5%93%87.png"
+      },
+      {
+        "token": "[sticker:natsume:睡觉]",
+        "name": "睡觉",
+        "url": "/stickers/natsume/natsume_%E7%9D%A1%E8%A7%89.png"
+      },
+      {
+        "token": "[sticker:natsume:恭喜]",
+        "name": "恭喜",
+        "url": "/stickers/natsume/natsume_%E6%81%AD%E5%96%9C.png"
+      },
+      {
+        "token": "[sticker:natsume:哼哼]",
+        "name": "哼哼",
+        "url": "/stickers/natsume/natsume_%E5%93%BC%E5%93%BC.png"
+      },
+      {
+        "token": "[sticker:natsume:再见]",
+        "name": "再见",
+        "url": "/stickers/natsume/natsume_%E5%86%8D%E8%A7%81.png"
+      },
+      {
+        "token": "[sticker:natsume:放松]",
+        "name": "放松",
+        "url": "/stickers/natsume/natsume_%E6%94%BE%E6%9D%BE.png"
+      },
+      {
+        "token": "[sticker:natsume:wink]",
+        "name": "wink",
+        "url": "/stickers/natsume/natsume_wink.png"
+      },
+      {
+        "token": "[sticker:natsume:美味]",
+        "name": "美味",
+        "url": "/stickers/natsume/natsume_%E7%BE%8E%E5%91%B3.png"
+      },
+      {
+        "token": "[sticker:natsume:哼着歌]",
+        "name": "哼着歌",
+        "url": "/stickers/natsume/natsume_%E5%93%BC%E7%9D%80%E6%AD%8C.png"
+      },
+      {
+        "token": "[sticker:natsume:就这样吧]",
+        "name": "就这样吧",
+        "url": "/stickers/natsume/natsume_%E5%B0%B1%E8%BF%99%E6%A0%B7%E5%90%A7.png"
+      },
+      {
+        "token": "[sticker:natsume:呜呜]",
+        "name": "呜呜",
+        "url": "/stickers/natsume/natsume_%E5%91%9C%E5%91%9C.png"
+      },
+      {
+        "token": "[sticker:natsume:请用]",
+        "name": "请用",
+        "url": "/stickers/natsume/natsume_%E8%AF%B7%E7%94%A8.png"
+      },
+      {
+        "token": "[sticker:natsume:看招]",
+        "name": "看招",
+        "url": "/stickers/natsume/natsume_%E7%9C%8B%E6%8B%9B.png"
+      },
+      {
+        "token": "[sticker:natsume:闪闪发光]",
+        "name": "闪闪发光",
+        "url": "/stickers/natsume/natsume_%E9%97%AA%E9%97%AA%E5%8F%91%E5%85%89.png"
+      },
+      {
+        "token": "[sticker:natsume:沉默]",
+        "name": "沉默",
+        "url": "/stickers/natsume/natsume_%E6%B2%89%E9%BB%98.png"
+      }
+    ]
+  },
+  {
     "id": "qq",
     "name": "QQ",
     "iconUrl": "/stickers/qq/qq_lovely.gif",
@@ -2683,6 +2790,327 @@
         "token": "[sticker:qyn:大笑]",
         "name": "大笑",
         "url": "/stickers/qyn/qyn_%E5%A4%A7%E7%AC%91.png"
+      }
+    ]
+  },
+  {
+    "id": "rimuru",
+    "name": "关于我转生变成史莱姆这档事",
+    "iconUrl": "/stickers/rimuru/rimuru_%E8%A2%AB%E6%8D%8F.png",
+    "items": [
+      {
+        "token": "[sticker:rimuru:比心]",
+        "name": "比心",
+        "url": "/stickers/rimuru/rimuru_%E6%AF%94%E5%BF%83.png"
+      },
+      {
+        "token": "[sticker:rimuru:开心]",
+        "name": "开心",
+        "url": "/stickers/rimuru/rimuru_%E5%BC%80%E5%BF%83.png"
+      },
+      {
+        "token": "[sticker:rimuru:疑问]",
+        "name": "疑问",
+        "url": "/stickers/rimuru/rimuru_%E7%96%91%E9%97%AE.png"
+      },
+      {
+        "token": "[sticker:rimuru:啊啊啊]",
+        "name": "啊啊啊",
+        "url": "/stickers/rimuru/rimuru_%E5%95%8A%E5%95%8A%E5%95%8A.png"
+      },
+      {
+        "token": "[sticker:rimuru:害羞]",
+        "name": "害羞",
+        "url": "/stickers/rimuru/rimuru_%E5%AE%B3%E7%BE%9E.png"
+      },
+      {
+        "token": "[sticker:rimuru:555]",
+        "name": "555",
+        "url": "/stickers/rimuru/rimuru_555.png"
+      },
+      {
+        "token": "[sticker:rimuru:加载中]",
+        "name": "加载中",
+        "url": "/stickers/rimuru/rimuru_%E5%8A%A0%E8%BD%BD%E4%B8%AD.png"
+      },
+      {
+        "token": "[sticker:rimuru:思考]",
+        "name": "思考",
+        "url": "/stickers/rimuru/rimuru_%E6%80%9D%E8%80%83.png"
+      },
+      {
+        "token": "[sticker:rimuru:威胁]",
+        "name": "威胁",
+        "url": "/stickers/rimuru/rimuru_%E5%A8%81%E8%83%81.png"
+      },
+      {
+        "token": "[sticker:rimuru:紧张]",
+        "name": "紧张",
+        "url": "/stickers/rimuru/rimuru_%E7%B4%A7%E5%BC%A0.png"
+      },
+      {
+        "token": "[sticker:rimuru:星星眼]",
+        "name": "星星眼",
+        "url": "/stickers/rimuru/rimuru_%E6%98%9F%E6%98%9F%E7%9C%BC.png"
+      },
+      {
+        "token": "[sticker:rimuru:叹气]",
+        "name": "叹气",
+        "url": "/stickers/rimuru/rimuru_%E5%8F%B9%E6%B0%94.png"
+      },
+      {
+        "token": "[sticker:rimuru:被捏]",
+        "name": "被捏",
+        "url": "/stickers/rimuru/rimuru_%E8%A2%AB%E6%8D%8F.png"
+      },
+      {
+        "token": "[sticker:rimuru:饿了]",
+        "name": "饿了",
+        "url": "/stickers/rimuru/rimuru_%E9%A5%BF%E4%BA%86.png"
+      },
+      {
+        "token": "[sticker:rimuru:吃掉]",
+        "name": "吃掉",
+        "url": "/stickers/rimuru/rimuru_%E5%90%83%E6%8E%89.png"
+      }
+    ]
+  },
+  {
+    "id": "saikikusuo",
+    "name": "齐木楠雄的灾难",
+    "iconUrl": "/stickers/saikikusuo/saikikusuo_%E6%80%9D%E8%80%83.png",
+    "items": [
+      {
+        "token": "[sticker:saikikusuo:发动超能力]",
+        "name": "发动超能力",
+        "url": "/stickers/saikikusuo/saikikusuo_%E5%8F%91%E5%8A%A8%E8%B6%85%E8%83%BD%E5%8A%9B.png"
+      },
+      {
+        "token": "[sticker:saikikusuo:呀咧呀咧]",
+        "name": "呀咧呀咧",
+        "url": "/stickers/saikikusuo/saikikusuo_%E5%91%80%E5%92%A7%E5%91%80%E5%92%A7.png"
+      },
+      {
+        "token": "[sticker:saikikusuo:扶额]",
+        "name": "扶额",
+        "url": "/stickers/saikikusuo/saikikusuo_%E6%89%B6%E9%A2%9D.png"
+      },
+      {
+        "token": "[sticker:saikikusuo:哦呼]",
+        "name": "哦呼",
+        "url": "/stickers/saikikusuo/saikikusuo_%E5%93%A6%E5%91%BC.png"
+      },
+      {
+        "token": "[sticker:saikikusuo:倒下]",
+        "name": "倒下",
+        "url": "/stickers/saikikusuo/saikikusuo_%E5%80%92%E4%B8%8B.png"
+      },
+      {
+        "token": "[sticker:saikikusuo:思考]",
+        "name": "思考",
+        "url": "/stickers/saikikusuo/saikikusuo_%E6%80%9D%E8%80%83.png"
+      },
+      {
+        "token": "[sticker:saikikusuo:不理解]",
+        "name": "不理解",
+        "url": "/stickers/saikikusuo/saikikusuo_%E4%B8%8D%E7%90%86%E8%A7%A3.png"
+      },
+      {
+        "token": "[sticker:saikikusuo:暗中观察]",
+        "name": "暗中观察",
+        "url": "/stickers/saikikusuo/saikikusuo_%E6%9A%97%E4%B8%AD%E8%A7%82%E5%AF%9F.png"
+      },
+      {
+        "token": "[sticker:saikikusuo:正确]",
+        "name": "正确",
+        "url": "/stickers/saikikusuo/saikikusuo_%E6%AD%A3%E7%A1%AE.png"
+      },
+      {
+        "token": "[sticker:saikikusuo:呆在原地]",
+        "name": "呆在原地",
+        "url": "/stickers/saikikusuo/saikikusuo_%E5%91%86%E5%9C%A8%E5%8E%9F%E5%9C%B0.png"
+      },
+      {
+        "token": "[sticker:saikikusuo:保持美丽]",
+        "name": "保持美丽",
+        "url": "/stickers/saikikusuo/saikikusuo_%E4%BF%9D%E6%8C%81%E7%BE%8E%E4%B8%BD.png"
+      },
+      {
+        "token": "[sticker:saikikusuo:怎么办呢]",
+        "name": "怎么办呢",
+        "url": "/stickers/saikikusuo/saikikusuo_%E6%80%8E%E4%B9%88%E5%8A%9E%E5%91%A2.png"
+      },
+      {
+        "token": "[sticker:saikikusuo:太好啦]",
+        "name": "太好啦",
+        "url": "/stickers/saikikusuo/saikikusuo_%E5%A4%AA%E5%A5%BD%E5%95%A6.png"
+      },
+      {
+        "token": "[sticker:saikikusuo:听我解释]",
+        "name": "听我解释",
+        "url": "/stickers/saikikusuo/saikikusuo_%E5%90%AC%E6%88%91%E8%A7%A3%E9%87%8A.png"
+      },
+      {
+        "token": "[sticker:saikikusuo:惊吓]",
+        "name": "惊吓",
+        "url": "/stickers/saikikusuo/saikikusuo_%E6%83%8A%E5%90%93.png"
+      },
+      {
+        "token": "[sticker:saikikusuo:发现真相]",
+        "name": "发现真相",
+        "url": "/stickers/saikikusuo/saikikusuo_%E5%8F%91%E7%8E%B0%E7%9C%9F%E7%9B%B8.png"
+      },
+      {
+        "token": "[sticker:saikikusuo:好兄弟]",
+        "name": "好兄弟",
+        "url": "/stickers/saikikusuo/saikikusuo_%E5%A5%BD%E5%85%84%E5%BC%9F.png"
+      },
+      {
+        "token": "[sticker:saikikusuo:你打我呀]",
+        "name": "你打我呀",
+        "url": "/stickers/saikikusuo/saikikusuo_%E4%BD%A0%E6%89%93%E6%88%91%E5%91%80.png"
+      },
+      {
+        "token": "[sticker:saikikusuo:我来啦]",
+        "name": "我来啦",
+        "url": "/stickers/saikikusuo/saikikusuo_%E6%88%91%E6%9D%A5%E5%95%A6.png"
+      },
+      {
+        "token": "[sticker:saikikusuo:嘿嘿]",
+        "name": "嘿嘿",
+        "url": "/stickers/saikikusuo/saikikusuo_%E5%98%BF%E5%98%BF.png"
+      }
+    ]
+  },
+  {
+    "id": "suzume",
+    "name": "撕梓咩",
+    "iconUrl": "/stickers/suzume/suzume_%E6%AF%94%E5%BF%83.png",
+    "items": [
+      {
+        "token": "[sticker:suzume:递猫]",
+        "name": "递猫",
+        "url": "/stickers/suzume/suzume_%E9%80%92%E7%8C%AB.png"
+      },
+      {
+        "token": "[sticker:suzume:捏耳朵]",
+        "name": "捏耳朵",
+        "url": "/stickers/suzume/suzume_%E6%8D%8F%E8%80%B3%E6%9C%B5.png"
+      },
+      {
+        "token": "[sticker:suzume:登场]",
+        "name": "登场",
+        "url": "/stickers/suzume/suzume_%E7%99%BB%E5%9C%BA.png"
+      },
+      {
+        "token": "[sticker:suzume:赢]",
+        "name": "赢",
+        "url": "/stickers/suzume/suzume_%E8%B5%A2.png"
+      },
+      {
+        "token": "[sticker:suzume:输]",
+        "name": "输",
+        "url": "/stickers/suzume/suzume_%E8%BE%93.png"
+      },
+      {
+        "token": "[sticker:suzume:饿饿]",
+        "name": "饿饿",
+        "url": "/stickers/suzume/suzume_%E9%A5%BF%E9%A5%BF.png"
+      },
+      {
+        "token": "[sticker:suzume:你好]",
+        "name": "你好",
+        "url": "/stickers/suzume/suzume_%E4%BD%A0%E5%A5%BD.png"
+      },
+      {
+        "token": "[sticker:suzume:不]",
+        "name": "不",
+        "url": "/stickers/suzume/suzume_%E4%B8%8D.png"
+      },
+      {
+        "token": "[sticker:suzume:疑问]",
+        "name": "疑问",
+        "url": "/stickers/suzume/suzume_%E7%96%91%E9%97%AE.png"
+      },
+      {
+        "token": "[sticker:suzume:打call]",
+        "name": "打call",
+        "url": "/stickers/suzume/suzume_%E6%89%93call.png"
+      },
+      {
+        "token": "[sticker:suzume:比心]",
+        "name": "比心",
+        "url": "/stickers/suzume/suzume_%E6%AF%94%E5%BF%83.png"
+      },
+      {
+        "token": "[sticker:suzume:汗流浃背]",
+        "name": "汗流浃背",
+        "url": "/stickers/suzume/suzume_%E6%B1%97%E6%B5%81%E6%B5%83%E8%83%8C.png"
+      },
+      {
+        "token": "[sticker:suzume:失望]",
+        "name": "失望",
+        "url": "/stickers/suzume/suzume_%E5%A4%B1%E6%9C%9B.png"
+      },
+      {
+        "token": "[sticker:suzume:窒息]",
+        "name": "窒息",
+        "url": "/stickers/suzume/suzume_%E7%AA%92%E6%81%AF.png"
+      },
+      {
+        "token": "[sticker:suzume:翻车]",
+        "name": "翻车",
+        "url": "/stickers/suzume/suzume_%E7%BF%BB%E8%BD%A6.png"
+      },
+      {
+        "token": "[sticker:suzume:淹没]",
+        "name": "淹没",
+        "url": "/stickers/suzume/suzume_%E6%B7%B9%E6%B2%A1.png"
+      },
+      {
+        "token": "[sticker:suzume:便携]",
+        "name": "便携",
+        "url": "/stickers/suzume/suzume_%E4%BE%BF%E6%90%BA.png"
+      },
+      {
+        "token": "[sticker:suzume:撞大猫]",
+        "name": "撞大猫",
+        "url": "/stickers/suzume/suzume_%E6%92%9E%E5%A4%A7%E7%8C%AB.png"
+      },
+      {
+        "token": "[sticker:suzume:炸虾]",
+        "name": "炸虾",
+        "url": "/stickers/suzume/suzume_%E7%82%B8%E8%99%BE.png"
+      },
+      {
+        "token": "[sticker:suzume:收藏]",
+        "name": "收藏",
+        "url": "/stickers/suzume/suzume_%E6%94%B6%E8%97%8F.png"
+      },
+      {
+        "token": "[sticker:suzume:点赞投币]",
+        "name": "点赞投币",
+        "url": "/stickers/suzume/suzume_%E7%82%B9%E8%B5%9E%E6%8A%95%E5%B8%81.png"
+      },
+      {
+        "token": "[sticker:suzume:人]",
+        "name": "人",
+        "url": "/stickers/suzume/suzume_%E4%BA%BA.png"
+      },
+      {
+        "token": "[sticker:suzume:条]",
+        "name": "条",
+        "url": "/stickers/suzume/suzume_%E6%9D%A1.png"
+      },
+      {
+        "token": "[sticker:suzume:钓猫]",
+        "name": "钓猫",
+        "url": "/stickers/suzume/suzume_%E9%92%93%E7%8C%AB.png"
+      },
+      {
+        "token": "[sticker:suzume:受到吸引]",
+        "name": "受到吸引",
+        "url": "/stickers/suzume/suzume_%E5%8F%97%E5%88%B0%E5%90%B8%E5%BC%95.png"
       }
     ]
   },

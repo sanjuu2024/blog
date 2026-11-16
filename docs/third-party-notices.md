@@ -45,6 +45,20 @@
 - 上游 README 另注明 alus、bilibili、qq 等资源整理自 [MiniValine](https://github.com/MiniValine)。
 - 各表情图像、角色与商标的权利归各自权利人；仓库根许可证和资源来源均保留，不将其解释为本项目取得各品牌或角色的所有权或背书。
 
+另外，下列表情库的素材获取来源为：
+
+| 表情库 | 库 ID | 来源 |
+| --- | --- | --- |
+| Bangumi 娘 | `bangumi` | [Bangumi 日志](https://bangumi.tv/blog/370650) |
+| 蛆音娘 | `qyn` | [Bmoji 表情列表](https://bmoji.3mua.cn/list) |
+| 叶え（かなえ） | `kanae` | [Bmoji 表情列表](https://bmoji.3mua.cn/list) |
+| 夏目友人帐 | `natsume` | [Bmoji 表情列表](https://bmoji.3mua.cn/list) |
+| 齐木楠雄的灾难 | `saikikusuo` | [Bmoji 表情列表](https://bmoji.3mua.cn/list) |
+| 关于我转生变成史莱姆这档事 | `rimuru` | [Bmoji 表情列表](https://bmoji.3mua.cn/list) |
+| 撕梓咩 | `suzume` | [Bmoji 表情列表](https://bmoji.3mua.cn/list) |
+
+上述新增素材的来源按各自页面记录，Waline 仓库许可证说明对应前述来自 Waline 的五个表情库。各表情图像、角色与商标的权利归各自权利人所有。
+
 ## 4. 加载动画素材
 
 页面及内容区使用的加载动画 `frontend/src/assets/img/loading.webp` 使用了游戏《阴阳师》中式神「山兔」的素材。

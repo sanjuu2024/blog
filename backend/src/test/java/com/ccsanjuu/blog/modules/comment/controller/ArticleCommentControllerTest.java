@@ -39,6 +39,7 @@ import javax.crypto.SecretKey;
 import java.time.Duration;
 import java.util.List;
 
+import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -183,6 +184,9 @@ class ArticleCommentControllerTest {
     void stickerCatalogShouldBePublicAndPreserveManifestOrder() throws Exception {
         mockMvc.perform(get("/api/v1/comments/stickers"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[*].id").value(contains(
+                        "alus", "bangumi", "bilibili", "bmoji", "kanae", "natsume", "qq", "qyn",
+                        "rimuru", "saikikusuo", "suzume", "wechat")))
                 .andExpect(jsonPath("$.data[0].id").value("alus"))
                 .andExpect(jsonPath("$.data[0].minHeightRem").doesNotExist())
                 .andExpect(jsonPath("$.data[1].id").value("bangumi"))
@@ -192,8 +196,11 @@ class ArticleCommentControllerTest {
                 .andExpect(jsonPath("$.data[2].items[0].token").value("[sticker:bilibili:doge]"))
                 .andExpect(jsonPath("$.data[4].id").value("kanae"))
                 .andExpect(jsonPath("$.data[4].minHeightRem").value(2.5))
-                .andExpect(jsonPath("$.data[6].id").value("qyn"))
-                .andExpect(jsonPath("$.data[6].minHeightRem").value(2.5));
+                .andExpect(jsonPath("$.data[5].minHeightRem").doesNotExist())
+                .andExpect(jsonPath("$.data[7].minHeightRem").value(2.5))
+                .andExpect(jsonPath("$.data[8].minHeightRem").doesNotExist())
+                .andExpect(jsonPath("$.data[9].minHeightRem").doesNotExist())
+                .andExpect(jsonPath("$.data[10].minHeightRem").doesNotExist());
     }
 
     @Test

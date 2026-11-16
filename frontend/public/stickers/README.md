@@ -4,6 +4,13 @@ Alus（`alus`）、Bili 小电视（`bilibili`）、Bili 表情（`bmoji`）、Q
 
 上游仓库根 [LICENSE](https://github.com/walinejs/emojis/blob/main/LICENSE) 为 GNU GPL v3，副本见 [LICENSE.Waline-GPL-3.0.txt](./LICENSE.Waline-GPL-3.0.txt)。上游 README 注明 alus、bilibili、qq 等资源整理自 [MiniValine](https://github.com/MiniValine)。各图像、角色与商标的权利归各自权利人；完整项目声明见 `/THIRD_PARTY_NOTICES.txt` 和仓库 `docs/third-party-notices.md`。
 
+其他表情库的素材获取来源：
+
+- Bangumi 娘（`bangumi`）：[Bangumi 日志](https://bangumi.tv/blog/370650)。
+- 蛆音娘（`qyn`）、叶え（かなえ）（`kanae`）、夏目友人帐（`natsume`）、齐木楠雄的灾难（`saikikusuo`）、关于我转生变成史莱姆这档事（`rimuru`）、撕梓咩（`suzume`）：[Bmoji 表情列表](https://bmoji.3mua.cn/list)。
+
+上述新增素材的来源按各自页面记录，Waline 仓库许可证说明对应前述来自 Waline 的五个表情库。各表情图像、角色与商标的权利归各自权利人所有。
+
 ## 更新目录
 
 每库使用独立目录，名称为稳定库 ID。`info.json` 中的 `name`、`prefix`、`type`、`icon`、`items` 保持 Waline 格式；`items` 决定收录内容与排序，文件必须为 `{prefix}{item}.{type}`。

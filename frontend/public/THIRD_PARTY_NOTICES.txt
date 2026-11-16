@@ -81,6 +81,16 @@ https://github.com/walinejs/emojis/blob/main/LICENSE
 Waline README 注明 alus、bilibili、qq 等资源整理自 https://github.com/MiniValine。
 保留原图片、文件名和清单顺序；本项目另生成评论目录。各图像、角色和商标的权利归各自权利人，不表示其对本项目的背书。
 
+其他表情库的素材获取来源：
+
+Bangumi 娘（bangumi）：
+https://bangumi.tv/blog/370650
+
+蛆音娘（qyn）、叶え（かなえ）（kanae）、夏目友人帐（natsume）、齐木楠雄的灾难（saikikusuo）、关于我转生变成史莱姆这档事（rimuru）、撕梓咩（suzume）：
+https://bmoji.3mua.cn/list
+
+上述新增素材的来源按各自页面记录，Waline 仓库许可证说明对应前述来自 Waline 的五个表情库。各表情图像、角色与商标的权利归各自权利人所有。
+
 4. 加载动画素材
 
 页面及内容区使用的加载动画 frontend/src/assets/img/loading.webp 使用了游戏《阴阳师》中式神「山兔」的素材。
