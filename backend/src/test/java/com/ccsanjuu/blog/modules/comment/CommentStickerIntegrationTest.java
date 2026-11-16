@@ -93,19 +93,24 @@ class CommentStickerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[*].id").value(contains(
                         "alus", "bangumi", "bilibili", "bmoji", "kanae", "natsume", "qq", "qyn",
-                        "rimuru", "saikikusuo", "suzume", "wechat")))
-                .andExpect(jsonPath("$.data[0].minHeightRem").doesNotExist())
+                        "rimuru", "saikikusuo", "sharkitty", "suzume", "wechat")))
+                .andExpect(jsonPath("$.data[0].minHeightRem").value(2))
                 .andExpect(jsonPath("$.data[1].id").value("bangumi"))
-                .andExpect(jsonPath("$.data[1].minHeightRem").value(2.5))
+                .andExpect(jsonPath("$.data[1].name").value("Bangumi 娘"))
+                .andExpect(jsonPath("$.data[1].minHeightRem").value(3))
                 .andExpect(jsonPath("$.data[2].minHeightRem").doesNotExist())
+                .andExpect(jsonPath("$.data[2].name").value("哔哩哔哩小电视"))
+                .andExpect(jsonPath("$.data[2].iconUrl").value("/stickers/bilibili/btv_cute.png"))
                 .andExpect(jsonPath("$.data[2].items[0].token").value("[sticker:bilibili:doge]"))
                 .andExpect(jsonPath("$.data[4].id").value("kanae"))
-                .andExpect(jsonPath("$.data[4].minHeightRem").value(2.5))
-                .andExpect(jsonPath("$.data[5].minHeightRem").doesNotExist())
-                .andExpect(jsonPath("$.data[7].minHeightRem").value(2.5))
-                .andExpect(jsonPath("$.data[8].minHeightRem").doesNotExist())
-                .andExpect(jsonPath("$.data[9].minHeightRem").doesNotExist())
-                .andExpect(jsonPath("$.data[10].minHeightRem").doesNotExist());
+                .andExpect(jsonPath("$.data[4].minHeightRem").value(3))
+                .andExpect(jsonPath("$.data[5].minHeightRem").value(4))
+                .andExpect(jsonPath("$.data[7].minHeightRem").value(3))
+                .andExpect(jsonPath("$.data[8].minHeightRem").value(3))
+                .andExpect(jsonPath("$.data[9].minHeightRem").value(3))
+                .andExpect(jsonPath("$.data[10].items.length()").value(25))
+                .andExpect(jsonPath("$.data[10].minHeightRem").value(3))
+                .andExpect(jsonPath("$.data[11].minHeightRem").value(3));
         String token = stickerService.getPacks().get(2).items().getFirst().token();
         assertTrue(validator.validate(CreateCommentRequestDTO.builder().content("字".repeat(980) + token.repeat(20)).build()).isEmpty());
         assertFalse(validator.validate(CreateCommentRequestDTO.builder().content(token.repeat(21)).build()).isEmpty());
@@ -114,7 +119,7 @@ class CommentStickerIntegrationTest {
         assertTrue(validator.validate(CreateCommentRequestDTO.builder().content(" ".repeat(1260) + "字".repeat(1000)).build()).isEmpty());
         assertFalse(validator.validate(CreateCommentRequestDTO.builder().content(" ".repeat(1261) + "字".repeat(1000)).build()).isEmpty());
         for (String newToken : List.of("[sticker:natsume:归还名字]", "[sticker:rimuru:比心]",
-                "[sticker:saikikusuo:发动超能力]", "[sticker:suzume:递猫]")) {
+                "[sticker:saikikusuo:发动超能力]", "[sticker:suzume:递猫]", "[sticker:sharkitty:不想看]")) {
             assertTrue(validator.validate(CreateCommentRequestDTO.builder()
                     .content("字".repeat(980) + newToken.repeat(20)).build()).isEmpty());
             assertFalse(validator.validate(CreateCommentRequestDTO.builder()

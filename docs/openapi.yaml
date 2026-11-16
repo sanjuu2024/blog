@@ -5411,14 +5411,14 @@ components:
       required: [id, name, iconUrl, items]
       properties:
         id: { type: string, example: bilibili }
-        name: { type: string, example: BiliBili }
-        iconUrl: { type: string, example: /stickers/bilibili/bb_cute.png }
+        name: { type: string, example: 哔哩哔哩小电视 }
+        iconUrl: { type: string, example: /stickers/bilibili/btv_cute.png }
         minHeightRem:
           type: number
           minimum: 0
           exclusiveMinimum: true
-          example: 2.5
-          description: 可选的正文与选择器表情图片最小显示高度，单位 rem，来自各库 info.json；未配置时不返回，前端使用 1.5rem，bangumi、kanae 和 qyn 为 2.5rem。选择器列宽随高度调整，保持图片比例，底部库切换图标保持 1.5rem。
+          example: 3
+          description: 可选的正文与选择器表情图片最小显示高度，单位 rem，来自各库 info.json；未配置时不返回，前端使用 1.5rem，alus 为 2rem，natsume 为 4rem，bangumi、kanae、qyn、rimuru、saikikusuo、sharkitty 和 suzume 为 3rem。选择器列宽随高度调整，保持图片比例，底部库切换图标保持 1.5rem。
         items:
           type: array
           items:
@@ -5427,7 +5427,7 @@ components:
             properties:
               token: { type: string, example: '[sticker:bilibili:doge]' }
               name: { type: string, example: doge }
-              url: { type: string, example: /stickers/bilibili/bb_doge.png }
+              url: { type: string, example: /stickers/bilibili/btv_doge.png }
     CreateCommentRequest:
       type: object
       required: [content]

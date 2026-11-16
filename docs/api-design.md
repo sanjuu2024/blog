@@ -2323,13 +2323,13 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ### 11.0 预置表情目录
 
-该目录由文章评论和留言板共用，保留历史路径 `/api/v1/comments/stickers`，不新增留言专用接口。当前库名称为 Alus（alus）、Bangumi 娘（bangumi）、Bili 小电视（bilibili）、Bili 表情（bmoji）、叶え（かなえ）（kanae）、QQ（qq）、蛆音娘（qyn）、微信（wechat）；展示名称可调整，库 ID、标记和资源路径保持稳定。
+该目录由文章评论和留言板共用，保留历史路径 `/api/v1/comments/stickers`，不新增留言专用接口。当前按库 ID 顺序提供 Alus（alus）、Bangumi 娘（bangumi）、哔哩哔哩小电视（bilibili）、哔哩哔哩表情（bmoji）、叶え（かなえ）（kanae）、夏目友人帐（natsume）、QQ（qq）、蛆音娘（qyn）、关于我转生变成史莱姆这档事（rimuru）、齐木楠雄的灾难（saikikusuo）、鲨猫（sharkitty）、撕梓咩（suzume）、微信（wechat）共 13 个库、741 个表情。展示名称可调整，既有库 ID 和标记保持稳定；v1.3.0 将 bilibili 资源前缀从 bb_ 改为 btv_，bangumi 从 Bangumi_ 改为 bangumi_，URL 以生成目录为准，前后端需同步部署。
 
 `GET /api/v1/comments/stickers`，权限 PUBLIC。返回通用响应，data 为表情库数组；每库包含 `id`、`name`、`iconUrl`、`items`，每项包含 `token`（例如 `[sticker:bilibili:doge]`）、`name`（沿用清单 item 名）、`url`（同源 `/stickers/...` 路径）。目录由前端 public/stickers 下的各库 info.json 按原顺序生成至后端资源，不提供写接口。前端缓存当前应用会话的成功目录，加载失败可重试；失败时普通文本评论仍可提交，无法确认的标记按普通文本计数和展示。
 
 前台评论读取与创建响应的 content 保留标记；后台审核列表 content 转为 `[表情名]`，评论回复通知的 content / originalContent 与邮件只提供文字替代，不解析 HTML。通知快照超过 2000 字符时截断并加省略号，完整评论不受影响。
 
-每库还可返回可选的 `minHeightRem` 正数，单位 rem，来自对应 info.json；未配置时不返回，前端默认 1.5rem。bangumi、kanae 和 qyn 配置为 2.5rem。该字段统一控制正文与选择器中表情图片的最小显示高度，选择器列宽随高度调整；正方形图片按相同宽高显示，其他图片保持原比例，底部库切换图标保持 1.5rem。该字段不改变表情标记或存储结构；生成脚本拒绝非数值、非有限数或非正数。
+每库还可返回可选的 `minHeightRem` 正数，单位 rem，来自对应 info.json；未配置时不返回，前端默认 1.5rem。alus 配置为 2rem，natsume 为 4rem，bangumi、kanae、qyn、rimuru、saikikusuo、sharkitty 和 suzume 为 3rem。该字段统一控制正文与选择器中表情图片的最小显示高度，选择器列宽随高度调整；正方形图片按相同宽高显示，其他图片保持原比例，底部库切换图标保持 1.5rem。该字段不改变表情标记或存储结构；生成脚本拒绝非数值、非有限数或非正数。
 
 ## 11.1 获取顶层评论分页列表
 

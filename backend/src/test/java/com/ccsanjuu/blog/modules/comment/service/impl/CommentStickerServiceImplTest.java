@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -21,19 +22,23 @@ class CommentStickerServiceImplTest {
     @Test
     void shouldPreservePackOrderFormatsAndOriginalNames() {
         assertEquals(List.of("alus", "bangumi", "bilibili", "bmoji", "kanae", "natsume", "qq", "qyn",
-                        "rimuru", "saikikusuo", "suzume", "wechat"),
+                        "rimuru", "saikikusuo", "sharkitty", "suzume", "wechat"),
                 service.getPacks().stream().map(pack -> pack.id()).toList());
         var bilibili = service.getPacks().stream().filter(pack -> pack.id().equals("bilibili")).findFirst().orElseThrow();
-        assertEquals("Bili 小电视", bilibili.name());
-        assertEquals("/stickers/bilibili/bb_cute.png", bilibili.iconUrl());
+        assertEquals("哔哩哔哩小电视", bilibili.name());
+        assertEquals("/stickers/bilibili/btv_cute.png", bilibili.iconUrl());
         assertEquals("[sticker:bilibili:doge]", bilibili.items().getFirst().token());
+        Map<String, Double> heights = Map.of("alus", 2.0, "bangumi", 3.0, "kanae", 3.0,
+                "natsume", 4.0, "qyn", 3.0, "rimuru", 3.0, "saikikusuo", 3.0, "sharkitty", 3.0, "suzume", 3.0);
         for (var pack : service.getPacks()) {
-            if (List.of("bangumi", "kanae", "qyn").contains(pack.id())) {
-                assertEquals(2.5, pack.minHeightRem());
-            } else {
-                assertNull(pack.minHeightRem());
-            }
+            assertEquals(heights.get(pack.id()), pack.minHeightRem(), pack.id());
         }
+        var bangumi = service.getPacks().stream().filter(pack -> pack.id().equals("bangumi")).findFirst().orElseThrow();
+        assertEquals("Bangumi 娘", bangumi.name());
+        assertTrue(bangumi.items().stream().allMatch(item -> item.url().startsWith("/stickers/bangumi/bangumi_")));
+        assertEquals("哔哩哔哩表情", service.getPacks().stream().filter(pack -> pack.id().equals("bmoji"))
+                .findFirst().orElseThrow().name());
+        assertEquals(741, service.getPacks().stream().mapToInt(pack -> pack.items().size()).sum());
         assertTrue(service.getPacks().stream().anyMatch(pack -> pack.iconUrl().endsWith(".gif")));
         assertTrue(service.getPacks().stream().anyMatch(pack -> pack.iconUrl().endsWith(".webp")));
     }
@@ -45,6 +50,14 @@ class CommentStickerServiceImplTest {
         assertEquals(4, service.countLength(content));
         assertEquals(4, service.countStickers(content));
         assertEquals("[归还名字][比心][发动超能力][递猫]", service.toPlainText(content));
+    }
+
+    @Test
+    void shouldRecognizeSharkittyTokensAndKeepTheirTextFallback() {
+        String token = "[sticker:sharkitty:不想看]";
+        assertEquals(1, service.countLength(token));
+        assertEquals(1, service.countStickers(token));
+        assertEquals("[不想看]", service.toPlainText(token));
     }
 
     @Test
