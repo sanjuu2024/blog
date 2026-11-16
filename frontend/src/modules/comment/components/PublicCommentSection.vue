@@ -334,7 +334,6 @@
 								v-if="getReplyState(comment.id).hasNext"
 							>
 								<el-button
-									v-if="getReplyState(comment.id).hasNext"
 									link
 									type="primary"
 									:loading="getReplyState(comment.id).loading"
@@ -342,10 +341,6 @@
 								>
 									{{ getReplyLoadMoreLabel(comment) }}
 								</el-button>
-								<i-lucide-loader
-									v-else-if="getReplyState(comment.id).loading"
-									class="animate-spin text-gray-400"
-								/>
 							</div>
 						</div>
 					</div>

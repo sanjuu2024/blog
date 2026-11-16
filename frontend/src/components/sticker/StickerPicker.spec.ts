@@ -1,7 +1,9 @@
 import { mount } from '@vue/test-utils';
 import { ref } from 'vue';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import StickerPicker from '@/components/sticker/StickerPicker.vue';
+
+const state = vi.hoisted(() => ({ loading: false, failed: false, loadStickers: vi.fn() }));
 
 vi.mock('@/composables/useStickers', () => ({
 	useStickers: () => ({
@@ -20,13 +22,42 @@ vi.mock('@/composables/useStickers', () => ({
 				items: [{ token: '[sticker:second:two]', name: 'two', url: '/two.gif' }],
 			},
 		]),
-		loading: ref(false),
-		failed: ref(false),
-		loadStickers: vi.fn(),
+		loading: ref(state.loading),
+		failed: ref(state.failed),
+		loadStickers: state.loadStickers,
 	}),
 }));
 
 describe('StickerPicker', () => {
+	beforeEach(() => {
+		state.loading = false;
+		state.failed = false;
+		state.loadStickers.mockReset();
+	});
+
+	it('uses the shared loading component while the catalog request is pending', () => {
+		state.loading = true;
+		const wrapper = mount(StickerPicker, { global: { stubs: { ILucideX: true } } });
+		expect(wrapper.find('.app-loading__image').exists()).toBe(true);
+		expect(wrapper.find('.sticker-picker__items').exists()).toBe(false);
+		expect(wrapper.text()).not.toContain('正在加载表情');
+		wrapper.unmount();
+	});
+
+	it('keeps a retry action when the catalog fails to load', async () => {
+		state.failed = true;
+		const wrapper = mount(StickerPicker, {
+			global: {
+				stubs: { ILucideX: true, ElButton: { template: '<button><slot /></button>' } },
+			},
+		});
+		expect(wrapper.find('.app-loading__image').exists()).toBe(false);
+		expect(wrapper.text()).toContain('表情加载失败');
+		await wrapper.get('.sticker-picker__state button').trigger('click');
+		expect(state.loadStickers).toHaveBeenCalledOnce();
+		wrapper.unmount();
+	});
+
 	it('switches packs, selects their tokens and exposes a close action', async () => {
 		const wrapper = mount(StickerPicker, {
 			global: { stubs: { StickerImage: true, ILucideX: true } },
@@ -78,5 +109,18 @@ describe('StickerPicker', () => {
 		await wrapper.get('[aria-label="第二个库"]').trigger('click');
 		expect(style().getPropertyValue('--sticker-min-height')).toBe('2.5rem');
 		expect(style().getPropertyValue('--sticker-cell-min-width')).toBe('4rem');
+	});
+
+	it('allows choosing a loaded sticker while another sticker image is still loading', async () => {
+		const wrapper = mount(StickerPicker, { global: { stubs: { ILucideX: true } } });
+		const item = wrapper.get('[aria-label="插入表情：one"]');
+		await item.get('img').trigger('load');
+		expect(item.find('.sticker-image__skeleton').exists()).toBe(false);
+		expect(
+			wrapper.get('[aria-label="第一个库"]').find('.sticker-image__skeleton').exists(),
+		).toBe(true);
+		await item.trigger('click');
+		expect(wrapper.emitted('select')?.[0]?.[0]).toMatchObject({ token: '[sticker:first:one]' });
+		wrapper.unmount();
 	});
 });
