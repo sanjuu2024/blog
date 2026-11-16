@@ -38,4 +38,29 @@ describe('useStickers', () => {
 		expect(wrapper.vm.failed).toBe(false);
 		expect(getStickers).toHaveBeenCalledTimes(2);
 	});
+
+	it('applies each pack height to its tokens when rendering mixed content', async () => {
+		const { default: StickerContent } = await import('@/components/sticker/StickerContent.vue');
+		getStickers.mockResolvedValue([
+			{
+				id: 'small',
+				items: [{ token: '[sticker:small:one]', name: 'one', url: '/one.png' }],
+			},
+			{
+				id: 'large',
+				minHeightRem: 2.5,
+				items: [{ token: '[sticker:large:two]', name: 'two', url: '/two.gif' }],
+			},
+		]);
+		const wrapper = mount(StickerContent, {
+			props: { content: '正文[sticker:small:one][sticker:large:two][sticker:unknown:three]' },
+		});
+		await flushPromises();
+		const images = wrapper.findAll('img');
+		expect(images).toHaveLength(2);
+		expect(images[0]?.attributes('style')).toBeUndefined();
+		expect(images[1]?.attributes('style')).toContain('--sticker-min-height: 2.5rem');
+		expect(wrapper.text()).toBe('正文[sticker:unknown:three]');
+		wrapper.unmount();
+	});
 });

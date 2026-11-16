@@ -39,6 +39,21 @@ describe('AboutPage', () => {
 		expect(wrapper.get('.about-content').text()).toBe('暂无内容');
 	});
 
+	it('preserves Ruby annotations from the backend without rewriting the base or reading', async () => {
+		vi.mocked(getAboutPage).mockResolvedValueOnce({
+			exists: true,
+			contentHtml:
+				'<p><ruby>日本語<rp>（</rp><rt>にほんご</rt><rp>）</rp></ruby>を学ぶ。</p>',
+			contentText: '日本語を学ぶ。',
+			updatedAt: null,
+		});
+		const wrapper = mount(AboutPage);
+		await flushPromises();
+		expect(wrapper.get('ruby rt').text()).toBe('にほんご');
+		expect(wrapper.findAll('ruby rp')).toHaveLength(2);
+		wrapper.unmount();
+	});
+
 	it('renders manually entered title captions without using file names as captions', async () => {
 		const contentHtml =
 			'<p><img src="/about/cat.png" alt="cat.png" title="手动填写的图注"></p><p><img src="/about/plain.png" alt="plain.png" title=""></p>';

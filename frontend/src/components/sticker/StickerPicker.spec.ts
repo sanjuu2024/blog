@@ -16,7 +16,7 @@ vi.mock('@/composables/useStickers', () => ({
 				id: 'second',
 				name: '第二个库',
 				iconUrl: '/second.gif',
-				gridMinWidthRem: 4.5,
+				minHeightRem: 2.5,
 				items: [{ token: '[sticker:second:two]', name: 'two', url: '/two.gif' }],
 			},
 		]),
@@ -35,15 +35,15 @@ describe('StickerPicker', () => {
 		expect(wrapper.text()).toContain('1 个');
 		expect(
 			(wrapper.get('.sticker-picker__items').element as HTMLElement).style.getPropertyValue(
-				'--sticker-cell-min-width',
+				'--sticker-min-height',
 			),
-		).toBe('3rem');
+		).toBe('1.5rem');
 		await wrapper.get('[aria-label="第二个库"]').trigger('click');
 		expect(
 			(wrapper.get('.sticker-picker__items').element as HTMLElement).style.getPropertyValue(
-				'--sticker-cell-min-width',
+				'--sticker-min-height',
 			),
-		).toBe('4.5rem');
+		).toBe('2.5rem');
 		expect(wrapper.get('[aria-label="第二个库"]').attributes('aria-pressed')).toBe('true');
 		await wrapper.get('[aria-label="插入表情：two"]').trigger('click');
 		expect(wrapper.emitted('select')?.[0]?.[0]).toMatchObject({
@@ -51,5 +51,32 @@ describe('StickerPicker', () => {
 		});
 		await wrapper.get('[aria-label="关闭表情选择器"]').trigger('click');
 		expect(wrapper.emitted('close')).toHaveLength(1);
+	});
+
+	it('resets the image size when switching back to a pack without configuration', async () => {
+		const wrapper = mount(StickerPicker, { global: { stubs: { ILucideX: true } } });
+		await wrapper.get('[aria-label="第二个库"]').trigger('click');
+		expect(wrapper.get('.sticker-picker__items').attributes('style')).toContain('2.5rem');
+		expect(wrapper.get('[aria-label="插入表情：two"] img').attributes('src')).toBe('/two.gif');
+		expect(wrapper.get('[aria-label="第二个库"] img').attributes('style')).toBeUndefined();
+		await wrapper.get('[aria-label="第一个库"]').trigger('click');
+		expect(wrapper.get('.sticker-picker__items').attributes('style')).toContain('1.5rem');
+		expect(wrapper.get('[aria-label="插入表情：one"] img').attributes('src')).toBe('/one.png');
+	});
+
+	it('fits wide stickers at the pack height and resets the measured ratio on switching', async () => {
+		const wrapper = mount(StickerPicker, { global: { stubs: { ILucideX: true } } });
+		const image = wrapper.get('[aria-label="插入表情：one"] img');
+		Object.defineProperties(image.element, {
+			naturalWidth: { value: 180 },
+			naturalHeight: { value: 60 },
+		});
+		await image.trigger('load');
+		const style = () => (wrapper.get('.sticker-picker__items').element as HTMLElement).style;
+		expect(style().getPropertyValue('--sticker-min-height')).toBe('1.5rem');
+		expect(style().getPropertyValue('--sticker-cell-min-width')).toBe('6rem');
+		await wrapper.get('[aria-label="第二个库"]').trigger('click');
+		expect(style().getPropertyValue('--sticker-min-height')).toBe('2.5rem');
+		expect(style().getPropertyValue('--sticker-cell-min-width')).toBe('4rem');
 	});
 });

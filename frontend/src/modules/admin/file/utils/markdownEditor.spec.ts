@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import type { GlobalConfig } from 'md-editor-v3';
 import { configureEditorMarkdown } from './markdownEditor';
+import { createEditorRubyHtml } from './editorRuby';
 
 // 使用编辑器实际依赖的解析器验证规则，避免额外安装另一份 Markdown 实现。
 const dependencyRequire = createRequire(createRequire(import.meta.url).resolve('md-editor-v3'));
@@ -18,6 +19,24 @@ function render(markdown: string) {
 }
 
 describe('editor Markdown rendering', () => {
+	it('preserves literal Markdown symbols typed into the Ruby toolbar', () => {
+		const ruby = createEditorRubyHtml('**漢字** $x_1$ [文字]', '*かんじ* _よみ_');
+		const body = render(ruby);
+		expect(body.querySelector('ruby rt')?.textContent).toBe('*かんじ* _よみ_');
+		expect(body.querySelector('ruby')?.firstChild?.textContent).toBe('**漢字** $x_1$ [文字]');
+		expect(body.querySelector('strong, em, a')).toBeNull();
+	});
+
+	it('renders native Ruby inline and keeps code examples literal', () => {
+		const ruby = '<ruby>漢字<rp>（</rp><rt>かんじ</rt><rp>）</rp></ruby>';
+		const body = render(`学ぶ${ruby}です。\n\n\`${ruby}\`\n\n\`\`\`html\n${ruby}\n\`\`\``);
+		expect(body.querySelectorAll('ruby')).toHaveLength(1);
+		expect(body.querySelector('ruby rt')?.textContent).toBe('かんじ');
+		expect(body.querySelectorAll('ruby rp')).toHaveLength(2);
+		expect(body.querySelector('p code')?.textContent).toBe(ruby);
+		expect(body.querySelector('pre code')?.textContent).toBe(`${ruby}\n`);
+	});
+
 	it.each([
 		'<img src="https://img.example.com/a.png" alt="图" />',
 		'<p><img src="https://img.example.com/a.png" alt="图" /></p>',

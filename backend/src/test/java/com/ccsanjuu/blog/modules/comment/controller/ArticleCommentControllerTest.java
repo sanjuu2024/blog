@@ -184,10 +184,16 @@ class ArticleCommentControllerTest {
         mockMvc.perform(get("/api/v1/comments/stickers"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].id").value("alus"))
-                .andExpect(jsonPath("$.data[0].gridMinWidthRem").value(4.5))
-                .andExpect(jsonPath("$.data[1].id").value("bilibili"))
-                .andExpect(jsonPath("$.data[1].gridMinWidthRem").doesNotExist())
-                .andExpect(jsonPath("$.data[1].items[0].token").value("[sticker:bilibili:doge]"));
+                .andExpect(jsonPath("$.data[0].minHeightRem").doesNotExist())
+                .andExpect(jsonPath("$.data[1].id").value("bangumi"))
+                .andExpect(jsonPath("$.data[1].minHeightRem").value(2.5))
+                .andExpect(jsonPath("$.data[2].id").value("bilibili"))
+                .andExpect(jsonPath("$.data[2].minHeightRem").doesNotExist())
+                .andExpect(jsonPath("$.data[2].items[0].token").value("[sticker:bilibili:doge]"))
+                .andExpect(jsonPath("$.data[4].id").value("kanae"))
+                .andExpect(jsonPath("$.data[4].minHeightRem").value(2.5))
+                .andExpect(jsonPath("$.data[6].id").value("qyn"))
+                .andExpect(jsonPath("$.data[6].minHeightRem").value(2.5));
     }
 
     @Test

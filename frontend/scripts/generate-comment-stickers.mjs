@@ -25,12 +25,12 @@ for (const directory of (await readdir(sourceRoot, { withFileTypes: true })).sor
 		throw new Error(`表情清单为空：${id}`);
 	if (new Set(info.items).size !== info.items.length) throw new Error(`表情清单重复：${id}`);
 	if (
-		info.gridMinWidthRem !== undefined &&
-		(typeof info.gridMinWidthRem !== 'number' ||
-			!Number.isFinite(info.gridMinWidthRem) ||
-			info.gridMinWidthRem <= 0)
+		info.minHeightRem !== undefined &&
+		(typeof info.minHeightRem !== 'number' ||
+			!Number.isFinite(info.minHeightRem) ||
+			info.minHeightRem <= 0)
 	)
-		throw new Error(`表情库 gridMinWidthRem 必须为正数：${id}`);
+		throw new Error(`表情库 minHeightRem 必须为正数：${id}`);
 	function url(item) {
 		const filename = `${info.prefix}${item}.${info.type}`;
 		if (!files.has(filename)) throw new Error(`表情文件缺失：${id}/${filename}`);
@@ -40,7 +40,7 @@ for (const directory of (await readdir(sourceRoot, { withFileTypes: true })).sor
 		id,
 		name: info.name,
 		iconUrl: url(info.icon),
-		...(info.gridMinWidthRem === undefined ? {} : { gridMinWidthRem: info.gridMinWidthRem }),
+		...(info.minHeightRem === undefined ? {} : { minHeightRem: info.minHeightRem }),
 		items: info.items.map((name) => {
 			const token = `[sticker:${id}:${name}]`;
 			if (typeof name !== 'string' || /[[\]:\r\n]/.test(name) || token.length > 64)

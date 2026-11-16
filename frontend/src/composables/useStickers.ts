@@ -8,7 +8,15 @@ const failed = ref(false);
 let loaded = false;
 let pending: Promise<void> | null = null;
 const stickers = computed(
-	() => new Map(packs.value.flatMap((pack) => pack.items.map((item) => [item.token, item]))),
+	() =>
+		new Map(
+			packs.value.flatMap((pack) =>
+				pack.items.map((item) => [
+					item.token,
+					{ ...item, minHeightRem: pack.minHeightRem },
+				]),
+			),
+		),
 );
 
 async function loadStickers() {

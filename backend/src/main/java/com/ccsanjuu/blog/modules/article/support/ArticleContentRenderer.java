@@ -10,6 +10,7 @@ import com.vladsch.flexmark.util.ast.TextCollectingVisitor;
 import com.vladsch.flexmark.util.data.MutableDataSet;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Attribute;
+import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.safety.Safelist;
 import org.springframework.stereotype.Component;
@@ -17,6 +18,7 @@ import org.springframework.util.StringUtils;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Locale;
 
 @Component
 public class ArticleContentRenderer {
@@ -30,6 +32,8 @@ public class ArticleContentRenderer {
             .addTags("del", "big", "mark")
             .addTags("font")
             .addAttributes("font", "color")
+            // 原生假名标注只保留标签，不开放额外属性。
+            .addTags("ruby", "rt", "rp")
             // Markdown 表格 / 手写安全表格
             .addTags(
                     "table", "thead", "tbody", "tfoot", "tr", "th", "td",
@@ -143,6 +147,15 @@ public class ArticleContentRenderer {
         }
 
         Node document = parser.parse(markdown);
+        if (markdown.toLowerCase(Locale.ROOT).contains("<ruby")) {
+            var html = Jsoup.parseBodyFragment(Jsoup.clean(htmlRenderer.render(document), "",
+                    ARTICLE_HTML_SAFELIST, new Document.OutputSettings().prettyPrint(false)));
+            if (!html.select("ruby").isEmpty()) {
+                // 只移除实际注音节点，代码中已转义的标签示例仍作为正文保留。
+                html.select("ruby rt, ruby rp").remove();
+                return html.body().wholeText().strip();
+            }
+        }
         return new TextCollectingVisitor().collectAndGetText(document);
     }
 }

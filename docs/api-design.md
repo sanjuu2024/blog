@@ -2323,13 +2323,13 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ### 11.0 预置表情目录
 
-该目录由文章评论和留言板共用，保留历史路径 `/api/v1/comments/stickers`，不新增留言专用接口。当前库名称为 Alus（alus）、Bili 小电视（bilibili）、Bili 表情（bmoji）、QQ（qq）、微信（wechat）；展示名称可调整，库 ID、标记和资源路径保持稳定。
+该目录由文章评论和留言板共用，保留历史路径 `/api/v1/comments/stickers`，不新增留言专用接口。当前库名称为 Alus（alus）、Bangumi 娘（bangumi）、Bili 小电视（bilibili）、Bili 表情（bmoji）、叶え（かなえ）（kanae）、QQ（qq）、蛆音娘（qyn）、微信（wechat）；展示名称可调整，库 ID、标记和资源路径保持稳定。
 
 `GET /api/v1/comments/stickers`，权限 PUBLIC。返回通用响应，data 为表情库数组；每库包含 `id`、`name`、`iconUrl`、`items`，每项包含 `token`（例如 `[sticker:bilibili:doge]`）、`name`（沿用清单 item 名）、`url`（同源 `/stickers/...` 路径）。目录由前端 public/stickers 下的各库 info.json 按原顺序生成至后端资源，不提供写接口。前端缓存当前应用会话的成功目录，加载失败可重试；失败时普通文本评论仍可提交，无法确认的标记按普通文本计数和展示。
 
 前台评论读取与创建响应的 content 保留标记；后台审核列表 content 转为 `[表情名]`，评论回复通知的 content / originalContent 与邮件只提供文字替代，不解析 HTML。通知快照超过 2000 字符时截断并加省略号，完整评论不受影响。
 
-每库还可返回可选的 `gridMinWidthRem` 正数，单位 rem，来自对应 info.json；未配置时不返回，前端默认 3rem。Alus 配置为 4.5rem。该字段仅控制选择器列的最小宽度，不改变图片高度、宽高比、表情标记或存储结构；生成脚本拒绝非数值、非有限数或非正数。
+每库还可返回可选的 `minHeightRem` 正数，单位 rem，来自对应 info.json；未配置时不返回，前端默认 1.5rem。bangumi、kanae 和 qyn 配置为 2.5rem。该字段统一控制正文与选择器中表情图片的最小显示高度，选择器列宽随高度调整；正方形图片按相同宽高显示，其他图片保持原比例，底部库切换图标保持 1.5rem。该字段不改变表情标记或存储结构；生成脚本拒绝非数值、非有限数或非正数。
 
 ## 11.1 获取顶层评论分页列表
 
@@ -2651,6 +2651,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 文章必须绑定二级分类，不能直接绑定一级分类
 - 文章保存或更新时，后端应以 `contentMd` 为源自动生成并持久化经过白名单清洗的 `contentHtml`；行内 Markdown `==文字==` 转换为 `<mark>文字</mark>`，代码区域中的等号不作为高亮标记解析。白名单保留 `<small>`、`<big>`、`<mark>` 安全语义标签但不放开其额外属性。链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL，不允许协议相对 URL、危险协议或事件处理属性
 - 文章、实际效果预览、关于页和隐私政策的 HTML 白名单同时保留 `<font>` 标签及 `color` 属性，支持与粗体、下划线嵌套；font 的其他属性（包括 style、class、size、face 和事件处理属性）仍被清洗
+- 文章、实际效果预览、关于页和隐私政策的 HTML 白名单保留原生 `ruby`、`rt`、`rp`，不保留这些标签的额外属性；代码和转义内容中的标签仍作为字面量。含 Ruby 的纯文本正文去除读音 `rt` 和备用括号 `rp`、保留原文连续文本。管理端仍提交 `contentMd`，前端工具栏生成经过文本转义的 Ruby HTML；不新增接口或字段，不自动重写历史正文。
 - `contentHtml` 保留 `$...$`、`\(...\)`、`$$...$$`、`\[...\]` 公式源；公开文章详情前端使用 KaTeX 排版，后端不存储排版器生成的 HTML
 - 文章保存或更新时，后端应以 `contentMd` 为源自动提取并持久化 `contentText`
 - 前台文章详情接口优先返回 `contentHtml` 用于页面渲染

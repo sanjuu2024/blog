@@ -6,6 +6,7 @@ info:
     个人技术博客系统 OpenAPI 规范。
     基础路径统一为 `/api/v1/**`，可直接导入 Apifox 使用。
     文章、实际效果预览、关于页和隐私政策的 HTML 正文统一保留 font 标签及其 color 属性，支持与粗体、下划线嵌套；font 的其他属性仍被白名单清除。
+    同一正文白名单保留 ruby、rt、rp 标签用于假名标注，不开放额外属性；代码和转义示例保持字面量。含 Ruby 的纯文本去除 rt 读音与 rp 备用括号，只保留原文；管理端继续提交 contentMd，不新增接口字段或批量改写历史正文。
 servers:
   - url: http://localhost:8080
     description: 本地开发环境
@@ -5412,12 +5413,12 @@ components:
         id: { type: string, example: bilibili }
         name: { type: string, example: BiliBili }
         iconUrl: { type: string, example: /stickers/bilibili/bb_cute.png }
-        gridMinWidthRem:
+        minHeightRem:
           type: number
           minimum: 0
           exclusiveMinimum: true
-          example: 4.5
-          description: 可选的选择器网格列最小宽度，单位 rem，来自各库 info.json；未配置时不返回，前端使用 3rem，Alus 配置为 4.5rem。仅控制列宽，不改变图片比例。
+          example: 2.5
+          description: 可选的正文与选择器表情图片最小显示高度，单位 rem，来自各库 info.json；未配置时不返回，前端使用 1.5rem，bangumi、kanae 和 qyn 为 2.5rem。选择器列宽随高度调整，保持图片比例，底部库切换图标保持 1.5rem。
         items:
           type: array
           items:

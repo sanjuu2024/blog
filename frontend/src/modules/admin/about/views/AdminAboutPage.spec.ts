@@ -36,7 +36,8 @@ vi.mock('@/modules/admin/file/api/adminFileApi', () => ({
 	uploadAdminImage: vi.fn(),
 }));
 
-vi.mock('md-editor-v3', () => ({
+vi.mock('md-editor-v3', async (importOriginal) => ({
+	...(await importOriginal<typeof import('md-editor-v3')>()),
 	config: vi.fn(),
 	MdEditor: {
 		name: 'MdEditor',
