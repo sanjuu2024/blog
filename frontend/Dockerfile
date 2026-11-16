@@ -12,7 +12,8 @@ ENV VITE_SITE_LAUNCHED_AT=$VITE_SITE_LAUNCHED_AT
 RUN corepack enable \
     && corepack prepare pnpm@10.32.1 --activate
 
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY patches ./patches
 RUN pnpm install --frozen-lockfile
 
 COPY . ./

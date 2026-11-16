@@ -15,7 +15,6 @@ describe('usePublicFriendLinks', () => {
 		const sections: PublicFriendLinkSection[] = [
 			{ section: 'FRIENDS', name: '友人帐', records: [] },
 			{ section: 'EXPERTS', name: '大佬们', records: [] },
-			{ section: 'PEERS', name: '同行者', records: [] },
 		];
 		const siteProfile: PublicFriendLinkSiteProfile = {
 			name: 'Example Blog',

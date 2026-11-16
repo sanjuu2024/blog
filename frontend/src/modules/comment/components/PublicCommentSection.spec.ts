@@ -64,7 +64,7 @@ const stubs = {
 	AppLoadMoreTrigger: true,
 	AppUserAvatar: true,
 	ElAlert: true,
-	ElButton: { template: '<button><slot /></button>' },
+	ElButton: { props: ['loading'], template: '<button :disabled="loading"><slot /></button>' },
 	ElInput: true,
 	ElTag: true,
 	ILucideChevronRight: true,
@@ -153,6 +153,32 @@ describe('PublicCommentSection', () => {
 			.find((button) => button.text() === '发表评论')!
 			.trigger('click');
 		expect(submit).not.toHaveBeenCalled();
+		wrapper.unmount();
+	});
+
+	it('keeps replies visible and uses the load-more button state during pagination', async () => {
+		vi.mocked(useRoute).mockReturnValue({ query: {} } as never);
+		commentList.value = [{ ...comment(), replyCount: 2, hasVisibleReplies: true }];
+		replyState.records = [{ ...comment(), id: 51, parentId: 1, rootId: 1, replyToUser: null }];
+		replyState.expanded = true;
+		replyState.loaded = true;
+		replyState.hasNext = true;
+		const wrapper = mount(PublicCommentSection, {
+			props: { article: { id: 34, allowComment: true, commentCount: 3 } as never },
+			global: { stubs },
+		});
+		const button = wrapper.get('.reply-load-more button');
+		expect(button.text()).toBe('剩余 1 条回复，点击展开');
+		await button.trigger('click');
+		expect(getReplyList).toHaveBeenCalledWith(1);
+		replyState.loading = true;
+		await nextTick();
+		expect(button.attributes('disabled')).toBeDefined();
+		expect(wrapper.findAll('.reply-item')).toHaveLength(1);
+		replyState.loading = false;
+		replyState.hasNext = false;
+		await nextTick();
+		expect(wrapper.find('.reply-load-more').exists()).toBe(false);
 		wrapper.unmount();
 	});
 

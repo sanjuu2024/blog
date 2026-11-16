@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class CommentStickerServiceImplTest {
@@ -18,16 +20,31 @@ class CommentStickerServiceImplTest {
 
     @Test
     void shouldPreservePackOrderFormatsAndOriginalNames() {
-        assertEquals(5, service.getPacks().size());
+        assertEquals(List.of("alus", "bangumi", "bilibili", "bmoji", "kanae", "natsume", "qq", "qyn",
+                        "rimuru", "saikikusuo", "suzume", "wechat"),
+                service.getPacks().stream().map(pack -> pack.id()).toList());
         var bilibili = service.getPacks().stream().filter(pack -> pack.id().equals("bilibili")).findFirst().orElseThrow();
         assertEquals("Bili 小电视", bilibili.name());
         assertEquals("/stickers/bilibili/bb_cute.png", bilibili.iconUrl());
         assertEquals("[sticker:bilibili:doge]", bilibili.items().getFirst().token());
-        assertNull(bilibili.gridMinWidthRem());
-        assertEquals(4.5, service.getPacks().stream().filter(pack -> pack.id().equals("alus"))
-                .findFirst().orElseThrow().gridMinWidthRem());
+        for (var pack : service.getPacks()) {
+            if (List.of("bangumi", "kanae", "qyn").contains(pack.id())) {
+                assertEquals(2.5, pack.minHeightRem());
+            } else {
+                assertNull(pack.minHeightRem());
+            }
+        }
         assertTrue(service.getPacks().stream().anyMatch(pack -> pack.iconUrl().endsWith(".gif")));
         assertTrue(service.getPacks().stream().anyMatch(pack -> pack.iconUrl().endsWith(".webp")));
+    }
+
+    @Test
+    void shouldRecognizeTokensFromTheFourNewPacks() {
+        String content = "[sticker:natsume:归还名字][sticker:rimuru:比心]"
+                + "[sticker:saikikusuo:发动超能力][sticker:suzume:递猫]";
+        assertEquals(4, service.countLength(content));
+        assertEquals(4, service.countStickers(content));
+        assertEquals("[归还名字][比心][发动超能力][递猫]", service.toPlainText(content));
     }
 
     @Test

@@ -6,6 +6,7 @@ info:
     个人技术博客系统 OpenAPI 规范。
     基础路径统一为 `/api/v1/**`，可直接导入 Apifox 使用。
     文章、实际效果预览、关于页和隐私政策的 HTML 正文统一保留 font 标签及其 color 属性，支持与粗体、下划线嵌套；font 的其他属性仍被白名单清除。
+    同一正文白名单保留 ruby、rt、rp 标签用于假名标注，不开放额外属性；代码和转义示例保持字面量。含 Ruby 的纯文本去除 rt 读音与 rp 备用括号，只保留原文；管理端继续提交 contentMd，不新增接口字段或批量改写历史正文。
 servers:
   - url: http://localhost:8080
     description: 本地开发环境
@@ -274,7 +275,7 @@ paths:
     get:
       tags: [Friend Links]
       summary: 获取已启用友链分区
-      description: 无需登录。始终返回 FRIENDS、EXPERTS、PEERS 三个固定分区；每个分区按 sortNo、id 升序，仅包含 ENABLED 友链。空分区返回空 records；不分页、不缓存。
+      description: 无需登录。始终返回 FRIENDS、EXPERTS 两个固定分区；每个分区按 sortNo、id 升序，仅包含 ENABLED 友链。空分区返回空 records；不分页、不缓存。
       operationId: listPublicFriendLinks
       responses:
         '200':
@@ -1555,7 +1556,7 @@ paths:
       tags:
         - Admin Files
       summary: 上传后台图片
-      description: 权限级别 `ADMIN`。用于文章封面、文章及关于页 Markdown 正文图片；ABOUT_CONTENT 保存到 about/content/ 目录，项目封面场景为未来项目模块预留。后端中转上传至阿里云 OSS，只返回公开 URL 和图片元数据，不直接修改文章、关于页或项目。正文编辑器插入 HTML img 标签，以公开 URL 填写 src、原文件名填写 alt，属性值进行 HTML 转义，不自动添加用于图注的 title；只插入成功图片并保留选择顺序，历史 Markdown 图片语法继续支持。支持 JPG、JPEG、PNG、WebP、GIF、AVIF，最大 10 MB；AVIF 校验完整 ftyp 及 avif/avis 品牌，不支持 SVG，不新增服务端转码。
+      description: 权限级别 `ADMIN`。用于文章封面、文章及关于页 Markdown 正文图片；ABOUT_CONTENT 保存到 about/content/ 目录，项目封面场景为未来项目模块预留。后端中转上传至阿里云 OSS，只返回公开 URL 和图片元数据，不直接修改文章、关于页或项目。正文编辑器插入由 p 段落包裹的 HTML img 标签，每张图片独占一个段落，图片组后保留空行；以公开 URL 填写 src、原文件名填写 alt，属性值进行 HTML 转义，不自动添加用于图注的 title；只插入成功图片并保留选择顺序，历史 Markdown 图片语法继续支持。支持 JPG、JPEG、PNG、WebP、GIF、AVIF，最大 10 MB；AVIF 校验完整 ftyp 及 avif/avis 品牌，不支持 SVG，不新增服务端转码。
       operationId: uploadAdminImage
       security:
         - bearerAuth: []
@@ -3121,8 +3122,8 @@ components:
   schemas:
     FriendLinkSection:
       type: string
-      enum: [FRIENDS, EXPERTS, PEERS]
-      description: 固定分区，依次展示为友人帐、大佬们、同行者
+      enum: [FRIENDS, EXPERTS]
+      description: 固定分区，依次展示为友人帐、大佬们。v1.3.0 移除 PEERS，历史记录迁入 FRIENDS；后台传入旧分区值返回 400/199001。
     FriendLinkStatus:
       type: string
       enum: [ENABLED, DISABLED]
@@ -5412,12 +5413,12 @@ components:
         id: { type: string, example: bilibili }
         name: { type: string, example: BiliBili }
         iconUrl: { type: string, example: /stickers/bilibili/bb_cute.png }
-        gridMinWidthRem:
+        minHeightRem:
           type: number
           minimum: 0
           exclusiveMinimum: true
-          example: 4.5
-          description: 可选的选择器网格列最小宽度，单位 rem，来自各库 info.json；未配置时不返回，前端使用 3rem，Alus 配置为 4.5rem。仅控制列宽，不改变图片比例。
+          example: 2.5
+          description: 可选的正文与选择器表情图片最小显示高度，单位 rem，来自各库 info.json；未配置时不返回，前端使用 1.5rem，bangumi、kanae 和 qyn 为 2.5rem。选择器列宽随高度调整，保持图片比例，底部库切换图标保持 1.5rem。
         items:
           type: array
           items:

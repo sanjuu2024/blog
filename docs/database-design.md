@@ -487,8 +487,9 @@ CREATE INDEX IF NOT EXISTS idx_blog_article_search_vector
 - 行内 Markdown 高亮写作 `==文字==`，由 Markdown 转换器生成 `<mark>文字</mark>`；代码区域保留原始等号。相应 HTML 标签经白名单清洗后保留
 - Markdown 生成的 `content_html` 经统一白名单清洗，保留 `<small>`、`<big>`、`<mark>` 等安全语义标签，不放开这些标签的额外属性；文章、关于页与隐私政策共用该规则
 - HTML 颜色标注保留 `<font>` 标签及其 `color` 属性，font 的其他属性仍被清洗；与粗体、下划线的嵌套结果保存在现有 `content_html` 中，不新增字段或 migration
+- Ruby 注音继续存入已有正文三种形态：`content_md` 保存原生 `ruby/rt/rp` HTML；`content_html` 经白名单保留标签且不保留额外属性；含 Ruby 的 `content_text` 只保留原文，去除 `rt` 读音与 `rp` 备用括号，代码内的标签示例仍按普通文本保存。不新增字段、索引或 migration，不批量转换历史正文；重新保存后按新规则生成。
 - 正文图片图注复用 Markdown 图片的可选 title 或手写 HTML img 的 title，由现有转译和白名单清洗保留在 `content_html` 中；前台将 title 作为纯文本图注渲染，不回写 `content_md`、`content_html` 或 `content_text`，不增加表、字段或历史数据迁移。
-- 正文编辑器上传图片后在 `content_md` 插入 `<img src="图片地址" alt="原文件名" />`，属性值进行 HTML 转义，不自动添加 title；历史 Markdown 图片语法继续支持，不新增字段或迁移。
+- 正文编辑器上传图片后在 `content_md` 插入 `<p><img src="图片地址" alt="原文件名" /></p>`，每张图片独占一个段落，属性值进行 HTML 转义，不自动添加 title；历史 Markdown 图片语法继续支持，不转换已有正文，不新增字段或迁移。
 - 归档复用现有表和索引，不新增结构或改变时间存储。年份按浏览器传入并校验的 IANA 时区一次分组计数，SQL 使用绑定参数执行 `published_at AT TIME ZONE timeZone`；年份筛选按同一时区分别计算当年与下一年年初，再用绝对时间半开范围查询，正确应用各年份的夏令时规则。汇总和列表仅含 PUBLISHED、启用二级分类及启用父分类、作者存在的文章；列表联表返回分类路径，标签使用 EXISTS 过滤，不重复计数或执行 N+1 查询。
 - 公开文章列表和搜索结果的 `commentCount` 直接读取 `blog_article.comment_count`，沿用现有公开评论与回复统计口径，不新增表或逐篇聚合查询
 - P1 文章搜索使用 PostgreSQL `zhparser` 解析 `title`、`summary` 和 `content_text`，并通过生成列 `search_vector` 与 GIN 索引完成全文检索
@@ -599,8 +600,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_comment_user_article_created_at
 ### 状态、层级与计数规则
 
 - 评论预置表情继续保存在现有 `content TEXT`，格式为 `[sticker:库ID:表情ID]`，不新增 JSONB、资源表或 migration。静态图片位于前端 public/stickers，各库 info.json 生成后端 classpath 的 comment-stickers/catalog.json；目录不落数据库。有效标记计 1，其余按 UTF-16 长度计算，去除首尾空白后展示长度为 1-1000；每条评论或回复最多 20 个有效表情，重复出现逐个计数，未知标记只算文本。每个标记最多 64 单元，原始字符串上限 2260。后台审核响应将标记转为 `[表情名]`，数据库保留原始标记。
-- 评论回复通知快照在现有 `blog_notification.content` 保存文字替代，遵守原有 2000 字符限制，超出时保留前 1999 个字符及省略号；通知原文和邮件同样使用文字替代，不修改评论源内容。以后新增结构迁移从 `V1.3.0` 继续，本次无需迁移。
-- 表情库可选的 `gridMinWidthRem` 仅保存在 info.json 和生成目录中，通过目录接口返回选择器布局配置，不落数据库、不新增 migration；未配置时前端使用 3rem，Alus 为 4.5rem。
+- 评论回复通知快照在现有 `blog_notification.content` 保存文字替代，遵守原有 2000 字符限制，超出时保留前 1999 个字符及省略号；通知原文和邮件同样使用文字替代，不修改评论源内容。表情无需迁移；`V1.3.0` 已用于友链分区调整，后续结构迁移从 `V1.3.1` 继续。
+- 表情库可选的 `minHeightRem` 仅保存在 info.json 和生成目录中，通过目录接口返回正文与选择器共用的表情图片最小高度配置，不落数据库、不新增 migration；未配置时前端使用 1.5rem，bangumi、kanae 和 qyn 为 2.5rem。
 
 - 顶层评论的 `parent_id` 和 `root_id` 均为空
 - 回复的 `parent_id` 指向直接父评论，`root_id` 指向所属顶层评论；无限层级回复在前端统一平铺到第二层
@@ -1061,7 +1062,7 @@ CREATE TABLE IF NOT EXISTS blog_friend_link (
     logo_url VARCHAR(500) NOT NULL DEFAULT '',
     description VARCHAR(255) NOT NULL DEFAULT '',
     section VARCHAR(20) NOT NULL
-        CHECK (section IN ('FRIENDS', 'EXPERTS', 'PEERS')),
+        CHECK (section IN ('FRIENDS', 'EXPERTS')),
     sort_no INTEGER NOT NULL DEFAULT 100,
     status VARCHAR(20) NOT NULL DEFAULT 'ENABLED'
         CHECK (status IN ('ENABLED', 'DISABLED')),
@@ -1088,7 +1089,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_created_at
 | `url` | `VARCHAR(500)` | 友链地址 | `https://tech.example.com` |
 | `logo_url` | `VARCHAR(500)` | 友链头像图片或网站代表图地址 | `https://tech.example.com/avatar.png` |
 | `description` | `VARCHAR(255)` | 友链说明 | `专注 Java 与中间件` |
-| `section` | `VARCHAR(20)` | 固定友链分区：`FRIENDS`、`EXPERTS`、`PEERS`，分别展示为“友人帐”“大佬们”“同行者” | `FRIENDS` |
+| `section` | `VARCHAR(20)` | 固定友链分区：`FRIENDS`、`EXPERTS`，分别展示为“友人帐”“大佬们” | `FRIENDS` |
 | `sort_no` | `INTEGER` | 分区内显示顺序，数值越小越靠前；新建默认 100，可按 100 间隔安排后续插入 | `100` |
 | `status` | `VARCHAR(20)` | 友链状态 | `ENABLED` |
 | `created_at` | `TIMESTAMPTZ` | 创建时间 | `2026-06-01 09:00:00+08` |
@@ -1097,7 +1098,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_created_at
 业务约束：
 
 - 友链地址 `url` 全局唯一，应用层只接受 HTTPS 绝对 URL；头像图片或网站代表图地址可为空，非空时只接受 HTTP(S) 绝对 URL，建议使用清晰的正方形图片。
-- `section` 是固定枚举，不提供分区管理能力；公开结果按分区固定顺序 `FRIENDS`、`EXPERTS`、`PEERS` 分组，每组按 `sort_no ASC, id ASC` 排序。
+- `section` 是固定枚举，不提供分区管理能力；公开结果按分区固定顺序 `FRIENDS`、`EXPERTS` 分组，每组按 `sort_no ASC, id ASC` 排序。
+- `V1.3.0__remove_peer_friend_link_section.sql` 将历史 `PEERS` 记录迁入 `FRIENDS`，再收紧 `section` 检查约束；保留记录 ID、资料、状态、排序及原审计时间，不修改历史 migration。
 - 公开查询只读取 `status = 'ENABLED'` 的记录；后台查询可包含停用记录。
 - 数据库不创建业务表之间的物理外键；友链是独立内容，不关联申请留言。友链申请通过留言板人工沟通，不在本表记录申请状态。
 - 友链页展示的本站申请资料来自后端必填运行时配置，不持久化到数据库，因此不新增站点资料表或 Flyway migration。
@@ -1150,5 +1152,5 @@ CREATE INDEX IF NOT EXISTS idx_blog_friend_link_created_at
 - 浏览去重 key 只保存在 Redis 一小时，PostgreSQL 保存文章总量和每日聚合
 - 通知收件记录只面向登录用户；留言板公告不保存通知已读状态
 - 邮件投递失败原因只能保存安全摘要，手动重试根据业务关联重新生成正文
-- 友链分区固定为 FRIENDS、EXPERTS、PEERS，由管理员直接维护友链记录，不保存留言申请状态
-- `V1.0.0` 只创建了空的 `blog_friend_link` 占位表，migration 和 devdata 均未播种友链记录。`V1.2.12` 删除该空占位表并按本节最终结构重建，固定三个分区并将新建友链排序默认值设为 `100`。
+- 友链分区固定为 FRIENDS、EXPERTS，由管理员直接维护友链记录，不保存留言申请状态
+- `V1.0.0` 只创建了空的 `blog_friend_link` 占位表，migration 和 devdata 均未播种友链记录。`V1.2.12` 删除该空占位表并重建，最初固定三个分区并将新建友链排序默认值设为 `100`；`V1.3.0` 保留全部友链并移除 PEERS 分区。

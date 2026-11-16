@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import type { GlobalConfig } from 'md-editor-v3';
 import { configureEditorMarkdown } from './markdownEditor';
+import { createEditorRubyHtml } from './editorRuby';
 
 // 使用编辑器实际依赖的解析器验证规则，避免额外安装另一份 Markdown 实现。
 const dependencyRequire = createRequire(createRequire(import.meta.url).resolve('md-editor-v3'));
@@ -18,11 +19,43 @@ function render(markdown: string) {
 }
 
 describe('editor Markdown rendering', () => {
-	it('parses Markdown after the blank line following an uploaded HTML image', () => {
-		const body = render(
-			'<img src="https://img.example.com/a.png" alt="图" />\n\n**图片后正文**',
-		);
+	it('preserves literal Markdown symbols typed into the Ruby toolbar', () => {
+		const ruby = createEditorRubyHtml('**漢字** $x_1$ [文字]', '*かんじ* _よみ_');
+		const body = render(ruby);
+		expect(body.querySelector('ruby rt')?.textContent).toBe('*かんじ* _よみ_');
+		expect(body.querySelector('ruby')?.firstChild?.textContent).toBe('**漢字** $x_1$ [文字]');
+		expect(body.querySelector('strong, em, a')).toBeNull();
+	});
+
+	it('renders native Ruby inline and keeps code examples literal', () => {
+		const ruby = '<ruby>漢字<rp>（</rp><rt>かんじ</rt><rp>）</rp></ruby>';
+		const body = render(`学ぶ${ruby}です。\n\n\`${ruby}\`\n\n\`\`\`html\n${ruby}\n\`\`\``);
+		expect(body.querySelectorAll('ruby')).toHaveLength(1);
+		expect(body.querySelector('ruby rt')?.textContent).toBe('かんじ');
+		expect(body.querySelectorAll('ruby rp')).toHaveLength(2);
+		expect(body.querySelector('p code')?.textContent).toBe(ruby);
+		expect(body.querySelector('pre code')?.textContent).toBe(`${ruby}\n`);
+	});
+
+	it.each([
+		'<img src="https://img.example.com/a.png" alt="图" />',
+		'<p><img src="https://img.example.com/a.png" alt="图" /></p>',
+	])('parses Markdown after an image block: %s', (image) => {
+		const body = render(`${image}\n\n**图片后正文**`);
 		expect(body.querySelector('img')?.getAttribute('alt')).toBe('图');
+		expect(body.querySelector('strong')?.textContent).toBe('图片后正文');
+	});
+
+	it('keeps multiple uploaded images in separate paragraphs before the following Markdown', () => {
+		const body = render(
+			'<p><img src="/first.png" alt="第一张" /></p>\n<p><img src="/second.png" alt="第二张" /></p>\n\n**图片后正文**',
+		);
+		const images = Array.from(body.querySelectorAll('p > img:only-child'));
+		expect(images.map((image) => image.getAttribute('src'))).toEqual([
+			'/first.png',
+			'/second.png',
+		]);
+		expect(images[0]!.parentElement).not.toBe(images[1]!.parentElement);
 		expect(body.querySelector('strong')?.textContent).toBe('图片后正文');
 	});
 

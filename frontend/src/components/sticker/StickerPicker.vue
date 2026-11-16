@@ -19,12 +19,10 @@
 				<i-lucide-x />
 			</button>
 		</header>
-		<div
+		<AppLoading
 			v-if="loading"
-			class="sticker-picker__state"
-		>
-			正在加载表情…
-		</div>
+			:loading="true"
+		/>
 		<div
 			v-else-if="failed"
 			class="sticker-picker__state"
@@ -41,7 +39,10 @@
 			<div
 				:key="selectedPack.id"
 				class="sticker-picker__items app-scrollbar"
-				:style="{ '--sticker-cell-min-width': `${selectedPack.gridMinWidthRem ?? 3}rem` }"
+				:style="{
+					'--sticker-min-height': `${stickerHeight}rem`,
+					'--sticker-cell-min-width': `${stickerHeight * maxAspectRatio + 1.5}rem`,
+				}"
 			>
 				<button
 					v-for="sticker in selectedPack.items"
@@ -55,6 +56,7 @@
 					<StickerImage
 						:name="sticker.name"
 						:url="sticker.url"
+						@load="measureSticker"
 					/>
 				</button>
 			</div>
@@ -85,17 +87,32 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useStickers } from '@/composables/useStickers';
 import type { Sticker } from '@/types/sticker';
 import StickerImage from '@/components/sticker/StickerImage.vue';
+import AppLoading from '@/components/AppLoading.vue';
 
 const { packs, loading, failed, loadStickers } = useStickers();
 const selectedId = ref('');
 const selectedPack = computed(
 	() => packs.value.find((pack) => pack.id === selectedId.value) || packs.value[0],
 );
+const stickerHeight = computed(() => selectedPack.value?.minHeightRem ?? 1.5);
+const maxAspectRatio = ref(1);
+watch(selectedPack, () => (maxAspectRatio.value = 1));
 const emit = defineEmits<{ select: [sticker: Sticker]; close: [] }>();
+
+function measureSticker(event: Event) {
+	// 懒加载图片就绪后为横向表情留足列宽，切换库时重新测量，避免沿用上一库的比例。
+	const image = event.target as HTMLImageElement;
+	if (image.naturalHeight) {
+		maxAspectRatio.value = Math.max(
+			maxAspectRatio.value,
+			image.naturalWidth / image.naturalHeight,
+		);
+	}
+}
 </script>
 
 <style scoped lang="scss">

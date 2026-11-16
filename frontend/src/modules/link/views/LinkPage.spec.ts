@@ -42,7 +42,6 @@ describe('LinkPage', () => {
 					},
 				]),
 				makeSection('EXPERTS', '大佬们'),
-				makeSection('PEERS', '同行者'),
 			]),
 			loading: ref(false),
 			loadFailed: ref(false),
@@ -71,7 +70,8 @@ describe('LinkPage', () => {
 
 		expect(wrapper.text()).toContain('友人帐');
 		expect(wrapper.text()).toContain('大佬们');
-		expect(wrapper.text()).toContain('同行者');
+		expect(wrapper.findAll('.friend-links-section')).toHaveLength(2);
+		expect(wrapper.text()).not.toContain('同行者');
 		expect(wrapper.text()).toContain('静待有缘者。');
 		expect(wrapper.text()).toContain('开放友链申请，请至');
 		expect(wrapper.text()).toContain('留言板');

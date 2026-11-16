@@ -2323,13 +2323,13 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 
 ### 11.0 预置表情目录
 
-该目录由文章评论和留言板共用，保留历史路径 `/api/v1/comments/stickers`，不新增留言专用接口。当前库名称为 Alus（alus）、Bili 小电视（bilibili）、Bili 表情（bmoji）、QQ（qq）、微信（wechat）；展示名称可调整，库 ID、标记和资源路径保持稳定。
+该目录由文章评论和留言板共用，保留历史路径 `/api/v1/comments/stickers`，不新增留言专用接口。当前库名称为 Alus（alus）、Bangumi 娘（bangumi）、Bili 小电视（bilibili）、Bili 表情（bmoji）、叶え（かなえ）（kanae）、QQ（qq）、蛆音娘（qyn）、微信（wechat）；展示名称可调整，库 ID、标记和资源路径保持稳定。
 
 `GET /api/v1/comments/stickers`，权限 PUBLIC。返回通用响应，data 为表情库数组；每库包含 `id`、`name`、`iconUrl`、`items`，每项包含 `token`（例如 `[sticker:bilibili:doge]`）、`name`（沿用清单 item 名）、`url`（同源 `/stickers/...` 路径）。目录由前端 public/stickers 下的各库 info.json 按原顺序生成至后端资源，不提供写接口。前端缓存当前应用会话的成功目录，加载失败可重试；失败时普通文本评论仍可提交，无法确认的标记按普通文本计数和展示。
 
 前台评论读取与创建响应的 content 保留标记；后台审核列表 content 转为 `[表情名]`，评论回复通知的 content / originalContent 与邮件只提供文字替代，不解析 HTML。通知快照超过 2000 字符时截断并加省略号，完整评论不受影响。
 
-每库还可返回可选的 `gridMinWidthRem` 正数，单位 rem，来自对应 info.json；未配置时不返回，前端默认 3rem。Alus 配置为 4.5rem。该字段仅控制选择器列的最小宽度，不改变图片高度、宽高比、表情标记或存储结构；生成脚本拒绝非数值、非有限数或非正数。
+每库还可返回可选的 `minHeightRem` 正数，单位 rem，来自对应 info.json；未配置时不返回，前端默认 1.5rem。bangumi、kanae 和 qyn 配置为 2.5rem。该字段统一控制正文与选择器中表情图片的最小显示高度，选择器列宽随高度调整；正方形图片按相同宽高显示，其他图片保持原比例，底部库切换图标保持 1.5rem。该字段不改变表情标记或存储结构；生成脚本拒绝非数值、非有限数或非正数。
 
 ## 11.1 获取顶层评论分页列表
 
@@ -2619,7 +2619,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 }
 ```
 
-文章封面上传后由前端把 URL 回填至原有封面输入框；文章和关于页正文图片上传后在编辑器中插入 `<img src="图片地址" alt="原文件名" />`，属性值进行 HTML 转义，不自动添加 title，作者可手动补充图注。只插入成功结果，保留文件选择顺序，历史 Markdown 图片语法继续支持。`ABOUT_CONTENT` 使用 `about/content/YYYY/MM/UUID.扩展名` 对象 key，其余校验及返回结构不变。该接口仅创建 OSS 对象，不直接修改文章、关于页或项目数据。
+文章封面上传后由前端把 URL 回填至原有封面输入框；文章和关于页正文图片上传后在编辑器中插入 `<p><img src="图片地址" alt="原文件名" /></p>`，每张图片独占一个段落，图片组后保留空行；属性值进行 HTML 转义，不自动添加 title，作者可手动补充图注。只插入成功结果，保留文件选择顺序，历史 Markdown 图片语法继续支持。`ABOUT_CONTENT` 使用 `about/content/YYYY/MM/UUID.扩展名` 对象 key，其余校验及返回结构不变。该接口仅创建 OSS 对象，不直接修改文章、关于页或项目数据。
 
 ## 14. 业务规则补充
 
@@ -2651,6 +2651,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 - 文章必须绑定二级分类，不能直接绑定一级分类
 - 文章保存或更新时，后端应以 `contentMd` 为源自动生成并持久化经过白名单清洗的 `contentHtml`；行内 Markdown `==文字==` 转换为 `<mark>文字</mark>`，代码区域中的等号不作为高亮标记解析。白名单保留 `<small>`、`<big>`、`<mark>` 安全语义标签但不放开其额外属性。链接允许同源相对 URL 与 HTTP、HTTPS、mailto 绝对 URL，不允许协议相对 URL、危险协议或事件处理属性
 - 文章、实际效果预览、关于页和隐私政策的 HTML 白名单同时保留 `<font>` 标签及 `color` 属性，支持与粗体、下划线嵌套；font 的其他属性（包括 style、class、size、face 和事件处理属性）仍被清洗
+- 文章、实际效果预览、关于页和隐私政策的 HTML 白名单保留原生 `ruby`、`rt`、`rp`，不保留这些标签的额外属性；代码和转义内容中的标签仍作为字面量。含 Ruby 的纯文本正文去除读音 `rt` 和备用括号 `rp`、保留原文连续文本。管理端仍提交 `contentMd`，前端工具栏生成经过文本转义的 Ruby HTML；不新增接口或字段，不自动重写历史正文。
 - `contentHtml` 保留 `$...$`、`\(...\)`、`$$...$$`、`\[...\]` 公式源；公开文章详情前端使用 KaTeX 排版，后端不存储排版器生成的 HTML
 - 文章保存或更新时，后端应以 `contentMd` 为源自动提取并持久化 `contentText`
 - 前台文章详情接口优先返回 `contentHtml` 用于页面渲染
@@ -2721,20 +2722,21 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.admin
 | `POST` | `/api/v1/admin/friend-links` | `ADMIN` | 创建友链 |
 | `PUT` | `/api/v1/admin/friend-links/{friendLinkId}` | `ADMIN` | 更新友链资料、分区、状态和排序 |
 | `DELETE` | `/api/v1/admin/friend-links/{friendLinkId}` | `ADMIN` | 永久删除友链 |
-| `GET` | `/api/v1/friend-links` | `PUBLIC` | 获取固定顺序的三个分区及其启用友链 |
+| `GET` | `/api/v1/friend-links` | `PUBLIC` | 获取固定顺序的两个分区及其启用友链 |
 | `GET` | `/api/v1/friend-links/site-profile` | `PUBLIC` | 获取本站友链申请资料 |
 
 后台列表返回启用和停用记录，并按创建时间和 ID 倒序分页；
 每页沿用通用分页上限。所有后台写操作通过既有 `@AdminAudit` 机制记录成功和失败审计。
 
-公开接口始终按 `FRIENDS`、`EXPERTS`、`PEERS` 顺序返回“友人帐”“大佬们”“同行者”三个分区；
+公开接口始终按 `FRIENDS`、`EXPERTS` 顺序返回“友人帐”“大佬们”两个分区；
 每个分区的 `records` 可为空，记录按 `sortNo ASC, id ASC` 排序，仅包含 `ENABLED` 友链。
 公开记录返回 `id`、`name`、`url`、`logoUrl`、`description`、`section`、`sortNo`，不返回状态和后台时间字段；
 未设置头像图片或网站代表图时 `logoUrl` 返回空字符串。接口无需登录、不分页，响应使用 `Cache-Control: no-store`。
 
 友链请求字段为 `name`（必填，1–100 字符）、`url`（必填，HTTPS 绝对 URL，最长 500 字符）、
 `description`（可空，最长 255 字符）、`logoUrl`（可空，头像图片或网站代表图地址，HTTP(S) 绝对 URL，最长 500 字符；建议使用清晰的正方形图片）、
-`section`（必填，`FRIENDS`/`EXPERTS`/`PEERS`）、`sortNo`（32 位整数）和 `status`（`ENABLED`/`DISABLED`）。
+`section`（必填，`FRIENDS`/`EXPERTS`）、`sortNo`（32 位整数）和 `status`（`ENABLED`/`DISABLED`）。
+v1.3.0 移除旧分区 `PEERS`，历史记录迁入 `FRIENDS`；后台筛选、创建和更新传入 `PEERS` 均返回 HTTP 400、业务码 `199001`。
 创建时状态默认 `ENABLED`、排序默认 100；排序值越小越靠前，可预留间隔便于后续插入。后台列表仍按创建时间和 ID 倒序；未填写的可空文本字段规范化为空字符串。
 名称和描述按纯文本展示，不解析 HTML 或 Markdown；头像图片或网站代表图由浏览器直接请求填写的 URL，后端不代理图片、不自动下载或转存到 OSS。可填写申请者提供的外站图片地址，也可填写管理员人工上传后的 OSS 地址，不要求必须使用本站 OSS。
 重复网站地址返回 HTTP 409、业务码 `109002`；目标不存在返回 HTTP 404、业务码 `109001`。

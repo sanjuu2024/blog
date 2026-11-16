@@ -96,6 +96,8 @@ defineProps<{
 
 <style lang="scss" scoped>
 .card-wrapper {
+	display: flex;
+	flex-direction: column;
 	border: 2px solid var(--app-border);
 	transition:
 		border 0.1s ease-in-out,
@@ -111,13 +113,22 @@ defineProps<{
 		}
 	}
 
+	.card-wrapper__inner {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+	}
+
 	.img {
 		height: 300px;
+		flex-shrink: 0;
 	}
 
 	.content {
-		position: relative;
+		display: flex;
 		min-height: 200px;
+		flex: 1;
+		flex-direction: column;
 		padding: 1rem;
 
 		.content__category {
@@ -148,11 +159,9 @@ defineProps<{
 		}
 
 		.content__meta {
-			position: absolute;
-			bottom: 1rem;
-			left: 1rem;
 			display: flex;
 			align-items: center;
+			margin-top: auto;
 			font-size: 0.8rem;
 			color: var(--app-text-muted);
 		}

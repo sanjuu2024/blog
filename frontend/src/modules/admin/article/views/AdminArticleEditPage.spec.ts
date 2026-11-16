@@ -93,7 +93,8 @@ vi.mock('@/modules/admin/file/composables/useAdminImageUpload', () => ({
 	}),
 }));
 
-vi.mock('md-editor-v3', () => ({
+vi.mock('md-editor-v3', async (importOriginal) => ({
+	...(await importOriginal<typeof import('md-editor-v3')>()),
 	config: vi.fn(),
 	MdEditor: {
 		name: 'MdEditor',
@@ -234,7 +235,7 @@ describe('AdminArticleEditPage', () => {
 		expect(editorInsert).toHaveBeenCalledTimes(1);
 		expect(editorInsert.mock.calls[0]![0]('选中文本')).toEqual({
 			targetValue:
-				'<img src="https://img.example.com/architecture.png" alt="架构图.png" />\n\n',
+				'<p><img src="https://img.example.com/architecture.png" alt="架构图.png" /></p>\n\n',
 			select: false,
 		});
 		expect(ElMessage.warning).toHaveBeenCalledWith('已插入 1 张图片，1 张上传失败');
@@ -318,7 +319,7 @@ describe('AdminArticleEditPage', () => {
 		await flushPromises();
 		expect(editorInsert.mock.calls[0]![0]('')).toEqual({
 			targetValue:
-				'<img src="https://img.example.com/first.png" alt="第一张.png" />\n<img src="https://img.example.com/second.png" alt="第二张.png" />\n\n',
+				'<p><img src="https://img.example.com/first.png" alt="第一张.png" /></p>\n<p><img src="https://img.example.com/second.png" alt="第二张.png" /></p>\n\n',
 			select: false,
 		});
 		expect(callback).toHaveBeenCalledExactlyOnceWith([]);

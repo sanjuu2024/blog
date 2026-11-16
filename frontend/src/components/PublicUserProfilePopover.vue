@@ -24,12 +24,10 @@
 		</template>
 
 		<div class="public-user-profile-popover__content">
-			<div
+			<AppLoading
 				v-if="loading"
-				class="public-user-profile-popover__state"
-			>
-				<i-lucide-loader class="animate-spin text-xl text-gray-400" />
-			</div>
+				:loading="true"
+			/>
 
 			<div
 				v-else-if="loadFailed"
@@ -98,6 +96,7 @@
 import { nextTick, ref, watch } from 'vue';
 import { useResizeObserver } from '@vueuse/core';
 import AppUserAvatar from './AppUserAvatar.vue';
+import AppLoading from './AppLoading.vue';
 import { getPublicUserProfile } from '@/modules/user/api/userApi';
 import type { PublicUserProfileData } from '@/modules/user/types/user';
 

@@ -126,7 +126,7 @@
 				class="article-summary"
 				v-if="article.summary"
 			>
-				<p class="text-center text-sm text-(--app-text-muted)">{{ article.summary }}</p>
+				<p class="text-center text-(--app-text-muted)">{{ article.summary }}</p>
 			</div>
 
 			<!-- 文章内容 -->
@@ -357,13 +357,15 @@ function jumpToComments() {
 	transform: translateX(calc(var(--app-article-catalog-sidebar-width) - 16px));
 }
 
-@media (width < 376px) {
+@media (width < 425px) {
 	.article-title {
 		h1 {
 			font-size: 1.75rem;
 		}
 	}
+}
 
+@media (width < 376px) {
 	.article-author-and-published-at {
 		flex-direction: column;
 		gap: 0.5rem;

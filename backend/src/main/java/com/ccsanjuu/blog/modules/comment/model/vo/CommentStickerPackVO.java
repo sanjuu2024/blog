@@ -12,7 +12,7 @@ public record CommentStickerPackVO(
         String id,
         String name,
         String iconUrl,
-        Double gridMinWidthRem,
+        Double minHeightRem,
         List<CommentStickerVO> items
 ) {
     public CommentStickerPackVO {

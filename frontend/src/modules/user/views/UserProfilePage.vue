@@ -67,12 +67,10 @@
 				/>
 				<span>点赞过的文章</span>
 			</div>
-			<div
+			<AppLoading
 				v-if="likedArticlesLoading"
-				class="article-list-empty"
-			>
-				<p class="article-list-empty__title">正在加载点赞文章</p>
-			</div>
+				:loading="true"
+			/>
 			<div
 				v-else-if="likedArticlesLoadFailed"
 				class="article-list-empty"
@@ -131,6 +129,7 @@ import getRouteIcon from '@/utils/getRouteIcon';
 import { useUserProfile } from '../composables/useUserProfile';
 import { USER_ROLE } from '../types/user';
 import ArticleListItem from '@/modules/article/components/ArticleListItem.vue';
+import AppLoading from '@/components/AppLoading.vue';
 
 const isMobile = useMediaQuery('(width < 400px)');
 const isLt768 = useMediaQuery('(width < 768px)');

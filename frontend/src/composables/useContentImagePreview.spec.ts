@@ -6,7 +6,7 @@ import AdminArticlePreviewDialog from '@/modules/admin/article/components/AdminA
 import AboutPage from '@/modules/about/views/AboutPage.vue';
 import { getAboutPage } from '@/modules/about/api/aboutApi';
 
-vi.mock('@/utils/prism', () => ({ highlightCodeUnder: vi.fn() }));
+vi.mock('@/utils/shiki', () => ({ highlightCodeUnder: vi.fn() }));
 vi.mock('@/modules/about/api/aboutApi', () => ({ getAboutPage: vi.fn() }));
 
 function setDimensions(image: HTMLImageElement, width = 1600, height = 1000) {

@@ -48,6 +48,30 @@ describe('PublicUserProfilePopover', () => {
 	});
 	afterEach(() => vi.restoreAllMocks());
 
+	it('shows the shared loader only while the profile request is pending', async () => {
+		const profile = {
+			id: 10001,
+			username: 'admin',
+			nickname: '管理员',
+			avatarUrl: '',
+			role: 'ADMIN' as const,
+			bio: '站点作者',
+		};
+		let finishLoading!: (value: typeof profile) => void;
+		vi.mocked(getPublicUserProfile).mockImplementationOnce(
+			() => new Promise((resolve) => (finishLoading = resolve)),
+		);
+		const wrapper = mountPopover();
+		expect(wrapper.find('.app-loading').exists()).toBe(false);
+		await wrapper.get('.popover-reference').trigger('mouseenter');
+		expect(wrapper.find('.app-loading__image').exists()).toBe(true);
+		expect(wrapper.find('.public-user-profile-popover__header').exists()).toBe(false);
+		finishLoading(profile);
+		await vi.waitFor(() => expect(wrapper.text()).toContain('站点作者'));
+		expect(wrapper.find('.app-loading').exists()).toBe(false);
+		wrapper.unmount();
+	});
+
 	it('uses the default slot as reference and loads the profile only once', async () => {
 		vi.mocked(getPublicUserProfile).mockResolvedValue({
 			id: 10001,

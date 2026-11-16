@@ -82,6 +82,30 @@ describe('UserProfilePage bio', () => {
 		});
 	});
 
+	it('uses the shared loader until liked articles finish loading', async () => {
+		let finishLoading!: (value: unknown) => void;
+		mocks.getLikedArticles.mockImplementationOnce(
+			() => new Promise((resolve) => (finishLoading = resolve)),
+		);
+		const wrapper = mountPage();
+		await flushPromises();
+		expect(wrapper.find('.app-loading__image').exists()).toBe(true);
+		expect(wrapper.text()).not.toContain('暂无点赞的文章');
+		expect(wrapper.text()).not.toContain('正在加载点赞文章');
+		finishLoading({
+			records: [],
+			pageNum: 1,
+			pageSize: 5,
+			total: 0,
+			totalPages: 0,
+			hasNext: false,
+		});
+		await flushPromises();
+		expect(wrapper.find('.app-loading').exists()).toBe(false);
+		expect(wrapper.text()).toContain('暂无点赞的文章');
+		wrapper.unmount();
+	});
+
 	it('passes desktop and mobile avatar badge sizes', async () => {
 		mocks.isMobile = false;
 		const desktopWrapper = mountPage();
