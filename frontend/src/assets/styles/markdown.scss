@@ -4,12 +4,28 @@
 	}
 }
 
+:is(.article-markdown.markdown-body, .md-editor-preview) {
+	--app-markdown-font-size-increment: 0.125rem;
+
+	font-size: calc(16px + var(--app-markdown-font-size-increment));
+
+	// 在原始标题字号上增加同一增量，避免继承放大的正文后再次按 em 放大。
+	@each $heading, $font-size in (h1: 32px, h2: 24px, h3: 20px, h4: 16px, h5: 16px, h6: 16px) {
+		#{$heading} {
+			font-size: calc(#{$font-size} + var(--app-markdown-font-size-increment));
+		}
+	}
+}
+
 :is(.article-markdown, .md-editor-preview) ruby {
 	ruby-position: over;
 	ruby-align: center;
 
 	rt {
-		font-size: 0.6em;
+		font-size: calc(
+			(1em - var(--app-markdown-font-size-increment)) * 0.6 +
+				var(--app-markdown-font-size-increment)
+		);
 		line-height: 1;
 		font-weight: 400;
 		color: inherit;
@@ -19,6 +35,40 @@
 .article-markdown.markdown-body {
 	--fontStack-sansSerif: var(--app-font-family);
 	color: var(--app-text);
+
+	code,
+	tt,
+	samp,
+	pre {
+		font-size: calc(13.6px + var(--app-markdown-font-size-increment));
+	}
+
+	:is(h1, h2, h3, h4, h5, h6) :is(code, tt),
+	pre code,
+	pre tt {
+		font-size: inherit;
+	}
+
+	small {
+		font-size: calc(
+			(1em - var(--app-markdown-font-size-increment)) * 0.9 +
+				var(--app-markdown-font-size-increment)
+		);
+	}
+
+	sub,
+	sup {
+		font-size: calc(
+			(1em - var(--app-markdown-font-size-increment)) * 0.75 +
+				var(--app-markdown-font-size-increment)
+		);
+	}
+
+	.footnotes,
+	.csv-data td,
+	.csv-data th {
+		font-size: calc(12px + var(--app-markdown-font-size-increment));
+	}
 
 	p {
 		line-height: 2rem;
@@ -89,7 +139,7 @@
 		min-width: 0;
 		margin-top: 0.5rem;
 		color: var(--app-text-muted);
-		font-size: 0.875rem;
+		font-size: calc(0.875rem + var(--app-markdown-font-size-increment));
 		font-weight: 400;
 		line-height: 1.6;
 		text-align: center;
@@ -182,7 +232,7 @@
 			background: transparent;
 			color: inherit;
 			font-family: inherit;
-			font-size: 0.9rem;
+			font-size: calc(0.9rem + var(--app-markdown-font-size-increment));
 			line-height: 1.6;
 			text-shadow: none;
 			counter-reset: code-line;
@@ -199,7 +249,7 @@
 			background: #1e1e1e;
 			color: #d4d4d4;
 			font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
-			font-size: 0.9rem;
+			font-size: calc(0.9rem + var(--app-markdown-font-size-increment));
 			line-height: 1.6;
 			white-space: pre;
 			tab-size: 4;
@@ -277,7 +327,7 @@
 			background: rgba(255, 255, 255, 0.08);
 			box-shadow: none;
 			color: rgba(255, 255, 255, 0.72);
-			font-size: 12px;
+			font-size: calc(12px + var(--app-markdown-font-size-increment));
 			line-height: 1;
 			white-space: nowrap;
 		}
@@ -359,5 +409,20 @@
 
 	pre[class*='language-']::-webkit-scrollbar-thumb:hover {
 		background: rgba(255, 255, 255, 0.25);
+	}
+}
+
+.md-editor-preview {
+	.md-editor-admonition,
+	.md-editor-code pre code,
+	.md-editor-code .md-editor-code-head .md-editor-code-flag ul.md-editor-codetab-label li label,
+	figure figcaption {
+		font-size: calc(14px + var(--app-markdown-font-size-increment));
+	}
+
+	.md-editor-code,
+	.md-editor-code .md-editor-code-head,
+	.md-editor-code .md-editor-code-head .md-editor-copy-button[data-is-icon]::before {
+		font-size: calc(12px + var(--app-markdown-font-size-increment));
 	}
 }
