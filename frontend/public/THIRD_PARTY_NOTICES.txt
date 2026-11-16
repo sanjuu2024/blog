@@ -69,7 +69,7 @@ Long Cang 使用 SIL Open Font License 1.1，可免费用于个人与商业项�
 
 3. 评论与留言预置表情
 
-Alus、Bili 小电视、Bili 表情、QQ、微信表情及 info.json 来自 Waline Emojis：
+Alus、哔哩哔哩小电视、哔哩哔哩表情、QQ、微信表情的素材与原始清单来自 Waline Emojis：
 https://github.com/walinejs/emojis
 https://github.com/walinejs/emojis/blob/main/README.md
 
@@ -79,14 +79,14 @@ https://github.com/walinejs/emojis/blob/main/LICENSE
 本地资源与维护说明：/stickers/README.md
 
 Waline README 注明 alus、bilibili、qq 等资源整理自 https://github.com/MiniValine。
-保留原图片、文件名和清单顺序；本项目另生成评论目录。各图像、角色和商标的权利归各自权利人，不表示其对本项目的背书。
+保留源图片和条目顺序；本项目整理展示名称、资源前缀与尺寸配置，另生成评论目录。小电视前缀由 bb_ 调整为 btv_，库 ID 与条目名保持不变。各图像、角色和商标的权利归各自权利人，不表示其对本项目的背书。
 
 其他表情库的素材获取来源：
 
 Bangumi 娘（bangumi）：
 https://bangumi.tv/blog/370650
 
-蛆音娘（qyn）、叶え（かなえ）（kanae）、夏目友人帐（natsume）、齐木楠雄的灾难（saikikusuo）、关于我转生变成史莱姆这档事（rimuru）、撕梓咩（suzume）：
+蛆音娘（qyn）、叶え（かなえ）（kanae）、夏目友人帐（natsume）、齐木楠雄的灾难（saikikusuo）、关于我转生变成史莱姆这档事（rimuru）、撕梓咩（suzume）、鲨猫（sharkitty）：
 https://bmoji.3mua.cn/list
 
 上述新增素材的来源按各自页面记录，Waline 仓库许可证说明对应前述来自 Waline 的五个表情库。各表情图像、角色与商标的权利归各自权利人所有。

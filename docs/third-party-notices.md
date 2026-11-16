@@ -37,7 +37,7 @@
 
 ## 3. 评论与留言预置表情
 
-评论和留言选择器使用的 Alus（`alus`）、Bili 小电视（`bilibili`）、Bili 表情（`bmoji`）、QQ（`qq`）、微信（`wechat`）五个表情库及其 `info.json` 来源于 [Waline Emojis](https://github.com/walinejs/emojis)，保存在 `frontend/public/stickers/`，通过本站静态资源提供，不从第三方 CDN 热链加载。本项目保留原图片、文件名与清单顺序，另从清单生成供评论和留言共用的目录。
+评论和留言选择器使用的 Alus（`alus`）、哔哩哔哩小电视（`bilibili`）、哔哩哔哩表情（`bmoji`）、QQ（`qq`）、微信（`wechat`）五个表情库的素材与原始清单来源于 [Waline Emojis](https://github.com/walinejs/emojis)，保存在 `frontend/public/stickers/`，通过本站静态资源提供，不从第三方 CDN 热链加载。本项目保留源图片和条目顺序，整理展示名称、资源前缀与尺寸配置，另从清单生成供评论和留言共用的目录；小电视前缀由 bb_ 调整为 btv_，库 ID 与条目名保持不变。
 
 - 上游仓库：https://github.com/walinejs/emojis
 - 上游说明：https://github.com/walinejs/emojis/blob/main/README.md
@@ -56,6 +56,7 @@
 | 齐木楠雄的灾难 | `saikikusuo` | [Bmoji 表情列表](https://bmoji.3mua.cn/list) |
 | 关于我转生变成史莱姆这档事 | `rimuru` | [Bmoji 表情列表](https://bmoji.3mua.cn/list) |
 | 撕梓咩 | `suzume` | [Bmoji 表情列表](https://bmoji.3mua.cn/list) |
+| 鲨猫 | `sharkitty` | [Bmoji 表情列表](https://bmoji.3mua.cn/list) |
 
 上述新增素材的来源按各自页面记录，Waline 仓库许可证说明对应前述来自 Waline 的五个表情库。各表情图像、角色与商标的权利归各自权利人所有。
 
