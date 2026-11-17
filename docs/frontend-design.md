@@ -63,6 +63,8 @@ Element Plus 的 `success`、`warning`、`danger`、`info` 按钮也遵循同样
 
 前端环境变量按 Vite 约定管理，只有 `VITE_` 前缀的变量会暴露给前端运行时代码。
 
+`frontend/.env.production` 中的 VITE_STICKER_BASE_URL 默认使用 https://sticker.ccsanjuu.com，生产构建将目录中的图片与库图标从 `/stickers/库ID/文件名?v=版本` 改为 `HTTPS基址/库ID/文件名?v=版本`；开发环境未配置时保留同源地址。该值只允许无用户名、查询参数及片段的 HTTPS 基址，末尾斜杠会规范化。CDN 地址可公开，Cloudflare API Token、Certbot DNS 凭据和 OSS 部署密钥只保存在服务器仓库外，不能写入前端任何 VITE_ 配置。共享入口域名和证书路径仍由仓库外 ingress/.env 管理，不与 Vite 环境文件混用。
+
 仓库可以提交不同环境的非敏感默认配置，例如：
 
 - `.env.development`
@@ -150,6 +152,7 @@ Element Plus 的 `success`、`warning`、`danger`、`info` 按钮也遵循同样
 ### 6.3 评论和留言的表情输入与内容展示
 
 - 表情图片位于 public/stickers/{库ID}，沿用 info.json 的 items 顺序与 icon。使用 `node scripts/generate-comment-stickers.mjs`（在 frontend 目录执行）生成后端资源目录；不手工维护第二份表情清单。前端从 /api/v1/comments/stickers 读取并缓存成功目录，失败提供重试，普通文本输入与提交仍可用。v1.3.0 共 13 个库、741 个表情，包含鲨猫；小电视和 Bili 表情分别显示为“哔哩哔哩小电视”“哔哩哔哩表情”，库 ID 与标记保持不变，图片地址读取目录响应。
+- 生成脚本为每张图片及库图标计算内容哈希，写入稳定的 v 查询参数；CDN 基址仅由前端在取得目录后应用，不把生产域名写死到生成目录。Nginx 为成功静态图片设置 public、max-age=86400、s-maxage=604800；404 使用 no-store，不回退 SPA。切库会重新创建 img 元素，但同 URL 且仍新鲜的图片可复用浏览器缓存；304 表示重新验证，Cloudflare HIT 表示边缘缓存命中。保持 Cloudflare 标准缓存键中的查询参数，不配置忽略 v 的规则。
 - 顶层评论、评论回复、留言、管理员留言回复及公告共用 StickerTextInput 表情文本输入组件；输入框下方的工具栏包含 `i-solar-emoji-funny-circle-outline` 入口、字数、表情数量和提交操作，展开面板位于整行工具栏下方。面板头部显示当前库名称、数量与关闭入口，中部为限制高度的滚动表情网格，底部为可横向滚动的库图标切换栏。各库可选的 minHeightRem（正数，单位 rem）统一控制正文与选择器的表情图片最小高度，未配置使用 1.5rem，alus 为 2rem，natsume 为 4rem，bangumi、kanae、qyn、rimuru、saikikusuo、sharkitty 和 suzume 为 3rem；通过 --sticker-min-height 应用，不按库 ID 特判。表情区使用 CSS Grid 自动排列等宽列；按当前库已加载图片的最大宽高比（初始至少为 1）乘以显示高度，再加 1.5rem 得到列最小宽度，容器更窄时为 100%，切库时重置宽高比。图片居中、宽度 auto，保持原比例，不随格子拉伸。底部库切换图标保持 1.5rem。使用现有主题变量；不增加最近使用、用户上传或后台维护功能。
 - 插入表情保留输入框原光标/选区并恢复焦点，不在标记中间插入新标记。有效表情标记计 1，其他内容按 UTF-16 长度计算，显示自定义 1000 字数提示及“表情 n / 20”。每条评论、留言或回复及公告最多 20 个有效表情，重复出现逐个计数；插入后超限则保留原内容并提示，替换选区后未超限仍允许。手动输入或粘贴超限内容时显示数量超限状态并阻止提交，未知标记只按文本计数。原生 maxlength 使用原始字符串上限 2260，不使用 maxlength=1000 截断标记。
 - 共用 StickerContent 渲染文本和表情、StickerImage 渲染表情图片，正文与选择器默认高度 1.5rem，宽度 auto；库图标高度 1.5rem，均不设置固定图片宽度，保留非正方形比例。失败显示 [表情名]；公开正文按文本节点和受控图片渲染，不使用用户内容 v-html。后台审核、通知与邮件仅显示文字替代。

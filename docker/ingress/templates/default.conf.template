@@ -47,3 +47,18 @@ server {
         return 301 https://$host$request_uri;
     }
 }
+
+server {
+    listen 80;
+    server_name ${INGRESS_STICKER_HOST};
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        try_files $uri =404;
+        add_header Cache-Control "no-store" always;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}

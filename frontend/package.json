@@ -6,6 +6,7 @@
 	"scripts": {
 		"stickers:generate": "node scripts/generate-comment-stickers.mjs",
 		"stickers:check": "node scripts/generate-comment-stickers.mjs --check",
+		"stickers:test": "node --test scripts/test-generate-comment-stickers.mjs",
 		"dev": "vite --open",
 		"build": "vue-tsc -b && vite build",
 		"build:test": "vue-tsc -b && vite build --mode test",
