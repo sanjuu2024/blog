@@ -1,0 +1,36 @@
+# Only successful static images are cacheable; errors never inherit a long cache lifetime.
+map $status $sticker_cache_control {
+    200 "public, max-age=86400, s-maxage=604800";
+    304 "public, max-age=86400, s-maxage=604800";
+    default "no-store";
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name ${INGRESS_STICKER_HOST};
+
+    ssl_certificate /etc/letsencrypt/live/${INGRESS_STICKER_HOST}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${INGRESS_STICKER_HOST}/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    resolver 127.0.0.11 valid=10s ipv6=off;
+
+    add_header Cache-Control $sticker_cache_control always;
+    add_header X-Content-Type-Options "nosniff" always;
+
+    location ~* ^/[a-z0-9_-]+/[^/]+\.(png|gif|webp)$ {
+        limit_except GET { deny all; }
+        # Preserve the original escaping and version query when adding the static resource prefix.
+        set $project_upstream blog-prod-web:80;
+        proxy_pass http://$project_upstream/stickers$request_uri;
+        include /etc/nginx/snippets/proxy.conf;
+        proxy_set_header Authorization "";
+        proxy_set_header Cookie "";
+        proxy_hide_header Set-Cookie;
+        proxy_hide_header Cache-Control;
+    }
+
+    location / {
+        return 404;
+    }
+}

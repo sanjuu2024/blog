@@ -26,4 +26,6 @@ pnpm stickers:check
 
 生成结果位于 `backend/src/main/resources/comment-stickers/catalog.json`，前端通过公开评论表情接口读取同一目录。当前共 13 个库、741 个表情。不要手动维护生成文件；更新后同时部署前后端。已被评论引用的库 ID、item 名应保留，否则历史标记会退回普通文本；本次资源前缀整理只更新生成 URL，不改变既有表情标记。
 
+生成脚本为图片与库图标添加稳定的 `?v=内容哈希前16位`，不使用部署时间戳。前端生产配置 `VITE_STICKER_BASE_URL=https://sticker.ccsanjuu.com` 将 `/stickers/` 替换为 CDN 基址；不配置或设为空时继续使用同源图片。CDN 和浏览器分别按七天和一天缓存成功响应，404 不缓存；Cloudflare 缓存键需要保留 v 查询参数。部署、证书及更新缓存流程见仓库 `docs/cloudflare-sticker-cdn.md`。
+
 当前只开放预置表情，不提供用户上传或后台管理。评论和留言保存在各自原有 TEXT 字段，以 `[sticker:库ID:表情ID]` 引用资源。

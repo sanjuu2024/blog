@@ -17,6 +17,8 @@ COPY patches ./patches
 RUN pnpm install --frozen-lockfile
 
 COPY . ./
+# Omitted: Vite reads .env.production. An explicit build arg overrides that public default.
+ARG VITE_STICKER_BASE_URL
 RUN pnpm build
 
 FROM nginx:1.29-alpine@sha256:5616878291a2eed594aee8db4dade5878cf7edcb475e59193904b198d9b830de

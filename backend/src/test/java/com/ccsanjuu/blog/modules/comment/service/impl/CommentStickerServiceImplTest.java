@@ -26,7 +26,7 @@ class CommentStickerServiceImplTest {
                 service.getPacks().stream().map(pack -> pack.id()).toList());
         var bilibili = service.getPacks().stream().filter(pack -> pack.id().equals("bilibili")).findFirst().orElseThrow();
         assertEquals("哔哩哔哩小电视", bilibili.name());
-        assertEquals("/stickers/bilibili/btv_cute.png", bilibili.iconUrl());
+        assertTrue(bilibili.iconUrl().matches("/stickers/bilibili/btv_cute\\.png\\?v=[0-9a-f]{16}"));
         assertEquals("[sticker:bilibili:doge]", bilibili.items().getFirst().token());
         Map<String, Double> heights = Map.of("alus", 2.0, "bangumi", 3.0, "kanae", 3.0,
                 "natsume", 4.0, "qyn", 3.0, "rimuru", 3.0, "saikikusuo", 3.0, "sharkitty", 3.0, "suzume", 3.0);
@@ -39,8 +39,13 @@ class CommentStickerServiceImplTest {
         assertEquals("哔哩哔哩表情", service.getPacks().stream().filter(pack -> pack.id().equals("bmoji"))
                 .findFirst().orElseThrow().name());
         assertEquals(741, service.getPacks().stream().mapToInt(pack -> pack.items().size()).sum());
-        assertTrue(service.getPacks().stream().anyMatch(pack -> pack.iconUrl().endsWith(".gif")));
-        assertTrue(service.getPacks().stream().anyMatch(pack -> pack.iconUrl().endsWith(".webp")));
+        assertTrue(service.getPacks().stream().anyMatch(pack -> pack.iconUrl().contains(".gif?v=")));
+        assertTrue(service.getPacks().stream().anyMatch(pack -> pack.iconUrl().contains(".webp?v=")));
+        for (var pack : service.getPacks()) {
+            assertTrue(pack.iconUrl().matches("/stickers/[^?]+\\?v=[0-9a-f]{16}"), pack.id());
+            assertTrue(pack.items().stream().allMatch(item -> item.url()
+                    .matches("/stickers/[^?]+\\?v=[0-9a-f]{16}")), pack.id());
+        }
     }
 
     @Test

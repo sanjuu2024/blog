@@ -5412,7 +5412,10 @@ components:
       properties:
         id: { type: string, example: bilibili }
         name: { type: string, example: 哔哩哔哩小电视 }
-        iconUrl: { type: string, example: /stickers/bilibili/btv_cute.png }
+        iconUrl:
+          type: string
+          description: 同源表情图标地址，附带图片内容 SHA-256 前 16 位的 v 查询参数；前端可按公开配置改写 CDN 基址。
+          example: /stickers/bilibili/btv_cute.png?v=0123456789abcdef
         minHeightRem:
           type: number
           minimum: 0
@@ -5427,7 +5430,10 @@ components:
             properties:
               token: { type: string, example: '[sticker:bilibili:doge]' }
               name: { type: string, example: doge }
-              url: { type: string, example: /stickers/bilibili/btv_doge.png }
+              url:
+                type: string
+                description: 同源表情图片地址，附带图片内容 SHA-256 前 16 位的 v 查询参数；文件内容变化时更新版本，token 不变。
+                example: /stickers/bilibili/btv_doge.png?v=0123456789abcdef
     CreateCommentRequest:
       type: object
       required: [content]

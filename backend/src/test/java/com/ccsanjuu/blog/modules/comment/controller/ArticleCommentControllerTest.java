@@ -40,6 +40,7 @@ import java.time.Duration;
 import java.util.List;
 
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -195,7 +196,8 @@ class ArticleCommentControllerTest {
                 .andExpect(jsonPath("$.data[2].id").value("bilibili"))
                 .andExpect(jsonPath("$.data[2].minHeightRem").doesNotExist())
                 .andExpect(jsonPath("$.data[2].name").value("哔哩哔哩小电视"))
-                .andExpect(jsonPath("$.data[2].iconUrl").value("/stickers/bilibili/btv_cute.png"))
+                .andExpect(jsonPath("$.data[2].iconUrl")
+                        .value(matchesPattern("/stickers/bilibili/btv_cute\\.png\\?v=[0-9a-f]{16}")))
                 .andExpect(jsonPath("$.data[2].items[0].token").value("[sticker:bilibili:doge]"))
                 .andExpect(jsonPath("$.data[4].id").value("kanae"))
                 .andExpect(jsonPath("$.data[4].minHeightRem").value(3))
