@@ -86,7 +86,7 @@ Waline README 注明 alus、bilibili、qq 等资源整理自 https://github.com/
 Bangumi 娘（bangumi）：
 https://bangumi.tv/blog/370650
 
-蛆音娘（qyn）、叶え（かなえ）（kanae）、夏目友人帐（natsume）、齐木楠雄的灾难（saikikusuo）、关于我转生变成史莱姆这档事（rimuru）、撕梓咩（suzume）、鲨猫（sharkitty）：
+哔哩哔哩 2233娘（2233）、蛆音娘（qyn）、叶え（かなえ）（kanae）、夏目友人帐（natsume）、齐木楠雄的灾难（saikikusuo）、关于我转生变成史莱姆这档事（rimuru）、撕梓咩（suzume）、鲨猫（sharkitty）、暹罗猫小豆泥（azuki）：
 https://bmoji.3mua.cn/list
 
 上述新增素材的来源按各自页面记录，Waline 仓库许可证说明对应前述来自 Waline 的五个表情库。各表情图像、角色与商标的权利归各自权利人所有。

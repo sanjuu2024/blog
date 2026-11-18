@@ -1,5 +1,88 @@
 [
   {
+    "id": "2233",
+    "name": "哔哩哔哩 2233娘",
+    "iconUrl": "/stickers/2233/2233_%E8%80%B6.png?v=4fc62fb309ce3bfd",
+    "minHeightRem": 2.5,
+    "items": [
+      {
+        "token": "[sticker:2233:大笑]",
+        "name": "大笑",
+        "url": "/stickers/2233/2233_%E5%A4%A7%E7%AC%91.png?v=58a53ca39e92b969"
+      },
+      {
+        "token": "[sticker:2233:吃惊]",
+        "name": "吃惊",
+        "url": "/stickers/2233/2233_%E5%90%83%E6%83%8A.png?v=8ab674e0b6d92829"
+      },
+      {
+        "token": "[sticker:2233:大哭]",
+        "name": "大哭",
+        "url": "/stickers/2233/2233_%E5%A4%A7%E5%93%AD.png?v=57283107b062d601"
+      },
+      {
+        "token": "[sticker:2233:耶]",
+        "name": "耶",
+        "url": "/stickers/2233/2233_%E8%80%B6.png?v=4fc62fb309ce3bfd"
+      },
+      {
+        "token": "[sticker:2233:卖萌]",
+        "name": "卖萌",
+        "url": "/stickers/2233/2233_%E5%8D%96%E8%90%8C.png?v=b9368cb97e54fd6f"
+      },
+      {
+        "token": "[sticker:2233:疑问]",
+        "name": "疑问",
+        "url": "/stickers/2233/2233_%E7%96%91%E9%97%AE.png?v=77c76cfac916b902"
+      },
+      {
+        "token": "[sticker:2233:汗]",
+        "name": "汗",
+        "url": "/stickers/2233/2233_%E6%B1%97.png?v=fda6e481e762b6b6"
+      },
+      {
+        "token": "[sticker:2233:困惑]",
+        "name": "困惑",
+        "url": "/stickers/2233/2233_%E5%9B%B0%E6%83%91.png?v=6872beb848aebebe"
+      },
+      {
+        "token": "[sticker:2233:怒]",
+        "name": "怒",
+        "url": "/stickers/2233/2233_%E6%80%92.png?v=e4b0b6f4a0ad60a7"
+      },
+      {
+        "token": "[sticker:2233:委屈]",
+        "name": "委屈",
+        "url": "/stickers/2233/2233_%E5%A7%94%E5%B1%88.png?v=6033972c53cc24c7"
+      },
+      {
+        "token": "[sticker:2233:郁闷]",
+        "name": "郁闷",
+        "url": "/stickers/2233/2233_%E9%83%81%E9%97%B7.png?v=ea695483f7b103e1"
+      },
+      {
+        "token": "[sticker:2233:第一]",
+        "name": "第一",
+        "url": "/stickers/2233/2233_%E7%AC%AC%E4%B8%80.png?v=86d37de80d68f9fb"
+      },
+      {
+        "token": "[sticker:2233:喝水]",
+        "name": "喝水",
+        "url": "/stickers/2233/2233_%E5%96%9D%E6%B0%B4.png?v=d531f5dd59382cc6"
+      },
+      {
+        "token": "[sticker:2233:吐魂]",
+        "name": "吐魂",
+        "url": "/stickers/2233/2233_%E5%90%90%E9%AD%82.png?v=a49e216830c3b15e"
+      },
+      {
+        "token": "[sticker:2233:无言]",
+        "name": "无言",
+        "url": "/stickers/2233/2233_%E6%97%A0%E8%A8%80.png?v=55fa2a06054e522f"
+      }
+    ]
+  },
+  {
     "id": "alus",
     "name": "Alus",
     "iconUrl": "/stickers/alus/alus_happy.png?v=b38055471852ca08",
@@ -304,6 +387,189 @@
         "token": "[sticker:alus:whatever]",
         "name": "whatever",
         "url": "/stickers/alus/alus_whatever.png?v=7d8c06ec13e8eca3"
+      }
+    ]
+  },
+  {
+    "id": "azuki",
+    "name": "暹罗猫小豆泥",
+    "iconUrl": "/stickers/azuki/azuki_%E6%8E%A2%E5%A4%B4.png?v=f0ec9625ee1f3265",
+    "minHeightRem": 3,
+    "items": [
+      {
+        "token": "[sticker:azuki:抱大腿]",
+        "name": "抱大腿",
+        "url": "/stickers/azuki/azuki_%E6%8A%B1%E5%A4%A7%E8%85%BF.png?v=e65ab8e3304d33d5"
+      },
+      {
+        "token": "[sticker:azuki:不要]",
+        "name": "不要",
+        "url": "/stickers/azuki/azuki_%E4%B8%8D%E8%A6%81.png?v=ec5e6c041bec2b3f"
+      },
+      {
+        "token": "[sticker:azuki:呆滞]",
+        "name": "呆滞",
+        "url": "/stickers/azuki/azuki_%E5%91%86%E6%BB%9E.png?v=287c0f59a2c67ecc"
+      },
+      {
+        "token": "[sticker:azuki:单纯]",
+        "name": "单纯",
+        "url": "/stickers/azuki/azuki_%E5%8D%95%E7%BA%AF.png?v=97ae8bbb5f3bfae9"
+      },
+      {
+        "token": "[sticker:azuki:好耶]",
+        "name": "好耶",
+        "url": "/stickers/azuki/azuki_%E5%A5%BD%E8%80%B6.png?v=8c41cb711424198c"
+      },
+      {
+        "token": "[sticker:azuki:惊讶]",
+        "name": "惊讶",
+        "url": "/stickers/azuki/azuki_%E6%83%8A%E8%AE%B6.png?v=4324d4973d57c004"
+      },
+      {
+        "token": "[sticker:azuki:哭]",
+        "name": "哭",
+        "url": "/stickers/azuki/azuki_%E5%93%AD.png?v=c0c45db28cd53254"
+      },
+      {
+        "token": "[sticker:azuki:来了]",
+        "name": "来了",
+        "url": "/stickers/azuki/azuki_%E6%9D%A5%E4%BA%86.png?v=797d2931ff9c5bcb"
+      },
+      {
+        "token": "[sticker:azuki:呸]",
+        "name": "呸",
+        "url": "/stickers/azuki/azuki_%E5%91%B8.png?v=42e4a54351273588"
+      },
+      {
+        "token": "[sticker:azuki:探头]",
+        "name": "探头",
+        "url": "/stickers/azuki/azuki_%E6%8E%A2%E5%A4%B4.png?v=f0ec9625ee1f3265"
+      },
+      {
+        "token": "[sticker:azuki:舔]",
+        "name": "舔",
+        "url": "/stickers/azuki/azuki_%E8%88%94.png?v=0b40af35b814d302"
+      },
+      {
+        "token": "[sticker:azuki:投币]",
+        "name": "投币",
+        "url": "/stickers/azuki/azuki_%E6%8A%95%E5%B8%81.png?v=72857706130a546f"
+      },
+      {
+        "token": "[sticker:azuki:苦鲁西]",
+        "name": "苦鲁西",
+        "url": "/stickers/azuki/azuki_%E8%8B%A6%E9%B2%81%E8%A5%BF.png?v=cf863e7ad0a0d9f5"
+      },
+      {
+        "token": "[sticker:azuki:再见]",
+        "name": "再见",
+        "url": "/stickers/azuki/azuki_%E5%86%8D%E8%A7%81.png?v=20d91053d7b6ab9a"
+      },
+      {
+        "token": "[sticker:azuki:震惊]",
+        "name": "震惊",
+        "url": "/stickers/azuki/azuki_%E9%9C%87%E6%83%8A.png?v=77e01b23ff6a13ae"
+      },
+      {
+        "token": "[sticker:azuki:爱了爱了]",
+        "name": "爱了爱了",
+        "url": "/stickers/azuki/azuki_%E7%88%B1%E4%BA%86%E7%88%B1%E4%BA%86.png?v=a1eef124f6db491b"
+      },
+      {
+        "token": "[sticker:azuki:爱泥]",
+        "name": "爱泥",
+        "url": "/stickers/azuki/azuki_%E7%88%B1%E6%B3%A5.png?v=ab465284bd2ca4d4"
+      },
+      {
+        "token": "[sticker:azuki:冲]",
+        "name": "冲",
+        "url": "/stickers/azuki/azuki_%E5%86%B2.png?v=04d0463e45c81a41"
+      },
+      {
+        "token": "[sticker:azuki:盯]",
+        "name": "盯",
+        "url": "/stickers/azuki/azuki_%E7%9B%AF.png?v=68c34a86443e9f9a"
+      },
+      {
+        "token": "[sticker:azuki:哈哈哈]",
+        "name": "哈哈哈",
+        "url": "/stickers/azuki/azuki_%E5%93%88%E5%93%88%E5%93%88.png?v=7d8551232f1d922c"
+      },
+      {
+        "token": "[sticker:azuki:麻了]",
+        "name": "麻了",
+        "url": "/stickers/azuki/azuki_%E9%BA%BB%E4%BA%86.png?v=ebc7cfdfdc47461a"
+      },
+      {
+        "token": "[sticker:azuki:摸鱼]",
+        "name": "摸鱼",
+        "url": "/stickers/azuki/azuki_%E6%91%B8%E9%B1%BC.png?v=849cf75fafa3fda1"
+      },
+      {
+        "token": "[sticker:azuki:莫挨老子]",
+        "name": "莫挨老子",
+        "url": "/stickers/azuki/azuki_%E8%8E%AB%E6%8C%A8%E8%80%81%E5%AD%90.png?v=4c6f425691040643"
+      },
+      {
+        "token": "[sticker:azuki:你不对劲]",
+        "name": "你不对劲",
+        "url": "/stickers/azuki/azuki_%E4%BD%A0%E4%B8%8D%E5%AF%B9%E5%8A%B2.png?v=4e849050db651221"
+      },
+      {
+        "token": "[sticker:azuki:奇怪的知识]",
+        "name": "奇怪的知识",
+        "url": "/stickers/azuki/azuki_%E5%A5%87%E6%80%AA%E7%9A%84%E7%9F%A5%E8%AF%86.png?v=33ab534b2f696297"
+      },
+      {
+        "token": "[sticker:azuki:请你]",
+        "name": "请你",
+        "url": "/stickers/azuki/azuki_%E8%AF%B7%E4%BD%A0.png?v=d6d3ad09157f7da9"
+      },
+      {
+        "token": "[sticker:azuki:让我看看]",
+        "name": "让我看看",
+        "url": "/stickers/azuki/azuki_%E8%AE%A9%E6%88%91%E7%9C%8B%E7%9C%8B.png?v=06348122f87f1b3b"
+      },
+      {
+        "token": "[sticker:azuki:散了散了]",
+        "name": "散了散了",
+        "url": "/stickers/azuki/azuki_%E6%95%A3%E4%BA%86%E6%95%A3%E4%BA%86.png?v=042f534bf8308cf1"
+      },
+      {
+        "token": "[sticker:azuki:生日快乐]",
+        "name": "生日快乐",
+        "url": "/stickers/azuki/azuki_%E7%94%9F%E6%97%A5%E5%BF%AB%E4%B9%90.png?v=b88ed642d981287a"
+      },
+      {
+        "token": "[sticker:azuki:我是学生]",
+        "name": "我是学生",
+        "url": "/stickers/azuki/azuki_%E6%88%91%E6%98%AF%E5%AD%A6%E7%94%9F.png?v=f221aa3c81103323"
+      },
+      {
+        "token": "[sticker:azuki:星星眼]",
+        "name": "星星眼",
+        "url": "/stickers/azuki/azuki_%E6%98%9F%E6%98%9F%E7%9C%BC.png?v=3ff8072e99f3d42c"
+      },
+      {
+        "token": "[sticker:azuki:休息]",
+        "name": "休息",
+        "url": "/stickers/azuki/azuki_%E4%BC%91%E6%81%AF.png?v=6247baed48204563"
+      },
+      {
+        "token": "[sticker:azuki:一键三连]",
+        "name": "一键三连",
+        "url": "/stickers/azuki/azuki_%E4%B8%80%E9%94%AE%E4%B8%89%E8%BF%9E.png?v=4037dade6f225b05"
+      },
+      {
+        "token": "[sticker:azuki:噫]",
+        "name": "噫",
+        "url": "/stickers/azuki/azuki_%E5%99%AB.png?v=12d910d5aa9e863b"
+      },
+      {
+        "token": "[sticker:azuki:针不戳]",
+        "name": "针不戳",
+        "url": "/stickers/azuki/azuki_%E9%92%88%E4%B8%8D%E6%88%B3.png?v=7e29cf68d103178b"
       }
     ]
   },

@@ -58,16 +58,29 @@ export function useContentImagePreview(
 			});
 			viewer = current;
 			const scrollContainer = scrollTarget();
-			const originalGutter = scrollContainer.style.scrollbarGutter;
+			const originalGutter = scrollContainer.style.getPropertyValue('scrollbar-gutter');
+			const originalGutterPriority =
+				scrollContainer.style.getPropertyPriority('scrollbar-gutter');
 			restoreScrollbarGutter = () => {
-				scrollContainer.style.scrollbarGutter = originalGutter;
+				if (originalGutter) {
+					scrollContainer.style.setProperty(
+						'scrollbar-gutter',
+						originalGutter,
+						originalGutterPriority,
+					);
+				} else {
+					scrollContainer.style.removeProperty('scrollbar-gutter');
+				}
 			};
 			// 隐藏滚动条时仍保留原有占位；短页面不额外增加空白。
+			// 部分移动浏览器没有 scrollbarGutter 属性，标准 CSS 接口仍能安全读取空值。
 			if (
 				scrollContainer.scrollHeight > scrollContainer.clientHeight &&
-				!getComputedStyle(scrollContainer).scrollbarGutter.includes('stable')
+				!getComputedStyle(scrollContainer)
+					.getPropertyValue('scrollbar-gutter')
+					.includes('stable')
 			) {
-				scrollContainer.style.scrollbarGutter = 'stable';
+				scrollContainer.style.setProperty('scrollbar-gutter', 'stable');
 			}
 			scrollLocked.value = true;
 
