@@ -19,6 +19,10 @@
 	:is(ol, ul):not(.md-editor-codetab-label) > li + li {
 		margin-top: 0.4em;
 	}
+
+	li > :is(ol, ul):not(.md-editor-codetab-label) {
+		margin-top: 0.4em;
+	}
 }
 
 :is(.article-markdown, .md-editor-preview) ruby {

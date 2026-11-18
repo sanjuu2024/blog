@@ -21,15 +21,22 @@ class CommentStickerServiceImplTest {
 
     @Test
     void shouldPreservePackOrderFormatsAndOriginalNames() {
-        assertEquals(List.of("alus", "bangumi", "bilibili", "bmoji", "kanae", "natsume", "qq", "qyn",
-                        "rimuru", "saikikusuo", "sharkitty", "suzume", "wechat"),
+        assertEquals(List.of("2233", "alus", "azuki", "bangumi", "bilibili", "bmoji", "kanae", "natsume",
+                        "qq", "qyn", "rimuru", "saikikusuo", "sharkitty", "suzume", "wechat"),
                 service.getPacks().stream().map(pack -> pack.id()).toList());
+        assertEquals("哔哩哔哩 2233娘", service.getPacks().getFirst().name());
+        assertEquals(2.5, service.getPacks().getFirst().minHeightRem());
+        assertEquals("暹罗猫小豆泥", service.getPacks().get(2).name());
+        assertEquals(3, service.getPacks().get(2).minHeightRem());
         var bilibili = service.getPacks().stream().filter(pack -> pack.id().equals("bilibili")).findFirst().orElseThrow();
         assertEquals("哔哩哔哩小电视", bilibili.name());
         assertTrue(bilibili.iconUrl().matches("/stickers/bilibili/btv_cute\\.png\\?v=[0-9a-f]{16}"));
         assertEquals("[sticker:bilibili:doge]", bilibili.items().getFirst().token());
-        Map<String, Double> heights = Map.of("alus", 2.0, "bangumi", 3.0, "kanae", 3.0,
-                "natsume", 4.0, "qyn", 3.0, "rimuru", 3.0, "saikikusuo", 3.0, "sharkitty", 3.0, "suzume", 3.0);
+        Map<String, Double> heights = Map.ofEntries(
+                Map.entry("2233", 2.5), Map.entry("alus", 2.0), Map.entry("azuki", 3.0),
+                Map.entry("bangumi", 3.0), Map.entry("kanae", 3.0), Map.entry("natsume", 4.0),
+                Map.entry("qyn", 3.0), Map.entry("rimuru", 3.0), Map.entry("saikikusuo", 3.0),
+                Map.entry("sharkitty", 3.0), Map.entry("suzume", 3.0));
         for (var pack : service.getPacks()) {
             assertEquals(heights.get(pack.id()), pack.minHeightRem(), pack.id());
         }
@@ -38,7 +45,7 @@ class CommentStickerServiceImplTest {
         assertTrue(bangumi.items().stream().allMatch(item -> item.url().startsWith("/stickers/bangumi/bangumi_")));
         assertEquals("哔哩哔哩表情", service.getPacks().stream().filter(pack -> pack.id().equals("bmoji"))
                 .findFirst().orElseThrow().name());
-        assertEquals(741, service.getPacks().stream().mapToInt(pack -> pack.items().size()).sum());
+        assertEquals(791, service.getPacks().stream().mapToInt(pack -> pack.items().size()).sum());
         assertTrue(service.getPacks().stream().anyMatch(pack -> pack.iconUrl().contains(".gif?v=")));
         assertTrue(service.getPacks().stream().anyMatch(pack -> pack.iconUrl().contains(".webp?v=")));
         for (var pack : service.getPacks()) {
@@ -46,6 +53,16 @@ class CommentStickerServiceImplTest {
             assertTrue(pack.items().stream().allMatch(item -> item.url()
                     .matches("/stickers/[^?]+\\?v=[0-9a-f]{16}")), pack.id());
         }
+    }
+
+    @Test
+    void shouldRecognize2233AndAzukiTokensAndKeepTheirTextFallback() {
+        assertEquals(15, service.getPacks().getFirst().items().size());
+        assertEquals(35, service.getPacks().get(2).items().size());
+        String content = "[sticker:2233:大笑][sticker:azuki:抱大腿]";
+        assertEquals(2, service.countLength(content));
+        assertEquals(2, service.countStickers(content));
+        assertEquals("[大笑][抱大腿]", service.toPlainText(content));
     }
 
     @Test

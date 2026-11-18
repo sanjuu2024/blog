@@ -5421,7 +5421,7 @@ components:
           minimum: 0
           exclusiveMinimum: true
           example: 3
-          description: 可选的正文与选择器表情图片最小显示高度，单位 rem，来自各库 info.json；未配置时不返回，前端使用 1.5rem，alus 为 2rem，natsume 为 4rem，bangumi、kanae、qyn、rimuru、saikikusuo、sharkitty 和 suzume 为 3rem。选择器列宽随高度调整，保持图片比例，底部库切换图标保持 1.5rem。
+          description: 可选的正文与选择器表情图片最小显示高度，单位 rem，来自各库 info.json；未配置时不返回，前端使用 1.5rem，alus 为 2rem，natsume 为 4rem，2233 为 2.5rem，azuki、bangumi、kanae、qyn、rimuru、saikikusuo、sharkitty 和 suzume 为 3rem。选择器列宽随高度调整，保持图片比例，底部库切换图标保持 1.5rem。
         items:
           type: array
           items:
