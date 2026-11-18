@@ -49,6 +49,7 @@
 
 | 表情库 | 库 ID | 来源 |
 | --- | --- | --- |
+| 哔哩哔哩 2233娘 | `2233` | [Bmoji 表情列表](https://bmoji.3mua.cn/list) |
 | Bangumi 娘 | `bangumi` | [Bangumi 日志](https://bangumi.tv/blog/370650) |
 | 蛆音娘 | `qyn` | [Bmoji 表情列表](https://bmoji.3mua.cn/list) |
 | 叶え（かなえ） | `kanae` | [Bmoji 表情列表](https://bmoji.3mua.cn/list) |
@@ -57,6 +58,7 @@
 | 关于我转生变成史莱姆这档事 | `rimuru` | [Bmoji 表情列表](https://bmoji.3mua.cn/list) |
 | 撕梓咩 | `suzume` | [Bmoji 表情列表](https://bmoji.3mua.cn/list) |
 | 鲨猫 | `sharkitty` | [Bmoji 表情列表](https://bmoji.3mua.cn/list) |
+| 暹罗猫小豆泥 | `azuki` | [Bmoji 表情列表](https://bmoji.3mua.cn/list) |
 
 上述新增素材的来源按各自页面记录，Waline 仓库许可证说明对应前述来自 Waline 的五个表情库。各表情图像、角色与商标的权利归各自权利人所有。
 

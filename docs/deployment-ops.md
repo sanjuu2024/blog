@@ -208,6 +208,7 @@ P0 不提供本地图片上传服务，但生产设计默认面向对象存储�
 - 后端负责鉴权、文件类型校验和对象 key 生成。
 - 前端不直接保存对象存储密钥。
 - 公共可读资源可使用 CDN 加速。
+- 表情使用独立 HTTPS 域名接入 Cloudflare，默认 sticker.ccsanjuu.com；共享入口将 `/库ID/文件名` 转至项目 Nginx 的 `/stickers/库ID/文件名`，仅开放静态图片。成功图片使用浏览器一天、CDN 七天缓存，错误 no-store，生成 URL 的 v 内容哈希参与缓存键。配置分层、Certbot DNS 验证迁移与实际部署顺序见 [迁移手册](./cloudflare-sticker-cdn.md)。
 - 私有资源通过签名 URL 或后端代理访问。
 
 P1 图片上传使用阿里云 OSS，约定如下：
@@ -464,6 +465,7 @@ P2 功能、自动化测试和全量验收稳定后再锁定正式服务器变�
 - SMTP 发信域名按服务商要求配置 SPF、DKIM，DMARC 先使用 `p=none` 观察再收紧策略
 - 使用 Certbot、acme.sh 或等价 ACME 客户端自动续期站点证书，续期后 reload Nginx 并执行健康检查
 - OSS 自定义图片域名由 Certbot 的自动 DNS 验证插件续签，续期后通过独立 deploy hook 调用 OSS PutCname 上传证书链与私钥并更新既有域名绑定；不通过共享 Nginx 转发 OSS。DNS 手工 TXT 验证不能自动续期，Nginx reload 也不能替代 OSS 证书部署。安装、RAM 权限、独立凭据及故障重试见 [共享入口手册第 6 节](./shared-nginx-ingress.md#6-证书自动续期)。
+- 权威 DNS 迁移到 Cloudflare 后，原先通过 DNS 验证的 OSS 证书改用官方 certbot-dns-cloudflare；主站与 sticker 使用 HTTP-01 webroot。两种验证方式仍由同一 Certbot timer 自动调度，保留原证书 lineage、SAN 和部署 hook。API Token 保存在 root 专用凭据文件，前端 .env.production 只保存公开的 CDN 地址。
 - 至少监控 HTTPS 可用性、容器停止、磁盘阈值、备份失败和邮件持续失败，并配置外部告警渠道
 - Prometheus + Grafana 作为上线后迭代，不阻塞首次上线；上线前不得完全依赖人工查看日志
 

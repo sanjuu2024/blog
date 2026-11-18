@@ -51,6 +51,9 @@ jobs:
       - name: Check code style
         run: pnpm lint
 
+      - name: Verify sticker catalog and content versions
+        run: pnpm stickers:check && pnpm stickers:test
+
       - name: Run tests with coverage
         run: pnpm test:coverage
 

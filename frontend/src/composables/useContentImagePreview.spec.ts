@@ -5,6 +5,7 @@ import ArticleBody from '@/modules/article/components/ArticleBody.vue';
 import AdminArticlePreviewDialog from '@/modules/admin/article/components/AdminArticlePreviewDialog.vue';
 import AboutPage from '@/modules/about/views/AboutPage.vue';
 import { getAboutPage } from '@/modules/about/api/aboutApi';
+import { ElMessage } from 'element-plus';
 
 vi.mock('@/utils/shiki', () => ({ highlightCodeUnder: vi.fn() }));
 vi.mock('@/modules/about/api/aboutApi', () => ({ getAboutPage: vi.fn() }));
@@ -113,6 +114,37 @@ describe('content image preview with PhotoSwipe', () => {
 		expect(document.documentElement.style.scrollbarGutter).toBe('');
 		expect(document.activeElement).toBe(images[1].element);
 		outsideImage.remove();
+	});
+
+	it('opens and restores scrolling on mobile browsers without the scrollbarGutter DOM property', async () => {
+		const readComputedStyle = window.getComputedStyle.bind(window);
+		vi.stubGlobal('getComputedStyle', (element: Element) => {
+			const style = readComputedStyle(element);
+			Object.defineProperty(style, 'scrollbarGutter', { value: undefined });
+			return style;
+		});
+		Object.defineProperty(document.documentElement, 'clientWidth', {
+			configurable: true,
+			value: 375,
+		});
+		const showError = vi.spyOn(ElMessage, 'error');
+		wrapper = mount(ArticleBody, {
+			attachTo: document.body,
+			props: { html: '<img src="/mobile.png">' },
+		});
+		await flushPromises();
+		setDimensions(wrapper.get<HTMLImageElement>('img').element);
+		await wrapper.get('img').trigger('click');
+		await vi.dynamicImportSettled();
+		await flushPromises();
+		const viewer = init.mock.contexts[0] as PhotoSwipe;
+		await vi.waitFor(() => expect(viewer.opener.isOpen).toBe(true));
+		expect(showError).not.toHaveBeenCalled();
+		expect(document.documentElement.style.overflow).toBe('hidden');
+		viewer.close();
+		await vi.waitFor(() => expect(document.querySelector('.pswp')).toBeNull());
+		expect(document.documentElement.style.overflow).toBe('');
+		expect(document.documentElement.style.getPropertyValue('scrollbar-gutter')).toBe('');
 	});
 
 	it('opens without waiting for other images, fills unknown dimensions on load and keeps errors navigable', async () => {

@@ -601,7 +601,8 @@ CREATE INDEX IF NOT EXISTS idx_blog_comment_user_article_created_at
 
 - 评论预置表情继续保存在现有 `content TEXT`，格式为 `[sticker:库ID:表情ID]`，不新增 JSONB、资源表或 migration。静态图片位于前端 public/stickers，各库 info.json 生成后端 classpath 的 comment-stickers/catalog.json；目录不落数据库。有效标记计 1，其余按 UTF-16 长度计算，去除首尾空白后展示长度为 1-1000；每条评论或回复最多 20 个有效表情，重复出现逐个计数，未知标记只算文本。每个标记最多 64 单元，原始字符串上限 2260。后台审核响应将标记转为 `[表情名]`，数据库保留原始标记。
 - 评论回复通知快照在现有 `blog_notification.content` 保存文字替代，遵守原有 2000 字符限制，超出时保留前 1999 个字符及省略号；通知原文和邮件同样使用文字替代，不修改评论源内容。表情无需迁移；`V1.3.0` 已用于友链分区调整，后续结构迁移从 `V1.3.1` 继续。
-- 表情库可选的 `minHeightRem` 仅保存在 info.json 和生成目录中，通过目录接口返回正文与选择器共用的表情图片最小高度配置，不落数据库、不新增 migration；未配置时前端使用 1.5rem，alus 为 2rem，natsume 为 4rem，bangumi、kanae、qyn、rimuru、saikikusuo、sharkitty 和 suzume 为 3rem。展示名称、尺寸和资源前缀整理不改变既有库 ID、item 名或数据库中的表情标记。
+- 表情库可选的 `minHeightRem` 仅保存在 info.json 和生成目录中，通过目录接口返回正文与选择器共用的表情图片最小高度配置，不落数据库、不新增 migration；未配置时前端使用 1.5rem，alus 为 2rem，natsume 为 4rem，2233 为 2.5rem，azuki、bangumi、kanae、qyn、rimuru、saikikusuo、sharkitty 和 suzume 为 3rem。展示名称、尺寸和资源前缀整理不改变既有库 ID、item 名或数据库中的表情标记。
+- CDN 域名仅属于前端公开构建配置；图片内容哈希版本保存在生成目录的 URL 查询参数中，不修改数据库中的表情标记，不新增 migration。
 
 - 顶层评论的 `parent_id` 和 `root_id` 均为空
 - 回复的 `parent_id` 指向直接父评论，`root_id` 指向所属顶层评论；无限层级回复在前端统一平铺到第二层

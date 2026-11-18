@@ -213,6 +213,8 @@ prod ps
 
 ## 6. 证书自动续期
 
+**DNS 已迁移到 Cloudflare 的部署先阅读 [Cloudflare DNS 与表情 CDN 迁移手册](./cloudflare-sticker-cdn.md)。** 下文 6.2 的 dns-aliyun-safe 流程仅适用于权威 DNS 仍在阿里云的域名；依赖 DNS 验证的证书迁移后使用官方 certbot-dns-cloudflare 和新增的 migrate_cloudflare_dns.py，保留现有证书名称、Nginx reload 与 OSS 上传 hook。不能继续向旧 DNS 服务商添加 TXT。主站和 sticker 继续使用 HTTP-01 webroot 自动续期，不需要 DNS 插件；6.3 的 OSS 证书上传不因 DNS 迁移而取消。
+
 同一台服务器的 `certbot renew` 会检查其 `/etc/letsencrypt/renewal/` 中登记的全部证书，只有临近续期的证书才会重新签发。它不会自动接管 acme.sh、手动复制来的证书，也不会自动把文件上传到阿里云 OSS。这里把流程分成两条：站点证书续签后 reload 共享 Nginx；OSS 域名证书续签后调用 OSS API 更新其证书绑定。两者共用一个 Certbot 定时器，不依赖博客项目是否运行。
 
 定时器负责定期检查，DNS 插件只在 Certbot 决定续签时执行域名验证，不自己设置续签日期。当前工具版本优先参考证书机构通过 ARI 提供的续签窗口；没有可用窗口或显式配置时，一般在证书有效期剩余约三分之一时续签，例如 90 天证书约在到期前 30 天。短于 10 天的证书采用约剩余一半有效期的默认规则；实际检查计划通过 `systemctl list-timers --all certbot.timer` 查看，不依赖人工等到固定某一天。
